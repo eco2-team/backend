@@ -1,0 +1,32 @@
+# 공통 변수
+---
+# Kubernetes 버전
+kubernetes_version: "1.28.4-1.1"
+kubernetes_cni_version: "1.28.0-1.1"
+
+# 네트워크
+pod_network_cidr: "10.244.0.0/16"
+service_cidr: "10.96.0.0/12"
+
+# Docker
+docker_version: "24.0"
+
+# ArgoCD
+argocd_version: "stable"
+argocd_namespace: "argocd"
+
+# RabbitMQ
+rabbitmq_namespace: "messaging"
+rabbitmq_username: "admin"
+rabbitmq_password: "{{ lookup('env', 'RABBITMQ_PASSWORD') | default('changeme', true) }}"
+rabbitmq_persistence_size: "10Gi"
+
+# Monitoring
+monitoring_namespace: "monitoring"
+prometheus_retention: "7d"
+grafana_admin_password: "{{ lookup('env', 'GRAFANA_PASSWORD') | default('admin123', true) }}"
+
+# 기타
+kubectl_user: "ubuntu"
+kubectl_home: "/home/ubuntu"
+

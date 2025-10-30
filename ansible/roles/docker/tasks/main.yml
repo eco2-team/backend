@@ -1,0 +1,46 @@
+# Docker 설치
+---
+- name: Docker GPG 키 추가
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Docker repository 추가
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+
+- name: Docker 설치
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+    update_cache: yes
+
+- name: Docker 서비스 시작
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: ubuntu 사용자를 docker 그룹에 추가
+  user:
+    name: ubuntu
+    groups: docker
+    append: yes
+
+- name: containerd 설정
+  shell: |
+    containerd config default > /etc/containerd/config.toml
+    sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+  args:
+    creates: /etc/containerd/config.toml
+
+- name: containerd 재시작
+  systemd:
+    name: containerd
+    state: restarted
+    enabled: yes
+

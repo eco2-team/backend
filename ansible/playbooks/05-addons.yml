@@ -1,0 +1,34 @@
+# Ingress Controller 및 Cert-manager 설치
+---
+- name: Nginx Ingress Controller 설치
+  command: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.0/deploy/static/provider/cloud/deploy.yaml
+  register: ingress_install
+  changed_when: "'created' in ingress_install.stdout or 'configured' in ingress_install.stdout"
+
+- name: Ingress Controller Pod 대기
+  command: kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s
+  when: ingress_install.changed
+
+- name: Cert-manager 설치
+  command: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+  register: certmanager_install
+  changed_when: "'created' in certmanager_install.stdout or 'configured' in certmanager_install.stdout"
+
+- name: Cert-manager Pod 대기
+  command: kubectl wait --namespace cert-manager --for=condition=ready pod --selector=app=cert-manager --timeout=300s
+  when: certmanager_install.changed
+
+- name: Metrics Server 설치
+  command: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+  register: metrics_install
+  changed_when: "'created' in metrics_install.stdout or 'configured' in metrics_install.stdout"
+
+- name: 설치된 Add-ons 확인
+  command: kubectl get pods -A
+  register: all_pods
+  changed_when: false
+
+- name: Pod 목록 출력
+  debug:
+    msg: "{{ all_pods.stdout_lines }}"
+

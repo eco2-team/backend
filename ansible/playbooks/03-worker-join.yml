@@ -1,0 +1,23 @@
+# Worker 노드 조인
+---
+- name: 이미 조인되었는지 확인
+  stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubelet_conf
+
+- name: join 명령어 파일 복사
+  copy:
+    src: /tmp/kubeadm_join_command.sh
+    dest: /tmp/join.sh
+    mode: '0755'
+  when: not kubelet_conf.stat.exists
+
+- name: 클러스터 조인
+  command: /tmp/join.sh
+  when: not kubelet_conf.stat.exists
+
+- name: join 명령어 파일 삭제
+  file:
+    path: /tmp/join.sh
+    state: absent
+

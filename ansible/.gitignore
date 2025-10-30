@@ -1,0 +1,14 @@
+# Ansible
+*.retry
+.ansible/
+inventory/hosts.ini
+
+# Logs
+*.log
+
+# Vault
+.vault_pass
+
+# Facts cache
+/tmp/ansible_facts/
+

@@ -1,0 +1,39 @@
+# Prometheus + Grafana 설치
+---
+- name: Prometheus Helm repository 추가
+  command: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+  changed_when: false
+
+- name: Helm repository 업데이트
+  command: helm repo update
+  changed_when: false
+
+- name: Monitoring namespace 생성
+  command: kubectl create namespace {{ monitoring_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+
+- name: Prometheus Stack 설치 여부 확인
+  command: helm list -n {{ monitoring_namespace }}
+  register: prometheus_check
+  changed_when: false
+
+- name: Prometheus + Grafana 설치
+  command: >
+    helm install prometheus prometheus-community/kube-prometheus-stack
+    --namespace {{ monitoring_namespace }}
+    --set prometheus.prometheusSpec.retention={{ prometheus_retention }}
+    --set grafana.adminPassword={{ grafana_admin_password }}
+    --set prometheus.prometheusSpec.resources.requests.cpu=200m
+    --set prometheus.prometheusSpec.resources.requests.memory=512Mi
+  when: "'prometheus' not in prometheus_check.stdout"
+
+- name: Prometheus Pod 대기
+  command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=prometheus -n {{ monitoring_namespace }} --timeout=300s
+
+- name: Grafana 접속 정보
+  debug:
+    msg:
+      - "Grafana가 설치되었습니다."
+      - "접속: kubectl port-forward -n {{ monitoring_namespace }} svc/prometheus-grafana 3000:80"
+      - "Username: admin"
+      - "Password: {{ grafana_admin_password }}"
+
