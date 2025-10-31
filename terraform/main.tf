@@ -121,14 +121,15 @@ module "worker_1" {
 module "worker_2" {
   source = "./modules/ec2"
   
-  instance_name      = "k8s-worker-2"
-  instance_type      = "t3.small"
-  ami_id             = data.aws_ami.ubuntu.id
-  subnet_id          = module.vpc.public_subnet_ids[2]
-  security_group_ids = [module.security_groups.worker_sg_id]
-  key_name           = aws_key_pair.k8s.key_name
+  instance_name         = "k8s-worker-2"
+  instance_type         = "t3.medium"  # t3.small → t3.medium
+  ami_id                = data.aws_ami.ubuntu.id
+  subnet_id             = module.vpc.public_subnet_ids[2]
+  security_group_ids    = [module.security_groups.worker_sg_id]
+  key_name              = aws_key_pair.k8s.key_name
+  iam_instance_profile  = aws_iam_instance_profile.k8s.name  # Session Manager
   
-  root_volume_size = 20
+  root_volume_size = 30  # 20GB → 30GB
   root_volume_type = "gp3"
   
   user_data = templatefile("${path.module}/user-data/common.sh", {
