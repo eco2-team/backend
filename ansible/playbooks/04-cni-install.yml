@@ -92,11 +92,30 @@
   when: calico_install.changed
   register: calico_patch
 
-- name: Calico Pod 재시작 (환경변수 적용)
+- name: Calico Readiness Probe 수정 (BIRD 체크 제거)
+  shell: |
+    # VXLAN 모드에서는 BIRD 필요 없음
+    kubectl patch daemonset calico-node -n kube-system --type=json -p='[
+      {
+        "op": "replace",
+        "path": "/spec/template/spec/containers/0/livenessProbe/exec/command",
+        "value": ["/bin/calico-node", "-felix-live"]
+      },
+      {
+        "op": "replace",
+        "path": "/spec/template/spec/containers/0/readinessProbe/exec/command",
+        "value": ["/bin/calico-node", "-felix-ready"]
+      }
+    ]'
+    echo "✅ Readiness probe에서 BIRD 체크 제거"
+  when: calico_patch.changed
+  register: calico_probe_patch
+
+- name: Calico Pod 재시작 (환경변수 + probe 적용)
   shell: |
     kubectl delete pods -n kube-system -l k8s-app=calico-node
     echo "⏳ Calico Pod 재생성 중..."
-  when: calico_patch.changed
+  when: calico_patch.changed or calico_probe_patch.changed
 
 - name: Calico DaemonSet에 NotReady toleration 추가 (순환 참조 해결)
   shell: |
