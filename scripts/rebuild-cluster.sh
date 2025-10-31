@@ -18,11 +18,18 @@ echo "  - Terraform: $TERRAFORM_DIR"
 echo "  - Ansible: $ANSIBLE_DIR"
 echo ""
 
-# 확인 프롬프트
-read -p "⚠️  기존 인프라를 삭제하고 재구축하시겠습니까? (yes/no): " CONFIRM
-if [ "$CONFIRM" != "yes" ]; then
-  echo "❌ 취소되었습니다."
-  exit 0
+# 자동 실행 모드 확인
+AUTO_MODE=${AUTO_MODE:-false}
+
+if [ "$AUTO_MODE" != "true" ]; then
+  # 확인 프롬프트
+  read -p "⚠️  기존 인프라를 삭제하고 재구축하시겠습니까? (yes/no): " CONFIRM
+  if [ "$CONFIRM" != "yes" ]; then
+    echo "❌ 취소되었습니다."
+    exit 0
+  fi
+else
+  echo "🤖 자동 모드로 실행 중..."
 fi
 
 echo ""
@@ -115,14 +122,18 @@ ansible all -i inventory/hosts.ini -m ping || true
 echo ""
 
 # Ansible 실행 확인
-read -p "✅ Ansible playbook을 실행하시겠습니까? (yes/no): " RUN_ANSIBLE
-if [ "$RUN_ANSIBLE" != "yes" ]; then
-  echo "⚠️  Ansible playbook을 건너뜁니다."
-  echo ""
-  echo "수동 실행 명령어:"
-  echo "  cd $ANSIBLE_DIR"
-  echo "  ansible-playbook -i inventory/hosts.ini site.yml"
-  exit 0
+if [ "$AUTO_MODE" != "true" ]; then
+  read -p "✅ Ansible playbook을 실행하시겠습니까? (yes/no): " RUN_ANSIBLE
+  if [ "$RUN_ANSIBLE" != "yes" ]; then
+    echo "⚠️  Ansible playbook을 건너뜁니다."
+    echo ""
+    echo "수동 실행 명령어:"
+    echo "  cd $ANSIBLE_DIR"
+    echo "  ansible-playbook -i inventory/hosts.ini site.yml"
+    exit 0
+  fi
+else
+  echo "🤖 자동으로 Ansible playbook 실행..."
 fi
 
 echo ""
