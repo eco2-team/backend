@@ -1,6 +1,6 @@
 [all:vars]
 ansible_user=ubuntu
-ansible_ssh_private_key_file=~/.ssh/sesacthon.pem
+ansible_ssh_private_key_file=~/.ssh/sesacthon
 ansible_python_interpreter=/usr/bin/python3
 
 [masters]
