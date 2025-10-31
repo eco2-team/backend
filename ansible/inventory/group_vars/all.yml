@@ -8,6 +8,11 @@ kubernetes_cni_version: "1.28.0-1.1"
 pod_network_cidr: "192.168.0.0/16"  # Calico 기본값
 service_cidr: "10.96.0.0/12"
 
+# Control Plane Endpoint (HA 확장 대비)
+# 현재: 단일 마스터지만 향후 HA 확장을 위해 설정
+# 실제 HA 구축 시 LB/NLB DNS로 변경
+control_plane_endpoint: "{{ private_ip }}:6443"
+
 # Docker
 docker_version: "24.0"
 

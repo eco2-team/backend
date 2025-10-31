@@ -24,12 +24,13 @@
   register: cri_socket
   failed_when: not cri_socket.stat.exists
 
-- name: kubeadm init 실행 (검증된 설정)
+- name: kubeadm init 실행 (프로덕션 검증 설정)
   command: >
     kubeadm init
     --pod-network-cidr={{ pod_network_cidr }}
     --service-cidr={{ service_cidr }}
     --apiserver-advertise-address={{ private_ip }}
+    --control-plane-endpoint={{ private_ip }}:6443
     --node-name={{ inventory_hostname }}
     --cri-socket=unix:///run/containerd/containerd.sock
     --upload-certs
