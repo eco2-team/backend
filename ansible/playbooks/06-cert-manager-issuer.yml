@@ -78,11 +78,10 @@
             ingress:
               class: nginx
     EOF
-  register: clusterissuer_prod
+  register: letsencrypt_prod
   retries: 5
   delay: 30
-  until: clusterissuer_prod.rc == 0
-  register: letsencrypt_prod
+  until: letsencrypt_prod.rc == 0
   changed_when: "'created' in letsencrypt_prod.stdout or 'configured' in letsencrypt_prod.stdout"
 
 - name: Create Let's Encrypt ClusterIssuer (Staging for testing) - with retry
@@ -103,11 +102,10 @@
             ingress:
               class: nginx
     EOF
-  register: clusterissuer_staging
+  register: letsencrypt_staging
   retries: 5
   delay: 30
-  until: clusterissuer_staging.rc == 0
-  register: letsencrypt_staging
+  until: letsencrypt_staging.rc == 0
   changed_when: "'created' in letsencrypt_staging.stdout or 'configured' in letsencrypt_staging.stdout"
 
 - name: ClusterIssuer 확인
