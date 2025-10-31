@@ -31,16 +31,40 @@
     groups: docker
     append: yes
 
-- name: containerd 설정
-  shell: |
-    containerd config default > /etc/containerd/config.toml
-    sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+- name: containerd 디렉토리 생성
+  file:
+    path: /etc/containerd
+    state: directory
+    mode: '0755'
+
+- name: containerd 기본 설정 생성
+  shell: containerd config default > /etc/containerd/config.toml
   args:
     creates: /etc/containerd/config.toml
+
+- name: containerd SystemdCgroup 활성화
+  lineinfile:
+    path: /etc/containerd/config.toml
+    regexp: '^\s*SystemdCgroup\s*=\s*false'
+    line: '            SystemdCgroup = true'
+    backrefs: yes
 
 - name: containerd 재시작
   systemd:
     name: containerd
     state: restarted
     enabled: yes
+    daemon_reload: yes
+
+- name: containerd 상태 확인
+  systemd:
+    name: containerd
+    state: started
+    enabled: yes
+
+- name: containerd 소켓 확인
+  wait_for:
+    path: /run/containerd/containerd.sock
+    state: present
+    timeout: 30
 
