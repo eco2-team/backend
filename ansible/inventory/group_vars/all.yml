@@ -31,8 +31,8 @@ kubectl_user: "ubuntu"
 kubectl_home: "/home/ubuntu"
 
 # Cert-manager (Let's Encrypt)
-letsencrypt_email: "{{ lookup('env', 'LETSENCRYPT_EMAIL') | default('admin@example.com', true) }}"
+letsencrypt_email: "admin@growbin.app"  # Let's Encrypt 인증서 이메일
 
-# DNS (선택)
-domain_name: "{{ lookup('env', 'DOMAIN_NAME') | default('', true) }}"
+# DNS
+domain_name: "growbin.app"
 

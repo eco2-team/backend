@@ -17,10 +17,10 @@ public_key_path = "~/.ssh/sesacthon.pub"  # 없으면 "~/.ssh/id_rsa.pub"
 
 cluster_name = "sesacthon"
 
-# Route53 DNS 설정 (선택)
-# 도메인이 있으면 입력, 없으면 비워두기
-domain_name = ""  # 예: "yourdomain.com"
-create_wildcard_record = false  # true면 *.yourdomain.com 생성
+# Route53 DNS 설정
+# 도메인: growbin.app (Route53 Hosted Zone 등록 완료)
+domain_name = "growbin.app"
+create_wildcard_record = true  # *.growbin.app 생성
 
 # ⭐ 주 접속 방법: AWS Session Manager (SSH 키 불필요)
 # aws ssm start-session --target <INSTANCE_ID>
