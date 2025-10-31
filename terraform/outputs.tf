@@ -62,3 +62,13 @@ output "cluster_info" {
   }
 }
 
+output "dns_records" {
+  description = "생성된 DNS 레코드 (domain_name 설정 시)"
+  value = var.domain_name != "" ? {
+    api_url     = "https://api.${var.domain_name}"
+    argocd_url  = "https://argocd.${var.domain_name}"
+    grafana_url = "https://grafana.${var.domain_name}"
+    nameservers = try(data.aws_route53_zone.main[0].name_servers, [])
+  } : null
+}
+

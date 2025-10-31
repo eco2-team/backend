@@ -55,6 +55,7 @@
   become_user: "{{ kubectl_user }}"
   tasks:
     - import_tasks: playbooks/05-addons.yml
+    - import_tasks: playbooks/06-cert-manager-issuer.yml
 
 - name: ArgoCD 설치
   hosts: masters

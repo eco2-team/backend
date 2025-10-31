@@ -30,3 +30,9 @@ grafana_admin_password: "{{ lookup('env', 'GRAFANA_PASSWORD') | default('admin12
 kubectl_user: "ubuntu"
 kubectl_home: "/home/ubuntu"
 
+# Cert-manager (Let's Encrypt)
+letsencrypt_email: "{{ lookup('env', 'LETSENCRYPT_EMAIL') | default('admin@example.com', true) }}"
+
+# DNS (선택)
+domain_name: "{{ lookup('env', 'DOMAIN_NAME') | default('', true) }}"
+

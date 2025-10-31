@@ -34,3 +34,15 @@ variable "cluster_name" {
   default     = "sesacthon"
 }
 
+variable "domain_name" {
+  description = "Route53 도메인 이름 (예: example.com) - 비어있으면 DNS 설정 안 함"
+  type        = string
+  default     = ""
+}
+
+variable "create_wildcard_record" {
+  description = "Wildcard DNS 레코드 생성 여부 (*.domain.com)"
+  type        = bool
+  default     = false
+}
+
