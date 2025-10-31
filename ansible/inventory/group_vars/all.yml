@@ -4,8 +4,8 @@
 kubernetes_version: "1.28.4-1.1"
 kubernetes_cni_version: "1.28.0-1.1"
 
-# 네트워크
-pod_network_cidr: "10.244.0.0/16"
+# 네트워크 (Calico 사용)
+pod_network_cidr: "192.168.0.0/16"  # Calico 기본값
 service_cidr: "10.96.0.0/12"
 
 # Docker
