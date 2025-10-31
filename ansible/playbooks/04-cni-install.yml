@@ -1,16 +1,17 @@
 # CNI 플러그인 설치 (Calico - 안정적)
 ---
 # kube-proxy 먼저 설치 (kubeadm init에서 skip했음)
+# kube-proxy가 없으면 Service 네트워킹 안 됨 → Calico 실패
 - name: kube-proxy 설치 여부 확인
   command: kubectl get daemonset -n kube-system kube-proxy
   register: kubeproxy_check
   failed_when: false
   changed_when: false
 
-- name: kube-proxy 수동 설치
+- name: kube-proxy 수동 설치 (kubeadm 방식)
   shell: |
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes/kubernetes/v1.28.15/cluster/addons/kube-proxy/kube-proxy.yaml || \
-    kubectl create -f - <<EOF
+    # kubeadm 방식으로 kube-proxy 설치
+    kubectl apply -f - <<EOF
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -20,7 +21,7 @@
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
-      name: system:kube-proxy
+      name: kubeadm:node-proxier
     roleRef:
       apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
@@ -29,10 +30,91 @@
     - kind: ServiceAccount
       name: kube-proxy
       namespace: kube-system
+    ---
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: kube-proxy
+      namespace: kube-system
+    data:
+      config.conf: |
+        apiVersion: kubeproxy.config.k8s.io/v1alpha1
+        kind: KubeProxyConfiguration
+        bindAddress: 0.0.0.0
+        clusterCIDR: {{ pod_network_cidr }}
+        mode: "iptables"
+    ---
+    apiVersion: apps/v1
+    kind: DaemonSet
+    metadata:
+      name: kube-proxy
+      namespace: kube-system
+      labels:
+        k8s-app: kube-proxy
+    spec:
+      selector:
+        matchLabels:
+          k8s-app: kube-proxy
+      template:
+        metadata:
+          labels:
+            k8s-app: kube-proxy
+        spec:
+          hostNetwork: true
+          priorityClassName: system-node-critical
+          serviceAccountName: kube-proxy
+          tolerations:
+          - operator: Exists
+          containers:
+          - name: kube-proxy
+            image: registry.k8s.io/kube-proxy:v1.28.4
+            command:
+            - /usr/local/bin/kube-proxy
+            - --config=/var/lib/kube-proxy/config.conf
+            - --hostname-override=\$(NODE_NAME)
+            env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            securityContext:
+              privileged: true
+            volumeMounts:
+            - mountPath: /var/lib/kube-proxy
+              name: kube-proxy
+            - mountPath: /lib/modules
+              name: lib-modules
+              readOnly: true
+          volumes:
+          - name: kube-proxy
+            configMap:
+              name: kube-proxy
+          - name: lib-modules
+            hostPath:
+              path: /lib/modules
     EOF
   when: kubeproxy_check.rc != 0
   register: kubeproxy_install
-  failed_when: false
+
+- name: kube-proxy Pod 대기
+  shell: |
+    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
+      DESIRED=$(kubectl get daemonset kube-proxy -n kube-system -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "0")
+      READY=$(kubectl get daemonset kube-proxy -n kube-system -o jsonpath='{.status.numberReady}' 2>/dev/null || echo "0")
+      
+      echo "kube-proxy 상태: $READY/$DESIRED Ready (attempt $i/30)"
+      
+      if [ "$DESIRED" -gt 0 ] && [ "$READY" -eq "$DESIRED" ]; then
+        echo "✅ kube-proxy Ready!"
+        exit 0
+      fi
+      
+      sleep 10
+    done
+    echo "⚠️ kube-proxy 일부 준비 안 됨, 계속 진행"
+    exit 0
+  when: kubeproxy_install.changed
+  changed_when: false
 
 - name: Calico 설치 여부 확인
   command: kubectl get deployment -n kube-system calico-kube-controllers
@@ -40,8 +122,34 @@
   failed_when: false
   changed_when: false
 
-- name: Calico CNI 설치
-  command: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.4/manifests/calico.yaml
+- name: Calico CNI 설치 (iptables mode, eBPF 비활성화)
+  shell: |
+    kubectl apply -f - <<EOF
+    # Calico v3.26.4 설치 (간소화, eBPF 비활성화)
+    ---
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: kube-system
+    ---
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: calico-cni-plugin
+      namespace: kube-system
+    ---
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: calico-node
+      namespace: kube-system
+    EOF
+    
+    # 기본 Calico 매니페스트 적용
+    kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.4/manifests/calico.yaml
+    
+    # eBPF 비활성화 확인
+    kubectl patch felixconfiguration default --type merge --patch '{"spec":{"bpfEnabled":false}}' 2>/dev/null || true
   when: calico_check.rc != 0
   register: calico_install
 
