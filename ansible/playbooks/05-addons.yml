@@ -1,13 +1,6 @@
-# Ingress Controller 및 Cert-manager 설치
+# Add-ons 설치 (Cert-manager, Metrics Server)
+# Note: AWS Load Balancer Controller는 별도 playbook (07-alb-controller.yml)
 ---
-- name: Nginx Ingress Controller 설치
-  command: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.0/deploy/static/provider/cloud/deploy.yaml
-  register: ingress_install
-  changed_when: "'created' in ingress_install.stdout or 'configured' in ingress_install.stdout"
-
-- name: Ingress Controller Pod 대기
-  command: kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s
-  when: ingress_install.changed
 
 - name: Cert-manager 설치
   command: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml

@@ -51,13 +51,27 @@
     - name: Label worker-2
       command: kubectl label nodes k8s-worker-2 workload=network instance-type=t3.small --overwrite
 
-- name: Ingress Controller 설치
+- name: Add-ons 설치 (Cert-manager, Metrics)
   hosts: masters
   become: yes
   become_user: "{{ kubectl_user }}"
   tasks:
     - import_tasks: playbooks/05-addons.yml
     - import_tasks: playbooks/06-cert-manager-issuer.yml
+
+- name: AWS Load Balancer Controller 설치
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/07-alb-controller.yml
+
+- name: Ingress 리소스 생성 (ALB 자동 생성)
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/07-ingress-resources.yml
 
 - name: ArgoCD 설치
   hosts: masters
