@@ -1,175 +1,121 @@
-# CNI 플러그인 설치 (Calico - 안정적)
-# kube-proxy는 kubeadm init phase addon으로 이미 설치됨
+# CNI 플러그인 설치 (Calico VXLAN 모드 - BGP 완전 비활성화)
 ---
-- name: kube-proxy DaemonSet 확인
+# Step 1: kube-proxy 확인
+- name: kube-proxy 상태 확인
   command: kubectl get daemonset -n kube-system kube-proxy
   register: kubeproxy_check
   changed_when: false
-  failed_when: false
+  retries: 5
+  delay: 10
+  until: kubeproxy_check.rc == 0
 
-- name: kube-proxy 상태 출력
-  debug:
-    msg: "{{ 'kube-proxy DaemonSet 존재: ✅' if kubeproxy_check.rc == 0 else 'kube-proxy DaemonSet 없음: ⚠️' }}"
-
-- name: kube-proxy Pod Ready 대기
+- name: kube-proxy Ready 대기
   shell: |
-    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
-      DESIRED=$(kubectl get daemonset kube-proxy -n kube-system -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "0")
+    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
       READY=$(kubectl get daemonset kube-proxy -n kube-system -o jsonpath='{.status.numberReady}' 2>/dev/null || echo "0")
-      
-      echo "kube-proxy 상태: $READY/$DESIRED Ready (attempt $i/30)"
+      DESIRED=$(kubectl get daemonset kube-proxy -n kube-system -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "0")
       
       if [ "$DESIRED" -gt 0 ] && [ "$READY" -eq "$DESIRED" ]; then
-        echo "✅ kube-proxy 모든 노드 Ready!"
-        kubectl get pods -n kube-system -l k8s-app=kube-proxy -o wide
+        echo "✅ kube-proxy Ready: $READY/$DESIRED"
         exit 0
       fi
       
+      echo "kube-proxy: $READY/$DESIRED (attempt $i/20)"
       sleep 10
     done
-    echo "⚠️ kube-proxy 일부 준비 안 됨, 계속 진행"
-    kubectl get pods -n kube-system -l k8s-app=kube-proxy -o wide || true
     exit 0
   changed_when: false
-  when: kubeproxy_check.rc == 0
 
-- name: Calico 설치 여부 확인
+# Step 2: Calico 설치 여부 확인
+- name: Calico 설치 확인
   command: kubectl get deployment -n kube-system calico-kube-controllers
   register: calico_check
   failed_when: false
   changed_when: false
 
-- name: Calico ConfigMap 생성 (VXLAN 전용)
-  shell: |
-    kubectl apply -f - <<EOF
-    apiVersion: v1
-    kind: ConfigMap
-    metadata:
-      name: calico-config
-      namespace: kube-system
-    data:
-      calico_backend: vxlan
-      veth_mtu: "0"
-      cni_network_config: |-
-        {
-          "name": "k8s-pod-network",
-          "cniVersion": "0.3.1",
-          "plugins": [
-            {
-              "type": "calico",
-              "log_level": "info",
-              "datastore_type": "kubernetes",
-              "nodename": "__KUBERNETES_NODE_NAME__",
-              "mtu": __CNI_MTU__,
-              "ipam": {"type": "calico-ipam"},
-              "policy": {"type": "k8s"},
-              "kubernetes": {"kubeconfig": "__KUBECONFIG_FILEPATH__"}
-            },
-            {"type": "portmap", "snat": true, "capabilities": {"portMappings": true}},
-            {"type": "bandwidth", "capabilities": {"bandwidth": true}}
-          ]
-        }
-    EOF
+# Step 3: Calico 설치 (VXLAN 전용, BGP 완전 비활성화)
+- name: Calico 설치 - VXLAN 모드 (공식 문서 기반)
   when: calico_check.rc != 0
-
-- name: Calico CNI 설치 (기본 매니페스트)
-  shell: |
-    # 기본 매니페스트 설치
-    kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.4/manifests/calico.yaml
-  when: calico_check.rc != 0
-  register: calico_install
-
-- name: Calico DaemonSet 환경변수 패치 (VXLAN 강제)
-  shell: |
-    # BGP 비활성화, VXLAN 활성화
-    kubectl set env daemonset/calico-node -n kube-system \
-      CLUSTER_TYPE=k8s \
-      CALICO_IPV4POOL_IPIP=Never \
-      CALICO_IPV4POOL_VXLAN=Always \
-      CALICO_IPV6POOL_VXLAN=Never
+  block:
+    - name: Calico 기본 매니페스트 다운로드 및 설치
+      shell: |
+        # 공식 Calico 매니페스트 설치
+        kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.4/manifests/calico.yaml
+      register: calico_install
     
-    echo "✅ Calico VXLAN 모드로 패치 완료"
-  when: calico_install.changed
-  register: calico_patch
-
-- name: Calico Readiness Probe 수정 (BIRD 체크 제거)
-  shell: |
-    # VXLAN 모드에서는 BIRD 필요 없음
-    kubectl patch daemonset calico-node -n kube-system --type=json -p='[
-      {
-        "op": "replace",
-        "path": "/spec/template/spec/containers/0/livenessProbe/exec/command",
-        "value": ["/bin/calico-node", "-felix-live"]
-      },
-      {
-        "op": "replace",
-        "path": "/spec/template/spec/containers/0/readinessProbe/exec/command",
-        "value": ["/bin/calico-node", "-felix-ready"]
-      }
-    ]'
-    echo "✅ Readiness probe에서 BIRD 체크 제거"
-  when: calico_patch.changed
-  register: calico_probe_patch
-
-- name: Calico Pod 재시작 (환경변수 + probe 적용)
-  shell: |
-    kubectl delete pods -n kube-system -l k8s-app=calico-node
-    echo "⏳ Calico Pod 재생성 중..."
-  when: calico_patch.changed or calico_probe_patch.changed
-
-- name: Calico DaemonSet에 NotReady toleration 추가 (순환 참조 해결)
-  shell: |
-    # 현재 tolerations 확인
-    CURRENT_TOLERATIONS=$(kubectl get daemonset calico-node -n kube-system -o jsonpath='{.spec.template.spec.tolerations}')
-    
-    # NotReady toleration이 없으면 추가
-    if ! echo "$CURRENT_TOLERATIONS" | grep -q "node.kubernetes.io/not-ready"; then
-      kubectl patch daemonset calico-node -n kube-system --type=json -p='[
+    - name: Calico VXLAN 전용 설정 (BGP 완전 비활성화)
+      shell: |
+        # 1. IP Pool을 VXLAN 전용으로 설정
+        kubectl patch ippool default-ipv4-ippool --type=merge --patch='
         {
-          "op": "add",
-          "path": "/spec/template/spec/tolerations/-",
-          "value": {
-            "key": "node.kubernetes.io/not-ready",
-            "operator": "Exists"
+          "spec": {
+            "ipipMode": "Never",
+            "vxlanMode": "Always",
+            "natOutgoing": true
           }
-        }
-      ]'
-      echo "✅ NotReady toleration 추가됨"
-    else
-      echo "✅ NotReady toleration 이미 있음"
-    fi
-  when: calico_install.changed
-  changed_when: false
-
-- name: calico-kube-controllers에 NotReady toleration 추가
-  shell: |
-    # 현재 tolerations 확인
-    CURRENT_TOLERATIONS=$(kubectl get deployment calico-kube-controllers -n kube-system -o jsonpath='{.spec.template.spec.tolerations}' 2>/dev/null || echo "")
+        }'
+        
+        # 2. BGP 완전 비활성화
+        kubectl apply -f - <<EOF
+        apiVersion: crd.projectcalico.org/v1
+        kind: BGPConfiguration
+        metadata:
+          name: default
+        spec:
+          nodeToNodeMeshEnabled: false
+          asNumber: 64512
+        EOF
+        
+        # 3. Felix 설정 (eBPF 비활성화, Service CIDR 제외)
+        kubectl apply -f - <<EOF
+        apiVersion: crd.projectcalico.org/v1
+        kind: FelixConfiguration
+        metadata:
+          name: default
+        spec:
+          bpfEnabled: false
+          ipipEnabled: false
+          vxlanEnabled: true
+        EOF
+        
+        echo "✅ Calico VXLAN 전용 설정 완료"
+      register: calico_vxlan_config
     
-    # NotReady toleration이 없으면 추가
-    if ! echo "$CURRENT_TOLERATIONS" | grep -q "node.kubernetes.io/not-ready"; then
-      kubectl patch deployment calico-kube-controllers -n kube-system --type=json -p='[
-        {
-          "op": "add",
-          "path": "/spec/template/spec/tolerations/-",
-          "value": {
-            "key": "node.kubernetes.io/not-ready",
-            "operator": "Exists"
+    - name: Calico DaemonSet Probe 수정 (BIRD 제거)
+      shell: |
+        # VXLAN 모드에서는 BIRD 불필요
+        kubectl patch daemonset calico-node -n kube-system --type=json -p='[
+          {
+            "op": "replace",
+            "path": "/spec/template/spec/containers/0/livenessProbe/exec/command",
+            "value": ["/bin/calico-node", "-felix-live"]
+          },
+          {
+            "op": "replace",
+            "path": "/spec/template/spec/containers/0/readinessProbe/exec/command",
+            "value": ["/bin/calico-node", "-felix-ready"]
           }
-        }
-      ]'
-      echo "✅ NotReady toleration 추가됨"
-    else
-      echo "✅ NotReady toleration 이미 있음"
-    fi
-  when: calico_install.changed
-  changed_when: false
-  failed_when: false
-
-- name: Calico 설치 대기 (10초)
-  pause:
-    seconds: 10
-  when: calico_install.changed
+        ]'
+        echo "✅ Readiness probe에서 BIRD 체크 제거"
+      register: calico_probe
+    
+    - name: Calico DaemonSet 환경변수 설정
+      shell: |
+        kubectl set env daemonset/calico-node -n kube-system \
+          CLUSTER_TYPE=k8s \
+          CALICO_IPV4POOL_IPIP=Never \
+          CALICO_IPV4POOL_VXLAN=Always \
+          FELIX_IPIPENABLED=false \
+          FELIX_VXLANENABLED=true
+        echo "✅ 환경변수 설정 완료"
+      register: calico_env
+    
+    - name: Calico Pod 재시작
+      shell: |
+        kubectl delete pods -n kube-system -l k8s-app=calico-node --wait=false
+        kubectl delete pods -n kube-system -l k8s-app=calico-kube-controllers --wait=false
+        echo "⏳ Calico Pod 재생성 시작"
+      when: calico_vxlan_config.changed or calico_probe.changed or calico_env.changed
 
 - name: Calico Node DaemonSet 대기 (안정화 시간 포함)
   shell: |
