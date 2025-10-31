@@ -35,7 +35,34 @@
   when: calico_check.rc != 0
   changed_when: false
 
-- name: 노드 상태 확인
+- name: 모든 노드가 Ready 상태가 될 때까지 대기
+  shell: |
+    for i in {1..60}; do
+      # 전체 노드 수
+      TOTAL_NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l)
+      # Ready 상태 노드 수
+      READY_NODES=$(kubectl get nodes --no-headers 2>/dev/null | grep -w "Ready" | wc -l)
+      
+      echo "노드 상태: $READY_NODES/$TOTAL_NODES Ready (attempt $i/60)"
+      
+      if [ "$TOTAL_NODES" -eq 3 ] && [ "$READY_NODES" -eq 3 ]; then
+        echo "✅ 모든 노드 Ready!"
+        kubectl get nodes
+        exit 0
+      fi
+      
+      sleep 10
+    done
+    
+    echo "⚠️ Timeout: 일부 노드가 Ready 상태가 아닙니다"
+    kubectl get nodes
+    exit 1
+  register: nodes_ready
+  changed_when: false
+  retries: 1
+  delay: 0
+
+- name: 노드 상태 최종 확인
   command: kubectl get nodes
   register: nodes_status
   changed_when: false
