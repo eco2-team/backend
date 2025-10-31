@@ -60,7 +60,7 @@
     exit 0
   changed_when: false
 
-- name: Create Let's Encrypt ClusterIssuer (Production)
+- name: Create Let's Encrypt ClusterIssuer (Production) - with retry
   shell: |
     cat <<EOF | kubectl apply -f -
     apiVersion: cert-manager.io/v1
@@ -78,10 +78,14 @@
             ingress:
               class: nginx
     EOF
+  register: clusterissuer_prod
+  retries: 5
+  delay: 30
+  until: clusterissuer_prod.rc == 0
   register: letsencrypt_prod
   changed_when: "'created' in letsencrypt_prod.stdout or 'configured' in letsencrypt_prod.stdout"
 
-- name: Create Let's Encrypt ClusterIssuer (Staging for testing)
+- name: Create Let's Encrypt ClusterIssuer (Staging for testing) - with retry
   shell: |
     cat <<EOF | kubectl apply -f -
     apiVersion: cert-manager.io/v1
@@ -99,6 +103,10 @@
             ingress:
               class: nginx
     EOF
+  register: clusterissuer_staging
+  retries: 5
+  delay: 30
+  until: clusterissuer_staging.rc == 0
   register: letsencrypt_staging
   changed_when: "'created' in letsencrypt_staging.stdout or 'configured' in letsencrypt_staging.stdout"
 
