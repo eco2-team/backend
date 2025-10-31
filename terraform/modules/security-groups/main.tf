@@ -84,6 +84,15 @@ resource "aws_security_group" "master" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   
+  # VXLAN (Calico overlay network - Master self)
+  ingress {
+    description = "VXLAN for Calico"
+    from_port   = 4789
+    to_port     = 4789
+    protocol    = "udp"
+    self        = true
+  }
+  
   # Egress all
   egress {
     description = "Allow all outbound"
@@ -121,6 +130,15 @@ resource "aws_security_group" "worker" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
+    self        = true
+  }
+  
+  # VXLAN (Calico overlay network)
+  ingress {
+    description = "VXLAN for Calico"
+    from_port   = 4789
+    to_port     = 4789
+    protocol    = "udp"
     self        = true
   }
   
@@ -202,5 +220,26 @@ resource "aws_security_group_rule" "master_to_worker_all" {
   security_group_id        = aws_security_group.worker.id
   source_security_group_id = aws_security_group.master.id
   description              = "All traffic from master"
+}
+
+# VXLAN for Calico (Master ↔ Worker)
+resource "aws_security_group_rule" "master_to_worker_vxlan" {
+  type                     = "ingress"
+  from_port                = 4789
+  to_port                  = 4789
+  protocol                 = "udp"
+  security_group_id        = aws_security_group.worker.id
+  source_security_group_id = aws_security_group.master.id
+  description              = "VXLAN from master (Calico)"
+}
+
+resource "aws_security_group_rule" "worker_to_master_vxlan" {
+  type                     = "ingress"
+  from_port                = 4789
+  to_port                  = 4789
+  protocol                 = "udp"
+  security_group_id        = aws_security_group.master.id
+  source_security_group_id = aws_security_group.worker.id
+  description              = "VXLAN from worker (Calico)"
 }
 
