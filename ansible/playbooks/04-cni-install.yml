@@ -1,5 +1,39 @@
 # CNI 플러그인 설치 (Calico - 안정적)
 ---
+# kube-proxy 먼저 설치 (kubeadm init에서 skip했음)
+- name: kube-proxy 설치 여부 확인
+  command: kubectl get daemonset -n kube-system kube-proxy
+  register: kubeproxy_check
+  failed_when: false
+  changed_when: false
+
+- name: kube-proxy 수동 설치
+  shell: |
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/kubernetes/v1.28.15/cluster/addons/kube-proxy/kube-proxy.yaml || \
+    kubectl create -f - <<EOF
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: kube-proxy
+      namespace: kube-system
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: system:kube-proxy
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: system:node-proxier
+    subjects:
+    - kind: ServiceAccount
+      name: kube-proxy
+      namespace: kube-system
+    EOF
+  when: kubeproxy_check.rc != 0
+  register: kubeproxy_install
+  failed_when: false
+
 - name: Calico 설치 여부 확인
   command: kubectl get deployment -n kube-system calico-kube-controllers
   register: calico_check

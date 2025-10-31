@@ -33,6 +33,7 @@
     --node-name={{ inventory_hostname }}
     --cri-socket=unix:///run/containerd/containerd.sock
     --upload-certs
+    --skip-phases=addon/kube-proxy
     --v=5
   register: kubeadm_init_output
   when: not kubeadm_init_stat.stat.exists
