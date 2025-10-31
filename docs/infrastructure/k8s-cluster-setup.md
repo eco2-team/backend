@@ -249,9 +249,11 @@ sudo sysctl --system
 
 # 6. kubeadm init (클러스터 초기화)
 sudo kubeadm init \
-  --pod-network-cidr=10.244.0.0/16 \
+  --pod-network-cidr=192.168.0.0/16 \
   --apiserver-advertise-address=<MASTER_PRIVATE_IP> \
   --node-name=k8s-master
+
+# pod-network-cidr: Calico 기본값 (192.168.0.0/16)
 
 # 출력된 kubeadm join 명령어 저장!
 # kubeadm join <MASTER_IP>:6443 --token <TOKEN> \
@@ -262,9 +264,15 @@ mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
-# 8. CNI 플러그인 설치 (Flannel)
+# 8. CNI 플러그인 설치 (Calico - 안정적)
 kubectl apply -f \
-  https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+  https://raw.githubusercontent.com/projectcalico/calico/v3.26.4/manifests/calico.yaml
+
+# Calico 선택 이유:
+# - Flannel보다 안정적
+# - 프로덕션 검증됨
+# - 네트워크 정책 지원
+# - 대규모 클러스터 최적화
 
 # 9. Master Taint 제거 (Master에도 Pod 배치하려면, 선택)
 # kubectl taint nodes k8s-master node-role.kubernetes.io/control-plane:NoSchedule-
