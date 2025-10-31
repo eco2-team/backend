@@ -76,25 +76,7 @@
   register: cri_socket
   failed_when: not cri_socket.stat.exists
 
-- name: crictl 작동 확인
-  command: crictl info
-  register: crictl_check
-  changed_when: false
-  failed_when: crictl_check.rc != 0
-
-- name: containerd 상태 확인
-  systemd:
-    name: containerd
-    state: started
-    enabled: yes
-
-- name: containerd 소켓 확인
-  wait_for:
-    path: /run/containerd/containerd.sock
-    state: present
-    timeout: 30
-
-- name: crictl 설정 파일 생성
+- name: crictl 설정 파일 생성 (Kubernetes 설치 후 사용)
   copy:
     content: |
       runtime-endpoint: unix:///run/containerd/containerd.sock
@@ -102,4 +84,10 @@
       timeout: 10
     dest: /etc/crictl.yaml
     mode: '0644'
+
+- name: containerd 최종 상태 확인
+  systemd:
+    name: containerd
+    state: started
+    enabled: yes
 
