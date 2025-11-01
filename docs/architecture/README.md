@@ -1,102 +1,117 @@
-# 🏛️ 아키텍처 문서
+# 🏗️ 아키텍처 문서
 
-> **AI Waste Coach Backend 아키텍처 결정 기록**
+> **4-Node Kubernetes Cluster Architecture**  
+> **Self-Managed + Instagram + Robin Storage 패턴**
 
-## 📚 문서 구조
+## 🎯 핵심 문서
 
-```
-architecture/
-├── 📋 최종 결정 문서 (여기)
-├── 💭 decisions/ (검토 과정)
-└── 🎨 가이드
-```
+### 최종 아키텍처 ⭐
 
----
+1. **[4-Node 배포 아키텍처](deployment-architecture-4node.md)** ⭐⭐⭐⭐⭐
+   - 완전한 시스템 구조
+   - Mermaid 다이어그램 6개
+   - Path-based routing (ALB)
+   - End-to-end 데이터 흐름
+   
+2. **[Self-Managed Kubernetes 선택 배경](why-self-managed-k8s.md)** ⭐⭐⭐⭐
+   - EKS vs kubeadm 비교
+   - 비용: $180 vs $253 (29% 절감)
+   - 4-tier 진화 과정
+   - Instagram + Robin 패턴 적용
 
-## 🎯 최종 결정 문서
+### 기술 설계
 
-### 핵심 아키텍처
+3. [Task Queue 설계](task-queue-design.md)
+   - RabbitMQ 5개 큐
+   - Celery Worker 분리
+   - Instagram 패턴
 
-1. **[📋 아키텍처 결정 요약](decision-summary.md)** ⭐⭐⭐
-   - 모든 의사결정 한눈에
-   - 채택/기각 기술 목록
-   - 최종 스택 정리
-
-2. **[🏗️ 최종 K8s 아키텍처](final-k8s-architecture.md)** ⭐⭐⭐⭐⭐
-   - 전체 시스템 시각화
-   - 노드별 배치
-   - 데이터 흐름
+4. [최종 K8s 아키텍처](final-k8s-architecture.md)
    - GitOps 파이프라인
+   - 마이크로서비스 배치
 
-3. **[🖼️ 이미지 처리 아키텍처](image-processing-architecture.md)** ⭐
-   - 이미지 분석 파이프라인
-   - 캐싱 전략
-   - 최적화 방안
+### 네트워크 & CNI
 
-4. **[⚡ Polling vs WebSocket](polling-vs-websocket.md)** ⭐
-   - 실시간 통신 방식 비교
-   - 트래픽 시뮬레이션
-   - 최종 결정: Short Polling
+5. [Calico CNI 비교](../infrastructure/cni-comparison.md)
+   - Flannel → Calico 전환
+   - VXLAN vs BGP
 
-5. **[🐰 Task Queue 설계](task-queue-design.md)** ⭐⭐⭐
-   - RabbitMQ + Celery
-   - 5개 큐: fast, bulk, external, sched, dlq
-   - prefetch, DLX, TTL 정책
+### 추가 기술 검토
 
-6. **[🏢 마이크로서비스 아키텍처](microservices-architecture.md)** ⭐
-   - 5개 도메인 서비스
-   - 서비스 간 통신
-   - Traefik Gateway
-
-7. **[🔄 GitOps 멀티서비스](gitops-multi-service.md)** ⭐⭐
-   - 서비스별 독립 CI/CD
-   - Path-based Triggers
-   - 빌드 시간 75% 단축
+6. [Istio Service Mesh](istio-service-mesh.md)
+   - MVP 후 검토
+   
+7. [Polling vs WebSocket](polling-vs-websocket.md)
+   - 실시간 통신 방식
 
 ---
 
-## 💭 의사결정 과정
+## 📁 설계 검토 과정
 
-**[decisions/](decisions/)** 폴더 - 검토 및 비교 분석
+**[design-reviews/](design-reviews/)** (이전: decisions/)
 
-- Docker Compose vs ECS vs K8s 비교
-- Self-managed K8s 검토
-- k3s vs kubeadm 검토
-- EKS 비용 분석
-- EKS + ArgoCD 검토
-
-**→ 최종 결정에 이르기까지의 논의 기록**
-
----
-
-## 🎨 가이드
-
-- **[Mermaid 색상 가이드](mermaid-color-guide.md)** - 다이어그램 색상 표준
+의사결정 과정을 담은 문서들:
+- [배포 옵션 비교](design-reviews/deployment-options-comparison.md)
+- [Self-Managed K8s 분석](design-reviews/self-managed-k8s-analysis.md)
+- [EKS 비용 분석](design-reviews/eks-cost-breakdown.md)
+- [GitOps 멀티 서비스](design-reviews/gitops-multi-service.md)
+- [마이크로서비스 아키텍처](design-reviews/microservices-architecture.md)
 
 ---
 
-## 📊 채택된 최종 스택
+## 🏗️ 4-Tier Architecture
 
-| 분야 | 선택 | 문서 |
-|------|------|------|
-| **서버 구조** | Kubernetes (kubeadm) | [final-k8s-architecture.md](final-k8s-architecture.md) |
-| **실시간 통신** | Short Polling | [polling-vs-websocket.md](polling-vs-websocket.md) |
-| **Task Queue** | RabbitMQ + Celery | [task-queue-design.md](task-queue-design.md) |
-| **마이크로서비스** | 5개 도메인 분리 | [microservices-architecture.md](microservices-architecture.md) |
-| **CI/CD** | GitOps (ArgoCD + Helm) | [gitops-multi-service.md](gitops-multi-service.md) |
-| **이미지 처리** | S3 + AI API + 캐싱 | [image-processing-architecture.md](image-processing-architecture.md) |
+```
+Tier 1: Control + Monitoring (Master, t3.large, 8GB)
+  ├─ kube-apiserver, scheduler, controller, etcd
+  └─ Prometheus + Grafana
+
+Tier 2: Sync API (Worker-1, t3.medium, 4GB)
+  ├─ auth-service (FastAPI)
+  ├─ users-service
+  └─ locations-service
+
+Tier 3: Async Workers (Worker-2, t3.medium, 4GB)
+  ├─ celery-ai-worker (GPT-4o Vision)
+  ├─ celery-batch-worker
+  └─ celery-api-worker
+
+Tier 4: Stateful Storage (Storage, t3.large, 8GB)
+  ├─ RabbitMQ (HA 3-node cluster)
+  ├─ PostgreSQL (StatefulSet)
+  └─ Redis (Deployment)
+```
 
 ---
 
-## 🚀 빠른 참조
+## 📊 주요 결정사항
 
-**구축하려면**: [../../SETUP_CHECKLIST.md](../../SETUP_CHECKLIST.md)
+```
+✅ kubeadm (Self-Managed) vs EKS
+   → kubeadm 선택 (비용 -29%, 학습)
 
-**인프라 설정**: [../infrastructure/](../infrastructure/)
+✅ Calico VXLAN vs Flannel
+   → Calico VXLAN (안정성, 프로덕션 검증)
 
-**배포 가이드**: [../deployment/](../deployment/)
+✅ ALB vs Nginx Ingress
+   → AWS ALB + ACM (Cloud-native, SSL 자동)
+
+✅ 3-node vs 4-node
+   → 4-node (역할 분리, Instagram 패턴)
+
+✅ Path-based vs Host-based routing
+   → Path-based (단일 도메인, API Gateway)
+```
 
 ---
 
-**문서 버전**: 2.0 (정리 완료)  
-**최종 업데이트**: 2025-10-30
+## 📚 참고 문서
+
+- [VPC 네트워크 설계](../infrastructure/vpc-network-design.md)
+- [구축 체크리스트](../guides/SETUP_CHECKLIST.md)
+- [배포 가이드](../../DEPLOYMENT_GUIDE.md)
+
+---
+
+**최종 업데이트**: 2025-10-31  
+**아키텍처 버전**: 2.0 (4-Node Cluster)
