@@ -1,183 +1,210 @@
-# 📚 AI Waste Coach Backend - 문서 센터
+# 📚 AI Waste Coach Backend - 문서
 
-> **AI 기반 쓰레기 분류 및 재활용 코칭 서비스** 백엔드 문서
+> **4-Node Kubernetes 클러스터 배포 문서**  
+> **Instagram + Robin Storage 패턴 적용**
 
 ---
 
 ## 🚀 빠른 시작
 
-### 지금 바로 구축하려면?
+### 처음이신가요?
 
-**[📋 구축 체크리스트](guides/setup-checklist.md)** ← 여기서 시작! ⭐⭐⭐⭐⭐
+**→ [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md)** - 배포 가이드부터 시작!
+
+### 자동 배포
 
 ```bash
-# 또는 자동화
-./scripts/provision.sh  # 35분 완성
-```
+cd /Users/mango/workspace/SeSACTHON/backend
 
-**[IaC 빠른 시작 가이드](guides/iac-quick-start.md)**
+# 완전 자동 (확인 없음)
+./scripts/auto-rebuild.sh
+
+# 소요 시간: 40-50분
+```
 
 ---
 
 ## 📖 문서 카테고리
 
-### 🎯 [개요](overview/)
-
-프로젝트 전체 요약
-
-- [**프로젝트 최종 요약**](overview/project-final-summary.md) - 구축 완료 상태 ⭐
-- [최종 아키텍처](overview/final-architecture.md) - 기술 스택
-- [아키텍처 결정](overview/architecture-decision.md) - 구성 요약
-
-### 📖 [가이드](guides/)
+### 🎯 [배포 가이드](guides/)
 
 빠른 시작 및 실용 가이드
 
-- [**구축 체크리스트**](guides/setup-checklist.md) - 우선순위별 단계 ⭐⭐⭐⭐⭐
-- [IaC 빠른 시작](guides/iac-quick-start.md) - Terraform + Ansible
-- [배포 환경 구축](guides/deployment-setup.md) - GitOps 설정
-
-### 🚀 [시작하기](getting-started/)
-
-프로젝트를 처음 접하는 개발자용
-
-- [설치 가이드](getting-started/installation.md) - 개발 환경 세팅
-- [빠른 시작](getting-started/quickstart.md) - 5분 만에 시작
-- [프로젝트 구조](getting-started/project-structure.md) - 폴더 구조
-
-### 💻 [개발 가이드](development/)
-
-코드 작성 시 필수 규칙
-
-- [코딩 컨벤션](development/conventions.md) - 네이밍, 스타일, PEP 8
-- [PEP 8 완벽 가이드](development/pep8-guide.md) - Python 표준
-- [Git 워크플로우](development/git-workflow.md) - 브랜치, 커밋 규칙
-- [코드 품질 체크리스트](development/code-quality-checklist.md) - PR 전 확인
-
-### 🚢 [배포 가이드](deployment/)
-
-프로덕션 배포 및 운영
-
-- [**GitOps 배포 (ArgoCD + Helm)**](deployment/gitops-argocd-helm.md) - 자동 배포 ⭐⭐⭐
-- [GHCR 설정](deployment/ghcr-setup.md) - GitHub Container Registry (무료)
-- [Docker 배포](deployment/docker.md) - 로컬 개발용
+- **[구축 체크리스트](guides/SETUP_CHECKLIST.md)** ⭐⭐⭐⭐⭐
+  - 단계별 구축 순서
+  - 우선순위별 작업
+  - 예상 시간
+  
+- [IaC 빠른 시작](guides/IaC_QUICK_START.md)
+  - Terraform + Ansible 자동화
+  
+- [Session Manager 가이드](guides/session-manager-guide.md)
+  - SSH 키 없이 EC2 접속
+  
+- [배포 환경 구축](guides/DEPLOYMENT_SETUP.md)
+  - GitOps 파이프라인
 
 ### 🏗️ [인프라](infrastructure/)
 
-Kubernetes 클러스터 구축
+네트워크 및 인프라 설계
 
-- [**K8s 클러스터 구축**](infrastructure/k8s-cluster-setup.md) - kubeadm 수동 설치 ⭐⭐⭐
-- [**IaC (Terraform + Ansible)**](infrastructure/iac-terraform-ansible.md) - 자동화 구축 ⭐⭐⭐
-
-### 🏛️ [아키텍처](architecture/)
-
-기술 결정 및 설계 문서
-
-- [**아키텍처 결정 요약**](architecture/decision-summary.md) - 전체 의사결정 ⭐
-- [**최종 K8s 아키텍처**](architecture/final-k8s-architecture.md) - 시스템 전체 ⭐⭐⭐⭐⭐
-- [**Task Queue 설계**](architecture/task-queue-design.md) - RabbitMQ + Celery ⭐⭐⭐
-- [이미지 처리 아키텍처](architecture/image-processing-architecture.md) - 이미지 파이프라인
-- [Polling vs WebSocket](architecture/polling-vs-websocket.md) - 실시간 통신
-- [Istio Service Mesh](architecture/istio-service-mesh.md) - MVP 후 검토
-- [의사결정 과정](architecture/decisions/) - 검토 및 비교 문서
-
-### 🤝 [기여 가이드](contributing/)
-
-프로젝트 기여 방법
-
-- [기여 방법](contributing/how-to-contribute.md) - 기여 절차
+- **[VPC 네트워크 설계](infrastructure/vpc-network-design.md)** ⭐⭐⭐
+  - VPC (10.0.0.0/16)
+  - 3 Public Subnets
+  - Security Groups 상세
+  - 포트 목록
 
 ---
 
-## 🗺️ 추천 학습 경로
+## 🏗️ 최종 아키텍처
 
-### 신규 개발자
-
-```
-1. overview/project-final-summary.md (전체 이해)
-2. getting-started/installation.md (환경 설정)
-3. getting-started/quickstart.md (빠른 시작)
-4. development/conventions.md (코딩 규칙)
-5. development/git-workflow.md (Git 사용법)
-```
-
-### 인프라 담당자
+### 4-Node Cluster
 
 ```
-1. overview/final-architecture.md (아키텍처)
-2. guides/setup-checklist.md (구축 순서) ⭐
-3. infrastructure/iac-terraform-ansible.md (IaC)
-4. deployment/gitops-argocd-helm.md (GitOps)
+Master (t3.large, 8GB) - $60/월
+├─ Control Plane
+└─ Prometheus + Grafana
+
+Worker-1 (t3.medium, 4GB) - $30/월
+└─ Application Pods (FastAPI)
+
+Worker-2 (t3.medium, 4GB) - $30/월
+└─ Celery Workers (Async)
+
+Storage (t3.large, 8GB) - $60/월
+├─ RabbitMQ (HA 3-node)
+├─ PostgreSQL
+└─ Redis
+
+총: $185/월 (EC2 $180 + S3 $5)
 ```
 
-### 아키텍트
+### 네트워킹
 
 ```
-1. architecture/final-k8s-architecture.md (전체 시스템)
-2. architecture/decision-summary.md (결정 요약)
-3. architecture/task-queue-design.md (Queue 설계)
-4. architecture/decisions/ (검토 과정)
+Route53 (DNS)
+   ↓
+ALB (L7 Routing + ACM TLS)
+   ↓
+Path-based:
+   /argocd → ArgoCD
+   /grafana → Grafana
+   /api/v1/auth → auth-service
+   /api/v1/users → users-service
+   /api/v1/waste → waste-service
+   ...
 ```
 
 ---
 
-## 📊 문서 통계
-
-```
-총 문서: 60+ 개
-
-docs/
-├─ overview: 4개 (프로젝트 개요)
-├─ guides: 3개 (실용 가이드)
-├─ getting-started: 4개
-├─ development: 5개
-├─ deployment: 5개
-├─ infrastructure: 3개
-├─ architecture: 6개 (최종)
-│   └─ decisions: 7개 (검토)
-└─ contributing: 2개
-
-+ IaC 코드: 36개
-```
-
----
-
-## 🔍 검색 가이드
-
-| 찾고 싶은 것 | 문서 |
-|------------|------|
-| **구축 방법** | [guides/setup-checklist.md](guides/setup-checklist.md) |
-| **전체 아키텍처** | [architecture/final-k8s-architecture.md](architecture/final-k8s-architecture.md) |
-| **비용 및 시간** | [overview/final-architecture.md](overview/final-architecture.md) |
-| **자동화 구축** | [guides/iac-quick-start.md](guides/iac-quick-start.md) |
-| **배포 방법** | [deployment/gitops-argocd-helm.md](deployment/gitops-argocd-helm.md) |
-| **코딩 규칙** | [development/conventions.md](development/conventions.md) |
-| **Git 사용법** | [development/git-workflow.md](development/git-workflow.md) |
-| **왜 이렇게 설계했나?** | [architecture/decision-summary.md](architecture/decision-summary.md) |
-| **다른 옵션은?** | [architecture/decisions/](architecture/decisions/) |
-
----
-
-## 🎯 핵심 명령어
+## 🔧 유틸리티 스크립트
 
 ```bash
-# 전체 구축 (자동화)
-./scripts/provision.sh
+# 인스턴스 조회
+./scripts/get-instances.sh
 
-# 인프라 삭제
-./scripts/destroy.sh
+# SSH 접속
+./scripts/connect-ssh.sh master
+./scripts/connect-ssh.sh storage
 
-# 클러스터 상태 확인
-kubectl get nodes
+# 노드 초기화
+./scripts/reset-node.sh master
+./scripts/reset-node.sh all
 
-# ArgoCD 앱 목록
-argocd app list
+# 재구축
+./scripts/auto-rebuild.sh
 
-# 전체 Pod 상태
-kubectl get pods -A
+# 헬스체크
+./scripts/remote-health-check.sh master
 ```
 
 ---
 
-**문서 버전**: 2.0 (재구성 완료)  
-**최종 업데이트**: 2025-10-30
+## 📊 주요 기술
+
+```
+Infrastructure:
+- Terraform (IaC)
+- Ansible (Configuration)
+- AWS (VPC, EC2, S3, ALB, ACM, Route53)
+
+Kubernetes:
+- kubeadm (1M + 3W)
+- Calico VXLAN (CNI)
+- AWS Load Balancer Controller
+- cert-manager
+
+Application:
+- FastAPI (Reactor Pattern)
+- Celery + RabbitMQ (Async)
+- PostgreSQL + Redis
+- S3 (Pre-signed URL)
+- GPT-4o Vision
+
+Monitoring:
+- Prometheus + Grafana
+- Metrics Server
+
+GitOps:
+- ArgoCD
+- GitHub Actions
+- GHCR
+```
+
+---
+
+## 🗺️ 문서 네비게이션
+
+```
+SeSACTHON/backend/
+├── README.md (프로젝트 메인)
+├── DEPLOYMENT_GUIDE.md (배포 가이드) ⭐
+│
+├── docs/
+│   ├── README.md (이 파일)
+│   │
+│   ├── guides/ (실용 가이드)
+│   │   ├── SETUP_CHECKLIST.md ⭐⭐⭐⭐⭐
+│   │   ├── IaC_QUICK_START.md
+│   │   └── session-manager-guide.md
+│   │
+│   └── infrastructure/ (인프라 설계)
+│       └── vpc-network-design.md ⭐⭐⭐
+│
+├── terraform/ (Infrastructure as Code)
+└── ansible/ (Configuration Management)
+```
+
+---
+
+## 🎯 다음 단계
+
+```
+Phase 1: Infrastructure ✅ (완료)
+- Terraform
+- 4-node cluster
+- VPC, Security Groups
+
+Phase 2: Platform ✅ (완료)
+- Kubernetes
+- Calico VXLAN
+- ALB Controller
+- RabbitMQ
+
+Phase 3: Application 🔄 (진행 중)
+- 5개 마이크로서비스 (FastAPI)
+- Celery Workers
+- PostgreSQL, Redis
+
+Phase 4: GitOps ⏳ (대기)
+- ArgoCD 설정
+- GitHub Actions
+- 자동 배포
+```
+
+---
+
+**문서 버전**: 2.0  
+**최종 업데이트**: 2025-10-31  
+**아키텍처**: 4-Node Instagram-style
+

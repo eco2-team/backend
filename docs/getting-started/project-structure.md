@@ -1,378 +1,281 @@
-# 🏗️ 프로젝트 구조
+# 📁 프로젝트 구조
 
-이 문서는 AI Waste Coach Backend의 프로젝트 구조와 각 디렉토리의 역할을 설명합니다.
+> **4-Node Kubernetes 클러스터 구조**  
+> **업데이트**: 2025-10-31
 
-## 📁 전체 구조 개요
+## 📂 전체 구조
 
 ```
-backend/
-├── 📄 설정 파일
-│   ├── .env                        # 환경변수 (git 무시)
-│   ├── .env.example                # 환경변수 예제
-│   ├── .gitignore                  # Git 무시 파일
-│   ├── .dockerignore               # Docker 빌드 제외
-│   ├── requirements.txt            # Python 의존성
-│   ├── pyproject.toml              # Black, isort, pytest 설정
-│   ├── .flake8                     # Flake8 린터 설정
-│   ├── .pre-commit-config.yaml     # Pre-commit hooks
-│   ├── alembic.ini                 # Alembic 설정
-│   └── Makefile                    # 자동화 명령어
+SeSACTHON/backend/
+├── README.md                          # 프로젝트 소개
+├── DEPLOYMENT_GUIDE.md                # 배포 가이드 ⭐
 │
-├── 🐳 Docker 관련
-│   ├── Dockerfile                  # 프로덕션 이미지
-│   ├── Dockerfile.dev              # 개발 이미지
-│   ├── docker-compose.yml          # 프로덕션 환경
-│   └── docker-compose.dev.yml      # 개발 환경
+├── 📁 terraform/ (Infrastructure as Code)
+│   ├── main.tf                        # 메인 설정 (4-node)
+│   ├── variables.tf                   # 변수 정의
+│   ├── outputs.tf                     # Output 값
+│   ├── backend.tf                     # S3 Backend
+│   ├── terraform.tfvars               # 변수 값
+│   │
+│   ├── iam.tf                         # IAM (SSM)
+│   ├── alb-controller-iam.tf          # ALB Controller IAM
+│   ├── route53.tf                     # DNS (growbin.app)
+│   ├── acm.tf                         # SSL Certificate
+│   ├── s3.tf                          # S3 이미지 버킷 ⭐
+│   │
+│   ├── modules/
+│   │   ├── vpc/                       # VPC (10.0.0.0/16)
+│   │   ├── security-groups/           # Master SG, Worker SG
+│   │   └── ec2/                       # EC2 인스턴스
+│   │
+│   ├── templates/
+│   │   └── hosts.tpl                  # Ansible Inventory
+│   │
+│   └── user-data/
+│       └── common.sh                  # EC2 초기화 스크립트
 │
-├── 🌐 Nginx 설정
-│   └── nginx/
-│       ├── nginx.conf              # 메인 설정
-│       ├── conf.d/
-│       │   └── backend.conf        # 백엔드 프록시
-│       └── ssl/                    # SSL 인증서
+├── 📁 ansible/ (Configuration Management)
+│   ├── ansible.cfg                    # Ansible 설정
+│   ├── site.yml                       # 마스터 Playbook ⭐
+│   │
+│   ├── inventory/
+│   │   └── group_vars/
+│   │       └── all.yml                # 공통 변수
+│   │
+│   ├── roles/
+│   │   ├── common/                    # OS 설정
+│   │   ├── docker/                    # containerd
+│   │   ├── kubernetes/                # kubeadm, kubelet
+│   │   ├── argocd/                    # ArgoCD
+│   │   └── rabbitmq/                  # RabbitMQ HA
+│   │
+│   └── playbooks/
+│       ├── 02-master-init.yml         # Master 초기화
+│       ├── 03-worker-join.yml         # Worker join
+│       ├── 04-cni-install.yml         # Calico VXLAN
+│       ├── 05-addons.yml              # Cert-manager
+│       ├── 06-cert-manager-issuer.yml # ClusterIssuer
+│       ├── 07-alb-controller.yml      # ALB Controller ⭐
+│       ├── 07-ingress-resources.yml   # Ingress (Path) ⭐
+│       ├── 08-monitoring.yml          # Prometheus
+│       └── 09-etcd-backup.yml         # etcd 백업
 │
-├── 🔄 CI/CD
-│   └── .github/
-│       ├── workflows/
-│       │   ├── ci.yml              # 린트, 테스트
-│       │   ├── build-push.yml      # Docker 빌드
-│       │   ├── deploy.yml          # EC2 배포
-│       │   └── deploy-aws-ecs.yml  # ECS 배포
-│       ├── PULL_REQUEST_TEMPLATE.md
-│       └── ISSUE_TEMPLATE/
+├── 📁 scripts/ (자동화 스크립트)
+│   ├── auto-rebuild.sh                # 완전 자동 재구축 ⭐
+│   ├── rebuild-cluster.sh             # 대화형 재구축
+│   ├── quick-rebuild.sh               # 빠른 재구축
+│   ├── get-instances.sh               # 인스턴스 정보
+│   ├── connect-ssh.sh                 # SSH 접속
+│   ├── reset-node.sh                  # 노드 초기화
+│   ├── reset-cluster.sh               # 클러스터 초기화
+│   ├── remote-health-check.sh         # 원격 헬스체크
+│   └── check-cluster-health.sh        # 클러스터 진단
 │
-├── 📚 문서
-│   ├── README.md                   # 프로젝트 소개
-│   └── docs/                       # 상세 문서
-│       ├── getting-started/        # 시작 가이드
-│       ├── development/            # 개발 가이드
-│       ├── deployment/             # 배포 가이드
-│       ├── api/                    # API 문서
-│       └── contributing/           # 기여 가이드
+├── 📁 docs/ (문서)
+│   ├── README.md                      # 문서 메인 ⭐
+│   │
+│   ├── architecture/                  # 아키텍처 설계
+│   │   ├── deployment-architecture-4node.md  # 최종 배포 아키텍처 ⭐
+│   │   ├── final-k8s-architecture.md
+│   │   ├── task-queue-design.md
+│   │   ├── istio-service-mesh.md
+│   │   └── decisions/                # 의사결정 과정
+│   │
+│   ├── infrastructure/                # 인프라 설계
+│   │   ├── vpc-network-design.md      # VPC 네트워크 ⭐
+│   │   ├── cni-comparison.md          # CNI 비교
+│   │   └── k8s-cluster-setup.md
+│   │
+│   ├── guides/                        # 실용 가이드
+│   │   ├── SETUP_CHECKLIST.md         # 구축 체크리스트 ⭐
+│   │   ├── IaC_QUICK_START.md
+│   │   ├── session-manager-guide.md
+│   │   └── DEPLOYMENT_SETUP.md
+│   │
+│   ├── getting-started/               # 시작 가이드
+│   │   ├── installation.md
+│   │   ├── quickstart.md
+│   │   └── project-structure.md (이 파일)
+│   │
+│   ├── development/                   # 개발 가이드
+│   │   ├── conventions.md
+│   │   └── pep8-guide.md
+│   │
+│   ├── deployment/                    # 배포 가이드
+│   │   └── gitops-argocd-helm.md
+│   │
+│   └── contributing/
+│       └── how-to-contribute.md
 │
-├── 🗄️ 데이터베이스
-│   └── alembic/                    # DB 마이그레이션
-│       ├── env.py                  # Alembic 환경
-│       ├── script.py.mako          # 마이그레이션 템플릿
-│       └── versions/               # 마이그레이션 파일들
+├── 📁 app/ (애플리케이션 - 미래)
+│   ├── main.py
+│   ├── core/
+│   ├── domains/
+│   │   ├── auth/
+│   │   ├── users/
+│   │   ├── waste/
+│   │   ├── recycling/
+│   │   └── locations/
+│   └── external/
 │
-└── 📦 애플리케이션 코드
-    └── app/
-        ├── main.py                 # FastAPI 앱 진입점
-        │
-        ├── core/                   # 핵심 설정
-        │   ├── config.py           # 환경변수 관리
-        │   ├── database.py         # DB 연결
-        │   └── security.py         # JWT, 인증
-        │
-        ├── common/                 # 공통 유틸리티
-        │   ├── responses.py        # 공통 응답 포맷
-        │   ├── exceptions.py       # 커스텀 예외
-        │   └── dependencies.py     # 공통 의존성
-        │
-        ├── domains/                # 도메인별 모듈
-        │   ├── auth/               # 인증/OAuth
-        │   │   ├── models.py       # SQLAlchemy 모델
-        │   │   ├── schemas.py      # Pydantic DTO
-        │   │   ├── services.py     # 비즈니스 로직
-        │   │   ├── repositories.py # DB 접근 로직
-        │   │   └── routes.py       # API 엔드포인트
-        │   │
-        │   ├── users/              # 사용자 관리
-        │   ├── waste/              # 쓰레기 인식
-        │   ├── recycling/          # 재활용 정보
-        │   └── locations/          # 수거함 위치
-        │
-        ├── external/               # 외부 API 연동
-        │   ├── ai_vision.py        # AI 비전 모델
-        │   ├── llm.py              # LLM 연동
-        │   └── oauth_clients.py    # 소셜 로그인
-        │
-        └── tests/                  # 테스트 코드
-            ├── unit/               # 단위 테스트
-            └── integration/        # 통합 테스트
+└── 📁 gitops/ (ArgoCD 설정 - 미래)
+    └── applications/
 ```
 
 ---
 
-## 📂 주요 디렉토리 상세 설명
+## 🏗️ Infrastructure (Terraform)
 
-### 🎯 `app/main.py` - 애플리케이션 진입점
-
-FastAPI 앱 생성 및 설정이 이루어지는 메인 파일입니다.
-
-**주요 기능:**
-- FastAPI 인스턴스 생성
-- CORS 미들웨어 설정
-- 라우터 등록
-- 헬스 체크 엔드포인트
-
-### 🔧 `app/core/` - 핵심 설정
-
-애플리케이션의 핵심 설정과 유틸리티를 포함합니다.
-
-| 파일 | 역할 |
-|------|------|
-| `config.py` | 환경변수 관리 (Pydantic Settings) |
-| `database.py` | SQLAlchemy 엔진, 세션 관리 |
-| `security.py` | JWT 토큰, 비밀번호 해싱 |
-
-### 🛠️ `app/common/` - 공통 모듈
-
-모든 도메인에서 공통으로 사용하는 유틸리티입니다.
-
-| 파일 | 역할 |
-|------|------|
-| `responses.py` | 공통 응답 포맷 (성공/에러) |
-| `exceptions.py` | 커스텀 HTTP 예외 클래스 |
-| `dependencies.py` | FastAPI 의존성 (인증 등) |
-
-### 🏢 `app/domains/` - 도메인 모듈
-
-비즈니스 로직을 도메인별로 분리하여 관리합니다.
-
-**각 도메인은 다음 구조를 따릅니다:**
+### 핵심 리소스
 
 ```
-domains/{domain_name}/
-├── models.py        # SQLAlchemy ORM 모델 (Entity)
-├── schemas.py       # Pydantic 스키마 (DTO)
-├── services.py      # 비즈니스 로직
-├── repositories.py  # 데이터베이스 접근 계층
-└── routes.py        # API 엔드포인트 (Controller)
+VPC:
+- CIDR: 10.0.0.0/16
+- Subnets: 3개 (Public)
+- Internet Gateway
+- Route Table
+
+EC2 (4-node):
+- Master: t3.large (8GB)
+- Worker-1: t3.medium (4GB) - Application
+- Worker-2: t3.medium (4GB) - Celery
+- Storage: t3.large (8GB) - RabbitMQ, DB ⭐
+
+Security Groups:
+- Master SG (K8s API, Control Plane 포트)
+- Worker SG (Pod 통신, VXLAN)
+
+AWS Services:
+- S3 (이미지 버킷) ⭐
+- ACM (SSL Certificate)
+- Route53 (DNS)
+- IAM (SSM, ALB, S3)
 ```
-
-**예시 - `users` 도메인:**
-
-```python
-# models.py
-class User(Base):
-    __tablename__ = "users"
-    user_id = Column(Integer, primary_key=True)
-    email = Column(String, unique=True)
-    # ...
-
-# schemas.py
-class UserCreateRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-class UserResponse(BaseModel):
-    user_id: int
-    email: str
-
-# repositories.py
-def get_user_by_id(db: Session, user_id: int) -> User:
-    return db.query(User).filter(User.user_id == user_id).first()
-
-# services.py
-def find_user_by_id(db: Session, user_id: int) -> UserResponse:
-    user = get_user_by_id(db, user_id)
-    if not user:
-        raise NotFoundException("사용자를 찾을 수 없습니다")
-    return UserResponse.from_orm(user)
-
-# routes.py
-@router.get("/{user_id}", response_model=CommonResponse)
-def get_user(user_id: int, db: Session = Depends(get_db)):
-    user = find_user_by_id(db, user_id)
-    return success_response(message="조회 성공", data=user)
-```
-
-### 🌐 `app/external/` - 외부 API
-
-외부 서비스와의 연동을 담당합니다.
-
-| 파일 | 역할 |
-|------|------|
-| `ai_vision.py` | AI 비전 모델 API 호출 |
-| `llm.py` | LLM (OpenAI, Claude 등) 연동 |
-| `oauth_clients.py` | 카카오, 네이버, 구글 OAuth |
 
 ---
 
-## 🔄 데이터 흐름
+## 🤖 Configuration (Ansible)
 
-```mermaid
-flowchart TD
-    A[클라이언트] -->|HTTP Request| B[Nginx 리버스 프록시]
-    B --> C[routes.py<br/>API 엔드포인트]
-    C --> D[services.py<br/>비즈니스 로직]
-    D --> E[repositories.py<br/>DB 접근]
-    E --> F[models.py<br/>SQLAlchemy ORM]
-    F --> G[(PostgreSQL<br/>데이터베이스)]
-    
-    style A fill:#cce5ff,stroke:#007bff,stroke-width:3px,color:#000
-    style B fill:#ffe0b3,stroke:#fd7e14,stroke-width:3px,color:#000
-    style C fill:#e6d5ff,stroke:#8844ff,stroke-width:2px,color:#000
-    style D fill:#d1f2eb,stroke:#28a745,stroke-width:2px,color:#000
-    style E fill:#ffd1d1,stroke:#dc3545,stroke-width:2px,color:#000
-    style F fill:#fff4dd,stroke:#ffc107,stroke-width:2px,color:#000
-    style G fill:#ccf5f0,stroke:#20c997,stroke-width:3px,color:#000
+### Playbook 흐름
+
 ```
+1. Prerequisites (OS 설정)
+   - Swap 비활성화
+   - Kernel 모듈
+   - sysctl 네트워크
 
-**요청 흐름 예시 (사용자 조회):**
+2. Docker/containerd
+   - containerd 설치
+   - pause:3.9 설정
+   - CRI 소켓
 
-1. `GET /api/v1/users/1` 요청
-2. `routes.py`: `get_user()` 함수 실행
-3. `services.py`: `find_user_by_id()` 비즈니스 로직
-4. `repositories.py`: `get_user_by_id()` DB 쿼리
-5. `models.py`: `User` 모델로 데이터 조회
-6. PostgreSQL에서 데이터 반환
-7. DTO 변환 후 클라이언트에 응답
+3. Kubernetes 패키지
+   - kubeadm, kubelet, kubectl
+   - 버전 고정
+
+4. Master 초기화
+   - kubeadm init
+   - control-plane-endpoint
+   - kube-proxy (phase addon)
+
+5. Workers 조인
+   - kubeadm join (4개 노드)
+   - Pre-flight 체크
+
+6. Calico VXLAN ⭐
+   - BGP 완전 비활성화
+   - VXLAN Always
+   - Probe 수정 (BIRD 제거)
+
+7. ALB Controller ⭐
+   - Helm 설치
+   - IAM 연동
+
+8. Ingress (Path-based) ⭐
+   - 단일 도메인
+   - 경로 라우팅
+
+9. RabbitMQ ⭐
+   - HA 3-node
+   - Storage 노드 배치
+
+10. Monitoring
+    - Prometheus + Grafana
+    - Master 노드 배치
+```
 
 ---
 
-## 📝 파일 네이밍 규칙
+## 📊 노드별 배치
 
-### Python 파일
+```
+Master (Control + Monitoring):
+/var/lib/
+├── etcd/                    # etcd 데이터
+├── kubelet/                 # Kubelet 설정
+└── prometheus/              # Prometheus TSDB
 
-- **모듈 파일**: `snake_case.py`
-  - 예: `user_service.py`, `auth_routes.py`
+Worker-1 (Application):
+/var/lib/
+├── kubelet/
+└── containerd/
+    └── auth-pods/           # FastAPI Pods
+        users-pods/
+        locations-pods/
 
-- **클래스 파일**: 파일명은 소문자, 클래스명은 `PascalCase`
-  - 예: `models.py` 내 `class User`, `class WasteItem`
+Worker-2 (Async):
+/var/lib/
+├── kubelet/
+└── containerd/
+    └── celery-workers/      # Celery Worker Pods
 
-### 폴더
-
-- **도메인 폴더**: `소문자` (복수형 선호)
-  - 예: `users/`, `waste/`, `locations/`
-
-- **기능별 폴더**: `소문자`
-  - 예: `core/`, `common/`, `external/`
+Storage (Stateful):
+/var/lib/
+├── kubelet/
+└── containerd/
+    ├── rabbitmq/            # RabbitMQ PVC
+    ├── postgresql/          # PostgreSQL PVC
+    └── redis/               # Redis 데이터
+```
 
 ---
 
-## 🎯 계층별 역할
+## 🌐 네트워킹
 
-### 1. Routes (Controller)
-
-**역할**: HTTP 요청 처리, 응답 반환
-
-```python
-@router.get("/users/{user_id}")
-def get_user(user_id: int, db: Session = Depends(get_db)):
-    """사용자 조회 API"""
-    user = find_user_by_id(db, user_id)
-    return success_response(message="조회 성공", data=user)
 ```
+VPC CIDR: 10.0.0.0/16
+Pod CIDR: 192.168.0.0/16 (Calico)
+Service CIDR: 10.96.0.0/12
 
-**책임:**
-- ✅ HTTP 요청 검증
-- ✅ Service 계층 호출
-- ✅ 응답 포맷팅
-- ❌ 비즈니스 로직 포함 금지
+노드 IP:
+- Master: 10.0.1.235
+- Storage: 10.0.1.x
+- Worker-1: 10.0.2.x
+- Worker-2: 10.0.3.x
 
-### 2. Services
+Pod IP:
+- Master Pods: 192.168.0.0/24
+- Storage Pods: 192.168.1.0/24
+- Worker-1 Pods: 192.168.2.0/24
+- Worker-2 Pods: 192.168.x.0/24
 
-**역할**: 비즈니스 로직 구현
-
-```python
-def find_user_by_id(db: Session, user_id: int) -> UserResponse:
-    """사용자 조회 비즈니스 로직"""
-    user = UserRepository.get_by_id(db, user_id)
-    if not user:
-        raise NotFoundException("사용자를 찾을 수 없습니다")
-    return UserResponse.from_orm(user)
-```
-
-**책임:**
-- ✅ 비즈니스 규칙 적용
-- ✅ 데이터 검증
-- ✅ Repository 호출
-- ✅ DTO 변환
-- ❌ DB 직접 접근 금지
-
-### 3. Repositories
-
-**역할**: 데이터베이스 접근
-
-```python
-def get_by_id(db: Session, user_id: int) -> Optional[User]:
-    """ID로 사용자 조회"""
-    return db.query(User).filter(User.user_id == user_id).first()
-```
-
-**책임:**
-- ✅ DB 쿼리 실행
-- ✅ ORM 조작
-- ❌ 비즈니스 로직 금지
-
-### 4. Models
-
-**역할**: 데이터베이스 테이블 정의
-
-```python
-class User(Base):
-    __tablename__ = "users"
-    user_id = Column(Integer, primary_key=True)
-    email = Column(String, unique=True, nullable=False)
-```
-
-**책임:**
-- ✅ 테이블 구조 정의
-- ✅ 관계 설정
-- ❌ 비즈니스 로직 금지
-
-### 5. Schemas (DTO)
-
-**역할**: 데이터 전송 객체
-
-```python
-class UserCreateRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(..., min_length=8)
-```
-
-**책임:**
-- ✅ 데이터 검증
-- ✅ 직렬화/역직렬화
-- ❌ 비즈니스 로직 금지
-
----
-
-## 🔍 도메인 추가 가이드
-
-새로운 도메인을 추가할 때는 다음 단계를 따르세요:
-
-### 1. 폴더 구조 생성
-
-```bash
-mkdir -p app/domains/new_domain
-cd app/domains/new_domain
-touch __init__.py models.py schemas.py services.py repositories.py routes.py
-```
-
-### 2. 파일 작성 순서
-
-1. `models.py` - 데이터베이스 모델
-2. `schemas.py` - Request/Response DTO
-3. `repositories.py` - DB 접근 함수
-4. `services.py` - 비즈니스 로직
-5. `routes.py` - API 엔드포인트
-
-### 3. main.py에 라우터 등록
-
-```python
-from app.domains.new_domain.routes import router as new_domain_router
-
-app.include_router(
-    new_domain_router,
-    prefix="/api/v1/new-domain",
-    tags=["NewDomain"]
-)
+통신:
+- VXLAN (UDP 4789)
+- kube-proxy (iptables DNAT)
+- Calico overlay
 ```
 
 ---
 
 ## 📚 관련 문서
 
-- [코딩 컨벤션](../development/conventions.md) - 코드 작성 규칙
-- [데이터베이스 가이드](../development/database.md) - 모델 작성법
-- [API 개발 가이드](../development/first-api.md) - 첫 API 만들기
+- [VPC 네트워크 설계](../infrastructure/vpc-network-design.md)
+- [배포 아키텍처](../architecture/deployment-architecture-4node.md)
+- [구축 체크리스트](../guides/SETUP_CHECKLIST.md)
 
 ---
 
-**문서 버전**: 1.0.0  
-**최종 업데이트**: 2025-10-30
+**작성일**: 2025-10-31  
+**버전**: 2.0  
+**구조**: 4-Node Cluster
 
