@@ -23,11 +23,15 @@
 graph TB
     A[RabbitMQ + Celery] --> B{설계 목표}
     
-    B --> C1[🛡️ 한 큐 폭주 방지<br/>TTL + max-length + DLX]
-    B --> C2[⚡ SLO 분리<br/>짧은 작업 vs 긴 작업]
-    B --> C3[🔒 장애 격리<br/>외부 API 장애 시 다른 큐 정상]
+    B --> C1["🛡️ 한 큐 폭주 방지
+TTL + max-length + DLX"]
+    B --> C2["⚡ SLO 분리
+짧은 작업 vs 긴 작업"]
+    B --> C3["🔒 장애 격리
+외부 API 장애 시 다른 큐 정상"]
     
-    C1 --> D[안정적인<br/>서비스]
+    C1 --> D["안정적인
+서비스"]
     C2 --> D
     C3 --> D
     
@@ -67,25 +71,43 @@ graph TB
 ```mermaid
 graph TB
     subgraph Producer["FastAPI Services"]
-        API[waste-service<br/>recycling-service<br/>etc.]
+        API["waste-service
+recycling-service"]
     end
     
-    subgraph RabbitMQ["RabbitMQ Broker"]
-        Exchange[Topic Exchange<br/>'tasks']
-        DLX[Direct Exchange<br/>'dlx']
+    subgraph RMQ["RabbitMQ HA Cluster (Storage Node)"]
+        Exchange["Topic Exchange
+tasks"]
+        DLX["Direct Exchange
+dlx"]
         
-        Q1[q.fast<br/>Priority: 높음<br/>짧은 작업]
-        Q2[q.bulk<br/>Priority: 보통<br/>긴 작업]
-        Q3[q.external<br/>Priority: 높음<br/>외부 API]
-        Q4[q.sched<br/>Priority: 보통<br/>예약 작업]
-        Q5[q.dlq<br/>Dead Letter<br/>실패 메시지]
+        Q1["q.ai
+Priority: 10
+AI Vision"]
+        Q2["q.batch
+Priority: 1
+배치 작업"]
+        Q3["q.api
+Priority: 5
+외부 API"]
+        Q4["q.sched
+Priority: 3
+예약 작업"]
+        Q5["q.dlq
+Dead Letter
+실패 메시지"]
     end
     
     subgraph Workers["Celery Workers"]
-        W1[Fast Workers ×5<br/>concurrency: 10<br/>prefetch: 높음]
-        W2[Bulk Workers ×2<br/>concurrency: 4<br/>prefetch: 1]
-        W3[External Workers ×3<br/>concurrency: 4<br/>prefetch: 2]
-        W4[Sched Workers ×1<br/>concurrency: 4]
+        W1["AI Workers ×3
+Worker-2
+gevent pool"]
+        W2["Batch Workers ×2
+Worker-2
+processes pool"]
+        W3["API Workers ×2
+Worker-1
+gevent pool"]
     end
     
     API --> Exchange
@@ -118,31 +140,30 @@ graph TB
 
 ## 📋 큐별 상세 설계
 
-### Queue 1: **q.fast** (사용자 응답 직결)
+### Queue 1: **q.ai** (AI Vision)
 
 ```yaml
-큐 이름: q.fast
-라우팅 키: *.high.*
-목적: 사용자가 대기 중인 짧은 작업
+큐 이름: q.ai
+라우팅 키: ai.*
+목적: AI Vision 분석 (GPT-4o Vision)
 
 담당 작업:
-├─ 이미지 다운로드 (S3)
-├─ 이미지 해시 계산 (pHash)
-├─ 캐시 조회 (Redis)
-├─ 결과 저장 (DB)
-└─ 이미지 전처리 (리사이즈)
+├─ 이미지 분석 (GPT-4o Vision API)
+├─ 쓰레기 분류
+├─ LLM 피드백 생성
+└─ 결과 저장
 
 작업 특성:
-├─ 실행 시간: < 1초
+├─ 실행 시간: 2-5초
 ├─ 중요도: Critical (사용자 대기)
-├─ CPU: 높음 (이미지 처리)
-└─ 실패 영향: 전체 프로세스 중단
+├─ 네트워크: 높음 (외부 API)
+└─ 실패 영향: 사용자 경험 저하
 
 Worker 프로파일:
-├─ Concurrency: 10 (멀티프로세싱)
-├─ Prefetch Multiplier: 4 (빠른 처리)
-├─ Pool: processes
-└─ Replicas: 5개 (K8s)
+├─ Concurrency: 4 (API Rate Limit)
+├─ Prefetch Multiplier: 2
+├─ Pool: gevent (네트워크 대기)
+└─ Replicas: 3개 (Worker-2)
 
 정책 (RabbitMQ):
 ├─ TTL: 60초 (짧게, 빠른 실패)
@@ -159,11 +180,11 @@ Worker 프로파일:
 └─ acks_late: False (빠른 ACK)
 ```
 
-### Queue 2: **q.bulk** (배치/긴 작업)
+### Queue 2: **q.batch** (배치/긴 작업)
 
 ```yaml
-큐 이름: q.bulk
-라우팅 키: *.low.*
+큐 이름: q.batch
+라우팅 키: batch.*
 목적: 시간이 걸리는 배치 작업
 
 담당 작업:
@@ -202,17 +223,16 @@ Worker 프로파일:
 ⚠️ 체크포인팅 권장 (중간 저장)
 ```
 
-### Queue 3: **q.external** (외부 API/불안정)
+### Queue 3: **q.api** (외부 API)
 
 ```yaml
-큐 이름: q.external
-라우팅 키: external.#
-목적: 외부 API 호출 (AI Vision, LLM, Map)
+큐 이름: q.api
+라우팅 키: api.*
+목적: 외부 API 호출 (Map, OAuth 등)
 
 담당 작업:
-├─ AI Vision API (Roboflow, HuggingFace)
-├─ LLM API (OpenAI GPT, Claude)
 ├─ 지도 API (Kakao Map)
+├─ OAuth 인증 (소셜 로그인)
 └─ 기타 서드파티 연동
 
 작업 특성:
@@ -223,10 +243,10 @@ Worker 프로파일:
 └─ 사이드 이펙트: 주의 (중복 호출 비용)
 
 Worker 프로파일:
-├─ Concurrency: 4 (API Rate Limit 준수)
-├─ Prefetch Multiplier: 1-2 (소수, 과부하 방지)
+├─ Concurrency: 4
+├─ Prefetch Multiplier: 2
 ├─ Pool: gevent (네트워크 대기)
-└─ Replicas: 3-5개 (외부 API별)
+└─ Replicas: 2개 (Worker-1)
 
 정책 (RabbitMQ):
 ├─ TTL: 300초 (5분, 필수!)
@@ -670,45 +690,58 @@ app.conf.beat_schedule = {
 
 ---
 
-## 🏗️ K8s Worker 배치
+## 🏗️ K8s Worker 배치 (4-Node)
 
 ### Deployment 구조
 
 ```mermaid
 graph TB
-    subgraph Master["Master Node (t3.medium)"]
-        M[k3s Server<br/>+ RabbitMQ Pod]
+    subgraph Master["Master (t3.large, 8GB)"]
+        M["Control Plane
+Prometheus
+Grafana
+ArgoCD"]
     end
     
-    subgraph Worker1["Worker 1 (t3.medium) - CPU"]
-        W1[Fast Worker Pods ×5<br/>q.fast 소비<br/>processes pool<br/>concurrency: 10]
+    subgraph Worker1["Worker-1 (t3.medium, 4GB) - Application"]
+        W1["auth-service ×2
+users-service ×1
+locations-service ×1
+API Workers ×2"]
     end
     
-    subgraph Worker2["Worker 2 (t3.medium) - Network"]
-        W2a[External-AI Worker ×3<br/>q.external (AI)<br/>gevent pool]
-        W2b[External-LLM Worker ×2<br/>q.external (LLM)<br/>gevent pool]
+    subgraph Worker2["Worker-2 (t3.medium, 4GB) - Async"]
+        W2a["AI Workers ×3
+q.ai (GPT-4o Vision)
+gevent pool"]
+        W2b["Batch Workers ×2
+q.batch
+processes pool"]
+        W2c["waste-service ×2"]
     end
     
-    subgraph Worker3["Worker 3 (t3.small) - I/O & Sched"]
-        W3a[Bulk Worker ×2<br/>q.bulk<br/>gevent pool]
-        W3b[Sched Worker ×1<br/>q.sched<br/>gevent pool]
-        W3c[Beat ×1<br/>스케줄러]
-        W3d[API Services<br/>auth, users, locations]
+    subgraph Storage["Storage (t3.large, 8GB) - Stateful"]
+        S1["RabbitMQ ×3 (HA)
+5 Queues"]
+        S2["PostgreSQL
+StatefulSet"]
+        S3["Redis
+Deployment"]
+        S4["Celery Beat ×1"]
     end
     
-    M -.-> W1
-    M -.-> W2a
-    M -.-> W2b
-    M -.-> W3a
+    Master -.->|manage| Worker1
+    Master -.->|manage| Worker2
+    Master -.->|manage| Storage
     
-    style M fill:#ffd1d1,stroke:#dc3545,stroke-width:4px,color:#000
-    style W1 fill:#ffdddd,stroke:#ff4444,stroke-width:3px,color:#000
-    style W2a fill:#cce5ff,stroke:#007bff,stroke-width:3px,color:#000
-    style W2b fill:#e6d5ff,stroke:#8844ff,stroke-width:3px,color:#000
-    style W3a fill:#ffe0b3,stroke:#fd7e14,stroke-width:2px,color:#000
-    style W3b fill:#d1f2eb,stroke:#28a745,stroke-width:2px,color:#000
-    style W3c fill:#ccf5f0,stroke:#20c997,stroke-width:3px,color:#000
-    style W3d fill:#fff4dd,stroke:#ffc107,stroke-width:2px,color:#000
+    W1 -->|tasks| S1
+    W2a -->|consume| S1
+    W2b -->|consume| S1
+    
+    style Master fill:#e3f2fd,stroke:#0d47a1,stroke-width:3px
+    style Worker1 fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    style Worker2 fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Storage fill:#fce4ec,stroke:#880e4f,stroke-width:3px
 ```
 
 ### K8s Deployment YAML
@@ -826,33 +859,36 @@ spec:
 
 ## 📊 노드별 리소스 배치
 
-### 3노드 구성 ($91/월)
+### 4-Node 구성 ($185/월)
 
 ```
-Master (t3.medium, $30/월):
-├─ k3s Control Plane
-├─ RabbitMQ (1 Pod)
+Master (t3.large, $60/월):
+├─ Control Plane (kube-apiserver, etcd, scheduler, controller)
+├─ Prometheus + Grafana
 ├─ ArgoCD
-└─ Prometheus
+└─ Metrics Server
 
-Worker 1 (t3.medium, $30/월) - CPU 집약:
-├─ Fast Workers ×5 (q.fast)
-│   └─ CPU: 2 cores 거의 풀 사용
-└─ 리소스: CPU 90%, Memory 70%
+Worker-1 (t3.medium, $30/월) - Application:
+├─ auth-service ×2
+├─ users-service ×1
+├─ locations-service ×1
+├─ API Workers ×2 (q.api)
+└─ 리소스: CPU 40%, Memory 50%
 
-Worker 2 (t3.medium, $30/월) - Network 집약:
-├─ External-AI Workers ×3 (q.external - AI)
-├─ External-LLM Workers ×2 (q.external - LLM)
-└─ 리소스: CPU 30%, Memory 40%, Network 80%
+Worker-2 (t3.medium, $30/월) - Async Workers:
+├─ AI Workers ×3 (q.ai, GPT-4o Vision)
+├─ Batch Workers ×2 (q.batch)
+├─ waste-service ×2
+└─ 리소스: CPU 70%, Memory 60%
 
-Worker 3 (t3.small, $15/월) - I/O & Sched:
-├─ Bulk Workers ×2 (q.bulk)
-├─ Sched Worker ×1 (q.sched)
-├─ Beat ×1 (스케줄러)
-└─ API Services (auth, users, locations)
-└─ 리소스: CPU 50%, Memory 60%
+Storage (t3.large, $60/월) - Stateful Services:
+├─ RabbitMQ ×3 (HA Cluster, 5 Queues)
+├─ PostgreSQL (StatefulSet, 50GB PVC)
+├─ Redis (Deployment)
+├─ Celery Beat ×1
+└─ 리소스: CPU 50%, Memory 70%
 
-총: $105/월 (RabbitMQ 포함)
+총: $185/월 (EC2 $180 + S3 $5)
 ```
 
 ---
@@ -938,7 +974,7 @@ celery_task_failures_total{queue="q.external"}
 
 ---
 
-**작성일**: 2025-10-30  
-**상태**: 🔄 승인 대기  
-**비용**: $105/월 (3노드 + RabbitMQ)
+**작성일**: 2025-10-31  
+**상태**: ✅ 프로덕션 배포 완료  
+**비용**: $185/월 (4-Node + RabbitMQ HA)
 
