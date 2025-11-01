@@ -22,6 +22,7 @@ if [ -z "$PUBLIC_IP" ]; then
   echo "  $0 master     # Master 노드"
   echo "  $0 worker-1   # Worker 1"
   echo "  $0 worker-2   # Worker 2"
+  echo "  $0 storage    # Storage 노드"
   exit 1
 fi
 
@@ -31,4 +32,5 @@ echo ""
 
 # SSH 접속
 ssh -i $SSH_KEY ubuntu@$PUBLIC_IP
+
 

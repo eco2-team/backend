@@ -15,6 +15,7 @@ if [ -z "$NODE_NAME" ]; then
   echo "  $0 master     # Master 노드 초기화"
   echo "  $0 worker-1   # Worker 1 초기화"
   echo "  $0 worker-2   # Worker 2 초기화"
+  echo "  $0 storage    # Storage 노드 초기화"
   echo "  $0 all        # 모든 노드 초기화"
   exit 1
 fi
@@ -26,6 +27,7 @@ if [ "$NODE_NAME" == "all" ]; then
   $0 master
   $0 worker-1
   $0 worker-2
+  $0 storage
   echo ""
   echo "✅ 모든 노드 초기화 완료!"
   exit 0
@@ -157,4 +159,5 @@ fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
 

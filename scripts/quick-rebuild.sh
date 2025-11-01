@@ -22,3 +22,4 @@ ansible-playbook -i inventory/hosts.ini site.yml
 echo ""
 echo "✅ 완료!"
 
+

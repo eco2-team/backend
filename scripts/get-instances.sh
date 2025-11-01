@@ -59,6 +59,24 @@ else
 fi
 
 echo ""
+
+# Storage
+STORAGE_ID=$(aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=k8s-storage" "Name=instance-state-name,Values=running" \
+  --query "Reservations[].Instances[].[InstanceId,PublicIpAddress,State.Name]" \
+  --output text \
+  --region $REGION)
+
+if [ -n "$STORAGE_ID" ]; then
+  echo "✅ Storage:"
+  echo "   Instance ID: $(echo $STORAGE_ID | awk '{print $1}')"
+  echo "   Public IP: $(echo $STORAGE_ID | awk '{print $2}')"
+  echo "   State: $(echo $STORAGE_ID | awk '{print $3}')"
+else
+  echo "❌ Storage 인스턴스 없음"
+fi
+
+echo ""
 echo "📝 Session Manager 접속 명령어:"
 if [ -n "$MASTER_ID" ]; then
   echo "Master: aws ssm start-session --target $(echo $MASTER_ID | awk '{print $1}')"
@@ -68,4 +86,7 @@ if [ -n "$WORKER1_ID" ]; then
 fi
 if [ -n "$WORKER2_ID" ]; then
   echo "Worker 2: aws ssm start-session --target $(echo $WORKER2_ID | awk '{print $1}')"
+fi
+if [ -n "$STORAGE_ID" ]; then
+  echo "Storage: aws ssm start-session --target $(echo $STORAGE_ID | awk '{print $1}')"
 fi

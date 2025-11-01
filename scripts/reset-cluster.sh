@@ -75,3 +75,4 @@ echo "📝 다음 단계:"
 echo "   cd ansible"
 echo "   ansible-playbook -i inventory/hosts.ini site.yml"
 
+

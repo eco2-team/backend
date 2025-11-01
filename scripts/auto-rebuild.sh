@@ -19,3 +19,4 @@ export AUTO_MODE=true
 echo ""
 echo "✅ 자동 재구축 완료!"
 
+
