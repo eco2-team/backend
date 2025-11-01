@@ -25,8 +25,8 @@
   tasks:
     - import_tasks: playbooks/02-master-init.yml
 
-- name: Workers 조인
-  hosts: workers
+- name: Workers 조인 (Worker-1, Worker-2, Storage)
+  hosts: workers,storage
   become: yes
   tasks:
     - import_tasks: playbooks/03-worker-join.yml
