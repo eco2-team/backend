@@ -1,14 +1,14 @@
-# Ingress 리소스 생성 (ALB 기반, 경로 라우팅)
-# ArgoCD, Grafana 등을 ALB를 통해 외부 노출
+# Ingress 리소스 생성 (Path-based routing)
+# 단일 도메인에서 경로로 서비스 분기
 ---
-- name: ArgoCD Ingress 생성 (ALB + ACM)
+- name: Main Ingress 생성 (Path-based routing)
   shell: |
     kubectl apply -f - <<EOF
     apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
-      name: argocd
-      namespace: argocd
+      name: main-ingress
+      namespace: default
       annotations:
         # ALB 설정
         kubernetes.io/ingress.class: alb
@@ -20,103 +20,134 @@
         alb.ingress.kubernetes.io/ssl-redirect: '443'
         alb.ingress.kubernetes.io/certificate-arn: {{ acm_certificate_arn }}
         
-        # Backend protocol
-        alb.ingress.kubernetes.io/backend-protocol: HTTPS
-        alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
-        alb.ingress.kubernetes.io/healthcheck-path: /healthz
-        
-        # 그룹 설정 (하나의 ALB 공유)
+        # ALB 그룹
         alb.ingress.kubernetes.io/group.name: growbin-alb
-        alb.ingress.kubernetes.io/group.order: '10'
+        alb.ingress.kubernetes.io/group.order: '1'
+        
+        # 경로 재작성 (Strip prefix)
+        alb.ingress.kubernetes.io/actions.argocd-rewrite: |
+          {"type":"redirect","redirectConfig":{"protocol":"HTTPS","port":"443","statusCode":"HTTP_301"}}
     spec:
       rules:
-      - host: argocd.{{ domain_name }}
+      - host: {{ domain_name }}
         http:
           paths:
-          - path: /
+          # ArgoCD - /argocd/*
+          - path: /argocd
             pathType: Prefix
             backend:
               service:
                 name: argocd-server
+                namespace: argocd
                 port:
                   number: 443
-    EOF
-  register: argocd_ingress
-
-- name: Grafana Ingress 생성 (ALB 공유)
-  shell: |
-    kubectl apply -f - <<EOF
-    apiVersion: networking.k8s.io/v1
-    kind: Ingress
-    metadata:
-      name: grafana
-      namespace: {{ monitoring_namespace }}
-      annotations:
-        kubernetes.io/ingress.class: alb
-        alb.ingress.kubernetes.io/scheme: internet-facing
-        alb.ingress.kubernetes.io/target-type: ip
-        alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-        alb.ingress.kubernetes.io/ssl-redirect: '443'
-        alb.ingress.kubernetes.io/certificate-arn: {{ acm_certificate_arn }}
-        alb.ingress.kubernetes.io/backend-protocol: HTTP
-        alb.ingress.kubernetes.io/healthcheck-path: /api/health
-        
-        # 같은 ALB 공유
-        alb.ingress.kubernetes.io/group.name: growbin-alb
-        alb.ingress.kubernetes.io/group.order: '20'
-    spec:
-      rules:
-      - host: grafana.{{ domain_name }}
-        http:
-          paths:
-          - path: /
+          
+          # Grafana - /grafana/*
+          - path: /grafana
             pathType: Prefix
             backend:
               service:
                 name: prometheus-grafana
+                namespace: {{ monitoring_namespace }}
                 port:
                   number: 80
-    EOF
-  register: grafana_ingress
-  ignore_errors: yes
-
-- name: API Ingress 생성 (미래 백엔드용, Placeholder)
-  shell: |
-    kubectl apply -f - <<EOF
-    apiVersion: networking.k8s.io/v1
-    kind: Ingress
-    metadata:
-      name: api-placeholder
-      namespace: default
-      annotations:
-        kubernetes.io/ingress.class: alb
-        alb.ingress.kubernetes.io/scheme: internet-facing
-        alb.ingress.kubernetes.io/target-type: ip
-        alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-        alb.ingress.kubernetes.io/ssl-redirect: '443'
-        alb.ingress.kubernetes.io/certificate-arn: {{ acm_certificate_arn }}
-        
-        # 같은 ALB 공유
-        alb.ingress.kubernetes.io/group.name: growbin-alb
-        alb.ingress.kubernetes.io/group.order: '30'
-        
-        # 경로 기반 라우팅 준비
-        alb.ingress.kubernetes.io/actions.default-backend: |
-          {"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"503","messageBody":"Backend not deployed yet"}}
-    spec:
-      rules:
-      - host: api.{{ domain_name }}
-        http:
-          paths:
+          
+          # API Gateway - /api/*
+          - path: /api/v1/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                namespace: default
+                port:
+                  number: 8000
+          
+          - path: /api/v1/users
+            pathType: Prefix
+            backend:
+              service:
+                name: users-service
+                namespace: default
+                port:
+                  number: 8000
+          
+          - path: /api/v1/waste
+            pathType: Prefix
+            backend:
+              service:
+                name: waste-service
+                namespace: default
+                port:
+                  number: 8000
+          
+          - path: /api/v1/recycling
+            pathType: Prefix
+            backend:
+              service:
+                name: recycling-service
+                namespace: default
+                port:
+                  number: 8000
+          
+          - path: /api/v1/locations
+            pathType: Prefix
+            backend:
+              service:
+                name: locations-service
+                namespace: default
+                port:
+                  number: 8000
+          
+          # Root - Default
           - path: /
             pathType: Prefix
             backend:
               service:
                 name: default-backend
+                namespace: default
                 port:
-                  name: use-annotation
+                  number: 80
     EOF
-  register: api_ingress
+  register: main_ingress
+
+- name: Default Backend 생성 (404 처리)
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: default-backend
+      namespace: default
+    spec:
+      type: ClusterIP
+      ports:
+      - port: 80
+        targetPort: 8080
+      selector:
+        app: default-backend
+    ---
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: default-backend
+      namespace: default
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: default-backend
+      template:
+        metadata:
+          labels:
+            app: default-backend
+        spec:
+          containers:
+          - name: default-backend
+            image: registry.k8s.io/defaultbackend-amd64:1.5
+            ports:
+            - containerPort: 8080
+    EOF
+  register: default_backend
   ignore_errors: yes
 
 - name: ALB DNS 이름 조회
@@ -140,25 +171,32 @@
   debug:
     msg:
       - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      - "✅ Ingress 리소스 생성 완료"
+      - "✅ Path-based Ingress 생성 완료"
       - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       - ""
       - "ALB 정보:"
       - "{{ alb_dns_output.stdout_lines }}"
       - ""
-      - "도메인 매핑:"
-      - "  argocd.{{ domain_name }} → ALB → ArgoCD"
-      - "  grafana.{{ domain_name }} → ALB → Grafana"
-      - "  api.{{ domain_name }} → ALB → (백엔드 배포 시 연결)"
+      - "경로 기반 라우팅:"
+      - "  https://{{ domain_name }}/argocd     → ArgoCD"
+      - "  https://{{ domain_name }}/grafana    → Grafana"
+      - "  https://{{ domain_name }}/api/v1/auth     → auth-service"
+      - "  https://{{ domain_name }}/api/v1/users    → users-service"
+      - "  https://{{ domain_name }}/api/v1/waste    → waste-service"
+      - "  https://{{ domain_name }}/api/v1/recycling → recycling-service"
+      - "  https://{{ domain_name }}/api/v1/locations → locations-service"
+      - ""
+      - "단일 ALB로 모든 서비스 라우팅!"
+      - "Host header 불필요, Path만으로 분기"
       - ""
       - "다음 단계:"
       - "1. Route53 레코드를 ALB Alias로 변경:"
-      - "   - Terraform 또는 AWS Console"
-      - "   - A Record Alias → ALB DNS"
+      - "   {{ domain_name }} (apex) → ALB DNS"
       - ""
       - "2. 브라우저 접속:"
-      - "   https://argocd.{{ domain_name }}"
-      - "   https://grafana.{{ domain_name }}"
+      - "   https://{{ domain_name }}/argocd"
+      - "   https://{{ domain_name }}/grafana"
+      - "   https://{{ domain_name }}/api/v1/..."
       - ""
       - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
