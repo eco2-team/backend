@@ -1,9 +1,12 @@
-# 🚀 K8s 클러스터 구축 가이드 (1M + 2W)
+# 🚀 K8s 클러스터 구축 가이드 (4-Node)
 
-> **구성**: 1 Master + 2 Worker + non-HA  
-> **도구**: Kubernetes (kubeadm)  
-> **날짜**: 2025-10-30  
-> **상태**: ✅ 최종 결정
+> **구성**: 1 Master + 3 Workers (App + Async + Storage)  
+> **도구**: Kubernetes (kubeadm) + Calico VXLAN  
+> **날짜**: 2025-10-31  
+> **상태**: ✅ 프로덕션 준비 완료
+
+⚠️ **이 문서는 수동 설치 가이드입니다.**  
+**자동 배포는 [Ansible](iac-terraform-ansible.md)을 사용하세요!**
 
 ## 📋 목차
 
@@ -17,21 +20,30 @@
 
 ## 🏗️ 클러스터 사양
 
-### 노드 구성
+### 4-Node 구성 (Instagram + Robin 패턴)
 
 ```mermaid
 graph TB
-    subgraph Internet["🌐 인터넷"]
-        Users[사용자들]
+    subgraph K8s["Kubernetes Cluster (4-Node)"]
+        Master[Master<br/>t3.large<br/>2 vCPU, 8GB, 80GB<br/>$60/월<br/><br/>Control Plane:<br/>- kube-apiserver<br/>- etcd<br/>- scheduler<br/>- controller<br/><br/>Monitoring:<br/>- Prometheus<br/>- Grafana]
+        
+        Worker1[Worker-1<br/>t3.medium<br/>2 vCPU, 4GB, 40GB<br/>$30/월<br/><br/>Application:<br/>- auth-service<br/>- users-service<br/>- locations-service<br/>(FastAPI / Sync)]
+        
+        Worker2[Worker-2<br/>t3.medium<br/>2 vCPU, 4GB, 40GB<br/>$30/월<br/><br/>Async Workers:<br/>- celery-ai-worker<br/>- celery-batch-worker<br/>(GPT-4o Vision)]
+        
+        Storage[Storage<br/>t3.large<br/>2 vCPU, 8GB, 100GB<br/>$60/월<br/><br/>Stateful:<br/>- RabbitMQ HA<br/>- PostgreSQL<br/>- Redis]
     end
     
-    subgraph K8s["Kubernetes Cluster (non-HA)"]
-        Master[Master Node<br/>kubeadm init<br/>t3.medium<br/>2 vCPU, 4GB<br/>$30/월<br/><br/>역할:<br/>- Control Plane<br/>- etcd<br/>- API Server<br/>- Scheduler<br/>- Controller Manager]
-        
-        Worker1[Worker 1<br/>kubeadm join<br/>t3.medium<br/>2 vCPU, 4GB<br/>$30/월<br/><br/>실행:<br/>- waste-service<br/>- recycling-service<br/>- celery-workers]
-        
-        Worker2[Worker 2<br/>kubeadm join<br/>t3.small<br/>2 vCPU, 2GB<br/>$15/월<br/><br/>실행:<br/>- auth-service<br/>- users-service<br/>- locations-service]
-    end
+    Master -.->|manage| Worker1
+    Master -.->|manage| Worker2
+    Master -.->|manage| Storage
+    Worker1 -->|publish| Storage
+    Worker2 -->|consume| Storage
+    
+    style Master fill:#e3f2fd,stroke:#0d47a1,stroke-width:3px
+    style Worker1 fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    style Worker2 fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Storage fill:#fce4ec,stroke:#880e4f,stroke-width:3px
     
     subgraph Services["서비스 분산"]
         Heavy[Heavy Workload<br/>waste, recycling]
