@@ -52,3 +52,4 @@
       - "이제 Ingress 생성 시 ALB가 자동 생성됩니다"
       - "{{ alb_status.stdout_lines }}"
 
+

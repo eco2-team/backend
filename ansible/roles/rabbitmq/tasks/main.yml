@@ -27,19 +27,22 @@
   register: rabbitmq_check
   changed_when: false
 
-- name: RabbitMQ Helm Chart 설치
+- name: RabbitMQ Helm Chart 설치 (HA, Storage 노드)
   command: >
     helm install rabbitmq bitnami/rabbitmq
     --namespace {{ rabbitmq_namespace }}
     --set auth.username={{ rabbitmq_username }}
     --set auth.password={{ rabbitmq_password }}
+    --set replicaCount=3
     --set persistence.enabled=true
     --set persistence.size={{ rabbitmq_persistence_size }}
-    --set resources.requests.cpu=200m
-    --set resources.requests.memory=256Mi
-    --set resources.limits.cpu=500m
-    --set resources.limits.memory=512Mi
-    --set nodeSelector.kubernetes\\.io/hostname=k8s-master
+    --set resources.requests.cpu=500m
+    --set resources.requests.memory=1Gi
+    --set resources.limits.cpu=2000m
+    --set resources.limits.memory=2Gi
+    --set nodeSelector.workload=storage
+    --set clustering.enabled=true
+    --set clustering.addressType=hostname
   when: "'rabbitmq' not in rabbitmq_check.stdout"
 
 - name: RabbitMQ Pod 대기

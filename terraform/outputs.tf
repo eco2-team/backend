@@ -31,12 +31,14 @@ output "worker_2_private_ip" {
 output "ansible_inventory" {
   description = "Ansible Inventory 내용"
   value = templatefile("${path.module}/templates/hosts.tpl", {
-    master_public_ip   = aws_eip.master.public_ip
-    master_private_ip  = module.master.private_ip
-    worker_1_public_ip = module.worker_1.public_ip
+    master_public_ip    = aws_eip.master.public_ip
+    master_private_ip   = module.master.private_ip
+    worker_1_public_ip  = module.worker_1.public_ip
     worker_1_private_ip = module.worker_1.private_ip
-    worker_2_public_ip = module.worker_2.public_ip
+    worker_2_public_ip  = module.worker_2.public_ip
     worker_2_private_ip = module.worker_2.private_ip
+    storage_public_ip   = module.storage.public_ip
+    storage_private_ip  = module.storage.private_ip
   })
 }
 

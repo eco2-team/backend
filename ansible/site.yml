@@ -40,16 +40,19 @@
     - import_tasks: playbooks/04-cni-install.yml
   # ⚠️ 노드 Ready 실패 시 여기서 중단됨
 
-- name: Workers 레이블 지정
+- name: 노드 레이블 지정
   hosts: masters
   become: yes
   become_user: "{{ kubectl_user }}"
   tasks:
-    - name: Label worker-1
-      command: kubectl label nodes k8s-worker-1 workload=cpu instance-type=t3.medium --overwrite
+    - name: Label worker-1 (Application)
+      command: kubectl label nodes k8s-worker-1 workload=application instance-type=t3.medium role=application --overwrite
     
-    - name: Label worker-2
-      command: kubectl label nodes k8s-worker-2 workload=network instance-type=t3.small --overwrite
+    - name: Label worker-2 (Async Workers)
+      command: kubectl label nodes k8s-worker-2 workload=async-workers instance-type=t3.medium role=workers --overwrite
+    
+    - name: Label storage (Stateful Services)
+      command: kubectl label nodes k8s-storage workload=storage instance-type=t3.large role=storage --overwrite
 
 - name: Add-ons 설치 (Cert-manager, Metrics)
   hosts: masters
