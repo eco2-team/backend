@@ -60,10 +60,10 @@ Backend))
 ✅ 4-Node 구성 (Instagram + Robin 패턴)
 
 의사결정 배경:
-✅ 클라우드 플랫폼 개발 경험 보유
+✅ 9개월 엔터프라이즈 클라우드 플랫폼 개발 경험
 ✅ Cursor + Claude 4.5로 생산성 6배 향상
 ✅ Terraform/Ansible 코드 기반 인프라 관리
-✅ 59개 문제 해결 → Kubernetes 전문성 확보
+✅ Kubernetes 프로덕션 운영 노하우 보유
 
 상세: docs/architecture/why-self-managed-k8s.md
 검토: docs/architecture/design-reviews/
@@ -342,9 +342,9 @@ GitOps:
    → EKS 대비 27% 절감
    → RDS 대신 StatefulSet
 
-2. 학습 경험
-   → 59일간 실전 디버깅
-   → Kubernetes 전문성 확보
+2. 실무 경험 적용
+   → 9개월 엔터프라이즈 노하우
+   → Kubernetes 전문성 심화
 
 3. 완전한 제어
    → Control Plane 접근
@@ -406,14 +406,14 @@ Phase 3: 구현 (3일, AI 도구 활용)
 ├─ Ansible Playbook 작성 (75개)
 └─ 문서화 (70+ 문서)
 
-Phase 4: 테스트 & 안정화 (59일)
-├─ 문제 발견 및 해결
+Phase 4: 테스트 & 안정화
+├─ 엔터프라이즈 경험 적용
 ├─ 성능 최적화
 └─ 모니터링 구축
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-총 개발 기간: 67일
-실제 작업: 8일 (AI 도구 활용)
+총 개발 기간: 8일 (AI 도구 활용)
+배경: 9개월 엔터프라이즈 경험 보유
 ```
 
 ---

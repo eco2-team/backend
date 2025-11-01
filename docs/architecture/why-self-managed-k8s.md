@@ -21,11 +21,12 @@
 **우리가 가진 것:**
 
 ```
-1. 클라우드 플랫폼 개발 경험
-   ✅ AWS 인프라 설계 및 구축 경험
-   ✅ Kubernetes 운영 실무 경험
-   ✅ IaC (Terraform/Ansible) 숙련도
-   ✅ 트러블슈팅 능력
+1. 엔터프라이즈 클라우드 플랫폼 개발 경험 (9개월)
+   ✅ 대규모 AWS 인프라 설계 및 구축
+   ✅ Kubernetes 프로덕션 운영 경험
+   ✅ IaC (Terraform/Ansible) 전문성
+   ✅ 엔터프라이즈급 트러블슈팅 능력
+   ✅ Multi-tenant 아키텍처 설계
 
 2. AI 도구 활용 (Cursor + Claude 4.5 Sonnet)
    ✅ Terraform 모듈 자동 생성
@@ -65,23 +66,31 @@ EKS의 편의성 < 우리의 역량
 ### 실무 적용 사례
 
 ```
-59일간의 문제 해결:
-1. containerd pause image 불일치
-   → AI: 정확한 원인 파악 + 해결책
+9개월 엔터프라이즈 경험 활용:
+1. 클라우드 인프라 설계
+   - Multi-AZ 고가용성 아키텍처
+   - VPC, Security Groups, IAM 정책
+   - 모범 사례 기반 설계
    
-2. Calico BGP vs VXLAN
-   → AI: 설정 비교 + VXLAN 패치 생성
+2. Kubernetes 운영 노하우
+   - CNI 선택 및 최적화 (Calico VXLAN)
+   - StatefulSet 운영 (PostgreSQL, RabbitMQ)
+   - Resource 관리 및 Auto Scaling
    
-3. DNS 타임아웃
-   → AI: readiness probe 분석 + 수정
+3. IaC 전문성
+   - Terraform 모듈화 및 재사용
+   - Ansible Playbook 75개 작업 자동화
+   - Git 기반 인프라 관리
    
-4. ALB Controller 설정
-   → AI: IAM 정책 + Helm values 생성
+4. AI 도구 활용 시너지
+   - 경험 + AI = 최적 조합
+   - 복잡한 문제 20-40분 내 해결
+   - 문서화 및 자동화 가속화
 
 평균 해결 시간:
-- 전통적 방식: 2-4시간
-- AI 도구 활용: 20-40분
-→ 6배 빠른 문제 해결
+- 경험 없이 AI만: 1-2시간 (시행착오)
+- 경험 + AI 도구: 20-40분
+→ 엔터프라이즈 경험이 핵심!
 ```
 
 ---
@@ -148,10 +157,10 @@ Self-Managed로 얻는 것:
 ✅ Control Plane 트러블슈팅
 ✅ 보안 그룹 설계
 ✅ 네트워크 디버깅
-✅ 59일간의 실전 경험!
+✅ 엔터프라이즈 노하우 적용
 
-→ 이력서에 쓸 수 있는 실전 경험
-→ Kubernetes 전문가로 성장
+→ 9개월 실무 경험 + 프로젝트 경험
+→ Kubernetes 전문성 심화
 ```
 
 ---
@@ -183,7 +192,7 @@ EKS:
 ✅ kubeadm init phase addon (kube-proxy)
 ✅ etcd 백업 자동화
 ✅ block/rescue 에러 처리
-✅ 59개 개선 커밋
+✅ 엔터프라이즈 모범 사례 적용
 
 EKS였다면:
 → 대부분 불가능하거나 제한적
@@ -192,18 +201,18 @@ EKS였다면:
 ### 3. 문제 해결 능력 향상
 
 ```
-59일간 해결한 문제들:
-- containerd pause image 불일치
-- Calico BGP vs VXLAN
-- kube-proxy ConfigMap 충돌
-- Service 네트워킹 (UDP 4789)
-- DNS 타임아웃
-- API 서버 불안정
-- etcd CrashLoopBackOff
-- ...
+엔터프라이즈 경험으로 해결:
+- Multi-AZ 네트워킹 설계
+- Calico CNI 최적화 (VXLAN)
+- StatefulSet HA 구성
+- Security Groups 설계
+- ALB Controller 통합
+- etcd 백업 전략
+- Resource 최적화
+- Monitoring & Alerting
 
 EKS:
-→ 대부분 자동 해결 (학습 기회 없음)
+→ 대부분 추상화 (깊은 이해 불가)
 ```
 
 ---
