@@ -62,6 +62,13 @@
     - import_tasks: playbooks/05-addons.yml
     - import_tasks: playbooks/06-cert-manager-issuer.yml
 
+- name: AWS EBS CSI Driver 및 StorageClass 설정
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/05-1-ebs-csi-driver.yml
+
 - name: AWS Load Balancer Controller 설치
   hosts: masters
   become: yes
