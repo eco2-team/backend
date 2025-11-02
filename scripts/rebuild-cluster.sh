@@ -44,9 +44,36 @@ echo "🔧 Terraform 초기화..."
 terraform init -migrate-state -upgrade
 echo ""
 
-echo "🔍 현재 인프라 상태 확인..."
-terraform show || true
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📋 현재 인프라 리소스 확인"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
+
+# 현재 리소스 목록 출력
+terraform state list 2>/dev/null || echo "State 파일 없음 (새 배포)"
+echo ""
+
+# 리소스 개수 확인
+RESOURCE_COUNT=$(terraform state list 2>/dev/null | wc -l | tr -d ' ')
+echo "📊 현재 리소스 개수: $RESOURCE_COUNT"
+echo ""
+
+if [ "$RESOURCE_COUNT" -gt 0 ]; then
+  echo "삭제될 리소스:"
+  terraform state list | grep -E "module\.(master|worker|storage)|aws_eip|aws_s3_bucket" || true
+  echo ""
+  
+  if [ "$AUTO_MODE" != "true" ]; then
+    read -p "⚠️  위 리소스들을 삭제하시겠습니까? (yes/no): " CONFIRM_DELETE
+    if [ "$CONFIRM_DELETE" != "yes" ]; then
+      echo "❌ 삭제가 취소되었습니다."
+      exit 0
+    fi
+  else
+    echo "🤖 자동 모드: 5초 후 삭제 시작..."
+    sleep 5
+  fi
+fi
 
 echo "🗑️  Terraform destroy 실행..."
 terraform destroy -auto-approve
