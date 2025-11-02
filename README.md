@@ -141,14 +141,20 @@ External APIs:
 | 문서 | 설명 | 중요도 |
 |------|------|--------|
 | [**배포 가이드**](DEPLOYMENT_GUIDE.md) | 4-Tier 클러스터 배포 | ⭐⭐⭐⭐⭐ |
-| [**4-Tier 아키텍처**](docs/architecture/deployment-architecture-4node.md) | Layered Architecture | ⭐⭐⭐⭐⭐ |
+| [**4-Tier 아키텍처**](docs/deployment/deployment-architecture-4node.md) | Layered Architecture | ⭐⭐⭐⭐⭐ |
 | [**VPC 네트워크**](docs/infrastructure/vpc-network-design.md) | 네트워크 설계 | ⭐⭐⭐⭐ |
 | [**Self-Managed K8s 배경**](docs/architecture/why-self-managed-k8s.md) | 의사결정 | ⭐⭐⭐⭐ |
 
 ### 📖 카테고리별 문서
 
 #### 🏗️ [아키텍처](docs/architecture/)
-- [4-Tier 배포 아키텍처](docs/architecture/deployment-architecture-4node.md) ⭐⭐⭐⭐⭐
+#### 🚢 [배포](docs/deployment/)
+- [4-Tier 배포 아키텍처](docs/deployment/deployment-architecture-4node.md) - 전체 다이어그램 ⭐⭐⭐⭐⭐
+- [배포 환경 구축](docs/deployment/DEPLOYMENT_SETUP.md) - GitOps 파이프라인
+- [GitOps 배포](docs/deployment/gitops-argocd-helm.md) - ArgoCD + Helm
+- [GHCR 설정](docs/deployment/ghcr-setup.md) - Container Registry
+
+#### 🏗️ [아키텍처](docs/architecture/)
 - [Self-Managed K8s 선택 배경](docs/architecture/why-self-managed-k8s.md)
 - [Task Queue 설계](docs/architecture/task-queue-design.md) - Tier 3
 - [Final K8s Architecture](docs/architecture/final-k8s-architecture.md)
