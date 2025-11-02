@@ -29,8 +29,14 @@ echo "📝 Inventory 생성..."
 terraform init -migrate-state -upgrade -input=false
 terraform output -raw ansible_inventory > ../ansible/inventory/hosts.ini
 
+echo "📊 Terraform output 추출..."
+VPC_ID=$(terraform output -raw vpc_id)
+ACM_ARN=$(terraform output -raw acm_certificate_arn 2>/dev/null || echo "")
+
 cd "$PROJECT_ROOT/ansible"
-ansible-playbook -i inventory/hosts.ini site.yml
+ansible-playbook -i inventory/hosts.ini site.yml \
+  -e "vpc_id=$VPC_ID" \
+  -e "acm_certificate_arn=$ACM_ARN"
 
 echo ""
 echo "✅ 완료!"

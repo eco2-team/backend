@@ -155,7 +155,21 @@ echo "5️⃣ Ansible Playbook 실행 (Kubernetes 설치)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-ansible-playbook -i inventory/hosts.ini site.yml
+# Terraform output 추출 (ALB Controller용)
+cd "$TERRAFORM_DIR"
+echo "📊 Terraform output 추출 중..."
+VPC_ID=$(terraform output -raw vpc_id)
+ACM_ARN=$(terraform output -raw acm_certificate_arn 2>/dev/null || echo "")
+echo "  VPC ID: $VPC_ID"
+echo "  ACM ARN: ${ACM_ARN:-'(없음)'}"
+echo ""
+
+cd "$ANSIBLE_DIR"
+
+# Extra vars로 전달
+ansible-playbook -i inventory/hosts.ini site.yml \
+  -e "vpc_id=$VPC_ID" \
+  -e "acm_certificate_arn=$ACM_ARN"
 
 if [ $? -ne 0 ]; then
   echo ""
