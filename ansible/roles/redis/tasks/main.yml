@@ -130,3 +130,4 @@
       - "연결: redis.default:6379"
       - "{{ redis_dbs.stdout_lines }}"
 
+
