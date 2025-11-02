@@ -3,7 +3,7 @@
 > **최종 결정**: Kubernetes 기반 도메인별 서버 분리  
 > **구성**: 5개 Namespace, AWS ALB Controller, Helm Charts  
 > **날짜**: 2025-10-31  
-> **상태**: ✅ 프로덕션 배포 완료
+> **상태**: ✅ 최종 확정, 배포 진행 중
 
 ## 📋 목차
 
@@ -320,7 +320,7 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph Ingress["Ingress Controller (Nginx)"]
+    subgraph Ingress["Ingress Controller (AWS ALB)"]
         IG[Ingress<br/>Path Routing]
     end
     
