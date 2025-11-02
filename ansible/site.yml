@@ -69,13 +69,6 @@
   tasks:
     - import_tasks: playbooks/07-alb-controller.yml
 
-- name: Ingress 리소스 생성 (ALB 자동 생성)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/07-ingress-resources.yml
-
 - name: ArgoCD 설치
   hosts: masters
   become: yes
@@ -98,6 +91,20 @@
     - redis
 
 - name: Monitoring 설치
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/08-monitoring.yml
+
+- name: Ingress 리소스 생성 (ALB 자동 생성)
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/07-ingress-resources.yml
+
+- name: etcd 백업 설정
   hosts: masters
   become: yes
   become_user: "{{ kubectl_user }}"
