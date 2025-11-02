@@ -1,9 +1,9 @@
 # 🏗️ 마이크로서비스 아키텍처 설계
 
 > **최종 결정**: Kubernetes 기반 도메인별 서버 분리  
-> **구성**: 5개 Namespace, Nginx Ingress, Helm Charts  
-> **날짜**: 2025-10-30  
-> **상태**: ✅ 최종 확정
+> **구성**: 5개 Namespace, AWS ALB Controller, Helm Charts  
+> **날짜**: 2025-10-31  
+> **상태**: ✅ 프로덕션 배포 완료
 
 ## 📋 목차
 
@@ -93,7 +93,7 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph LB["Nginx / Traefik (API Gateway)"]
+    subgraph LB["AWS ALB (API Gateway)"]
         Gateway[API Gateway<br/>:80]
     end
     

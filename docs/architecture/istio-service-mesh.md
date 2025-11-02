@@ -696,7 +696,7 @@ Istio 도입 시 +$15/월
    ❌ 현재 클러스터 빡빡
 
 4. 대안 존재
-   ✅ Nginx Ingress로 충분
+   ✅ AWS ALB Controller로 충분
    ✅ Celery Retry 정책
    ✅ 애플리케이션 레벨 Rate Limiting
 
@@ -781,7 +781,7 @@ MVP 후 Istio 도입 시:
 2. 서비스 규모 작음 (5개)
 3. 리소스 부족 (메모리 +3.4GB)
 4. 복잡도 증가
-5. 대안 존재 (Nginx Ingress, 애플리케이션 로직)
+5. 대안 존재 (AWS ALB, 애플리케이션 로직)
 
 결론:
 → Istio 없이 Kubernetes + ArgoCD + Helm만으로 충분
