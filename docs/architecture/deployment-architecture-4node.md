@@ -1,564 +1,498 @@
-# 🏗️ 최종 배포 아키텍처 (4-Node Cluster)
+# 🏗️ 4-Tier 배포 아키텍처
 
-> **Instagram + Robin Storage 패턴 적용**  
-> **AWS ALB + ACM + S3 통합**  
+> **Software Engineering Layered Architecture**  
+> **4-Tier**: Control Plane → Data Plane → Message Queue → Storage  
 > **날짜**: 2025-10-31
 
 ## 📋 목차
 
-1. [전체 아키텍처 개요](#전체-아키텍처-개요)
-2. [4-Node 구성](#4-node-구성)
-3. [네트워크 레이어](#네트워크-레이어)
-4. [애플리케이션 레이어](#애플리케이션-레이어)
-5. [데이터 흐름](#데이터-흐름)
+1. [4-Tier 정의](#4-tier-정의)
+2. [전체 아키텍처](#전체-아키텍처)
+3. [Tier별 상세](#tier별-상세)
+4. [통신 흐름](#통신-흐름)
+5. [확장 전략](#확장-전략)
 
 ---
 
-## 🏗️ 전체 아키텍처 개요
+## 🎯 4-Tier 정의
 
-```mermaid
-graph TB
-    subgraph Internet["🌐 인터넷"]
-        User[사용자<br/>브라우저/앱]
-        DNS[Route53<br/>growbin.app]
-    end
-    
-    subgraph AWS["☁️ AWS Cloud (ap-northeast-2)"]
-        subgraph VPC["VPC (10.0.0.0/16)"]
-            IGW[Internet Gateway<br/>NAT 수행]
-            ACM[ACM Certificate<br/>*.growbin.app]
-            ALB[Application LB<br/>L7 Routing<br/>TLS 종료]
-            S3[S3 Bucket<br/>이미지 저장소<br/>Pre-signed URL]
-            
-            subgraph Subnet1["Subnet 1 (10.0.1.0/24) - AZ A"]
-                Master[Master<br/>t3.large 8GB<br/>Control + Monitor]
-                Storage[Storage<br/>t3.large 8GB<br/>Stateful Services]
-            end
-            
-            subgraph Subnet2["Subnet 2 (10.0.2.0/24) - AZ B"]
-                Worker1[Worker-1<br/>t3.medium 4GB<br/>App Pods]
-            end
-            
-            subgraph Subnet3["Subnet 3 (10.0.3.0/24) - AZ C"]
-                Worker2[Worker-2<br/>t3.medium 4GB<br/>Celery Workers]
-            end
-        end
-    end
-    
-    User -->|DNS Query| DNS
-    DNS -->|ALB DNS| User
-    User -->|HTTPS| IGW
-    IGW -->|NAT| ALB
-    ALB -->|ACM TLS| ACM
-    ALB -->|Path Routing| Worker1
-    ALB -->|Path Routing| Worker2
-    Worker1 -.->|Image Upload| S3
-    Worker2 -.->|Image Download| S3
-    Master -.->|API| Worker1
-    Master -.->|API| Worker2
-    Worker1 -.->|Queue| Storage
-    Worker2 -.->|Queue| Storage
-    
-    style User fill:#e1f5ff,stroke:#01579b,stroke-width:3px
-    style DNS fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    style IGW fill:#fff3e0,stroke:#e65100,stroke-width:3px
-    style ALB fill:#fce4ec,stroke:#880e4f,stroke-width:3px
-    style ACM fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-    style S3 fill:#e0f2f1,stroke:#004d40,stroke-width:2px
-    style Master fill:#e3f2fd,stroke:#0d47a1,stroke-width:3px
-    style Worker1 fill:#f1f8e9,stroke:#33691e,stroke-width:2px
-    style Worker2 fill:#fff9c4,stroke:#f57f17,stroke-width:2px
-    style Storage fill:#fce4ec,stroke:#880e4f,stroke-width:3px
+### Software Engineering Perspective
+
+```
+4-Tier Layered Architecture:
+
+Tier 1: Control Plane (Orchestration Layer)
+├─ 책임: Cluster Management, Scheduling, Monitoring
+├─ 관심사: "어떻게 워크로드를 배치하고 관리할 것인가?"
+└─ 구성: Kubernetes Control Plane + Observability
+
+Tier 2: Data Plane (Business Logic Layer)
+├─ 책임: Request Processing, Business Logic Execution
+├─ 관심사: "비즈니스 요구사항을 어떻게 처리할 것인가?"
+└─ 구성: Sync API + Async Workers (구현 세부사항)
+
+Tier 3: Message Queue (Middleware Layer)
+├─ 책임: Asynchronous Communication, Message Routing
+├─ 관심사: "메시지를 어떻게 안전하게 전달할 것인가?"
+└─ 구성: RabbitMQ HA Cluster
+
+Tier 4: Persistence (Storage Layer)
+├─ 책임: Data Persistence, Caching
+├─ 관심사: "데이터를 어떻게 영속적으로 저장할 것인가?"
+└─ 구성: PostgreSQL + Redis + Celery Beat
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+핵심:
+✅ 물리적 노드 (4개) ≠ 논리적 Tier (4계층)
+✅ Storage 노드 = Tier 3 (MQ) + Tier 4 (DB)
+✅ Clean Architecture Principles
 ```
 
 ---
 
-## 🖥️ 4-Node 구성
+## 🌐 전체 아키텍처
 
-### 노드별 역할
+### 4-Tier System Diagram
+
+```mermaid
+graph TB
+    subgraph Internet["🌐 Internet"]
+        Users["사용자<br/>Mobile App"]
+    end
+    
+    subgraph AWS["☁️ AWS Services"]
+        Route53["Route53<br/>DNS Management"]
+        ALB["Application Load Balancer<br/>L7 Routing + SSL"]
+        ACM["ACM<br/>*.growbin.app<br/>Auto-Renewal"]
+        S3["S3<br/>prod-sesacthon-images<br/>Pre-signed URL"]
+    end
+    
+    subgraph T1["🎛️ Tier 1: Control Plane"]
+        direction TB
+        API["kube-apiserver<br/>etcd"]
+        Sched["scheduler<br/>controller-manager"]
+        Monitor["Prometheus<br/>Grafana"]
+        GitOps["ArgoCD<br/>GitOps CD"]
+        
+        API --- Sched
+        Sched --- Monitor
+        Monitor --- GitOps
+    end
+    
+    subgraph T2["⚙️ Tier 2: Data Plane"]
+        direction TB
+        
+        subgraph Sync["Sync API Worker-1"]
+            Auth["auth-service x2<br/>OAuth JWT"]
+            Users["users-service x1<br/>Profile History"]
+            Loc["locations-service x1<br/>Bin Search"]
+        end
+        
+        subgraph Async["Async Processing Worker-2"]
+            Waste["waste-service x2<br/>Image API"]
+            AIW["AI Workers x3<br/>GPT-4o Vision"]
+            BatchW["Batch Workers x2<br/>Batch Jobs"]
+        end
+        
+        Auth --- Users
+        Users --- Loc
+        Waste --- AIW
+        AIW --- BatchW
+    end
+    
+    subgraph T3["📬 Tier 3: Message Queue"]
+        RMQ["RabbitMQ HA Cluster x3<br/><br/>q.ai Priority:10<br/>q.batch Priority:1<br/>q.api Priority:5<br/>q.sched Priority:3<br/>q.dlq DLX"]
+    end
+    
+    subgraph T4["💾 Tier 4: Persistence"]
+        DB["PostgreSQL<br/>StatefulSet<br/>50GB PVC<br/><br/>auth schema<br/>users schema<br/>waste schema"]
+        RedisDB["Redis<br/>Deployment<br/><br/>Result Backend<br/>Cache 7-day TTL"]
+        BeatSvc["Celery Beat x1<br/><br/>Scheduler<br/>DatabaseScheduler"]
+        
+        DB --- RedisDB
+        RedisDB --- BeatSvc
+    end
+    
+    Users --> Route53
+    Route53 --> ALB
+    ACM -.->|SSL Cert| ALB
+    
+    ALB --> Auth
+    ALB --> Waste
+    ALB --> GitOps
+    ALB --> Monitor
+    
+    T1 -.->|orchestrate| T2
+    
+    Auth -->|publish| T3
+    Waste -->|publish| T3
+    T3 -->|consume| AIW
+    T3 -->|consume| BatchW
+    
+    Auth <-->|CRUD| DB
+    Users <-->|CRUD| DB
+    Waste <-->|CRUD| DB
+    
+    Waste <-->|cache| RedisDB
+    AIW <-->|result| RedisDB
+    
+    Waste --> S3
+    AIW --> OpenAI["OpenAI<br/>GPT-4o Vision"]
+    Loc --> Kakao["Kakao Map API"]
+    Auth --> KakaoOAuth["Kakao OAuth"]
+    
+    style Internet fill:#0d47a1,color:#fff,stroke:#01579b,stroke-width:4px
+    style AWS fill:#e65100,color:#fff,stroke:#bf360c,stroke-width:3px
+    style T1 fill:#1565c0,color:#fff,stroke:#0d47a1,stroke-width:5px
+    style T2 fill:#2e7d32,color:#fff,stroke:#1b5e20,stroke-width:5px
+    style T3 fill:#f57c00,color:#fff,stroke:#e65100,stroke-width:5px
+    style T4 fill:#c2185b,color:#fff,stroke:#880e4f,stroke-width:5px
+    style Sync fill:#388e3c,color:#fff,stroke:#2e7d32,stroke-width:3px
+    style Async fill:#43a047,color:#fff,stroke:#388e3c,stroke-width:3px
+    style API fill:#42a5f5,color:#000,stroke:#1976d2,stroke-width:2px
+    style Sched fill:#64b5f6,color:#000,stroke:#42a5f5,stroke-width:2px
+    style Monitor fill:#90caf9,color:#000,stroke:#64b5f6,stroke-width:2px
+    style GitOps fill:#bbdefb,color:#000,stroke:#90caf9,stroke-width:2px
+    style Auth fill:#81c784,color:#000,stroke:#66bb6a,stroke-width:2px
+    style Users fill:#a5d6a7,color:#000,stroke:#81c784,stroke-width:2px
+    style Loc fill:#c8e6c9,color:#000,stroke:#a5d6a7,stroke-width:2px
+    style Waste fill:#ffb74d,color:#000,stroke:#ffa726,stroke-width:2px
+    style AIW fill:#ffcc80,color:#000,stroke:#ffb74d,stroke-width:2px
+    style BatchW fill:#ffe0b2,color:#000,stroke:#ffcc80,stroke-width:2px
+    style RMQ fill:#ff8a65,color:#000,stroke:#ff7043,stroke-width:2px
+    style DB fill:#f48fb1,color:#000,stroke:#ec407a,stroke-width:2px
+    style RedisDB fill:#f8bbd0,color:#000,stroke:#f48fb1,stroke-width:2px
+    style BeatSvc fill:#fce4ec,color:#000,stroke:#f8bbd0,stroke-width:2px
+```
+
+---
+
+## 📊 Tier별 상세
+
+### Tier 1: Control Plane
+
+**Physical:** Master (t3.large, 8GB, 80GB, $60/월)
+
+```mermaid
+graph TB
+    subgraph CP["Control Plane Components"]
+        API["kube-apiserver<br/>RESTful API<br/>6443"]
+        ETCD["etcd<br/>Key-Value Store<br/>Cluster State"]
+        Scheduler["kube-scheduler<br/>Pod Placement"]
+        Controller["kube-controller-manager<br/>Control Loops"]
+    end
+    
+    subgraph Observ["Observability"]
+        Prom["Prometheus<br/>Metrics Collection"]
+        Graf["Grafana<br/>Visualization"]
+        Metrics["Metrics Server<br/>HPA Support"]
+    end
+    
+    subgraph CD["Continuous Deployment"]
+        ArgoCD["ArgoCD<br/>GitOps Engine<br/>Auto Sync"]
+    end
+    
+    API --> ETCD
+    API --> Scheduler
+    API --> Controller
+    Prom --> Graf
+    
+    style CP fill:#1565c0,color:#fff,stroke:#0d47a1,stroke-width:3px
+    style Observ fill:#1976d2,color:#fff,stroke:#1565c0,stroke-width:2px
+    style CD fill:#2196f3,color:#fff,stroke:#1976d2,stroke-width:2px
+    style API fill:#42a5f5,color:#000,stroke:#1976d2,stroke-width:2px
+    style ETCD fill:#64b5f6,color:#000,stroke:#42a5f5,stroke-width:2px
+    style Scheduler fill:#90caf9,color:#000,stroke:#64b5f6,stroke-width:2px
+    style Controller fill:#bbdefb,color:#000,stroke:#90caf9,stroke-width:2px
+```
+
+### Tier 2: Data Plane
+
+**Physical:** Worker-1 + Worker-2 (t3.medium ×2, 4GB ×2, $60/월)
+
+```mermaid
+graph TB
+    subgraph DP["Data Plane Business Logic"]
+        subgraph Sync["Sync API Worker-1 Reactor Pattern"]
+            Auth["auth-service x2<br/>OAuth 2.0<br/>Kakao Google Naver<br/>JWT 발급 즉시 응답"]
+            Users["users-service x1<br/>Profile Management<br/>History Query"]
+            Loc["locations-service x1<br/>Kakao Map Search<br/>Bin Navigation"]
+        end
+        
+        subgraph Async["Async Processing Worker-2 Task Queue"]
+            Waste["waste-service x2<br/>Image Analysis API<br/>Job Creation"]
+            AIWorker["AI Workers x3<br/>GPT-4o Vision<br/>Queue: q.ai<br/>gevent pool"]
+            BatchWorker["Batch Workers x2<br/>Batch Jobs<br/>Queue: q.batch q.sched<br/>processes pool"]
+        end
+    end
+    
+    Auth -.->|same tier| Users
+    Users -.->|same tier| Loc
+    Waste -.->|same tier| AIWorker
+    
+    style DP fill:#2e7d32,color:#fff,stroke:#1b5e20,stroke-width:4px
+    style Sync fill:#388e3c,color:#fff,stroke:#2e7d32,stroke-width:3px
+    style Async fill:#43a047,color:#fff,stroke:#388e3c,stroke-width:3px
+    style Auth fill:#81c784,color:#000,stroke:#66bb6a,stroke-width:2px
+    style Users fill:#a5d6a7,color:#000,stroke:#81c784,stroke-width:2px
+    style Loc fill:#c8e6c9,color:#000,stroke:#a5d6a7,stroke-width:2px
+    style Waste fill:#ffb74d,color:#000,stroke:#ffa726,stroke-width:2px
+    style AIWorker fill:#ffcc80,color:#000,stroke:#ffb74d,stroke-width:2px
+    style BatchWorker fill:#ffe0b2,color:#000,stroke:#ffcc80,stroke-width:2px
+```
+
+### Tier 3: Message Queue (Middleware)
+
+**Physical:** Storage 노드의 RabbitMQ
 
 ```mermaid
 graph LR
-    subgraph Cluster["Kubernetes Cluster (4 Nodes)"]
-        subgraph Master["Master Node<br/>t3.large (2vCPU, 8GB, 80GB)<br/>$60/month"]
-            CP[Control Plane<br/>• kube-apiserver<br/>• kube-scheduler<br/>• kube-controller-manager<br/>• etcd]
-            Mon[Monitoring<br/>• Prometheus<br/>• Grafana<br/>• AlertManager]
-        end
+    subgraph MQ["Message Queue Middleware"]
+        Exchange["Topic Exchange<br/>tasks<br/><br/>Routing by Key"]
         
-        subgraph Worker1["Worker-1<br/>t3.medium (2vCPU, 4GB, 40GB)<br/>$30/month"]
-            App[Application Pods<br/>• auth-service<br/>• users-service<br/>• locations-service<br/>FastAPI / Reactor]
-        end
+        Q1["q.ai<br/>Priority: 10<br/>TTL: 300s<br/>AI Vision"]
+        Q2["q.batch<br/>Priority: 1<br/>TTL: 3600s<br/>Batch Jobs"]
+        Q3["q.api<br/>Priority: 5<br/>TTL: 300s<br/>External API"]
+        Q4["q.sched<br/>Priority: 3<br/>Scheduled Jobs"]
+        Q5["q.dlq<br/>Dead Letter<br/>Failed Messages"]
         
-        subgraph Worker2["Worker-2<br/>t3.medium (2vCPU, 4GB, 40GB)<br/>$30/month"]
-            Async[Async Workers<br/>• celery-ai-worker<br/>• celery-batch-worker<br/>• celery-api-worker<br/>GPT-4o Vision]
-        end
-        
-        subgraph Storage["Storage Node<br/>t3.large (2vCPU, 8GB, 100GB)<br/>$60/month"]
-            Queue[Message Queue<br/>• RabbitMQ HA (3 pods)<br/>• Clustering enabled]
-            DB[Database<br/>• PostgreSQL<br/>• Redis]
-        end
+        DLX["DLX<br/>Direct Exchange"]
     end
     
-    App -->|Publish Task| Queue
-    Async -->|Consume Task| Queue
-    App -->|Read/Write| DB
-    Async -->|Read/Write| DB
-    CP -.->|Manage| App
-    CP -.->|Manage| Async
-    CP -.->|Manage| Queue
+    Exchange --> Q1
+    Exchange --> Q2
+    Exchange --> Q3
+    Exchange --> Q4
     
-    style Master fill:#e3f2fd,stroke:#0d47a1,stroke-width:3px
-    style Worker1 fill:#f1f8e9,stroke:#33691e,stroke-width:3px
-    style Worker2 fill:#fff9c4,stroke:#f57f17,stroke-width:3px
-    style Storage fill:#fce4ec,stroke:#880e4f,stroke-width:3px
+    Q1 -.->|failure| DLX
+    Q2 -.->|failure| DLX
+    Q3 -.->|failure| DLX
+    Q4 -.->|failure| DLX
+    DLX --> Q5
+    
+    style MQ fill:#f57c00,color:#fff,stroke:#e65100,stroke-width:4px
+    style Exchange fill:#ef6c00,color:#fff,stroke:#e65100,stroke-width:3px
+    style Q1 fill:#1565c0,color:#fff,stroke:#0d47a1,stroke-width:2px
+    style Q2 fill:#5e35b1,color:#fff,stroke:#4527a0,stroke-width:2px
+    style Q3 fill:#00838f,color:#fff,stroke:#006064,stroke-width:2px
+    style Q4 fill:#2e7d32,color:#fff,stroke:#1b5e20,stroke-width:2px
+    style Q5 fill:#b71c1c,color:#fff,stroke:#7f0000,stroke-width:3px
+    style DLX fill:#c62828,color:#fff,stroke:#b71c1c,stroke-width:2px
 ```
 
-### 리소스 요약
+### Tier 4: Persistence (Storage Layer)
 
-```
-Total Cluster:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Nodes: 4
-vCPU: 8 cores (2+2+2+2)
-Memory: 24GB (8+4+4+8)
-Storage: 260GB (80+40+40+100)
-Cost: $180/month (EC2)
-```
-
----
-
-## 🌐 네트워크 레이어
-
-### Path-based Routing (ALB)
+**Physical:** Storage 노드의 Database + Cache
 
 ```mermaid
 graph TB
-    Browser[브라우저]
-    R53[Route53<br/>growbin.app]
-    ALB[AWS ALB<br/>ACM TLS 종료]
+    subgraph Storage["Persistence Storage Layer"]
+        DB["PostgreSQL<br/>StatefulSet<br/><br/>ACID Transactions<br/>Relational Data<br/>50GB PVC"]
+        
+        Redis["Redis<br/>Deployment<br/><br/>Celery Result Backend<br/>Application Cache<br/>Session Store"]
+        
+        Beat["Celery Beat x1<br/><br/>Task Scheduler<br/>DatabaseScheduler<br/>Prevent Duplicate"]
+    end
     
-    ArgoCD[ArgoCD<br/>Pod]
-    Grafana[Grafana<br/>Pod]
-    Auth[auth-service<br/>Pod]
-    Users[users-service<br/>Pod]
-    Waste[waste-service<br/>Pod]
-    Recycling[recycling-service<br/>Pod]
-    Locations[locations-service<br/>Pod]
+    DB -.->|schema for| Beat
+    Redis -.->|backend for| Beat
     
-    Browser -->|DNS Query| R53
-    R53 -->|k8s-alb-xxx.elb| Browser
-    Browser -->|HTTPS| ALB
-    
-    ALB -->|/argocd| ArgoCD
-    ALB -->|/grafana| Grafana
-    ALB -->|/api/v1/auth| Auth
-    ALB -->|/api/v1/users| Users
-    ALB -->|/api/v1/waste| Waste
-    ALB -->|/api/v1/recycling| Recycling
-    ALB -->|/api/v1/locations| Locations
-    
-    style Browser fill:#e1f5ff,stroke:#01579b,stroke-width:2px
-    style R53 fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    style ALB fill:#fce4ec,stroke:#880e4f,stroke-width:4px
-    style ArgoCD fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-    style Grafana fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    style Auth fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-    style Users fill:#e0f2f1,stroke:#00695c,stroke-width:2px
-    style Waste fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
-    style Recycling fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    style Locations fill:#fff9c4,stroke:#f57f17,stroke-width:2px
-```
-
-### 라우팅 규칙
-
-```
-단일 도메인: growbin.app
-단일 ALB: k8s-alb-xxx.elb.amazonaws.com
-
-경로 기반 라우팅:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Path                    Target              Namespace
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-/argocd/*              argocd-server:443    argocd
-/grafana/*             grafana:80           monitoring
-/api/v1/auth/*         auth-service:8000    default
-/api/v1/users/*        users-service:8000   default
-/api/v1/waste/*        waste-service:8000   default
-/api/v1/recycling/*    recycling:8000       default
-/api/v1/locations/*    locations:8000       default
-/*                     default-backend:80   default
-
-Protocol:
-- 외부: HTTPS (TLS 1.3, ACM)
-- ALB → Pod: HTTP (평문)
+    style Storage fill:#c2185b,color:#fff,stroke:#880e4f,stroke-width:4px
+    style DB fill:#ec407a,color:#fff,stroke:#d81b60,stroke-width:2px
+    style Redis fill:#f06292,color:#000,stroke:#ec407a,stroke-width:2px
+    style Beat fill:#f48fb1,color:#000,stroke:#f06292,stroke-width:2px
 ```
 
 ---
 
-## 🔄 애플리케이션 레이어
+## 🔄 통신 흐름
 
-### 마이크로서비스 통신
+### Tier 간 Dependency
 
 ```mermaid
 graph TB
-    subgraph Frontend["프론트엔드"]
-        Web[React/Vue App]
-    end
+    T1["Tier 1<br/>Control Plane<br/><br/>Orchestration"]
+    T2["Tier 2<br/>Data Plane<br/><br/>Business Logic"]
+    T3["Tier 3<br/>Message Queue<br/><br/>Middleware"]
+    T4["Tier 4<br/>Persistence<br/><br/>Storage"]
     
-    subgraph ALB_Layer["AWS ALB (L7 Router)"]
-        ALB[Application LB<br/>Path Routing]
-    end
+    T1 -.->|orchestrate| T2
+    T2 -->|publish/consume| T3
+    T2 <-->|read/write| T4
+    T3 -.->|metadata| T4
     
-    subgraph API_Layer["Sync API (Worker-1)"]
-        Auth[auth-service<br/>JWT 발급]
-        Users[users-service<br/>프로필 관리]
-        Locations[locations-service<br/>지도 검색]
-    end
-    
-    subgraph Async_Layer["Async Workers (Worker-2)"]
-        Waste[waste-service<br/>API 요청 받기]
-        CeleryAI[celery-ai-worker<br/>GPT-4o Vision]
-        CeleryBatch[celery-batch-worker<br/>통계 처리]
-    end
-    
-    subgraph Queue["Message Queue (Storage)"]
-        RMQ[RabbitMQ HA<br/>5 Queues<br/>• high_priority<br/>• default<br/>• low_priority<br/>• external_api<br/>• dead_letter]
-    end
-    
-    subgraph Data["Storage (Storage Node)"]
-        PG[(PostgreSQL<br/>사용자/분석결과)]
-        Redis[(Redis<br/>세션/캐시)]
-        S3[(S3<br/>이미지)]
-    end
-    
-    Web -->|HTTPS /api/v1/*| ALB
-    ALB -->|/auth| Auth
-    ALB -->|/users| Users
-    ALB -->|/locations| Locations
-    ALB -->|/waste| Waste
-    
-    Waste -->|Publish| RMQ
-    RMQ -->|Consume| CeleryAI
-    RMQ -->|Consume| CeleryBatch
-    
-    Auth -->|R/W| PG
-    Users -->|R/W| PG
-    Waste -->|R/W| PG
-    CeleryAI -->|R/W| PG
-    
-    Auth -->|Cache| Redis
-    CeleryAI -->|Result| Redis
-    
-    Web -.->|Pre-signed URL| S3
-    CeleryAI -->|Download| S3
-    
-    style Web fill:#e1f5ff,stroke:#01579b,stroke-width:3px
-    style ALB fill:#fce4ec,stroke:#880e4f,stroke-width:4px
-    style Auth fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-    style Users fill:#e0f2f1,stroke:#00695c,stroke-width:2px
-    style Waste fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
-    style RMQ fill:#fff3e0,stroke:#e65100,stroke-width:3px
-    style CeleryAI fill:#fff9c4,stroke:#f57f17,stroke-width:2px
-    style PG fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-    style Redis fill:#ffebee,stroke:#c62828,stroke-width:2px
-    style S3 fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    style T1 fill:#1565c0,color:#fff,stroke:#0d47a1,stroke-width:4px
+    style T2 fill:#2e7d32,color:#fff,stroke:#1b5e20,stroke-width:4px
+    style T3 fill:#f57c00,color:#fff,stroke:#e65100,stroke-width:4px
+    style T4 fill:#c2185b,color:#fff,stroke:#880e4f,stroke-width:4px
 ```
 
----
-
-## 📊 데이터 흐름
-
-### 이미지 분석 Flow (End-to-End)
+### OAuth 로그인 흐름 (Tier 2 Sync)
 
 ```mermaid
 sequenceDiagram
-    participant User as 사용자
-    participant Front as 프론트엔드
-    participant ALB as AWS ALB
-    participant Waste as waste-service<br/>(Worker-1)
-    participant S3 as S3 Bucket
-    participant RMQ as RabbitMQ<br/>(Storage)
-    participant Celery as celery-ai-worker<br/>(Worker-2)
-    participant GPT as GPT-4o Vision
-    participant DB as PostgreSQL<br/>(Storage)
+    actor User
+    participant App
+    participant ALB
+    participant Auth as Tier 2 Sync<br/>auth-service
+    participant Kakao as Kakao OAuth
+    participant DB as Tier 4<br/>PostgreSQL
+    participant Redis as Tier 4<br/>Redis
     
-    User->>Front: 이미지 선택
-    Front->>ALB: POST /api/v1/waste/upload-url
-    ALB->>Waste: HTTP (평문)
-    Waste->>S3: Generate Pre-signed URL
-    S3-->>Waste: upload_url (5분 유효)
-    Waste-->>Front: {upload_url, s3_key}
+    User->>App: "카카오 로그인" 클릭
+    App->>ALB: GET /api/v1/auth/login/kakao
+    ALB->>Auth: 라우팅
+    Auth->>App: OAuth URL
     
-    Front->>S3: PUT (직접 업로드!)
-    S3-->>Front: 200 OK
+    App->>Kakao: Redirect OAuth
+    User->>Kakao: 로그인 + 동의
+    Kakao->>App: Callback code
     
-    Front->>ALB: POST /api/v1/waste/analyze<br/>{s3_key}
-    ALB->>Waste: HTTP
-    Waste->>DB: Create Job (job_id)
-    Waste->>RMQ: Publish(high_priority_queue)
-    Waste-->>Front: {job_id, status: processing}
+    App->>Auth: POST /callback/kakao
     
-    RMQ->>Celery: Consume Task
-    Celery->>S3: Download Image
-    S3-->>Celery: image_data
-    Celery->>GPT: Analyze Image
-    GPT-->>Celery: {waste_type, feedback}
-    Celery->>DB: Update Job Result
+    activate Auth
+    Auth->>Kakao: Token 요청 0.5초
+    Kakao-->>Auth: Access Token
+    Auth->>Kakao: 프로필 요청 0.3초
+    Kakao-->>Auth: User Info
     
-    Front->>ALB: GET /api/v1/waste/result/{job_id}
-    ALB->>Waste: HTTP
-    Waste->>DB: Get Result
-    DB-->>Waste: {result}
-    Waste-->>Front: {waste_type, feedback}
+    Auth->>DB: 사용자 생성/조회 0.1초
+    Auth->>Auth: JWT 생성 0.05초
+    Auth->>Redis: 세션 저장 0.05초
+    deactivate Auth
+    
+    Auth-->>App: JWT Token
+    Note over Auth: 총 ~1-2초<br/>동기 처리 완료
+    
+    App->>User: 로그인 완료
+    
+    Note over Tier 2 Sync: 사용자 대기<br/>즉시 응답 필요<br/>Queue 불필요
 ```
 
-### 특징
-
-```
-✅ 프론트엔드 → S3 직접 업로드 (백엔드 부하 없음)
-✅ 즉시 응답 (job_id)
-✅ 백그라운드 처리 (5-30초)
-✅ Polling으로 결과 조회
-✅ RabbitMQ로 비동기 처리
-✅ Celery Worker 독립 스케일링
-```
-
----
-
-## 🔐 Security & Network
-
-### Security Groups 요약
-
-```
-Master SG:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-6443 (K8s API), 80/443 (HTTP/S), 22 (SSH)
-2379-2380 (etcd), 10250/10257/10259 (Control Plane)
-4789 (VXLAN UDP)
-
-Worker SG:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-22 (SSH), 10250 (Kubelet), 10256 (kube-proxy)
-4789 (VXLAN UDP), All from Master, All from Self
-```
-
-### Calico VXLAN
-
-```
-Pod 네트워크: 192.168.0.0/16
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Master:   192.168.0.0/24
-Storage:  192.168.1.0/24
-Worker-1: 192.168.2.0/24
-Worker-2: 192.168.x.0/24
-
-통신 방식: VXLAN Overlay (UDP 4789)
-BGP: Disabled (완전 비활성화)
-Mode: VXLAN Always (IP-in-IP Never)
-```
-
----
-
-## 💾 Storage 아키텍처
-
-### Storage Node 구성
+### 이미지 분석 흐름 (Tier 2 → 3 → 4)
 
 ```mermaid
-graph TB
-    subgraph Storage["Storage Node (t3.large, 8GB)"]
-        subgraph RMQ["RabbitMQ Cluster (HA)"]
-            RMQ1[rabbitmq-0<br/>1-2GB]
-            RMQ2[rabbitmq-1<br/>1-2GB]
-            RMQ3[rabbitmq-2<br/>1-2GB]
-        end
-        
-        subgraph DB_Layer["Database Layer"]
-            PG[PostgreSQL<br/>StatefulSet<br/>2GB<br/>PVC: 50Gi]
-            Redis_Pod[Redis<br/>Deployment<br/>512MB]
-        end
+sequenceDiagram
+    participant API as Tier 2 Sync<br/>waste-service
+    participant MQ as Tier 3<br/>RabbitMQ
+    participant Worker as Tier 2 Async<br/>AI Worker
+    participant DB as Tier 4<br/>PostgreSQL
+    participant Cache as Tier 4<br/>Redis
+    
+    API->>API: Job ID 생성
+    API->>MQ: Publish q.ai<br/>ai.analyze
+    Note over MQ: Tier 3 책임:<br/>메시지 라우팅<br/>우선순위 관리<br/>Delivery Guarantee
+    
+    MQ->>Worker: Consume Priority 10
+    Note over Worker: Tier 2 책임:<br/>Business Logic<br/>AI 분석 처리
+    
+    Worker->>Cache: 캐시 확인
+    Note over Cache: Tier 4 책임:<br/>데이터 캐싱
+    
+    alt Cache Hit
+        Cache-->>Worker: 결과 반환
+    else Cache Miss
+        Worker->>Worker: GPT-4o Vision API
+        Worker->>DB: 결과 저장
+        Note over DB: Tier 4 책임:<br/>데이터 영속성
+        Worker->>Cache: 캐싱 7일
     end
     
-    RMQ1 -.->|Cluster| RMQ2
-    RMQ2 -.->|Cluster| RMQ3
-    
-    style RMQ1 fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    style RMQ2 fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    style RMQ3 fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    style PG fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-    style Redis_Pod fill:#ffebee,stroke:#c62828,stroke-width:2px
-```
-
-### RabbitMQ 큐 설계
-
-```
-5개 Queue 전략 (Instagram 패턴):
-
-1. high_priority_queue:
-   - 이미지 분석 (GPT-4o Vision)
-   - 처리 시간: 5-10초
-   - Worker: 3개
-   - 우선순위: 높음
-
-2. default_queue:
-   - 일반 작업
-   - 사용자 알림, 통계
-   - Worker: 2개
-
-3. low_priority_queue:
-   - 배치 작업
-   - 정리, 집계
-   - Worker: 1개
-
-4. external_api_queue:
-   - Rate Limited
-   - Kakao Map API 등
-   - Worker: 1개
-   - 분당 제한
-
-5. dead_letter_queue:
-   - 실패한 메시지
-   - 재시도 로직
-   - 모니터링
+    Worker->>MQ: ACK
 ```
 
 ---
 
-## 📦 배포 구성 요소
+## 📊 리소스 할당
 
-### AWS 리소스
-
-```
-Compute:
-✅ EC2 4대 (t3.large x2, t3.medium x2)
-✅ Elastic IP 1개 (Master)
-
-Network:
-✅ VPC (10.0.0.0/16)
-✅ Subnets 3개 (Public)
-✅ Internet Gateway
-✅ Security Groups 2개
-✅ ALB (자동 생성)
-
-Storage:
-✅ EBS 260GB (gp3)
-✅ S3 Bucket (이미지)
-
-Security:
-✅ ACM Certificate (*.growbin.app)
-✅ IAM Roles (SSM, ALB, S3)
-
-DNS:
-✅ Route53 (growbin.app)
-```
-
-### Kubernetes 리소스
+### 물리적 노드 vs 논리적 Tier
 
 ```
-Control Plane:
-✅ kube-apiserver, scheduler, controller
-✅ etcd (백업 자동화)
-
-Network:
-✅ Calico VXLAN CNI
-✅ kube-proxy (iptables)
-✅ CoreDNS
-
-Platform:
-✅ AWS Load Balancer Controller
-✅ cert-manager (선택)
-✅ Metrics Server
-
-Monitoring:
-✅ Prometheus (7d retention)
-✅ Grafana
-✅ AlertManager
-
-GitOps:
-✅ ArgoCD
-
-Message Queue:
-✅ RabbitMQ (HA 3-node)
-
-계획:
-⏳ PostgreSQL StatefulSet
-⏳ Redis Deployment
-⏳ 5개 마이크로서비스
-⏳ Celery Workers
-```
-
----
-
-## 💰 비용 분석
-
-```
-월간 비용:
+Physical Topology (4 Nodes):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EC2:
-  Master (t3.large):    $60
-  Worker-1 (t3.medium): $30
-  Worker-2 (t3.medium): $30
-  Storage (t3.large):   $60
-  
-EBS (260GB gp3):        $20
+1. Master (t3.large, 8GB, 80GB, $60)
+   └─ Tier 1: Control Plane
 
-S3:
-  Storage (~1000 imgs): $5
-  Requests:             $1
-  
-ALB:
-  시간당 과금:          $16
-  
-Route53:
-  Hosted Zone:          $0.50
-  
-ACM:
-  Certificate:          무료
-  
+2. Worker-1 (t3.medium, 4GB, 40GB, $30)
+   └─ Tier 2: Data Plane (Sync)
+
+3. Worker-2 (t3.medium, 4GB, 40GB, $30)
+   └─ Tier 2: Data Plane (Async)
+
+4. Storage (t3.large, 8GB, 100GB, $60)
+   ├─ Tier 3: Message Queue (RabbitMQ)
+   └─ Tier 4: Persistence (PostgreSQL, Redis)
+
+Logical Topology (4 Tiers):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-총계:                   $222.50/월
+Tier 1: Control Plane
+└─ Node: Master
 
-절감된 비용:
-- NAT Gateway 없음:    -$96/월
-- MetalLB 대신 ALB:    최적화
+Tier 2: Data Plane (Business Logic)
+├─ Node: Worker-1 (Sync API)
+└─ Node: Worker-2 (Async Processing)
+
+Tier 3: Message Queue (Middleware)
+└─ Node: Storage (RabbitMQ HA)
+
+Tier 4: Persistence (Storage)
+└─ Node: Storage (PostgreSQL, Redis, Beat)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+핵심: 4 Nodes, 4 Tiers, 논리적 분리
 ```
 
 ---
 
-## 🚀 배포 시간
+## 🎯 확장 전략
+
+### Tier별 독립 확장
 
 ```
-자동 배포 (./scripts/auto-rebuild.sh):
+Tier 2 (Data Plane) 확장:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Terraform init:        2분
-2. Terraform destroy:     5분
-3. Terraform apply:       10분
-   - VPC, Subnets:        1분
-   - EC2 4대:             3분
-   - S3, ACM:             5분
-   - DNS 전파:            1분
-4. Ansible playbook:      35분
-   - OS 준비:             5분
-   - Docker/containerd:   5분
-   - Kubernetes:          10분
-   - Calico VXLAN:        5분
-   - ALB Controller:      3분
-   - RabbitMQ:            5분
-   - Monitoring:          2분
+시나리오 1: API 트래픽 증가
+└─ Worker-1 노드 추가
+└─ HPA: auth-service 2 → 5
+└─ 비용: +$30/월
 
-총: 약 52분
+시나리오 2: AI 분석 증가
+└─ Worker-2 노드 추가
+└─ HPA: AI Workers 3 → 10
+└─ 비용: +$30/월
+
+Tier 3 (Message Queue) 확장:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+시나리오: 메시지 처리량 증가
+└─ RabbitMQ 노드 추가 (3 → 5)
+└─ Queue Sharding (q.ai.0, q.ai.1, ...)
+└─ 비용: Storage 노드 확장에 포함
+
+Tier 4 (Persistence) 확장:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+시나리오 1: DB 읽기 증가
+└─ PostgreSQL 읽기 복제본
+└─ 비용: +$60/월
+
+시나리오 2: Cache 증가
+└─ Redis Cluster (3-node)
+└─ 비용: Storage 노드 확장에 포함
 ```
 
 ---
 
-## 📚 참고 문서
+## 📚 관련 문서
 
-- [VPC 네트워크 설계](../infrastructure/vpc-network-design.md)
-- [Calico CNI 비교](../infrastructure/cni-comparison.md)
-- [배포 가이드](../../DEPLOYMENT_GUIDE.md)
+- [DEPLOYMENT_GUIDE](../../DEPLOYMENT_GUIDE.md) - 배포 자동화
+- [Task Queue 설계](task-queue-design.md) - Tier 3 상세
+- [VPC 네트워크](../infrastructure/vpc-network-design.md)
+- [Self-Managed K8s](why-self-managed-k8s.md)
 
 ---
 
 **작성일**: 2025-10-31  
-**버전**: 2.0  
-**아키텍처**: 4-Node Instagram-style
-
+**아키텍처**: 4-Tier Layered Architecture  
+**총 비용**: $185/월  
+**노드**: 4개 (물리적)  
+**Tier**: 4계층 (논리적)  
+**원칙**: Separation of Concerns + Clean Architecture
