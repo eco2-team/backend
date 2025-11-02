@@ -1,3 +1,15 @@
+# VPC ID (ALB Controller용)
+output "vpc_id" {
+  description = "VPC ID"
+  value       = module.vpc.vpc_id
+}
+
+# ACM Certificate ARN (ALB SSL/TLS용)
+output "acm_certificate_arn" {
+  description = "ACM Certificate ARN"
+  value       = try(aws_acm_certificate.main[0].arn, "")
+}
+
 output "master_public_ip" {
   description = "Master 노드 Public IP (Elastic IP)"
   value       = aws_eip.master.public_ip
