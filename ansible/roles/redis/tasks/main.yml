@@ -2,7 +2,7 @@
 # Token Blacklist + Image Cache + Job Progress + Rate Limiting
 ---
 - name: Redis namespace 생성
-  command: kubectl create namespace default --dry-run=client -o yaml | kubectl apply -f -
+  shell: kubectl create namespace default --dry-run=client -o yaml | kubectl apply -f -
   changed_when: false
 
 - name: Redis 설치 여부 확인
