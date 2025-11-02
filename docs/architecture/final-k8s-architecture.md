@@ -74,9 +74,7 @@ graph TB
             Redis[(Redis<br/>Result Backend)]
         end
         
-        subgraph Ingress["Ingress Layer"]
-            Nginx[Nginx Ingress<br/>api.yourdomain.com]
-        end
+        ALBC[AWS Load Balancer<br/>Controller]
     end
     
     subgraph External["외부 서비스"]
@@ -86,21 +84,22 @@ graph TB
         KakaoMap[Kakao Map API<br/>위치 검색]
     end
     
-    Users --> Nginx
+    Users --> Route53
+    Route53 --> ALB
+    ACM -.->|SSL Cert| ALB
+    ALB --> ALBC
+    
+    ALBC -->|/api/v1/auth| AuthSvc
+    ALBC -->|/api/v1/users| UsersSvc
+    ALBC -->|/api/v1/waste| WasteSvc
+    ALBC -->|/argocd| ArgoCD
+    ALBC -->|/grafana| Prom
     
     Code --> GHA
     GHA --> GHCR
     GHA --> Charts
     Charts --> ArgoCD
-    ArgoCD -.->|배포| WasteAPI
-    ArgoCD -.-> AuthAPI
-    ArgoCD -.-> UsersAPI
-    
-    Nginx --> WasteAPI
-    Nginx --> AuthAPI
-    Nginx --> UsersAPI
-    Nginx --> RecyclingAPI
-    Nginx --> LocationsAPI
+    ArgoCD -.->|배포| WasteSvc
     
     WasteAPI --> RabbitMQ
     FastWorker --> RabbitMQ
@@ -123,10 +122,14 @@ graph TB
     
     style Users fill:#cce5ff,stroke:#007bff,stroke-width:4px,color:#000
     style GHA fill:#ffd1d1,stroke:#dc3545,stroke-width:3px,color:#000
-    style GHCR fill:#cccccc,stroke:#333333,stroke-width:4px,color:#000
-    style ArgoCD fill:#e6d5ff,stroke:#8844ff,stroke-width:4px,color:#000
-    style Nginx fill:#ffe0b3,stroke:#fd7e14,stroke-width:4px,color:#000
-    style RabbitMQ fill:#ffe0b3,stroke:#fd7e14,stroke-width:4px,color:#000
+    style Users fill:#cce5ff,stroke:#007bff,stroke-width:4px
+    style ALB fill:#ff9900,stroke:#ff6600,stroke-width:4px
+    style Master fill:#e3f2fd,stroke:#0d47a1,stroke-width:3px
+    style Worker1 fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    style Worker2 fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Storage fill:#fce4ec,stroke:#880e4f,stroke-width:3px
+    style ArgoCD fill:#e6d5ff,stroke:#8844ff,stroke-width:3px
+    style RabbitMQ fill:#ffe0b3,stroke:#fd7e14,stroke-width:3px
     style WasteAPI fill:#ffd1d1,stroke:#dc3545,stroke-width:2px,color:#000
     style FastWorker fill:#ffdddd,stroke:#ff4444,stroke-width:2px,color:#000
     style ExtAI fill:#cce5ff,stroke:#007bff,stroke-width:2px,color:#000
@@ -147,7 +150,7 @@ graph TB
     subgraph Master["Master Node (t3.medium, $30/월)"]
         M1[Control Plane<br/>API Server, etcd<br/>Scheduler, Controller]
         M2[ArgoCD Pods ×3<br/>argocd-server<br/>argocd-repo-server<br/>argocd-application-controller]
-        M3[Nginx Ingress Controller ×1]
+        M3[AWS LB Controller ×1]
         M4[Cert-manager ×1]
         M5[Prometheus + Grafana]
     end
@@ -417,7 +420,7 @@ graph TB
 sequenceDiagram
     actor User as 사용자
     participant App as Mobile App
-    participant Ingress as Nginx Ingress
+    participant ALB as AWS ALB
     participant WasteAPI as waste-service
     participant RMQ as RabbitMQ
     participant FastW as Fast Worker
@@ -430,8 +433,8 @@ sequenceDiagram
     participant LLM as OpenAI API
     
     User->>App: 쓰레기 사진 촬영
-    App->>Ingress: POST /api/v1/waste/analyze
-    Ingress->>WasteAPI: 라우팅
+    App->>ALB: POST /api/v1/waste/analyze
+    ALB->>WasteAPI: 라우팅
     
     WasteAPI->>WasteAPI: Job ID 생성
     WasteAPI->>App: S3 Presigned URL
@@ -616,7 +619,7 @@ spec:
   - from:
     - namespaceSelector:
         matchLabels:
-          name: ingress-nginx
+          name: kube-system
     ports:
     - protocol: TCP
       port: 8000
