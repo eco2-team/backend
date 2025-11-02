@@ -8,19 +8,19 @@
 
 ### 🎯 주요 기능
 
-1. **AI 쓰레기 스캐너**
-   - 사용자가 카메라로 쓰레기를 찍으면 AI 비전 모델이 재질, 형태, 혼합 여부를 분석
+1. **AI 쓰레기 스캐너** (GPT-4o Vision)
+   - 사용자가 카메라로 쓰레기를 찍으면 AI가 재질, 형태, 혼합 여부를 분석
    - 쓰레기 종류 및 분류 방법 제안
 
-2. **위치 기반 재활용 수거함 제안**
-   - 인식된 품목이 재활용 가능 자원일 경우, 가장 가까운 재활용 수거함/제로웨이스트샵 위치 추천
+2. **위치 기반 재활용 수거함 제안** (Kakao Map)
+   - 인식된 품목이 재활용 가능 자원일 경우, 가장 가까운 수거함 추천
    - 지도 기반 네비게이션 연동
 
 3. **LLM 기반 피드백 코칭**
-   - "이물질이 남아있네요. 미지근한 물에 30초 헹구면 깨끗하게 닦을 수 있어요." 등 실용적 피드백
+   - "이물질이 남아있네요. 미지근한 물에 30초 헹구면 깨끗하게 닦을 수 있어요." 등
    - 실제 세척법, 분리요령, 재질별 관리팁 제공
 
-4. **소셜 로그인 (OAuth 2.0)**
+4. **소셜 로그인** (OAuth 2.0)
    - 카카오, 네이버, 구글 간편 로그인 지원
 
 ---
@@ -36,138 +36,101 @@
 # 상세: DEPLOYMENT_GUIDE.md
 ```
 
-### 📖 단계별 구축
-
-**[배포 가이드](DEPLOYMENT_GUIDE.md)** ← 여기서 시작! ⭐⭐⭐⭐⭐
-
 ---
 
-## 🏗️ 아키텍처
+## 🏗️ 4-Tier Layered Architecture
 
-### 최종 구성 (4-Node Cluster)
-
-**[4-Node 배포 아키텍처](docs/architecture/deployment-architecture-4node.md)** ⭐⭐⭐⭐⭐
+### Software Engineering 관점
 
 ```
-Kubernetes (kubeadm, 1M + 3W, Self-Managed)
-├─ Master: t3.large, 8GB ($60/월)
-│  ├─ Control Plane (kube-apiserver, etcd, scheduler, controller)
-│  └─ Monitoring (Prometheus, Grafana)
-│
-├─ Worker-1: t3.medium, 4GB ($30/월) - Application
-│  └─ FastAPI Pods (auth, users, locations)
-│
-├─ Worker-2: t3.medium, 4GB ($30/월) - Async Workers
-│  └─ Celery Workers (GPT-4o Vision)
-│
-└─ Storage: t3.large, 8GB ($60/월) - Stateful Services
-   ├─ RabbitMQ (HA 3-node cluster)
-   ├─ PostgreSQL
-   └─ Redis
+Tier 1: Control Plane (Orchestration)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Master (t3.large, 8GB, $60/월)
+├─ kube-apiserver, etcd, scheduler, controller
+├─ Prometheus + Grafana (Monitoring)
+└─ ArgoCD (GitOps)
 
-총 비용: $185/월 (EC2 $180 + S3 $5)
-구축 시간: 40-50분 (자동화)
+관심사: "어떻게 워크로드를 배치하고 관리할 것인가?"
+
+Tier 2: Data Plane (Business Logic)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Worker-1 + Worker-2 (t3.medium ×2, 4GB ×2, $60/월)
+
+Worker-1 (Sync API):
+├─ auth-service ×2 (OAuth, JWT)
+├─ users-service ×1 (프로필, 이력)
+└─ locations-service ×1 (수거함 검색)
+
+Worker-2 (Async Processing):
+├─ waste-service ×2 (이미지 분석 API)
+├─ AI Workers ×3 (GPT-4o Vision)
+└─ Batch Workers ×2 (배치 작업)
+
+관심사: "비즈니스 로직을 어떻게 처리할 것인가?"
+패턴: Reactor (Sync) + Task Queue (Async)
+
+Tier 3: Message Queue (Middleware)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Storage 노드의 RabbitMQ HA ×3
+├─ q.ai (AI Vision, Priority 10)
+├─ q.batch (배치, Priority 1)
+├─ q.api (외부 API, Priority 5)
+├─ q.sched (예약, Priority 3)
+└─ q.dlq (Dead Letter)
+
+관심사: "메시지를 어떻게 안전하게 전달할 것인가?"
+
+Tier 4: Persistence (Storage)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Storage 노드의 Database + Cache
+├─ PostgreSQL (StatefulSet, 50GB)
+├─ Redis (Result Backend + Cache)
+└─ Celery Beat ×1 (스케줄러)
+
+관심사: "데이터를 어떻게 영속적으로 저장할 것인가?"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+노드: 4개, Tier: 4계층 (논리적 분리)
+비용: $185/월 (EC2 $180 + S3 $5)
 ```
 
 ### 핵심 기술 스택
 
 ```
 Infrastructure:
-├─ Terraform (AWS VPC, EC2, S3, ACM, Route53)
-├─ Ansible (Kubernetes 자동 설치)
-├─ AWS Load Balancer Controller (L7 Routing)
-├─ Calico VXLAN (CNI)
-└─ cert-manager → ACM (SSL/TLS)
+├─ Kubernetes (kubeadm) - Self-Managed
+├─ Calico VXLAN - CNI
+├─ AWS Load Balancer Controller - L7 Routing
+├─ Terraform - IaC (AWS 리소스)
+└─ Ansible - Configuration (75개 작업)
 
-Kubernetes:
-├─ kubeadm (Self-Managed)
-├─ 4 nodes (8 vCPU, 24GB RAM)
-├─ Path-based routing (/api/v1/*)
-└─ Session Manager (SSH-less)
+Tier 1 (Control Plane):
+├─ Prometheus + Grafana - Monitoring
+└─ ArgoCD - GitOps CD
 
-Backend:
-├─ FastAPI (Reactor Pattern)
-├─ Celery + RabbitMQ (Async)
-├─ PostgreSQL + Redis
-├─ S3 Pre-signed URL
-└─ GPT-4o Vision
+Tier 2 (Data Plane):
+├─ FastAPI - Reactor Pattern (Sync)
+├─ Celery Workers - Task Queue (Async)
+└─ S3 Pre-signed URL - Image Upload
 
-GitOps:
-├─ ArgoCD (CD)
-├─ GitHub Actions (CI)
-├─ Helm Charts
-└─ GHCR (무료 레지스트리)
+Tier 3 (Message Queue):
+└─ RabbitMQ HA (3-node) - Message Broker
 
-Monitoring:
-├─ Prometheus
-├─ Grafana
-└─ Metrics Server
+Tier 4 (Persistence):
+├─ PostgreSQL - RDBMS
+├─ Redis - Cache + Result Backend
+└─ Celery Beat - Scheduler
+
+Networking:
+├─ Route53 - DNS (growbin.app)
+├─ ALB - L7 Load Balancing
+├─ ACM - SSL/TLS (*.growbin.app)
+└─ Path-based Routing (/api/v1/*)
+
+External APIs:
+├─ GPT-4o Vision - 이미지 분석
+└─ Kakao Map - 위치 검색, OAuth
 ```
-
-### 네트워킹
-
-```
-Route53 (growbin.app)
-   ↓
-AWS ALB (Application Load Balancer)
-├─ ACM SSL/TLS 자동 갱신
-├─ HTTP → HTTPS 리다이렉트
-└─ Path-based routing:
-    ├─ /argocd       → ArgoCD Server
-    ├─ /grafana      → Grafana Dashboard
-    ├─ /api/v1/auth  → auth-service
-    ├─ /api/v1/users → users-service
-    ├─ /api/v1/waste → waste-service
-    └─ /              → default-backend
-```
-
----
-
-## 🛠️ 기술 스택
-
-### Infrastructure & DevOps
-- **Kubernetes (kubeadm)** - Self-Managed K8s (4-Node)
-- **Terraform** - AWS 인프라 프로비저닝
-- **Ansible** - K8s 클러스터 자동 설정 (75개 커밋)
-- **AWS Load Balancer Controller** - L7 Routing
-- **Calico VXLAN** - CNI (Container Network Interface)
-- **ArgoCD** - GitOps CD 엔진
-- **Helm** - K8s 패키지 관리
-- **GitHub Actions** - CI 파이프라인
-- **GHCR** - 컨테이너 레지스트리 (무료)
-- **cert-manager + ACM** - SSL 자동화
-
-### Backend
-- **Python 3.11+**
-- **FastAPI** - 고성능 비동기 웹 프레임워크
-- **Uvicorn** - ASGI 서버
-- **Pydantic** - 데이터 검증
-
-### Database
-- **SQLAlchemy** - ORM
-- **Alembic** - DB 마이그레이션
-- **PostgreSQL** - 메인 데이터베이스
-- **Redis** - Caching, Celery Result Backend
-
-### Async Processing
-- **Celery** - 비동기 Task Queue
-- **RabbitMQ** - Message Broker (HA 3-node)
-
-### Authentication
-- **python-jose** - JWT 토큰
-- **passlib** - 비밀번호 해싱
-- **OAuth 2.0** - 소셜 로그인 (Kakao, Naver, Google)
-
-### Code Quality
-- **Black** - 코드 포맷터
-- **Flake8** - 린터 (PEP 8)
-- **isort** - Import 정렬
-- **pycodestyle** - PEP 8 검사
-- **pre-commit** - Git hooks
-
-### Testing
-- **pytest** - 테스트 프레임워크
-- **pytest-asyncio** - 비동기 테스트
 
 ---
 
@@ -177,30 +140,30 @@ AWS ALB (Application Load Balancer)
 
 | 문서 | 설명 | 중요도 |
 |------|------|--------|
-| [**배포 가이드**](DEPLOYMENT_GUIDE.md) | 4-Node 클러스터 배포 | ⭐⭐⭐⭐⭐ |
-| [**4-Node 아키텍처**](docs/architecture/deployment-architecture-4node.md) | 전체 시스템 시각화 | ⭐⭐⭐⭐⭐ |
-| [**VPC 네트워크**](docs/infrastructure/vpc-network-design.md) | 네트워크 설계 상세 | ⭐⭐⭐⭐ |
-| [**Self-Managed K8s 선택 배경**](docs/architecture/why-self-managed-k8s.md) | EKS vs kubeadm | ⭐⭐⭐⭐ |
+| [**배포 가이드**](DEPLOYMENT_GUIDE.md) | 4-Tier 클러스터 배포 | ⭐⭐⭐⭐⭐ |
+| [**4-Tier 아키텍처**](docs/architecture/deployment-architecture-4node.md) | Layered Architecture | ⭐⭐⭐⭐⭐ |
+| [**VPC 네트워크**](docs/infrastructure/vpc-network-design.md) | 네트워크 설계 | ⭐⭐⭐⭐ |
+| [**Self-Managed K8s 배경**](docs/architecture/why-self-managed-k8s.md) | 의사결정 | ⭐⭐⭐⭐ |
 
 ### 📖 카테고리별 문서
 
 #### 🏗️ [아키텍처](docs/architecture/)
-- [4-Node 배포 아키텍처](docs/architecture/deployment-architecture-4node.md) - 전체 시스템 ⭐⭐⭐⭐⭐
-- [Self-Managed K8s 선택 배경](docs/architecture/why-self-managed-k8s.md) - 의사결정 과정
-- [Task Queue 설계](docs/architecture/task-queue-design.md) - RabbitMQ + Celery
-- [최종 K8s 아키텍처](docs/architecture/final-k8s-architecture.md) - GitOps 파이프라인
-- [설계 검토 과정](docs/architecture/design-reviews/) - 의사결정 문서
+- [4-Tier 배포 아키텍처](docs/architecture/deployment-architecture-4node.md) ⭐⭐⭐⭐⭐
+- [Self-Managed K8s 선택 배경](docs/architecture/why-self-managed-k8s.md)
+- [Task Queue 설계](docs/architecture/task-queue-design.md) - Tier 3
+- [Final K8s Architecture](docs/architecture/final-k8s-architecture.md)
+- [설계 검토 과정](docs/architecture/design-reviews/) - 01-07
 
 #### 🏗️ [인프라](docs/infrastructure/)
-- [VPC 네트워크 설계](docs/infrastructure/vpc-network-design.md) - 보안 그룹, 포트
-- [K8s 클러스터 구축](docs/infrastructure/k8s-cluster-setup.md) - 수동 설치 (4-Node)
-- [IaC 구성](docs/infrastructure/iac-terraform-ansible.md) - Terraform + Ansible
-- [CNI 비교](docs/infrastructure/cni-comparison.md) - Calico vs Flannel
+- [VPC 네트워크 설계](docs/infrastructure/vpc-network-design.md)
+- [K8s 클러스터 구축](docs/infrastructure/k8s-cluster-setup.md)
+- [IaC 구성](docs/infrastructure/iac-terraform-ansible.md)
+- [CNI 비교](docs/infrastructure/cni-comparison.md)
 
 #### 🎯 [가이드](docs/guides/)
-- [구축 체크리스트](docs/guides/SETUP_CHECKLIST.md) - 단계별 구축
-- [IaC 빠른 시작](docs/guides/IaC_QUICK_START.md) - 자동화
-- [Session Manager](docs/guides/session-manager-guide.md) - SSH-less 접속
+- [구축 체크리스트](docs/guides/SETUP_CHECKLIST.md)
+- [IaC 빠른 시작](docs/guides/IaC_QUICK_START.md)
+- [Session Manager](docs/guides/session-manager-guide.md)
 
 ---
 
@@ -211,34 +174,51 @@ SeSACTHON/backend/
 ├── README.md (이 파일)
 ├── DEPLOYMENT_GUIDE.md (배포 가이드) ⭐
 │
-├── docs/ (문서)
-│   ├── architecture/ (아키텍처 설계)
+├── docs/ (70+ 문서)
+│   ├── architecture/ (4-Tier 설계)
 │   ├── infrastructure/ (인프라 구성)
-│   └── guides/ (실용 가이드)
+│   ├── guides/ (실용 가이드)
+│   └── overview/ (프로젝트 요약)
 │
 ├── terraform/ (Infrastructure as Code)
-│   ├── main.tf (4-node EC2)
+│   ├── main.tf (4개 노드)
 │   ├── vpc.tf, s3.tf, acm.tf
-│   └── modules/ (VPC, Security Groups, EC2)
+│   └── modules/
 │
 ├── ansible/ (Configuration Management)
 │   ├── site.yml (Master playbook)
-│   ├── playbooks/ (9개 playbook)
-│   └── roles/ (Common, Docker, Kubernetes, RabbitMQ)
+│   ├── playbooks/ (9개)
+│   └── roles/ (RabbitMQ, etc)
 │
-└── scripts/ (Automation)
-    ├── auto-rebuild.sh (완전 자동)
+└── scripts/ (Automation, 12개)
+    ├── auto-rebuild.sh (40-50분 자동 배포)
     ├── connect-ssh.sh
     └── remote-health-check.sh
 ```
 
 ---
 
-## 🔗 외부 링크
+## 🎯 4-Tier 설계 원칙
 
-- [GitHub Repository](https://github.com/your-org/sesacthon-backend)
-- [ArgoCD Dashboard](https://growbin.app/argocd)
-- [Grafana Dashboard](https://growbin.app/grafana)
+```
+✅ Layered Architecture
+   - 각 계층은 명확한 책임
+   - 상위 → 하위만 의존
+
+✅ Separation of Concerns
+   - Control (Tier 1)
+   - Processing (Tier 2)
+   - Messaging (Tier 3)
+   - Persistence (Tier 4)
+
+✅ Single Responsibility
+   - RabbitMQ: 메시지 전달만 (Tier 3)
+   - PostgreSQL: 데이터 저장만 (Tier 4)
+   
+✅ Kubernetes Standard
+   - Control Plane (표준 용어)
+   - Data Plane (표준 용어)
+```
 
 ---
 
@@ -258,5 +238,5 @@ SeSACTHON/backend/
 ---
 
 **Last Updated**: 2025-10-31  
-**Version**: 2.0 (4-Node Architecture)  
+**Version**: 3.0 (4-Tier Layered Architecture)  
 **Team**: SeSACTHON Backend
