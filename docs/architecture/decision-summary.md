@@ -7,35 +7,35 @@
 ## 📊 최종 결정 요약
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#fff', 'primaryTextColor':'#000', 'primaryBorderColor':'#333', 'lineColor':'#666', 'secondaryColor':'#cce5ff', 'secondaryBorderColor':'#007bff', 'secondaryTextColor':'#000', 'tertiaryColor':'#ffe0b3', 'tertiaryBorderColor':'#fd7e14', 'tertiaryTextColor':'#000', 'noteBkgColor':'#d1f2eb', 'noteBorderColor':'#28a745'}}}%%
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#ffd1d1', 'primaryTextColor':'#000', 'primaryBorderColor':'#dc3545', 'lineColor':'#666', 'secondaryColor':'#cce5ff', 'secondaryBorderColor':'#007bff', 'secondaryTextColor':'#000', 'tertiaryColor':'#ffe0b3', 'tertiaryBorderColor':'#fd7e14', 'tertiaryTextColor':'#000'}}}%%
 mindmap
   root((🎯 AI Waste Coach
 Backend))
-    )🏗️ 인프라(
+    🏗️ 인프라
       ✅ Self-Managed K8s
       kubeadm 4-Tier
       Terraform + Ansible
       비용 $180/월
     
-    )🌐 네트워킹(
+    🌐 네트워킹
       ✅ AWS ALB Controller
       Path-based routing
       ACM SSL/TLS
       Calico VXLAN
     
-    )⚙️ 서비스 구조(
+    ⚙️ 서비스 구조
       Tier 1: Control + Monitor
       Tier 2: Application (FastAPI)
       Tier 3: Async Workers (Celery)
       Tier 4: Stateful (RabbitMQ, DB)
     
-    )💾 데이터 저장(
+    💾 데이터 저장
       DB: PostgreSQL StatefulSet
       Cache: Redis
       Queue: RabbitMQ HA 3-node
       Files: S3 Pre-signed URL
     
-    )🚀 GitOps(
+    🚀 GitOps
       ArgoCD CD
       GitHub Actions CI
       Helm Charts
