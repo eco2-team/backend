@@ -10,6 +10,8 @@ echo "🚀 빠른 재구축 시작..."
 echo ""
 
 cd "$PROJECT_ROOT/terraform"
+echo "📍 현재 디렉토리: $(pwd)"
+echo ""
 
 echo "🔧 Terraform 초기화..."
 terraform init -migrate-state -upgrade -input=false

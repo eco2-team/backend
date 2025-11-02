@@ -39,7 +39,7 @@ echo "✅ AWS 인프라 생성 완료"
 echo ""
 echo "📝 Step 2: Ansible Inventory 생성"
 echo "================================================"
-terraform output -raw ansible_inventory > "$ANSIBLE_DIR/inventory/hosts.ini"
+terraform -chdir="$TERRAFORM_DIR" output -raw ansible_inventory > "$ANSIBLE_DIR/inventory/hosts.ini"
 echo "✅ Inventory 생성 완료: $ANSIBLE_DIR/inventory/hosts.ini"
 
 # 3. EC2 부팅 대기

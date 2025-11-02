@@ -103,6 +103,10 @@ echo "3️⃣ Ansible Inventory 생성"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
+# Terraform 디렉토리로 이동 확인
+cd "$TERRAFORM_DIR"
+echo "📍 현재 디렉토리: $(pwd)"
+
 # Terraform backend 재확인 (output 실행 전)
 echo "🔧 Terraform backend 확인..."
 terraform init -migrate-state -upgrade -input=false
