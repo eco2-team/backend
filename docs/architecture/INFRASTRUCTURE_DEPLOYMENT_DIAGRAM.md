@@ -301,8 +301,8 @@ graph TB
 
 ```mermaid
 graph TD
-    A[auto-rebuild.sh<br/>최상위 자동화] --> B[cleanup.sh<br/>인프라 및 구성요소 삭제]
-    A --> C[build-cluster.sh<br/>인프라 구축]
+    A[auto-rebuild.sh 최상위 자동화] --> B[cleanup.sh 인프라 및 구성요소 삭제]
+    A --> C[build-cluster.sh 인프라 구축]
     
     B --> B1[kubectl 명령어들]
     B --> B2[helm uninstall]
