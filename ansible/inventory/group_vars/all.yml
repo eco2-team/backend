@@ -46,6 +46,3 @@ kubectl_home: "/home/ubuntu"
 # Cert-manager (Let's Encrypt)
 letsencrypt_email: "admin@growbin.app"  # Let's Encrypt 인증서 이메일
 
-# DNS
-domain_name: "growbin.app"
-

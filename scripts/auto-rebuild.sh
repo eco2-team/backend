@@ -1,7 +1,7 @@
 #!/bin/bash
 # 완전 자동 재구축 (확인 없이 진행)
-# 1. destroy-with-cleanup.sh 실행 (리소스 정리)
-# 2. rebuild-cluster.sh 실행 (재구축)
+# 1. cleanup.sh 실행 (인프라 및 구성요소 삭제)
+# 2. build-cluster.sh 실행 (인프라 구축)
 
 set -e
 
@@ -14,36 +14,46 @@ echo ""
 echo "⚠️  확인 프롬프트 없이 자동 실행됩니다!"
 echo ""
 echo "📋 실행 순서:"
-echo "   1️⃣  destroy-with-cleanup.sh (리소스 정리)"
-echo "   2️⃣  rebuild-cluster.sh (인프라 재구축)"
+echo "   1️⃣  cleanup.sh (인프라 및 구성요소 삭제)"
+echo "   2️⃣  build-cluster.sh (인프라 구축)"
 echo ""
 
 # 자동 모드 설정
 export AUTO_MODE=true
 
-# 1. 리소스 정리
+# 1. 인프라 및 구성요소 삭제
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "1️⃣ 리소스 정리 (destroy-with-cleanup.sh)"
+echo "1️⃣ 인프라 및 구성요소 삭제 (cleanup.sh)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-"$SCRIPT_DIR/destroy-with-cleanup.sh"
+# cleanup.sh가 없으면 destroy-with-cleanup.sh 사용 (하위 호환)
+CLEANUP_SCRIPT="$SCRIPT_DIR/cleanup.sh"
+if [ ! -f "$CLEANUP_SCRIPT" ]; then
+    CLEANUP_SCRIPT="$SCRIPT_DIR/destroy-with-cleanup.sh"
+fi
 
-if [ $? -ne 0 ]; then
+set +e  # cleanup 실패해도 계속 진행
+"$CLEANUP_SCRIPT"
+CLEANUP_EXIT_CODE=$?
+set -e  # 다시 에러 체크 활성화
+
+if [ $CLEANUP_EXIT_CODE -ne 0 ]; then
     echo ""
-    echo "⚠️  destroy-with-cleanup.sh 실패"
-    echo "   Kubernetes 리소스 정리 없이 진행합니다..."
+    echo "⚠️  cleanup.sh 실패 (exit code: $CLEANUP_EXIT_CODE)"
+    echo "   일부 리소스가 남아있을 수 있습니다."
+    echo "   계속 진행합니다..."
     echo ""
 fi
 
-# 2. 인프라 재구축
+# 2. 인프라 구축
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "2️⃣ 인프라 재구축 (rebuild-cluster.sh)"
+echo "2️⃣ 인프라 구축 (build-cluster.sh)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-"$SCRIPT_DIR/rebuild-cluster.sh"
+"$SCRIPT_DIR/build-cluster.sh"
 
 echo ""
 echo "✅ 자동 재구축 완료!"

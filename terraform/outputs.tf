@@ -108,3 +108,19 @@ output "s3_bucket_info" {
     region      = var.aws_region
   }
 }
+
+# ALB Controller 및 Ansible에서 필요한 Output
+output "vpc_id" {
+  description = "VPC ID"
+  value       = module.vpc.vpc_id
+}
+
+output "aws_region" {
+  description = "AWS Region"
+  value       = var.aws_region
+}
+
+output "acm_certificate_arn" {
+  description = "ACM Certificate ARN (domain_name이 설정된 경우)"
+  value       = var.domain_name != "" ? try(aws_acm_certificate_validation.main[0].certificate_arn, aws_acm_certificate.main[0].arn, "") : ""
+}

@@ -138,35 +138,99 @@ echo "4️⃣ Helm Release 상태"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-       EXPECTED_RELEASES=(
-           "kube-prometheus-stack:monitoring"
-           "argocd:argocd"
-           "aws-load-balancer-controller:kube-system"
-       )
-       
-       # RabbitMQ는 Operator로 관리 (Helm Release 없음)
-       RABBITMQ_CR=$(kubectl get rabbitmqcluster rabbitmq -n messaging 2>/dev/null || echo "")
-       if [ -n "$RABBITMQ_CR" ]; then
-           echo "  ✅ RabbitMQ: Operator 관리 (RabbitmqCluster CR)"
-       else
-           echo "  ⚠️  RabbitMQ: RabbitmqCluster CR 없음"
-           ((WARNINGS++))
-       fi
+EXPECTED_RELEASES=(
+    "kube-prometheus-stack:monitoring"
+    "aws-load-balancer-controller:kube-system"
+)
 
-for release_info in "${EXPECTED_RELEASES[@]}"; do
-    IFS=':' read -r release_name namespace <<< "$release_info"
-    RELEASE_STATUS=$(helm status "$release_name" -n "$namespace" 2>/dev/null | grep "STATUS:" | awk '{print $2}' || echo "not_found")
-    
-    if [ "$RELEASE_STATUS" == "deployed" ]; then
-        echo "  ✅ $release_name ($namespace): deployed"
-    elif [ "$RELEASE_STATUS" == "not_found" ]; then
-        echo "  ❌ $release_name ($namespace): 설치되지 않음"
-        ((ERRORS++))
+# RabbitMQ는 Operator로 관리 (Helm Release 없음)
+RABBITMQ_CR=$(kubectl get rabbitmqcluster rabbitmq -n messaging 2>/dev/null || echo "")
+if [ -n "$RABBITMQ_CR" ]; then
+    echo "  ✅ RabbitMQ: Operator 관리 (RabbitmqCluster CR)"
+else
+    echo "  ⚠️  RabbitMQ: RabbitmqCluster CR 없음"
+    ((WARNINGS++))
+fi
+
+# ArgoCD는 kubectl apply로 설치 (Helm Release 없음)
+ARGOCD_PODS=$(kubectl get pods -n argocd --no-headers 2>/dev/null | awk '$3 == "Running" {count++} END {print count+0}' || echo "0")
+ARGOCD_PODS=$(echo "$ARGOCD_PODS" | tr -d '\n\r\t ' | sed 's/[^0-9]//g')
+[ -z "$ARGOCD_PODS" ] && ARGOCD_PODS="0"
+if [ "$ARGOCD_PODS" -gt 0 ]; then
+    echo "  ✅ ArgoCD: $ARGOCD_PODS Pod 실행 중 (kubectl apply로 설치)"
+else
+    echo "  ⚠️  ArgoCD: Pod 실행 중 아님"
+    ((WARNINGS++))
+fi
+
+# set -e를 일시적으로 해제하여 helm status 실패 시에도 계속 진행
+set +e
+# Helm 설치 여부 확인
+HELM_CHECK=$(which helm 2>/dev/null || echo "")
+if [ -z "$HELM_CHECK" ]; then
+    echo "  ⚠️  Helm이 설치되지 않았습니다 (Helm Release 확인 불가)"
+    echo ""
+    echo "  📋 Monitoring 상태 (Helm 없이 확인):"
+    PROM_PODS=$(kubectl get pods -n monitoring --no-headers 2>/dev/null | grep -c "Running" || echo "0")
+    GRAFANA_PODS=$(kubectl get pods -n monitoring -l app.kubernetes.io/name=grafana --no-headers 2>/dev/null | grep -c "Running" || echo "0")
+    if [ "$PROM_PODS" -gt 0 ] || [ "$GRAFANA_PODS" -gt 0 ]; then
+        echo "    ✅ Monitoring Pod 실행 중 (Prometheus: $PROM_PODS, Grafana: $GRAFANA_PODS)"
     else
-        echo "  ⚠️  $release_name ($namespace): $RELEASE_STATUS"
+        echo "    ⚠️  Monitoring Pod 실행 중 아님"
         ((WARNINGS++))
     fi
-done
+    
+    ARGOCD_PODS=$(kubectl get pods -n argocd --no-headers 2>/dev/null | grep -c "Running" || echo "0")
+    if [ "$ARGOCD_PODS" -gt 0 ]; then
+        echo "    ✅ ArgoCD Pod 실행 중 ($ARGOCD_PODS개)"
+    else
+        echo "    ⚠️  ArgoCD Pod 실행 중 아님"
+        ((WARNINGS++))
+    fi
+    ((WARNINGS++))
+else
+    for release_info in "${EXPECTED_RELEASES[@]}"; do
+        IFS=':' read -r release_name namespace <<< "$release_info"
+        RELEASE_STATUS=$(helm status "$release_name" -n "$namespace" 2>/dev/null | grep "STATUS:" | awk '{print $2}' | tr -d '\n\r ' || echo "not_found")
+        
+        if [ "$RELEASE_STATUS" == "deployed" ]; then
+            echo "  ✅ $release_name ($namespace): deployed"
+        elif [ "$RELEASE_STATUS" == "not_found" ]; then
+            # helm list로 재확인
+            HELM_LIST=$(helm list -n "$namespace" 2>/dev/null | grep "$release_name" || echo "")
+            if [ -n "$HELM_LIST" ]; then
+                HELM_STATUS=$(echo "$HELM_LIST" | awk '{print $9}' | tr -d '\n\r ')
+                if [ -n "$HELM_STATUS" ]; then
+                    echo "  ⚠️  $release_name ($namespace): $HELM_STATUS"
+                    ((WARNINGS++))
+                else
+                    echo "  ✅ $release_name ($namespace): 설치됨 (상태: 확인됨)"
+                fi
+            else
+                echo "  ❌ $release_name ($namespace): 설치되지 않음"
+                ((ERRORS++))
+            fi
+        elif [ -z "$RELEASE_STATUS" ] || [ "$RELEASE_STATUS" = "" ]; then
+            # helm list로 재확인 (helm status가 실패했지만 설치되어 있을 수 있음)
+            HELM_LIST_CHECK=$(helm list -n "$namespace" 2>/dev/null | grep "$release_name" | awk 'END {print NR}' || echo "0")
+            HELM_LIST_CHECK=$(echo "$HELM_LIST_CHECK" | tr -d '\n\r\t ' | sed 's/[^0-9]//g')
+            if [ -z "$HELM_LIST_CHECK" ]; then
+                HELM_LIST_CHECK="0"
+            fi
+            if [ "$HELM_LIST_CHECK" -gt 0 ]; then
+                echo "  ✅ $release_name ($namespace): 설치됨 (helm status 확인 불가)"
+            else
+                echo "  ⚠️  $release_name ($namespace): 상태 확인 불가"
+                echo "      Pod 상태로 확인: kubectl get pods -n $namespace"
+                ((WARNINGS++))
+            fi
+        else
+            echo "  ⚠️  $release_name ($namespace): $RELEASE_STATUS"
+            ((WARNINGS++))
+        fi
+    done
+fi
+set -e
 echo ""
 
 # 5. 애플리케이션 Pod 상태
@@ -175,16 +239,27 @@ echo "5️⃣ 애플리케이션 Pod 상태"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-       # RabbitMQ (Operator 관리 - 단일 Pod)
-       RABBITMQ_PODS=$(kubectl get pods -n messaging -l rabbitmq.com/cluster=rabbitmq --no-headers 2>/dev/null | grep -c "Running" || echo "0")
-       RABBITMQ_EXPECTED=1
-       if [ "$RABBITMQ_PODS" -eq "$RABBITMQ_EXPECTED" ]; then
-           echo "✅ RabbitMQ: $RABBITMQ_PODS/$RABBITMQ_EXPECTED Pod 실행 중 (Operator 관리)"
-       else
-           echo "⚠️  RabbitMQ: $RABBITMQ_PODS/$RABBITMQ_EXPECTED Pod (예상: $RABBITMQ_EXPECTED, Operator 관리)"
-           kubectl get pods -n messaging -l rabbitmq.com/cluster=rabbitmq 2>/dev/null || kubectl get pods -n messaging
-           ((WARNINGS++))
-       fi
+# RabbitMQ (Operator 관리 - 단일 Pod)
+# 이름 패턴으로 직접 찾기 (라벨이 다를 수 있음)
+set +e
+RABBITMQ_PODS=$(kubectl get pods -n messaging --no-headers 2>/dev/null | awk '$1 ~ /^rabbitmq.*server.*/ && $3 == "Running" {count++} END {print count+0}' || echo "0")
+set -e
+
+# 숫자 정규화 (모든 공백/줄바꿈 제거 후 숫자만 추출)
+RABBITMQ_PODS=$(echo "$RABBITMQ_PODS" | tr -d '\n\r\t ' | sed 's/[^0-9]//g')
+if [ -z "$RABBITMQ_PODS" ] || ! [[ "$RABBITMQ_PODS" =~ ^[0-9]+$ ]]; then
+    RABBITMQ_PODS="0"
+fi
+
+RABBITMQ_EXPECTED=1
+if [ "$RABBITMQ_PODS" -eq "$RABBITMQ_EXPECTED" ] 2>/dev/null; then
+    echo "✅ RabbitMQ: $RABBITMQ_PODS/$RABBITMQ_EXPECTED Pod 실행 중 (Operator 관리)"
+else
+    echo "⚠️  RabbitMQ: $RABBITMQ_PODS/$RABBITMQ_EXPECTED Pod (예상: $RABBITMQ_EXPECTED, Operator 관리)"
+    echo "  Pod 목록:"
+    kubectl get pods -n messaging 2>/dev/null | grep rabbitmq || kubectl get pods -n messaging
+    ((WARNINGS++))
+fi
 
 # Redis
 REDIS_PODS=$(kubectl get pods -n default -l app=redis --no-headers 2>/dev/null | grep -c "Running" || echo "0")
@@ -242,21 +317,90 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 # LoadBalancer Service
+set +e
 LB_SVCS=$(kubectl get svc -A -o json 2>/dev/null | jq -r '.items[] | select(.spec.type=="LoadBalancer") | "\(.metadata.namespace)/\(.metadata.name)"' 2>/dev/null || echo "")
-if [ -n "$LB_SVCS" ]; then
-    echo "📋 LoadBalancer Service:"
-    echo "$LB_SVCS" | while read svc; do
-        echo "  - $svc"
+set -e
+# 줄바꿈 기준으로 라인 수 계산 (빈 줄 제외)
+LB_COUNT=$(echo "$LB_SVCS" | grep -v '^$' | awk 'NF > 0 {count++} END {print count+0}')
+# 숫자만 추출
+LB_COUNT=$(echo "$LB_COUNT" | tr -d '\n\r\t ' | sed 's/[^0-9]//g')
+if [ -z "$LB_COUNT" ] || ! [[ "$LB_COUNT" =~ ^[0-9]+$ ]]; then
+    LB_COUNT="0"
+fi
+if [ "$LB_COUNT" -gt 0 ] 2>/dev/null; then
+    echo "📋 LoadBalancer Service: $LB_COUNT개"
+    echo "$LB_SVCS" | grep -v '^$' | while read svc; do
+        [ -n "$svc" ] && echo "  - $svc"
     done
 else
     echo "ℹ️  LoadBalancer Service 없음 (정상 - Ingress 사용)"
 fi
 
-# Ingress
+# Ingress 검증 (Path-based routing 확인)
 INGRESS_COUNT=$(kubectl get ingress -A --no-headers 2>/dev/null | wc -l | tr -d ' ')
-if [ "$INGRESS_COUNT" -gt 0 ]; then
+if [ "$INGRESS_COUNT" -gt 0 ] 2>/dev/null; then
     echo "✅ Ingress: $INGRESS_COUNT개"
     kubectl get ingress -A
+    echo ""
+    
+    # Path-based routing 검증
+    echo "📋 Ingress 라우팅 검증 (Path-based routing):"
+    
+    # 1. ALB 그룹 확인
+    ALB_GROUP_COUNT=0
+    PATH_BASED_COUNT=0
+    HOST_BASED_COUNT=0
+    
+    set +e  # jsonpath 실패해도 계속 진행
+    for ns in argocd monitoring default; do
+        INGRESS_NAMES=$(kubectl get ingress -n "$ns" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+        if [ -z "$INGRESS_NAMES" ]; then
+            continue
+        fi
+        
+        for ing_name in $INGRESS_NAMES; do
+            if [ -n "$ing_name" ]; then
+                # ALB 그룹 annotation 확인
+                ALB_GROUP=$(kubectl get ingress "$ing_name" -n "$ns" -o jsonpath='{.metadata.annotations.alb\.ingress\.kubernetes\.io/group\.name}' 2>/dev/null || echo "")
+                if [ -n "$ALB_GROUP" ] && [ "$ALB_GROUP" != "<no value>" ]; then
+                    ALB_GROUP_COUNT=$((ALB_GROUP_COUNT + 1))
+                fi
+                
+                # Host 확인 (단일 도메인이면 path-based)
+                HOST=$(kubectl get ingress "$ing_name" -n "$ns" -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || echo "")
+                PATHS=$(kubectl get ingress "$ing_name" -n "$ns" -o jsonpath='{.spec.rules[0].http.paths[*].path}' 2>/dev/null || echo "")
+                
+                if [ -n "$PATHS" ] && [ "$PATHS" != "<no value>" ]; then
+                    FIRST_PATH=$(echo "$PATHS" | awk '{print $1}' | tr -d ' ')
+                    # Path가 있고, host가 동일 도메인이면 path-based
+                    if [ -n "$FIRST_PATH" ] && [ "$FIRST_PATH" != "" ] && echo "$FIRST_PATH" | grep -q "^/" && [ "$HOST" = "growbin.app" ]; then
+                        PATH_BASED_COUNT=$((PATH_BASED_COUNT + 1))
+                        echo "  ✅ $ing_name ($ns): Path-based ($FIRST_PATH)"
+                    elif [ -n "$HOST" ] && [ "$HOST" != "growbin.app" ]; then
+                        HOST_BASED_COUNT=$((HOST_BASED_COUNT + 1))
+                        echo "  ⚠️  $ing_name ($ns): Host-based ($HOST)"
+                    fi
+                fi
+            fi
+        done
+    done
+    set -e
+    
+    if [ "$ALB_GROUP_COUNT" -gt 0 ]; then
+        echo "  ✅ ALB 그룹 설정: $ALB_GROUP_COUNT개 Ingress가 동일 ALB 그룹 사용 (growbin-alb)"
+    fi
+    
+    if [ "$PATH_BASED_COUNT" -gt 0 ]; then
+        echo "  ✅ Path-based routing: $PATH_BASED_COUNT개 Ingress 확인됨"
+    else
+        echo "  ⚠️  Path-based routing Ingress 없음 (확인 필요)"
+        ((WARNINGS++))
+    fi
+    
+    if [ "$HOST_BASED_COUNT" -gt 0 ]; then
+        echo "  ⚠️  Host-based routing: $HOST_BASED_COUNT개 Ingress (path-based 권장)"
+        ((WARNINGS++))
+    fi
 else
     echo "ℹ️  Ingress 없음 (아직 생성되지 않음)"
 fi
@@ -268,13 +412,51 @@ echo "8️⃣ etcd 상태"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-ETCD_HEALTH=$(sudo ETCDCTL_API=3 etcdctl endpoint health --endpoints=https://127.0.0.1:2379 --cacert=/etc/etcd/pki/ca.crt --cert=/etc/etcd/pki/apiserver-etcd-client.crt --key=/etc/etcd/pki/apiserver-etcd-client.key 2>/dev/null || echo "error")
-if echo "$ETCD_HEALTH" | grep -q "is healthy"; then
-    echo "✅ etcd: healthy"
+set +e
+# etcd 인증서 경로 자동 감지 (kubeadm 기본 경로)
+ETCD_CA="/etc/kubernetes/pki/etcd/ca.crt"
+ETCD_CERT="/etc/kubernetes/pki/etcd/server.crt"
+ETCD_KEY="/etc/kubernetes/pki/etcd/server.key"
+
+# 인증서 파일 존재 확인
+if [ ! -f "$ETCD_CA" ] || [ ! -f "$ETCD_CERT" ] || [ ! -f "$ETCD_KEY" ]; then
+    # 대체 경로 시도
+    ETCD_CA="/etc/etcd/pki/ca.crt"
+    ETCD_CERT="/etc/etcd/pki/apiserver-etcd-client.crt"
+    ETCD_KEY="/etc/etcd/pki/apiserver-etcd-client.key"
+fi
+
+# etcdctl 설치 확인
+if ! which etcdctl &>/dev/null; then
+    echo "⚠️  etcdctl이 설치되지 않았습니다"
+    echo "   상세 확인: ./scripts/check-etcd-health.sh"
+    ((WARNINGS++))
+elif [ -f "$ETCD_CA" ] && [ -f "$ETCD_CERT" ] && [ -f "$ETCD_KEY" ]; then
+    # etcd health check
+    ETCD_HEALTH=$(sudo ETCDCTL_API=3 etcdctl endpoint health \
+        --endpoints=https://127.0.0.1:2379 \
+        --cacert="$ETCD_CA" \
+        --cert="$ETCD_CERT" \
+        --key="$ETCD_KEY" \
+        2>&1)
+    
+    ETCD_EXIT_CODE=$?
+    
+    if [ $ETCD_EXIT_CODE -eq 0 ] && echo "$ETCD_HEALTH" | grep -q "is healthy"; then
+        echo "✅ etcd: healthy"
+    else
+        echo "⚠️  etcd: 상태 확인 불가 또는 비정상"
+        echo "   오류: $(echo "$ETCD_HEALTH" | head -1)"
+        echo "   상세 확인: ./scripts/check-etcd-health.sh"
+        ((WARNINGS++))
+    fi
 else
-    echo "⚠️  etcd: 상태 확인 불가 또는 비정상"
+    echo "⚠️  etcd 인증서를 찾을 수 없습니다"
+    echo "   예상 경로: /etc/kubernetes/pki/etcd/"
+    echo "   상세 확인: ./scripts/check-etcd-health.sh"
     ((WARNINGS++))
 fi
+set -e
 echo ""
 
 # 9. 요약

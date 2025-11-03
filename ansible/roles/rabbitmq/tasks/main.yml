@@ -61,10 +61,16 @@
     metadata:
       name: rabbitmq-default-user
       namespace: {{ rabbitmq_namespace }}
+      labels:
+        app.kubernetes.io/name: rabbitmq
+        app.kubernetes.io/component: server
     type: Opaque
     stringData:
       username: {{ rabbitmq_username }}
       password: {{ rabbitmq_password }}
+      default_user.conf: |
+        default_user = {{ rabbitmq_username }}
+        default_pass = {{ rabbitmq_password }}
     EOF
   register: secret_create
   changed_when: "'created' in secret_create.stdout or 'configured' in secret_create.stdout"
@@ -113,10 +119,6 @@
               # Enable Management Plugin
               management.tcp.port = 15672
               management.tcp.ip = 0.0.0.0
-          defaultUser:
-            tags: administrator
-            secretReference:
-              name: rabbitmq-default-user
         EOF
       register: cluster_create
       changed_when: "'created' in cluster_create.stdout or 'configured' in cluster_create.stdout"
