@@ -1,6 +1,26 @@
 #!/bin/bash
 # Pod 문제 진단 스크립트 (Master 노드에서 실행)
 
+# kubectl 확인
+if ! command -v kubectl &> /dev/null; then
+    echo "❌ kubectl 명령어를 찾을 수 없습니다."
+    echo ""
+    echo "이 스크립트는 Kubernetes Master 노드에서 실행해야 합니다."
+    echo ""
+    echo "사용 방법:"
+    echo "  1. Master 노드에 SSH 접속:"
+    echo "     ssh ubuntu@<master-ip>"
+    echo ""
+    echo "  2. 스크립트를 Master 노드로 복사 후 실행:"
+    echo "     scp scripts/diagnose-pods.sh ubuntu@<master-ip>:~/"
+    echo "     ssh ubuntu@<master-ip> './diagnose-pods.sh'"
+    echo ""
+    echo "  3. 또는 로컬에서 Master 노드에서 실행:"
+    echo "     ssh ubuntu@<master-ip> 'bash -s' < scripts/diagnose-pods.sh"
+    echo ""
+    exit 1
+fi
+
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🔍 Pod 문제 진단"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

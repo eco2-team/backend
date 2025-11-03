@@ -34,8 +34,6 @@
     --set auth.username={{ rabbitmq_username }}
     --set auth.password={{ rabbitmq_password }}
     --set replicaCount={{ rabbitmq_replicas }}
-    --set image.repository=rabbitmq
-    --set image.tag=3.13-management
     --set persistence.enabled=true
     --set persistence.size={{ rabbitmq_persistence_size }}
     --set persistence.storageClass=gp3
