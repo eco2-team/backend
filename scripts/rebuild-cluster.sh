@@ -194,9 +194,10 @@ if [ -n "$VPC_ID" ] && [ "$VPC_ID" != "" ]; then
   echo "🔍 Kubernetes가 생성한 AWS 리소스 확인 중..."
   echo ""
   
-  # EBS 볼륨 확인
+  # EBS 볼륨 확인 (available + in-use 모두 포함, VPC 내 모든 볼륨)
+  # attached 상태도 detach 후 삭제 가능하므로 모두 확인
   VOLUMES=$(aws ec2 describe-volumes \
-    --filters "Name=tag-key,Values=kubernetes.io/created-for/pvc/name" "Name=state,Values=available" \
+    --filters "Name=tag-key,Values=kubernetes.io/created-for/pvc/name" \
     --region "$AWS_REGION" \
     --query 'Volumes[*].VolumeId' \
     --output text 2>/dev/null || echo "")
