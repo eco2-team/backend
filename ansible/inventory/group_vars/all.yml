@@ -33,8 +33,8 @@ domain_name: "growbin.app"
 rabbitmq_namespace: "messaging"
 rabbitmq_username: "admin"
 rabbitmq_password: "{{ lookup('env', 'RABBITMQ_PASSWORD') | default('changeme', true) }}"
-rabbitmq_persistence_size: "20Gi"  # 20GB × 3 nodes
-rabbitmq_replicas: 3  # HA Cluster
+rabbitmq_persistence_size: "20Gi"  # 20GB
+rabbitmq_replicas: 1  # 단일 인스턴스 (HA는 향후 확장 시 고려)
 
 # Redis (Tier 4: Persistence - Cache & State)
 redis_namespace: "default"

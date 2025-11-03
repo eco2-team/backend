@@ -67,27 +67,14 @@
               memory: 2Gi
           affinity:
             nodeAffinity:
-              # Storage 노드 선호, 없으면 다른 노드도 허용
-              preferredDuringSchedulingIgnoredDuringExecution:
-              - weight: 100
-                preference:
-                  matchExpressions:
+              # Storage 노드에만 배치
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
                   - key: workload
                     operator: In
                     values:
                     - storage
-            podAntiAffinity:
-              # 같은 클러스터의 Pod는 다른 노드에 배치 (진정한 HA)
-              preferredDuringSchedulingIgnoredDuringExecution:
-              - weight: 100
-                podAffinityTerm:
-                  labelSelector:
-                    matchExpressions:
-                    - key: rabbitmq.com/cluster
-                      operator: In
-                      values:
-                      - rabbitmq
-                  topologyKey: kubernetes.io/hostname
           service:
             type: ClusterIP
           rabbitmq:
@@ -250,12 +237,12 @@
   debug:
     msg:
       - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      - "✅ RabbitMQ HA Cluster 설치 완료 (Tier 3: Message Queue)"
+      - "✅ RabbitMQ 설치 완료 (Tier 3: Message Queue)"
       - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       - "방식: RabbitMQ Cluster Operator (공식)"
       - "이미지: rabbitmq:3.13-management (공식 Docker Hub)"
       - "역할: Task Queue Middleware"
-      - "구성: {{ rabbitmq_replicas }}-node HA Cluster"
+      - "구성: 단일 인스턴스 ({{ rabbitmq_replicas }} Pod)"
       - "Queues: 5개 (q.ai, q.batch, q.api, q.sched, q.dlq)"
       - ""
       - "연결 정보:"
@@ -264,8 +251,9 @@
       - "  Username: {{ rabbitmq_username }}"
       - "  Password: {{ rabbitmq_password }}"
       - ""
-      - "Storage: {{ rabbitmq_persistence_size }} × {{ rabbitmq_replicas }} nodes"
+      - "Storage: {{ rabbitmq_persistence_size }}"
       - "Node: Storage (workload=storage)"
       - ""
       - "⚠️ RabbitMQ는 메시지 전달만 담당!"
       - "⚠️ Progress Tracking은 Redis (Tier 4) 사용!"
+      - "📌 HA 구성은 향후 개발 진척에 따라 보강 예정"
