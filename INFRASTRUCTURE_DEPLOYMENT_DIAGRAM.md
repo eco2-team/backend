@@ -58,14 +58,14 @@ graph TB
     Ingress --> ETCDBackup[etcd 백업 설정]
     ETCDBackup --> End([완료])
     
-    style Start fill:#e1f5ff
-    style Step1 fill:#fff4e6
-    style Step2 fill:#fff4e6
-    style AnsibleExec fill:#e8f5e9
-    style RabbitMQOp fill:#fff9c4
-    style RabbitMQCR fill:#fff9c4
-    style RabbitMQPod fill:#fff9c4
-    style End fill:#c8e6c9
+    style Start fill:#2196F3,stroke:#1565C0,stroke-width:2px,color:#ffffff
+    style Step1 fill:#FF9800,stroke:#E65100,stroke-width:2px,color:#ffffff
+    style Step2 fill:#FF9800,stroke:#E65100,stroke-width:2px,color:#ffffff
+    style AnsibleExec fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#ffffff
+    style RabbitMQOp fill:#FFC107,stroke:#F57C00,stroke-width:2px,color:#000000
+    style RabbitMQCR fill:#FFC107,stroke:#F57C00,stroke-width:2px,color:#000000
+    style RabbitMQPod fill:#FFC107,stroke:#F57C00,stroke-width:2px,color:#000000
+    style End fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#ffffff
 ```
 
 ## 상세 배포 단계
@@ -142,13 +142,22 @@ graph LR
         H3 --> L[Redis]
     end
     
-    style A fill:#e1f5ff
-    style D fill:#fff4e6
-    style H1 fill:#e8f5e9
-    style H2 fill:#e8f5e9
-    style H3 fill:#e8f5e9
-    style K2 fill:#fff9c4
-    style K3 fill:#fff9c4
+    style A fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#ffffff
+    style B fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#ffffff
+    style C fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#ffffff
+    style D fill:#FF9800,stroke:#E65100,stroke-width:2px,color:#ffffff
+    style E fill:#FF9800,stroke:#E65100,stroke-width:2px,color:#ffffff
+    style F fill:#FF9800,stroke:#E65100,stroke-width:2px,color:#ffffff
+    style G fill:#FF9800,stroke:#E65100,stroke-width:2px,color:#ffffff
+    style H1 fill:#2196F3,stroke:#1565C0,stroke-width:2px,color:#ffffff
+    style H2 fill:#2196F3,stroke:#1565C0,stroke-width:2px,color:#ffffff
+    style H3 fill:#2196F3,stroke:#1565C0,stroke-width:2px,color:#ffffff
+    style I fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px,color:#ffffff
+    style J fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px,color:#ffffff
+    style K1 fill:#FFC107,stroke:#F57C00,stroke-width:2px,color:#000000
+    style K2 fill:#FFC107,stroke:#F57C00,stroke-width:2px,color:#000000
+    style K3 fill:#FFC107,stroke:#F57C00,stroke-width:2px,color:#000000
+    style L fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px,color:#ffffff
 ```
 
 ## RabbitMQ 배포 상세 (순수 Operator 방식)
