@@ -1,0 +1,182 @@
+# Ingress 리소스 생성 (ALB 자동 생성)
+# Namespace별 Ingress 생성 (Cross-namespace 불가)
+---
+- name: "ArgoCD Ingress 생성 (/argocd)"
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: argocd-ingress
+      namespace: argocd
+      annotations:
+        kubernetes.io/ingress.class: alb
+        alb.ingress.kubernetes.io/scheme: internet-facing
+        alb.ingress.kubernetes.io/target-type: ip
+        alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+        alb.ingress.kubernetes.io/ssl-redirect: '443'
+        alb.ingress.kubernetes.io/certificate-arn: {{ acm_certificate_arn }}
+        alb.ingress.kubernetes.io/group.name: growbin-alb
+        alb.ingress.kubernetes.io/group.order: '10'
+        alb.ingress.kubernetes.io/backend-protocol: HTTPS
+    spec:
+      rules:
+      - host: {{ domain_name }}
+        http:
+          paths:
+          - path: /argocd
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 443
+    EOF
+  register: argocd_ingress
+  when: domain_name != "" and domain_name is defined
+
+- name: "Monitoring Ingress 생성 (/grafana)"
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: grafana-ingress
+      namespace: monitoring
+      annotations:
+        kubernetes.io/ingress.class: alb
+        alb.ingress.kubernetes.io/scheme: internet-facing
+        alb.ingress.kubernetes.io/target-type: ip
+        alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+        alb.ingress.kubernetes.io/ssl-redirect: '443'
+        alb.ingress.kubernetes.io/certificate-arn: {{ acm_certificate_arn }}
+        alb.ingress.kubernetes.io/group.name: growbin-alb
+        alb.ingress.kubernetes.io/group.order: '20'
+    spec:
+      rules:
+      - host: {{ domain_name }}
+        http:
+          paths:
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus-grafana
+                port:
+                  number: 80
+    EOF
+  register: grafana_ingress
+  when: domain_name != "" and domain_name is defined
+
+- name: "Default Backend Deployment 생성"
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: default-backend
+      namespace: default
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: default-backend
+      template:
+        metadata:
+          labels:
+            app: default-backend
+        spec:
+          containers:
+          - name: backend
+            image: gcr.io/google_containers/defaultbackend-amd64:1.5
+            ports:
+            - containerPort: 8080
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: default-backend
+      namespace: default
+    spec:
+      selector:
+        app: default-backend
+      ports:
+      - port: 80
+        targetPort: 8080
+    EOF
+  register: default_backend
+  when: domain_name != "" and domain_name is defined
+
+- name: "API Services Ingress 생성 (default namespace)"
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: api-ingress
+      namespace: default
+      annotations:
+        kubernetes.io/ingress.class: alb
+        alb.ingress.kubernetes.io/scheme: internet-facing
+        alb.ingress.kubernetes.io/target-type: ip
+        alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+        alb.ingress.kubernetes.io/ssl-redirect: '443'
+        alb.ingress.kubernetes.io/certificate-arn: {{ acm_certificate_arn }}
+        alb.ingress.kubernetes.io/group.name: growbin-alb
+        alb.ingress.kubernetes.io/group.order: '30'
+    spec:
+      rules:
+      - host: {{ domain_name }}
+        http:
+          paths:
+          # 아직 서비스가 없으므로 default-backend로
+          - path: /api/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: default-backend
+                port:
+                  number: 80
+          
+          # Root path
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: default-backend
+                port:
+                  number: 80
+    EOF
+  register: api_ingress
+  when: domain_name != "" and domain_name is defined
+
+- name: Ingress 리소스 확인
+  command: kubectl get ingress -A
+  register: ingress_list
+  changed_when: false
+
+- name: Ingress 정보 출력
+  debug:
+    msg:
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "✅ Ingress 리소스 생성 완료"
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "{{ ingress_list.stdout_lines }}"
+      - ""
+      - "⚠️ 주의사항:"
+      - "1. ALB 생성까지 3-5분 소요"
+      - "2. DNS 전파까지 추가 시간 필요"
+      - "3. 실제 서비스 배포 전까지 default-backend 응답"
+      - ""
+      - "ALB DNS 확인:"
+      - "  kubectl get ingress argocd-ingress -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'"
+      - ""
+      - "Route53 설정:"
+      - "  1. ALB DNS 복사"
+      - "  2. Route53 → {{ domain_name }} → Alias 레코드"
+      - "  3. Target: ALB DNS"
+      - ""
+      - "접속:"
+      - "  https://{{ domain_name }}/argocd"
+      - "  https://{{ domain_name }}/grafana (Monitoring 설치 후)"
+      - "  https://{{ domain_name }}/api/v1/* (서비스 배포 후)"

@@ -1,0 +1,221 @@
+# RabbitMQ 설치 (Cluster Operator - 순수 Operator 방식)
+---
+- name: RabbitMQ namespace 생성
+  shell: kubectl create namespace {{ rabbitmq_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+
+- name: RabbitMQ Operator 설치 여부 확인
+  shell: kubectl get crd rabbitmqclusters.rabbitmq.com 2>/dev/null || echo "not_found"
+  register: rabbitmq_crd_check
+  changed_when: false
+  failed_when: false
+
+- name: RabbitMQ Cluster Operator 설치 (CRD + Deployment)
+  when: "'not_found' in rabbitmq_crd_check.stdout"
+  block:
+    - name: RabbitMQ Cluster Operator 설치 (kubectl apply - CRD 포함)
+      shell: |
+        echo "📥 RabbitMQ Cluster Operator 설치 중 (CRD 포함)..."
+        kubectl apply -f https://github.com/rabbitmq/cluster-operator/releases/latest/download/cluster-operator.yml
+      register: operator_install
+      changed_when: "'created' in operator_install.stdout or 'configured' in operator_install.stdout"
+    
+    - name: RabbitMQ Cluster Operator 배포 대기
+      shell: |
+        echo "⏳ RabbitMQ Cluster Operator 배포 대기..."
+        # CRD 생성 대기
+        for i in {1..30}; do
+          if kubectl get crd rabbitmqclusters.rabbitmq.com >/dev/null 2>&1; then
+            echo "✅ CRD 생성됨"
+            break
+          fi
+          echo "CRD 대기 중... ($i/30)"
+          sleep 2
+        done
+        
+        # Operator Deployment 대기
+        for i in {1..60}; do
+          if kubectl get deployment rabbitmq-cluster-operator -n rabbitmq-system >/dev/null 2>&1; then
+            if kubectl wait --for=condition=available deployment/rabbitmq-cluster-operator -n rabbitmq-system --timeout=300s 2>/dev/null; then
+              echo "✅ RabbitMQ Cluster Operator 준비 완료"
+              exit 0
+            fi
+          fi
+          echo "Operator 대기 중... ($i/60)"
+          sleep 5
+        done
+        echo "⚠️  Operator 배포 시간 초과 (계속 진행)"
+      changed_when: false
+      failed_when: false
+
+- name: RabbitMQ Cluster 배포 여부 확인
+  shell: kubectl get rabbitmqcluster rabbitmq -n {{ rabbitmq_namespace }} 2>/dev/null || echo "not_found"
+  register: rabbitmq_cluster_check
+  changed_when: false
+  failed_when: false
+
+- name: RabbitMQ 기본 사용자 Secret 생성
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: rabbitmq-default-user
+      namespace: {{ rabbitmq_namespace }}
+      labels:
+        app.kubernetes.io/name: rabbitmq
+        app.kubernetes.io/component: server
+    type: Opaque
+    stringData:
+      username: {{ rabbitmq_username }}
+      password: {{ rabbitmq_password }}
+      default_user.conf: |
+        default_user = {{ rabbitmq_username }}
+        default_pass = {{ rabbitmq_password }}
+    EOF
+  register: secret_create
+  changed_when: "'created' in secret_create.stdout or 'configured' in secret_create.stdout"
+  when: "'not_found' in rabbitmq_cluster_check.stdout"
+
+- name: RabbitMQ Cluster 배포 (순수 Operator 방식)
+  when: "'not_found' in rabbitmq_cluster_check.stdout"
+  block:
+    - name: RabbitMQ Cluster 리소스 생성 (RabbitmqCluster CR - 순수 Operator)
+      shell: |
+        cat <<EOF | kubectl apply -f -
+        apiVersion: rabbitmq.com/v1beta1
+        kind: RabbitmqCluster
+        metadata:
+          name: rabbitmq
+          namespace: {{ rabbitmq_namespace }}
+          labels:
+            app.kubernetes.io/name: rabbitmq
+        spec:
+          replicas: {{ rabbitmq_replicas }}
+          image: rabbitmq:3.13-management
+          persistence:
+            storageClassName: gp3
+            storage: {{ rabbitmq_persistence_size }}
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          affinity:
+            nodeAffinity:
+              # Storage 노드에만 배치
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: workload
+                    operator: In
+                    values:
+                    - storage
+          service:
+            type: ClusterIP
+          rabbitmq:
+            additionalConfig: |
+              # Enable Management Plugin
+              management.tcp.port = 15672
+              management.tcp.ip = 0.0.0.0
+        EOF
+      register: cluster_create
+      changed_when: "'created' in cluster_create.stdout or 'configured' in cluster_create.stdout"
+    
+    - name: RabbitMQ Cluster 배포 대기
+      shell: |
+        echo "⏳ RabbitMQ Cluster 배포 대기..."
+        sleep 10
+        for i in {1..60}; do
+          # CRD 확인
+          if ! kubectl get crd rabbitmqclusters.rabbitmq.com >/dev/null 2>&1; then
+            echo "⚠️  CRD가 아직 생성되지 않았습니다. Operator 설치를 확인하세요."
+            sleep 5
+            continue
+          fi
+          
+          # RabbitmqCluster 리소스 확인
+          CLUSTER_EXISTS=$(kubectl get rabbitmqcluster rabbitmq -n {{ rabbitmq_namespace }} 2>/dev/null | grep rabbitmq || echo "")
+          if [ -z "$CLUSTER_EXISTS" ]; then
+            echo "⚠️  RabbitmqCluster 리소스가 아직 생성되지 않았습니다. ($i/60)"
+            sleep 5
+            continue
+          fi
+          
+          # Pod 상태 확인 (더 안정적)
+          POD_READY=$(kubectl get pods -n {{ rabbitmq_namespace }} -l rabbitmq.com/cluster=rabbitmq -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "")
+          if [ "$POD_READY" == "Running" ]; then
+            echo "✅ RabbitMQ Pod 실행 중"
+            exit 0
+          fi
+          
+          # RabbitmqCluster Ready 상태 확인
+          READY=$(kubectl get rabbitmqcluster rabbitmq -n {{ rabbitmq_namespace }} -o jsonpath='{.status.conditions[?(@.type=="AllReplicasReady")].status}' 2>/dev/null || echo "")
+          if [ "$READY" == "True" ]; then
+            echo "✅ RabbitMQ Cluster 준비 완료"
+            exit 0
+          fi
+          
+          echo "대기 중... ($i/60) - Pod: $POD_READY, Ready: $READY"
+          sleep 10
+        done
+        echo "⚠️  Cluster 배포 시간 초과 (상태 확인 필요)"
+      changed_when: false
+      failed_when: false
+
+- name: RabbitMQ Cluster 상태 확인
+  shell: kubectl get rabbitmqcluster rabbitmq -n {{ rabbitmq_namespace }} -o yaml 2>/dev/null || echo "not_found"
+  register: rabbitmq_cluster_status
+  changed_when: false
+  failed_when: false
+
+- name: RabbitMQ Cluster 상태 출력
+  debug:
+    msg:
+      - "RabbitmqCluster CR: {{ 'Found' if 'not_found' not in rabbitmq_cluster_status.stdout else 'Not found' }}"
+      - "관리 방식: RabbitMQ Cluster Operator (순수 Operator)"
+
+- name: RabbitMQ Pod 상태 확인
+  shell: |
+    echo "=== 모든 Pod (messaging namespace) ==="
+    kubectl get pods -n {{ rabbitmq_namespace }} || echo "Pod 없음"
+    echo ""
+    echo "=== CRD 확인 ==="
+    kubectl get crd rabbitmqclusters.rabbitmq.com 2>/dev/null || echo "CRD 없음 (Operator 미설치)"
+    echo ""
+    echo "=== RabbitmqCluster 상태 ==="
+    kubectl get rabbitmqcluster -n {{ rabbitmq_namespace }} 2>/dev/null || echo "RabbitmqCluster 리소스 없음"
+    echo ""
+    echo "=== Operator Deployment 확인 ==="
+    kubectl get deployment rabbitmq-cluster-operator -n rabbitmq-system 2>/dev/null || echo "Operator Deployment 없음"
+  register: rabbitmq_pods
+  changed_when: false
+  failed_when: false
+
+- name: RabbitMQ Pod 상태 출력
+  debug:
+    msg: "{{ rabbitmq_pods.stdout_lines }}"
+
+- name: RabbitMQ 접속 정보
+  debug:
+    msg:
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "✅ RabbitMQ 설치 완료 (Tier 3: Message Queue)"
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "역할: Task Queue Middleware"
+      - "구성: 단일 Pod (Operator 관리)"
+      - "Queues: 5개 (q.ai, q.batch, q.api, q.sched, q.dlq)"
+      - ""
+      - "연결 정보:"
+      - "  AMQP: amqp://{{ rabbitmq_username }}:{{ rabbitmq_password }}@rabbitmq.{{ rabbitmq_namespace }}.svc.cluster.local:5672/"
+      - "  Management UI: kubectl port-forward -n {{ rabbitmq_namespace }} svc/rabbitmq 15672:15672"
+      - "  Username: {{ rabbitmq_username }}"
+      - "  Password: {{ rabbitmq_password }}"
+      - ""
+      - "Storage: {{ rabbitmq_persistence_size }}"
+      - "Node: Storage (workload=storage)"
+      - ""
+      - "⚠️ RabbitMQ는 메시지 전달만 담당!"
+      - "⚠️ Progress Tracking은 Redis (Tier 4) 사용!"
+      - "⚠️ HA는 향후 확장 시 고려 (현재 단일 Pod)"

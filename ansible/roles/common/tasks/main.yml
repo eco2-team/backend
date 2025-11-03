@@ -1,0 +1,107 @@
+# Common OS 설정
+---
+- name: 시스템 업데이트
+  apt:
+    update_cache: yes
+    upgrade: yes
+    cache_valid_time: 3600
+
+- name: 필수 패키지 설치 (Kubernetes 종속성 포함)
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - software-properties-common
+      - wget
+      - git
+      - vim
+      - htop
+      - net-tools
+      - socat  # Kubernetes port-forward 필수
+      - conntrack  # Kubernetes 네트워크 추적
+      - ipset  # iptables 성능 향상
+      - nfs-common  # PV 지원
+    state: present
+
+# Swap 비활성화 (Kubernetes 필수 요구사항)
+- name: Swap 즉시 비활성화
+  command: swapoff -a
+  changed_when: false
+
+- name: Swap 영구 비활성화 (fstab)
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
+    replace: '# \1'
+  when: ansible_swaptotal_mb is defined and ansible_swaptotal_mb > 0
+
+- name: Swap 상태 확인
+  command: swapon -s
+  register: swap_status
+  changed_when: false
+
+- name: Swap 비활성화 확인 출력
+  debug:
+    msg: "Swap 상태: {{ 'OFF ✅' if swap_status.stdout == '' else 'ON ⚠️ - 재확인 필요' }}"
+
+# CNI 디렉토리 정리 (Calico init 실패 방지)
+- name: 이전 CNI 설정 정리
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/cni/net.d
+    - /var/lib/cni
+    - /opt/cni/bin
+  ignore_errors: yes
+
+- name: CNI 디렉토리 생성
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/cni/net.d
+    - /var/lib/cni
+    - /opt/cni/bin
+
+- name: 커널 모듈 로드
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - overlay
+    - br_netfilter
+
+- name: 커널 모듈 영구 설정
+  copy:
+    dest: /etc/modules-load.d/k8s.conf
+    content: |
+      overlay
+      br_netfilter
+
+- name: sysctl 네트워크 설정 (Kubernetes 최적화)
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+    sysctl_file: /etc/sysctl.d/99-kubernetes.conf
+  loop:
+    - {name: 'net.bridge.bridge-nf-call-iptables', value: '1'}
+    - {name: 'net.bridge.bridge-nf-call-ip6tables', value: '1'}
+    - {name: 'net.ipv4.ip_forward', value: '1'}
+    - {name: 'net.ipv4.conf.all.forwarding', value: '1'}
+    - {name: 'net.ipv6.conf.all.forwarding', value: '1'}
+    - {name: 'vm.overcommit_memory', value: '1'}  # 메모리 오버커밋
+    - {name: 'kernel.panic', value: '10'}  # Panic 후 재부팅
+    - {name: 'kernel.panic_on_oops', value: '1'}  # Oops 시 panic
+    - {name: 'fs.file-max', value: '2097152'}  # 파일 디스크립터
+
+- name: 타임존 설정
+  timezone:
+    name: Asia/Seoul
+

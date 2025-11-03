@@ -1,0 +1,69 @@
+# AWS EBS CSI Driver 설치 (StorageClass 지원)
+---
+- name: AWS EBS CSI Driver 설치 확인
+  command: kubectl get deployment ebs-csi-controller -n kube-system
+  register: ebs_csi_check
+  failed_when: false
+  changed_when: false
+
+- name: AWS EBS CSI Driver 설치
+  shell: |
+    kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.28"
+  when: ebs_csi_check.rc != 0
+
+- name: EBS CSI Driver Controller 대기
+  command: kubectl wait --for=condition=available deployment/ebs-csi-controller -n kube-system --timeout=180s
+  when: ebs_csi_check.rc != 0
+
+- name: gp3 StorageClass 생성
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: storage.k8s.io/v1
+    kind: StorageClass
+    metadata:
+      name: gp3
+      annotations:
+        storageclass.kubernetes.io/is-default-class: "true"
+    provisioner: ebs.csi.aws.com
+    parameters:
+      type: gp3
+      encrypted: "true"
+      iops: "3000"
+      throughput: "125"
+    volumeBindingMode: WaitForFirstConsumer
+    allowVolumeExpansion: true
+    reclaimPolicy: Delete
+    EOF
+  register: gp3_sc
+
+- name: gp2 StorageClass 생성 (호환성)
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: storage.k8s.io/v1
+    kind: StorageClass
+    metadata:
+      name: gp2
+    provisioner: ebs.csi.aws.com
+    parameters:
+      type: gp2
+      encrypted: "true"
+    volumeBindingMode: WaitForFirstConsumer
+    allowVolumeExpansion: true
+    reclaimPolicy: Delete
+    EOF
+  register: gp2_sc
+
+- name: StorageClass 확인
+  command: kubectl get storageclass
+  register: sc_list
+  changed_when: false
+
+- name: StorageClass 목록 출력
+  debug:
+    msg:
+      - "✅ StorageClass 생성 완료"
+      - "{{ sc_list.stdout_lines }}"
+      - ""
+      - "기본 StorageClass: gp3 (default)"
+      - "대체 StorageClass: gp2 (legacy)"
+

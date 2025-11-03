@@ -1,0 +1,74 @@
+# Prometheus + Grafana 설치
+---
+- name: Prometheus Helm repository 추가
+  command: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+  changed_when: false
+
+- name: Helm repository 업데이트
+  command: helm repo update
+  changed_when: false
+
+- name: Monitoring namespace 생성
+  shell: kubectl create namespace {{ monitoring_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+
+- name: Prometheus Stack 설치 여부 확인
+  command: helm list -n {{ monitoring_namespace }}
+  register: prometheus_check
+  changed_when: false
+
+- name: Prometheus + Grafana 설치 (리소스 최적화)
+  command: >
+    helm install prometheus prometheus-community/kube-prometheus-stack
+    --namespace {{ monitoring_namespace }}
+    --set prometheus.prometheusSpec.retention=7d
+    --set prometheus.prometheusSpec.retentionSize=40GB
+    --set prometheus.prometheusSpec.resources.requests.cpu=1000m
+    --set prometheus.prometheusSpec.resources.requests.memory=2Gi
+    --set prometheus.prometheusSpec.resources.limits.memory=4Gi
+    --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=50Gi
+    --set grafana.adminPassword={{ grafana_admin_password }}
+    --set grafana.resources.requests.cpu=500m
+    --set grafana.resources.requests.memory=512Mi
+    --set alertmanager.alertmanagerSpec.resources.requests.cpu=250m
+    --set alertmanager.alertmanagerSpec.resources.requests.memory=256Mi
+  when: "'prometheus' not in prometheus_check.stdout"
+
+- name: Prometheus Operator 설치 대기 (60초)
+  shell: |
+    echo "⏳ Prometheus Operator 및 CRD 생성 대기..."
+    sleep 60
+  changed_when: false
+
+- name: Prometheus StatefulSet 생성 대기
+  shell: |
+    for i in {1..30}; do
+      if kubectl get statefulset -n {{ monitoring_namespace }} prometheus-prometheus-kube-prometheus-prometheus 2>/dev/null; then
+        echo "✅ Prometheus StatefulSet 생성됨"
+        exit 0
+      fi
+      echo "대기 중... ($i/30)"
+      sleep 10
+    done
+  changed_when: false
+
+- name: Prometheus Pod Ready 대기
+  command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=prometheus -n {{ monitoring_namespace }} --timeout=300s
+  ignore_errors: yes
+
+- name: Monitoring Pods 상태 확인
+  command: kubectl get pods -n {{ monitoring_namespace }}
+  register: monitoring_pods
+  changed_when: false
+
+- name: Monitoring Pods 출력
+  debug:
+    msg: "{{ monitoring_pods.stdout_lines }}"
+
+- name: Grafana 접속 정보
+  debug:
+    msg:
+      - "Grafana가 설치되었습니다."
+      - "접속: kubectl port-forward -n {{ monitoring_namespace }} svc/prometheus-grafana 3000:80"
+      - "Username: admin"
+      - "Password: {{ grafana_admin_password }}"
+

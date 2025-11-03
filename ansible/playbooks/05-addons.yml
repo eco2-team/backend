@@ -1,0 +1,27 @@
+# Add-ons 설치 (Cert-manager, Metrics Server)
+# Note: AWS Load Balancer Controller는 별도 playbook (07-alb-controller.yml)
+---
+
+- name: Cert-manager 설치
+  command: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+  register: certmanager_install
+  changed_when: "'created' in certmanager_install.stdout or 'configured' in certmanager_install.stdout"
+
+- name: Cert-manager Pod 대기
+  command: kubectl wait --namespace cert-manager --for=condition=ready pod --selector=app=cert-manager --timeout=300s
+  when: certmanager_install.changed
+
+- name: Metrics Server 설치
+  command: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+  register: metrics_install
+  changed_when: "'created' in metrics_install.stdout or 'configured' in metrics_install.stdout"
+
+- name: 설치된 Add-ons 확인
+  command: kubectl get pods -A
+  register: all_pods
+  changed_when: false
+
+- name: Pod 목록 출력
+  debug:
+    msg: "{{ all_pods.stdout_lines }}"
+
