@@ -1,0 +1,133 @@
+# Redis 설치 (Tier 4: Persistence - Cache & State)
+# Token Blacklist + Image Cache + Job Progress + Rate Limiting
+---
+- name: Redis namespace 생성
+  shell: kubectl create namespace default --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: false
+
+- name: Redis 설치 여부 확인
+  command: kubectl get deployment redis -n default
+  register: redis_check
+  failed_when: false
+  changed_when: false
+
+- name: Redis Deployment 생성 (Storage 노드)
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: redis
+      namespace: default
+      labels:
+        app: redis
+        tier: persistence
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: redis
+      template:
+        metadata:
+          labels:
+            app: redis
+            tier: persistence
+        spec:
+          nodeSelector:
+            workload: storage  # Storage 노드에 배치
+          containers:
+          - name: redis
+            image: redis:7-alpine
+            command:
+            - redis-server
+            - --appendonly yes
+            - --databases 16
+            - --maxmemory 2gb
+            - --maxmemory-policy allkeys-lru
+            - --save 900 1
+            - --save 300 10
+            - --save 60 10000
+            ports:
+            - containerPort: 6379
+              name: redis
+            volumeMounts:
+            - name: data
+              mountPath: /data
+            resources:
+              requests:
+                cpu: 200m
+                memory: 1Gi
+              limits:
+                cpu: 1000m
+                memory: 2Gi
+            livenessProbe:
+              tcpSocket:
+                port: 6379
+              initialDelaySeconds: 30
+              periodSeconds: 10
+            readinessProbe:
+              exec:
+                command:
+                - redis-cli
+                - ping
+              initialDelaySeconds: 5
+              periodSeconds: 5
+          volumes:
+          - name: data
+            emptyDir: {}
+    EOF
+  when: redis_check.rc != 0
+
+- name: Redis Service 생성
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: redis
+      namespace: default
+      labels:
+        app: redis
+    spec:
+      selector:
+        app: redis
+      ports:
+      - port: 6379
+        targetPort: 6379
+        name: redis
+      type: ClusterIP
+    EOF
+  when: redis_check.rc != 0
+
+- name: Redis Pod 대기
+  command: kubectl wait --for=condition=ready pod -l app=redis -n default --timeout=180s
+  when: redis_check.rc != 0
+
+- name: Redis 연결 테스트
+  shell: |
+    kubectl exec -n default deployment/redis -- redis-cli ping
+  register: redis_ping
+  failed_when: redis_ping.stdout != "PONG"
+
+- name: Redis DB 구성 확인
+  shell: |
+    kubectl exec -n default deployment/redis -- redis-cli CONFIG GET databases
+  register: redis_dbs
+
+- name: Redis 정보 출력
+  debug:
+    msg:
+      - "✅ Redis 설치 완료 (Tier 4: Persistence)"
+      - "역할: Cache + State Management"
+      - "DB 0: Celery Result Backend"
+      - "DB 1: Image Hash Cache (AI 비용 70% 절감!)"
+      - "DB 2: Job Progress Tracking (0.5초 Polling)"
+      - "DB 3: Rate Limiting (DDoS 방지)"
+      - "DB 4: Token Blacklist (로그아웃, 선택)"
+      - ""
+      - "❌ Session Store 없음 (JWT Stateless)"
+      - ""
+      - "연결: redis.default:6379"
+      - "{{ redis_dbs.stdout_lines }}"
+
+

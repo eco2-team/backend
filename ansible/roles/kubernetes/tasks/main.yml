@@ -1,0 +1,38 @@
+# Kubernetes 패키지 설치
+---
+- name: Kubernetes APT 키 추가
+  apt_key:
+    url: https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key
+    keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    state: present
+
+- name: Kubernetes repository 추가
+  apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /"
+    state: present
+    filename: kubernetes
+
+- name: Kubernetes 패키지 설치
+  apt:
+    name:
+      - kubelet={{ kubernetes_version }}
+      - kubeadm={{ kubernetes_version }}
+      - kubectl={{ kubernetes_version }}
+    state: present
+    update_cache: yes
+
+- name: Kubernetes 패키지 hold (자동 업그레이드 방지)
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: kubelet 서비스 시작
+  systemd:
+    name: kubelet
+    enabled: yes
+    state: started
+

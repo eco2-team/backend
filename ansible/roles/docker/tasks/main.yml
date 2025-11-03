@@ -1,0 +1,101 @@
+# Docker 설치
+---
+- name: Docker GPG 키 추가
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Docker repository 추가
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+
+- name: Docker 설치
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+    update_cache: yes
+
+- name: Docker 서비스 시작
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: ubuntu 사용자를 docker 그룹에 추가
+  user:
+    name: ubuntu
+    groups: docker
+    append: yes
+
+- name: containerd 디렉토리 생성
+  file:
+    path: /etc/containerd
+    state: directory
+    mode: '0755'
+
+- name: containerd 기본 설정 생성
+  shell: |
+    # 기존 설정 삭제 후 재생성 (깨끗한 설정 보장)
+    rm -f /etc/containerd/config.toml
+    containerd config default > /etc/containerd/config.toml
+  args:
+    executable: /bin/bash
+
+- name: containerd 설정 파일 수정 (CRI 활성화 + pause 3.9)
+  shell: |
+    # SystemdCgroup 활성화 (중요!)
+    sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+    
+    # disabled_plugins에서 cri 제거
+    sed -i 's/^disabled_plugins = \["cri"\]/#disabled_plugins = ["cri"]/g' /etc/containerd/config.toml
+    
+    # sandbox_image를 pause:3.9로 변경 (kubeadm 요구사항)
+    sed -i 's|sandbox_image = .*|sandbox_image = "registry.k8s.io/pause:3.9"|g' /etc/containerd/config.toml
+    
+    # 여러 번 발생 가능한 sandbox_image 모두 수정
+    grep -n "sandbox_image" /etc/containerd/config.toml || echo "sandbox_image 없음"
+  args:
+    executable: /bin/bash
+
+- name: containerd 재시작 및 상태 확인
+  systemd:
+    name: containerd
+    state: restarted
+    enabled: yes
+    daemon_reload: yes
+
+- name: containerd 완전 시작 대기
+  pause:
+    seconds: 5
+
+- name: containerd 상태 확인
+  command: systemctl is-active containerd
+  register: containerd_status
+  changed_when: false
+  failed_when: containerd_status.stdout != "active"
+
+- name: CRI 소켓 확인
+  stat:
+    path: /run/containerd/containerd.sock
+  register: cri_socket
+  failed_when: not cri_socket.stat.exists
+
+- name: crictl 설정 파일 생성 (Kubernetes 설치 후 사용)
+  copy:
+    content: |
+      runtime-endpoint: unix:///run/containerd/containerd.sock
+      image-endpoint: unix:///run/containerd/containerd.sock
+      timeout: 10
+    dest: /etc/crictl.yaml
+    mode: '0644'
+
+- name: containerd 최종 상태 확인
+  systemd:
+    name: containerd
+    state: started
+    enabled: yes
+

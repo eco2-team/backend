@@ -1,0 +1,36 @@
+# ArgoCD 설치
+---
+- name: ArgoCD namespace 생성
+  command: kubectl create namespace {{ argocd_namespace }} --dry-run=client -o yaml
+  register: ns_yaml
+  changed_when: false
+
+- name: ArgoCD namespace apply
+  shell: echo "{{ ns_yaml.stdout }}" | kubectl apply -f -
+  changed_when: "'created' in ns_apply.stdout or 'configured' in ns_apply.stdout"
+  register: ns_apply
+
+- name: ArgoCD 설치
+  command: kubectl apply -n {{ argocd_namespace }} -f https://raw.githubusercontent.com/argoproj/argo-cd/{{ argocd_version }}/manifests/install.yaml
+  register: argocd_install
+  changed_when: "'created' in argocd_install.stdout or 'configured' in argocd_install.stdout"
+
+- name: ArgoCD Pod가 Ready 될 때까지 대기
+  command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n {{ argocd_namespace }} --timeout=600s
+  when: argocd_install.changed
+
+- name: ArgoCD 초기 비밀번호 조회
+  shell: kubectl -n {{ argocd_namespace }} get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+  register: argocd_initial_password
+  changed_when: false
+  ignore_errors: yes
+
+- name: ArgoCD 정보 출력
+  debug:
+    msg:
+      - "ArgoCD가 성공적으로 설치되었습니다."
+      - "접속: kubectl port-forward svc/argocd-server -n argocd 8080:443"
+      - "Username: admin"
+      - "Password: {{ argocd_initial_password.stdout }}"
+  when: argocd_initial_password is succeeded
+

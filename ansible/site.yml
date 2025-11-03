@@ -1,0 +1,160 @@
+# Kubernetes 클러스터 전체 설정
+---
+- name: Prerequisites - OS 설정
+  hosts: k8s_cluster
+  become: yes
+  gather_facts: yes
+  roles:
+    - common
+
+- name: Docker 설치
+  hosts: k8s_cluster
+  become: yes
+  roles:
+    - docker
+
+- name: Kubernetes 패키지 설치
+  hosts: k8s_cluster
+  become: yes
+  roles:
+    - kubernetes
+
+- name: Master 초기화
+  hosts: masters
+  become: yes
+  tasks:
+    - import_tasks: playbooks/02-master-init.yml
+
+- name: Workers 조인 (Worker-1, Worker-2, Storage)
+  hosts: workers,storage
+  become: yes
+  tasks:
+    - import_tasks: playbooks/03-worker-join.yml
+  # ⚠️ Worker join 실패 시 여기서 중단됨
+
+- name: CNI 플러그인 설치 및 클러스터 검증
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/04-cni-install.yml
+  # ⚠️ 노드 Ready 실패 시 여기서 중단됨
+
+- name: 노드 레이블 지정
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - name: Label worker-1 (Application)
+      command: kubectl label nodes k8s-worker-1 workload=application instance-type=t3.medium role=application --overwrite
+    
+    - name: Label worker-2 (Async Workers)
+      command: kubectl label nodes k8s-worker-2 workload=async-workers instance-type=t3.medium role=workers --overwrite
+    
+    - name: Label storage (Stateful Services)
+      command: kubectl label nodes k8s-storage workload=storage instance-type=t3.large role=storage --overwrite
+
+- name: Add-ons 설치 (Cert-manager, Metrics)
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/05-addons.yml
+    - import_tasks: playbooks/06-cert-manager-issuer.yml
+
+- name: AWS EBS CSI Driver 및 StorageClass 설정
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/05-1-ebs-csi-driver.yml
+
+- name: AWS Load Balancer Controller 설치
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/07-alb-controller.yml
+
+- name: ArgoCD 설치
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  roles:
+    - argocd
+
+- name: Monitoring 설치 (Prometheus Operator - ServiceMonitor CRD 제공)
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/08-monitoring.yml
+
+- name: "RabbitMQ 설치 (Tier 3: Message Queue)"
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  roles:
+    - rabbitmq
+
+- name: "Redis 설치 (Tier 4: Persistence - Cache & State)"
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  roles:
+    - redis
+
+- name: Ingress 리소스 생성 (ALB 자동 생성)
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/07-ingress-resources.yml
+
+- name: etcd 백업 설정
+  hosts: masters
+  become: yes
+  tasks:
+    - import_tasks: playbooks/09-etcd-backup.yml
+
+- name: 클러스터 정보 출력
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - name: Get nodes
+      command: kubectl get nodes -o wide
+      register: nodes_output
+    
+    - name: Display nodes
+      debug:
+        msg: "{{ nodes_output.stdout_lines }}"
+    
+    - name: etcd 상태 확인
+      shell: |
+        ETCDCTL_API=3 etcdctl endpoint health \
+          --endpoints=https://127.0.0.1:2379 \
+          --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+          --cert=/etc/kubernetes/pki/etcd/server.crt \
+          --key=/etc/kubernetes/pki/etcd/server.key
+      register: etcd_health
+      changed_when: false
+      failed_when: false
+    
+    - name: etcd 상태 출력
+      debug:
+        msg: "{{ etcd_health.stdout_lines if etcd_health.rc == 0 else 'etcd health check failed' }}"
+    
+    - name: Get ArgoCD initial password
+      shell: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+      register: argocd_password
+      ignore_errors: yes
+    
+    - name: Display ArgoCD info
+      debug:
+        msg:
+          - "ArgoCD URL: https://{{ ansible_host }}:8080"
+          - "Username: admin"
+          - "Password: {{ argocd_password.stdout }}"
+      when: argocd_password is succeeded
+

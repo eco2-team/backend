@@ -1,0 +1,1 @@
+destroy-with-cleanup.sh
