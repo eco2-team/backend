@@ -82,22 +82,10 @@
               management.tcp.port = 15672
               management.tcp.ip = 0.0.0.0
               
-              # Clustering configuration
-              cluster_formation.peer_discovery_backend = rabbit_peer_discovery_k8s
-              cluster_formation.k8s.host = kubernetes.default.svc.cluster.local
-              cluster_formation.k8s.address_type = hostname
-              cluster_formation.k8s.hostname_suffix = .rabbitmq.{{ rabbitmq_namespace }}.svc.cluster.local
-              cluster_formation.k8s.service_name = rabbitmq
           defaultUser:
-            serviceAccountReference:
-              name: default
             tags: administrator
             secretReference:
               name: rabbitmq-default-user
-          secretBackend:
-            vault:
-              role: rabbitmq
-              path: secret/rabbitmq
         EOF
       register: cluster_create
       changed_when: "'created' in cluster_create.stdout or 'configured' in cluster_create.stdout"
@@ -143,8 +131,19 @@
 - name: RabbitMQ Pod 문제 확인 및 로그 출력
   when: rabbitmq_wait.rc != 0
   block:
-    - name: RabbitMQ Pod 상태 확인
-      command: kubectl get pods -n {{ rabbitmq_namespace }} -l app.kubernetes.io/name=rabbitmq
+    - name: RabbitMQ Pod 상태 확인 (모든 레이블 시도)
+      shell: |
+        echo "=== Pod 확인 (app.kubernetes.io/name=rabbitmq) ==="
+        kubectl get pods -n {{ rabbitmq_namespace }} -l app.kubernetes.io/name=rabbitmq || echo "없음"
+        echo ""
+        echo "=== Pod 확인 (app.kubernetes.io/part-of=rabbitmq) ==="
+        kubectl get pods -n {{ rabbitmq_namespace }} -l app.kubernetes.io/part-of=rabbitmq || echo "없음"
+        echo ""
+        echo "=== Pod 확인 (rabbitmq.com/cluster=rabbitmq) ==="
+        kubectl get pods -n {{ rabbitmq_namespace }} -l rabbitmq.com/cluster=rabbitmq || echo "없음"
+        echo ""
+        echo "=== 모든 Pod (messaging namespace) ==="
+        kubectl get pods -n {{ rabbitmq_namespace }}
       register: rabbitmq_status
       changed_when: false
     
@@ -154,13 +153,31 @@
     
     - name: RabbitMQ Pod 이벤트 확인
       shell: |
-        POD_NAME=$(kubectl get pods -n {{ rabbitmq_namespace }} -l app.kubernetes.io/name=rabbitmq -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+        # 여러 레이블로 Pod 찾기
+        POD_NAME=$(kubectl get pods -n {{ rabbitmq_namespace }} -l rabbitmq.com/cluster=rabbitmq -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+        if [ -z "$POD_NAME" ]; then
+          POD_NAME=$(kubectl get pods -n {{ rabbitmq_namespace }} -l app.kubernetes.io/name=rabbitmq -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+        fi
+        if [ -z "$POD_NAME" ]; then
+          # 이름 패턴으로 찾기 (rabbitmq-rabbitmq-server-0)
+          POD_NAME=$(kubectl get pods -n {{ rabbitmq_namespace }} -o jsonpath='{.items[?(@.metadata.name=~"rabbitmq.*")].metadata.name}' 2>/dev/null | awk '{print $1}' || echo "")
+        fi
+        
         if [ -n "$POD_NAME" ]; then
+          echo "=== Pod: $POD_NAME ==="
           echo "=== Pod 이벤트 ==="
           kubectl describe pod "$POD_NAME" -n {{ rabbitmq_namespace }} | tail -30
           echo ""
           echo "=== 컨테이너 로그 ==="
           kubectl logs "$POD_NAME" -n {{ rabbitmq_namespace }} --tail=50 2>/dev/null || echo "로그 없음"
+        else
+          echo "Pod를 찾을 수 없습니다"
+          echo ""
+          echo "=== RabbitmqCluster 상태 ==="
+          kubectl get rabbitmqcluster -n {{ rabbitmq_namespace }}
+          echo ""
+          echo "=== RabbitmqCluster 상세 정보 ==="
+          kubectl describe rabbitmqcluster rabbitmq -n {{ rabbitmq_namespace }} | tail -50
         fi
       register: rabbitmq_diagnosis
       changed_when: false
@@ -181,7 +198,12 @@
         msg: "{{ rabbitmq_cluster_status.stdout_lines }}"
 
 - name: RabbitMQ Pod 상태 확인
-  command: kubectl get pods -n {{ rabbitmq_namespace }}
+  shell: |
+    echo "=== 모든 Pod (messaging namespace) ==="
+    kubectl get pods -n {{ rabbitmq_namespace }}
+    echo ""
+    echo "=== RabbitmqCluster 상태 ==="
+    kubectl get rabbitmqcluster -n {{ rabbitmq_namespace }}
   register: rabbitmq_pods
   changed_when: false
 
@@ -191,12 +213,19 @@
 
 - name: RabbitMQ Cluster 상태 확인
   shell: |
-    # Operator가 생성한 Pod 이름 확인 (rabbitmq-rabbitmq-server-0 형식)
-    POD_NAME=$(kubectl get pods -n {{ rabbitmq_namespace }} -l app.kubernetes.io/name=rabbitmq -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+    # 여러 레이블로 Pod 찾기
+    POD_NAME=$(kubectl get pods -n {{ rabbitmq_namespace }} -l rabbitmq.com/cluster=rabbitmq -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+    if [ -z "$POD_NAME" ]; then
+      POD_NAME=$(kubectl get pods -n {{ rabbitmq_namespace }} -o jsonpath='{.items[?(@.metadata.name=~"rabbitmq.*server.*")].metadata.name}' 2>/dev/null | awk '{print $1}' || echo "")
+    fi
+    
     if [ -n "$POD_NAME" ]; then
+      echo "Pod: $POD_NAME"
       kubectl exec -n {{ rabbitmq_namespace }} "$POD_NAME" -- rabbitmqctl cluster_status
     else
-      echo "Pod를 찾을 수 없습니다"
+      echo "⚠️  Pod를 찾을 수 없습니다"
+      echo "RabbitmqCluster 상태 확인:"
+      kubectl get rabbitmqcluster rabbitmq -n {{ rabbitmq_namespace }} -o yaml | grep -A 20 "status:"
     fi
   register: rabbitmq_cluster
   failed_when: false
