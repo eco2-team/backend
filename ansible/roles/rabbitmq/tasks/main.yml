@@ -191,7 +191,13 @@
 
 - name: RabbitMQ Cluster 상태 확인
   shell: |
-    kubectl exec -n {{ rabbitmq_namespace }} rabbitmq-server-0 -- rabbitmqctl cluster_status
+    # Operator가 생성한 Pod 이름 확인 (rabbitmq-rabbitmq-server-0 형식)
+    POD_NAME=$(kubectl get pods -n {{ rabbitmq_namespace }} -l app.kubernetes.io/name=rabbitmq -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+    if [ -n "$POD_NAME" ]; then
+      kubectl exec -n {{ rabbitmq_namespace }} "$POD_NAME" -- rabbitmqctl cluster_status
+    else
+      echo "Pod를 찾을 수 없습니다"
+    fi
   register: rabbitmq_cluster
   failed_when: false
   changed_when: false
