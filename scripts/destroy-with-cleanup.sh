@@ -18,11 +18,19 @@ echo "   2. Kubernetes가 생성한 AWS 리소스 (EBS 볼륨, 보안 그룹)"
 echo "   3. Terraform 인프라 (EC2, VPC, 모든 리소스)"
 echo ""
 
-# 확인 프롬프트
-read -p "⚠️  정말로 모든 리소스를 삭제하시겠습니까? (yes/no): " CONFIRM
-if [ "$CONFIRM" != "yes" ]; then
-    echo "❌ 취소되었습니다."
-    exit 0
+# 자동 모드 확인 (AUTO_MODE 환경 변수로 제어)
+AUTO_MODE=${AUTO_MODE:-false}
+
+if [ "$AUTO_MODE" != "true" ]; then
+    # 확인 프롬프트
+    read -p "⚠️  정말로 모든 리소스를 삭제하시겠습니까? (yes/no): " CONFIRM
+    if [ "$CONFIRM" != "yes" ]; then
+        echo "❌ 취소되었습니다."
+        exit 0
+    fi
+else
+    echo "🤖 자동 모드로 실행 중..."
+    echo "   확인 프롬프트 없이 자동 삭제합니다."
 fi
 
 echo ""
