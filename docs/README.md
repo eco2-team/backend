@@ -63,7 +63,9 @@ cd /Users/mango/workspace/SeSACTHON/backend
 - [Task Queue 설계](architecture/task-queue-design.md)
   - RabbitMQ + Celery 구조
   
-- [마이크로서비스 아키텍처](architecture/microservices-architecture.md)
+- **[서비스 아키텍처](architecture/SERVICE_ARCHITECTURE.md)** ⭐⭐⭐⭐
+  - Terraform/Ansible 기반 배포 구조
+  - 마이크로서비스 구성 및 배포 방식
 
 ### 🎯 [가이드](guides/)
 

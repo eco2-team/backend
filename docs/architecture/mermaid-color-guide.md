@@ -174,7 +174,7 @@ graph TB
 - [ ] architecture/k8s-cluster-setup.md
 - [ ] architecture/image-processing-architecture.md
 - [ ] architecture/polling-vs-websocket.md
-- [ ] architecture/microservices-architecture.md
+- [x] architecture/SERVICE_ARCHITECTURE.md
 - [ ] architecture/decision-summary.md
 - [ ] deployment/full-guide.md
 - [ ] deployment/docker.md

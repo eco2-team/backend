@@ -32,7 +32,7 @@
 - **default-backend** - 404 처리
 
 ### 비동기 처리 (Worker-2)
-- **RabbitMQ** - Message Broker (HA 3-node, Storage)
+- **RabbitMQ** - Message Broker (Operator 관리, 단일 Pod, Storage)
 - **Celery Workers** - 7개 Pods
   - AI Workers ×3 (q.ai, GPT-4o Vision)
   - Batch Workers ×2 (q.batch, 배치 작업)
@@ -63,8 +63,8 @@ Tier 3: Async Workers (Worker-2, t3.medium, 4GB)
 └─ waste-service ×2
 
 Tier 4: Stateful Storage (Storage, t3.large, 8GB)
-├─ RabbitMQ ×3 (HA Cluster)
-├─ PostgreSQL (StatefulSet)
+├─ RabbitMQ ×1 (Operator 관리, 단일 Pod)
+├─ PostgreSQL (StatefulSet, 향후)
 ├─ Redis (Deployment)
 └─ Celery Beat ×1
 ```

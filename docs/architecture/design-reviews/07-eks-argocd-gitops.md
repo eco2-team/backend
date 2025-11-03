@@ -929,7 +929,7 @@ Docker Compose:
 
 - [배포 옵션 비교](deployment-options-comparison.md)
 - [Self-managed K8s 분석](self-managed-k8s-analysis.md)
-- [마이크로서비스 아키텍처](microservices-architecture.md)
+- [서비스 아키텍처](../SERVICE_ARCHITECTURE.md)
 - [GitOps 멀티서비스](gitops-multi-service.md)
 
 ---

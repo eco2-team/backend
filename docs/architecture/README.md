@@ -55,7 +55,8 @@
 - [Self-Managed K8s 분석](design-reviews/self-managed-k8s-analysis.md)
 - [EKS 비용 분석](design-reviews/eks-cost-breakdown.md)
 - [GitOps 멀티 서비스](design-reviews/gitops-multi-service.md)
-- [마이크로서비스 아키텍처](design-reviews/microservices-architecture.md)
+- [서비스 아키텍처](SERVICE_ARCHITECTURE.md) ⭐ (Terraform/Ansible 기반)
+- [마이크로서비스 아키텍처](design-reviews/06-microservices-architecture.md) (의사결정 과정)
 
 ---
 

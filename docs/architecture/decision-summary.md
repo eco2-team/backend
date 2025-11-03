@@ -394,7 +394,8 @@ GitOps:
 3. [Self K8s for Experts](design-reviews/03-self-k8s-for-experts.md)
 4. [EKS 비용 분석](design-reviews/04-eks-cost-breakdown.md)
 5. [GitOps 멀티 서비스](design-reviews/05-gitops-multi-service.md)
-6. [마이크로서비스 아키텍처](design-reviews/06-microservices-architecture.md)
+6. [마이크로서비스 아키텍처](design-reviews/06-microservices-architecture.md) (의사결정 과정)
+   - 현재 서비스 아키텍처: [SERVICE_ARCHITECTURE.md](SERVICE_ARCHITECTURE.md)
 7. [EKS + ArgoCD + GitOps](design-reviews/07-eks-argocd-gitops.md)
 
 ### 최종 아키텍처

@@ -1,5 +1,8 @@
 # 인프라 배포 프로세스 다이어그램
 
+> **Terraform + Ansible 기반 자동 배포 프로세스**  
+> **전체 구축 시간: 40-50분**
+
 ## 현재 배포 프로세스 흐름
 
 ### 전체 배포 플로우
@@ -27,7 +30,7 @@ sequenceDiagram
     Cleanup->>AWS: Load Balancer 삭제
     Cleanup->>TF: terraform destroy
     
-    Note over User,Ansible: Phase 2: 인프라 구축
+    Note over User,Ansible: Phase 2: 인프라 구축 (Terraform)
     AutoRebuild->>Build: 호출
     Build->>TF: terraform init
     Build->>TF: terraform apply
@@ -37,10 +40,10 @@ sequenceDiagram
     TF->>AWS: IAM 역할 생성
     TF->>AWS: ACM 인증서
     TF->>AWS: Elastic IP 할당
-    TF->>Build: Inventory 생성
+    TF->>Build: Inventory 생성 (hosts.tpl)
     
-    Note over User,Ansible: Phase 3: Kubernetes 클러스터 구축
-    Build->>Ansible: site.yml 실행
+    Note over User,Ansible: Phase 3: Kubernetes 클러스터 구축 (Ansible)
+    Build->>Ansible: ansible-playbook site.yml
     Ansible->>AWS: OS 설정 (Swap, 커널)
     Ansible->>AWS: Container Runtime 설치
     Ansible->>AWS: Kubernetes 패키지 설치
@@ -50,17 +53,17 @@ sequenceDiagram
     Ansible->>K8s: 노드 레이블 지정
     
     Note over User,Ansible: Phase 4: Add-ons 설치
-    Ansible->>K8s: Cert-manager 설치
+    Ansible->>K8s: Cert-manager 설치 (kubectl apply)
     Ansible->>K8s: EBS CSI Driver 설치
-    Ansible->>K8s: ALB Controller 설치
+    Ansible->>K8s: ALB Controller 설치 (Helm)
     
     Note over User,Ansible: Phase 5: 애플리케이션 Stack
-    Ansible->>K8s: ArgoCD 설치 (Helm)
+    Ansible->>K8s: ArgoCD 설치 (kubectl apply)
     Ansible->>K8s: Prometheus 설치 (Helm)
     Ansible->>K8s: RabbitMQ Operator 설치
     Ansible->>K8s: RabbitmqCluster CR 생성
     K8s->>AWS: RabbitMQ Pod 생성 (Operator)
-    Ansible->>K8s: Redis 설치
+    Ansible->>K8s: Redis 설치 (kubectl apply)
     Ansible->>K8s: Ingress 리소스 생성
     Ansible->>AWS: etcd 백업 설정
     
@@ -90,7 +93,7 @@ sequenceDiagram
     Cleanup->>TF: terraform destroy
 ```
 
-### Phase 2: 인프라 구축 (build-cluster.sh)
+### Phase 2: 인프라 구축 (build-cluster.sh - Terraform)
 
 ```mermaid
 graph LR
@@ -102,7 +105,7 @@ graph LR
     B --> G[ACM 인증서]
     B --> H[Elastic IP]
     
-    C --> I[Ansible Inventory 생성]
+    C --> I[Ansible Inventory 생성<br/>hosts.tpl 템플릿]
     D --> I
     E --> I
     F --> I
@@ -113,7 +116,20 @@ graph LR
     J --> K[Kubernetes 클러스터 구축]
 ```
 
-### Phase 3: Kubernetes 클러스터 구축 (Ansible)
+**Terraform 모듈 구조**:
+```
+terraform/
+├── modules/
+│   ├── vpc/          # VPC, 3개 Public Subnets, IGW
+│   ├── ec2/          # EC2 인스턴스 (Master, Worker-1, Worker-2, Storage)
+│   └── security-groups/ # 보안 그룹 (Master, Worker, ALB)
+├── main.tf           # 모듈 호출
+├── outputs.tf       # Inventory 자동 생성 (hosts.tpl)
+└── templates/
+    └── hosts.tpl     # Ansible Inventory 템플릿
+```
+
+### Phase 3: Kubernetes 클러스터 구축 (Ansible - site.yml)
 
 ```mermaid
 sequenceDiagram
@@ -125,46 +141,71 @@ sequenceDiagram
     participant Operator as RabbitMQ Operator
     participant AWS as AWS API
     
-    Note over Ansible,AWS: 1. 기반 설정
-    Ansible->>Master: OS 설정 (Swap 비활성화, 커널)
-    Ansible->>Workers: OS 설정 (Swap 비활성화, 커널)
-    Ansible->>Master: Container Runtime 설치
-    Ansible->>Workers: Container Runtime 설치
-    Ansible->>Master: Kubernetes 패키지 설치
-    Ansible->>Workers: Kubernetes 패키지 설치
+    Note over Ansible,AWS: 1. 기반 설정 (Roles)
+    Ansible->>Master: OS 설정 (Role: common)
+    Ansible->>Workers: OS 설정 (Role: common)
+    Ansible->>Master: Docker 설치 (Role: docker)
+    Ansible->>Workers: Docker 설치 (Role: docker)
+    Ansible->>Master: Kubernetes 패키지 (Role: kubernetes)
+    Ansible->>Workers: Kubernetes 패키지 (Role: kubernetes)
     
-    Note over Ansible,AWS: 2. 클러스터 구성
-    Ansible->>Master: kubeadm init (Master 초기화)
+    Note over Ansible,AWS: 2. 클러스터 구성 (Playbooks)
+    Ansible->>Master: kubeadm init (02-master-init.yml)
     Master->>K8s: API Server 시작
-    Ansible->>Workers: kubeadm join (Worker 조인)
+    Ansible->>Workers: kubeadm join (03-worker-join.yml)
     Workers->>K8s: 노드 등록
-    Ansible->>K8s: CNI 설치 (Calico)
+    Ansible->>K8s: CNI 설치 (04-cni-install.yml)
     K8s->>Master: Calico Pod 배포
     K8s->>Workers: Calico Pod 배포
     Ansible->>K8s: 노드 레이블 지정 (workload=storage 등)
     
-    Note over Ansible,AWS: 3. 인프라 Add-ons
-    Ansible->>K8s: Cert-manager 설치 (kubectl apply)
-    Ansible->>K8s: EBS CSI Driver 설치
+    Note over Ansible,AWS: 3. 인프라 Add-ons (Playbooks)
+    Ansible->>K8s: Cert-manager 설치 (05-addons.yml)
+    Ansible->>K8s: EBS CSI Driver (05-1-ebs-csi-driver.yml)
     Ansible->>AWS: StorageClass 생성 (gp3)
-    Ansible->>Helm: ALB Controller 설치 (Helm)
+    Ansible->>K8s: Cert-manager Issuer (06-cert-manager-issuer.yml)
+    Ansible->>Helm: ALB Controller 설치 (07-alb-controller.yml)
     Helm->>K8s: ALB Controller 배포
     
-    Note over Ansible,AWS: 4. 애플리케이션 Stack
-    Ansible->>Helm: ArgoCD 설치 (Helm)
-    Helm->>K8s: ArgoCD 배포
-    Ansible->>Helm: Prometheus 설치 (Helm)
+    Note over Ansible,AWS: 4. 애플리케이션 Stack (Roles + Playbooks)
+    Ansible->>K8s: ArgoCD 설치 (Role: argocd, kubectl apply)
+    K8s->>K8s: ArgoCD Pod 배포
+    Ansible->>Helm: Prometheus 설치 (08-monitoring.yml)
     Helm->>K8s: Prometheus Stack 배포
-    Ansible->>K8s: RabbitMQ Operator 설치 (kubectl apply)
+    Ansible->>K8s: RabbitMQ Operator 설치 (Role: rabbitmq)
     K8s->>Operator: Operator Pod 실행
     Ansible->>K8s: RabbitmqCluster CR 생성
     Operator->>K8s: StatefulSet/Service 생성
     K8s->>AWS: RabbitMQ Pod 생성 (EBS 볼륨 연결)
-    Ansible->>K8s: Redis 설치 (kubectl apply)
+    Ansible->>K8s: Redis 설치 (Role: redis, kubectl apply)
     K8s->>Workers: Redis Pod 배포
-    Ansible->>K8s: Ingress 리소스 생성
+    Ansible->>K8s: Ingress 리소스 생성 (07-ingress-resources.yml)
     K8s->>AWS: ALB 자동 생성
-    Ansible->>Master: etcd 백업 설정
+    Ansible->>Master: etcd 백업 설정 (09-etcd-backup.yml)
+```
+
+**Ansible 구조**:
+```
+ansible/
+├── site.yml              # 메인 플레이북 (17단계)
+├── playbooks/            # 단계별 플레이북
+│   ├── 02-master-init.yml
+│   ├── 03-worker-join.yml
+│   ├── 04-cni-install.yml
+│   ├── 05-addons.yml
+│   ├── 05-1-ebs-csi-driver.yml
+│   ├── 06-cert-manager-issuer.yml
+│   ├── 07-alb-controller.yml
+│   ├── 07-ingress-resources.yml
+│   ├── 08-monitoring.yml
+│   └── 09-etcd-backup.yml
+└── roles/                # 재사용 가능한 역할
+    ├── common/           # OS 설정
+    ├── docker/           # Docker 설치
+    ├── kubernetes/       # Kubernetes 패키지
+    ├── argocd/           # ArgoCD 설치
+    ├── rabbitmq/         # RabbitMQ Operator
+    └── redis/            # Redis 설치
 ```
 
 ## RabbitMQ 배포 상세 (순수 Operator 방식)
@@ -190,7 +231,7 @@ sequenceDiagram
     Operator->>K8s: ConfigMap 생성
     Operator->>K8s: Secret 참조
     
-    K8s->>Pod: Pod 생성 및 스케줄링
+    K8s->>Pod: Pod 생성 및 스케줄링 (Storage Node)
     Pod->>Pod: RabbitMQ 서버 시작
     Pod->>Operator: 상태 업데이트
     Operator->>K8s: RabbitmqCluster.status 업데이트
@@ -215,8 +256,8 @@ graph TB
     B --> B3[EC2: Worker-2 t3.medium]
     B --> B4[EC2: Storage t3.large]
     
-    C --> C1[VPC]
-    C --> C2[Subnets 3개]
+    C --> C1[VPC 10.0.0.0/16]
+    C --> C2[Public Subnets 3개]
     C --> C3[Internet Gateway]
     C --> C4[Route Tables]
     
@@ -249,10 +290,10 @@ graph TB
     D --> D2[StorageClass: gp3]
     D --> D3[PVCs]
     
-    E --> E1[ArgoCD<br/>Helm]
+    E --> E1[ArgoCD<br/>kubectl apply]
     E --> E2[Prometheus Stack<br/>Helm]
-    E --> E3[RabbitMQ Operator<br/>kubectl]
-    E --> E4[Cert-manager<br/>kubectl]
+    E --> E3[RabbitMQ Operator<br/>kubectl apply]
+    E --> E4[Cert-manager<br/>kubectl apply]
     E --> E5[ALB Controller<br/>Helm]
 ```
 
@@ -273,12 +314,46 @@ graph TD
     C --> C3[ansible-playbook site.yml]
     
     C3 --> D[Ansible Playbooks]
-    D --> D1[OS 설정]
-    D --> D2[Kubernetes 설치]
-    D --> D3[CNI 설치]
-    D --> D4[Add-ons 설치]
+    D --> D1[OS 설정 (Role: common)]
+    D --> D2[Kubernetes 설치 (Role: kubernetes)]
+    D --> D3[CNI 설치 (04-cni-install.yml)]
+    D --> D4[Add-ons 설치 (05-addons.yml)]
     D --> D5[RabbitMQ Role<br/>Operator 방식]
-    D --> D6[Redis Role]
+    D --> D6[Redis Role<br/>kubectl apply]
+```
+
+## 배포 시간 분석
+
+```
+전체 배포 시간: 40-50분
+
+Phase 1: cleanup.sh
+├─ Kubernetes 리소스 삭제: 2-3분
+├─ AWS 리소스 삭제: 3-5분
+└─ terraform destroy: 5-8분
+─────────────────────
+총: 10-16분
+
+Phase 2: Terraform Apply
+├─ terraform init: 1-2분
+├─ EC2 인스턴스 생성: 3-5분
+├─ VPC/네트워크 구성: 2-3분
+└─ 기타 리소스 (IAM, S3, ACM): 2-3분
+─────────────────────
+총: 8-13분
+
+Phase 3: Ansible site.yml
+├─ OS 설정: 2-3분
+├─ Docker 설치: 3-5분
+├─ Kubernetes 설치: 2-3분
+├─ Master 초기화: 3-5분
+├─ Worker 조인: 2-3분
+├─ CNI 설치: 2-3분
+├─ Add-ons 설치: 5-8분
+├─ 애플리케이션 Stack: 5-8분
+└─ Ingress 생성: 2-3분
+─────────────────────
+총: 25-37분
 ```
 
 ## CI/CD 로드맵
@@ -323,7 +398,7 @@ graph TD
 - [ ] .github/workflows/application-build.yml
   - Docker 이미지 빌드
   - 이미지 스캔 (보안)
-  - ECR 푸시
+  - GHCR 푸시
   
 - [ ] .github/workflows/application-deploy.yml
   - ArgoCD Application 업데이트
@@ -413,10 +488,23 @@ graph TD
 
 ## 참고 파일
 
+### 스크립트
 - `scripts/auto-rebuild.sh` - 최상위 자동화 스크립트 (cleanup.sh → build-cluster.sh)
 - `scripts/cleanup.sh` - 인프라 및 구성요소 삭제 (K8s → AWS → Terraform)
-- `scripts/destroy-with-cleanup.sh` - cleanup.sh의 별칭 (하위 호환)
 - `scripts/build-cluster.sh` - 인프라 구축 (Terraform apply → Ansible)
-- `scripts/rebuild-cluster.sh` - 레거시 스크립트 (build-cluster.sh 사용 권장)
-- `ansible/site.yml` - Ansible 메인 플레이북
+
+### Ansible
+- `ansible/site.yml` - Ansible 메인 플레이북 (17단계)
 - `ansible/roles/rabbitmq/tasks/main.yml` - RabbitMQ Operator 배포
+- `ansible/roles/redis/tasks/main.yml` - Redis 배포
+
+### Terraform
+- `terraform/main.tf` - Terraform 메인 설정 (모듈 호출)
+- `terraform/outputs.tf` - Ansible Inventory 자동 생성
+- `terraform/modules/` - 재사용 가능한 모듈 (VPC, EC2, Security Groups)
+
+---
+
+**작성일**: 2025-11-03  
+**기준**: Terraform + Ansible 기반 구조  
+**배포 시간**: 40-50분

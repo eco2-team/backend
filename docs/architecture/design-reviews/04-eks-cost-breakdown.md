@@ -929,7 +929,7 @@ Helm Charts를 작성해두어 언제든 K8s로 전환 가능하도록
 
 - [배포 옵션 비교](deployment-options-comparison.md)
 - [GitOps 멀티서비스](gitops-multi-service.md)
-- [마이크로서비스 아키텍처](microservices-architecture.md)
+- [서비스 아키텍처](../SERVICE_ARCHITECTURE.md)
 
 ---
 

@@ -32,7 +32,8 @@
    - 멀티 서비스 배포
    - GitOps 모범 사례
 
-6. **[마이크로서비스 아키텍처](06-microservices-architecture.md)**
+6. **[마이크로서비스 아키텍처](06-microservices-architecture.md)** (의사결정 과정 문서)
+   - 현재 서비스 아키텍처: [SERVICE_ARCHITECTURE.md](../SERVICE_ARCHITECTURE.md)
    - 5개 서비스 분리
    - 도메인 경계
    - 통신 패턴

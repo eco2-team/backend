@@ -59,7 +59,7 @@ docs/
 │       ├── self-k8s-for-experts.md
 │       ├── eks-cost-breakdown.md
 │       ├── eks-argocd-gitops.md
-│       ├── microservices-architecture.md
+│       ├── SERVICE_ARCHITECTURE.md ⭐ (Terraform/Ansible 기반)
 │       └── gitops-multi-service.md
 │
 └── 🤝 contributing/                    # 기여 가이드

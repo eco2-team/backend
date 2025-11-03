@@ -547,7 +547,7 @@ flowchart TD
 
 ## 🔗 관련 문서
 
-- [마이크로서비스 아키텍처](microservices-architecture.md)
+- [서비스 아키텍처](../SERVICE_ARCHITECTURE.md)
 - [Polling vs WebSocket](polling-vs-websocket.md)
 - [Docker 배포 가이드](../deployment/docker.md)
 
