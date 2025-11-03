@@ -74,6 +74,46 @@
   command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=rabbitmq -n {{ rabbitmq_namespace }} --timeout=600s
   ignore_errors: yes
   register: rabbitmq_wait
+  
+- name: RabbitMQ Pod 문제 확인 및 로그 출력
+  when: rabbitmq_wait.rc != 0
+  block:
+    - name: RabbitMQ Pod 상태 확인
+      command: kubectl get pods -n {{ rabbitmq_namespace }} -l app.kubernetes.io/name=rabbitmq
+      register: rabbitmq_status
+      changed_when: false
+    
+    - name: RabbitMQ Pod 상태 출력
+      debug:
+        msg: "{{ rabbitmq_status.stdout_lines }}"
+    
+    - name: RabbitMQ Pod 이벤트 확인
+      shell: |
+        POD_NAME=$(kubectl get pods -n {{ rabbitmq_namespace }} -l app.kubernetes.io/name=rabbitmq -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+        if [ -n "$POD_NAME" ]; then
+          echo "=== Pod 이벤트 ==="
+          kubectl describe pod "$POD_NAME" -n {{ rabbitmq_namespace }} | tail -30
+          echo ""
+          echo "=== Init Container 로그 ==="
+          kubectl logs "$POD_NAME" -n {{ rabbitmq_namespace }} --all-containers=true --tail=50 2>/dev/null || echo "로그 없음"
+        fi
+      register: rabbitmq_diagnosis
+      changed_when: false
+      failed_when: false
+    
+    - name: RabbitMQ 진단 정보 출력
+      debug:
+        msg: "{{ rabbitmq_diagnosis.stdout_lines }}"
+    
+    - name: RabbitMQ PVC 상태 확인
+      command: kubectl get pvc -n {{ rabbitmq_namespace }}
+      register: rabbitmq_pvc
+      changed_when: false
+      failed_when: false
+    
+    - name: RabbitMQ PVC 상태 출력
+      debug:
+        msg: "{{ rabbitmq_pvc.stdout_lines }}"
 
 - name: RabbitMQ Pod 상태 확인
   command: kubectl get pods -n {{ rabbitmq_namespace }}

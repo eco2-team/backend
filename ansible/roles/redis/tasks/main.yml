@@ -101,7 +101,39 @@
 
 - name: Redis Pod 대기
   command: kubectl wait --for=condition=ready pod -l app=redis -n default --timeout=180s
+  ignore_errors: yes
+  register: redis_wait
   when: redis_check.rc != 0
+
+- name: Redis Pod 문제 확인 및 로그 출력
+  when: redis_check.rc != 0 and redis_wait.rc != 0
+  block:
+    - name: Redis Pod 상태 확인
+      command: kubectl get pods -l app=redis -n default
+      register: redis_status
+      changed_when: false
+    
+    - name: Redis Pod 상태 출력
+      debug:
+        msg: "{{ redis_status.stdout_lines }}"
+    
+    - name: Redis Pod 이벤트 및 로그 확인
+      shell: |
+        POD_NAME=$(kubectl get pods -l app=redis -n default -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+        if [ -n "$POD_NAME" ]; then
+          echo "=== Pod 이벤트 ==="
+          kubectl describe pod "$POD_NAME" -n default | tail -30
+          echo ""
+          echo "=== 컨테이너 로그 ==="
+          kubectl logs "$POD_NAME" -n default --tail=50 2>/dev/null || echo "로그 없음"
+        fi
+      register: redis_diagnosis
+      changed_when: false
+      failed_when: false
+    
+    - name: Redis 진단 정보 출력
+      debug:
+        msg: "{{ redis_diagnosis.stdout_lines }}"
 
 - name: Redis 연결 테스트
   shell: |
