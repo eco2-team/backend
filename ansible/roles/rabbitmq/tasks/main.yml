@@ -67,13 +67,27 @@
               memory: 2Gi
           affinity:
             nodeAffinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms:
-                - matchExpressions:
+              # Storage 노드 선호, 없으면 다른 노드도 허용
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                preference:
+                  matchExpressions:
                   - key: workload
                     operator: In
                     values:
                     - storage
+            podAntiAffinity:
+              # 같은 클러스터의 Pod는 다른 노드에 배치 (진정한 HA)
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchExpressions:
+                    - key: rabbitmq.com/cluster
+                      operator: In
+                      values:
+                      - rabbitmq
+                  topologyKey: kubernetes.io/hostname
           service:
             type: ClusterIP
           rabbitmq:
