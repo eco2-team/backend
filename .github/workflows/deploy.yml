@@ -64,6 +64,7 @@ jobs:
       # EC2 배포 (Docker Compose 사용)
       - name: EC2 서버에 배포
         uses: appleboy/ssh-action@v1.0.0
+        if: secrets.EC2_HOST != '' && secrets.EC2_USER != ''
         env:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
@@ -72,6 +73,8 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 30s
           envs: REGISTRY,IMAGE_NAME,IMAGE_TAG
           script: |
             # 프로젝트 디렉토리로 이동
@@ -101,11 +104,10 @@ jobs:
 
       - name: Slack 알림 (선택)
         uses: 8398a7/action-slack@v3
-        if: always()
+        if: always() && secrets.SLACK_WEBHOOK_URL != ''
         with:
           status: ${{ job.status }}
           text: '배포가 ${{ job.status }}되었습니다!'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 

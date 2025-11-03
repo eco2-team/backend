@@ -301,25 +301,25 @@ graph TB
 
 ```mermaid
 graph TD
-    A[auto-rebuild.sh<br/>최상위 자동화] --> B[cleanup.sh<br/>인프라 및 구성요소 삭제]
-    A --> C[build-cluster.sh<br/>인프라 구축]
+    A["auto-rebuild.sh<br/>최상위 자동화"] --> B["cleanup.sh<br/>인프라 및 구성요소 삭제"]
+    A --> C["build-cluster.sh<br/>인프라 구축"]
     
-    B --> B1[kubectl 명령어들]
-    B --> B2[helm uninstall]
-    B --> B3[aws cli]
-    B --> B4[terraform destroy]
+    B --> B1["kubectl 명령어들"]
+    B --> B2["helm uninstall"]
+    B --> B3["aws cli"]
+    B --> B4["terraform destroy"]
     
-    C --> C1[terraform init/apply]
-    C --> C2[ansible inventory 생성]
-    C --> C3[ansible-playbook site.yml]
+    C --> C1["terraform init/apply"]
+    C --> C2["ansible inventory 생성"]
+    C --> C3["ansible-playbook site.yml"]
     
-    C3 --> D[Ansible Playbooks]
-    D --> D1[OS 설정 (Role: common)]
-    D --> D2[Kubernetes 설치 (Role: kubernetes)]
-    D --> D3[CNI 설치 (04-cni-install.yml)]
-    D --> D4[Add-ons 설치 (05-addons.yml)]
-    D --> D5[RabbitMQ Role<br/>Operator 방식]
-    D --> D6[Redis Role<br/>kubectl apply]
+    C3 --> D["Ansible Playbooks"]
+    D --> D1["OS 설정<br/>Role: common"]
+    D --> D2["Kubernetes 설치<br/>Role: kubernetes"]
+    D --> D3["CNI 설치<br/>04-cni-install.yml"]
+    D --> D4["Add-ons 설치<br/>05-addons.yml"]
+    D --> D5["RabbitMQ Role<br/>Operator 방식"]
+    D --> D6["Redis Role<br/>kubectl apply"]
 ```
 
 ## 배포 시간 분석
