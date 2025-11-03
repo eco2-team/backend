@@ -21,31 +21,18 @@ argocd_version: "stable"
 argocd_namespace: "argocd"
 
 # AWS (ALB Controller용)
-# ⚠️ vpc_id와 acm_certificate_arn은 ansible-playbook 실행 시 -e 옵션으로 전달 필요
-# 또는 terraform output을 파일로 저장 후 읽기
 aws_region: "ap-northeast-2"
 cluster_name: "sesacthon"
-vpc_id: "{{ vpc_id | default('') }}"  # rebuild script에서 전달
-acm_certificate_arn: "{{ acm_certificate_arn | default('') }}"  # rebuild script에서 전달
+vpc_id: "{{ lookup('pipe', 'cd ../../terraform && terraform output -raw vpc_id') }}"
+acm_certificate_arn: "{{ lookup('pipe', 'cd ../../terraform && terraform output -raw acm_certificate_arn') }}"
 domain_name: "growbin.app"
 
-# RabbitMQ (Tier 3: Message Queue Middleware)
+# RabbitMQ
 rabbitmq_namespace: "messaging"
 rabbitmq_username: "admin"
 rabbitmq_password: "{{ lookup('env', 'RABBITMQ_PASSWORD') | default('changeme', true) }}"
-rabbitmq_persistence_size: "20Gi"  # 20GB
-rabbitmq_replicas: 1  # 단일 인스턴스 (HA는 향후 확장 시 고려)
-
-# Redis (Tier 4: Persistence - Cache & State)
-redis_namespace: "default"
-redis_maxmemory: "2gb"
-redis_databases: 16
-# DB 0: Celery Result Backend
-# DB 1: Image Hash Cache (AI 비용 70% 절감!)
-# DB 2: Job Progress Tracking (0.5초 Polling)
-# DB 3: Rate Limiting (DDoS 방지)
-# DB 4: Token Blacklist (로그아웃, JWT 무효화)
-# ❌ Session Store 없음 (JWT Stateless!)
+rabbitmq_persistence_size: "10Gi"
+rabbitmq_replicas: 1  # 단일 Pod (HA 제거)
 
 # Monitoring
 monitoring_namespace: "monitoring"
@@ -58,4 +45,7 @@ kubectl_home: "/home/ubuntu"
 
 # Cert-manager (Let's Encrypt)
 letsencrypt_email: "admin@growbin.app"  # Let's Encrypt 인증서 이메일
+
+# DNS
+domain_name: "growbin.app"
 
