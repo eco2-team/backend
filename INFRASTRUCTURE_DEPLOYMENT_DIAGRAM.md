@@ -115,32 +115,35 @@ graph LR
 
 ```mermaid
 graph LR
-    subgraph "1. 기반 설정"
-        A[OS 설정] --> B[Container Runtime]
-        B --> C[Kubernetes 패키지]
+    subgraph SG1 ["1. 기반 설정"]
+        direction LR
+        A[OS 설정] --> B[Container Runtime] --> C[Kubernetes 패키지]
     end
     
-    subgraph "2. 클러스터 구성"
-        C --> D[Master 초기화]
-        D --> E[Worker 조인]
-        E --> F[CNI 설치]
-        F --> G[노드 레이블]
+    subgraph SG2 ["2. 클러스터 구성"]
+        direction LR
+        D[Master 초기화] --> E[Worker 조인] --> F[CNI 설치] --> G[노드 레이블]
     end
     
-    subgraph "3. 인프라 Add-ons"
-        G --> H1[Cert-manager]
-        G --> H2[EBS CSI Driver]
-        G --> H3[ALB Controller]
+    subgraph SG3 ["3. 인프라 Add-ons"]
+        direction LR
+        H1[Cert-manager] & H2[EBS CSI Driver] & H3[ALB Controller]
     end
     
-    subgraph "4. 애플리케이션 Stack"
-        H1 --> I[ArgoCD]
-        H2 --> J[Prometheus]
-        H3 --> K1[RabbitMQ Operator]
-        K1 --> K2[RabbitmqCluster CR]
-        K2 --> K3[RabbitMQ Pod]
-        H3 --> L[Redis]
+    subgraph SG4 ["4. 애플리케이션 Stack"]
+        direction LR
+        I[ArgoCD] & J[Prometheus] & K1[RabbitMQ Op] & K2[RabbitMQ CR] & K3[RabbitMQ Pod] & L[Redis]
+        K1 --> K2 --> K3
     end
+    
+    C --> D
+    G --> H1
+    G --> H2
+    G --> H3
+    H1 --> I
+    H2 --> J
+    H3 --> K1
+    H3 --> L
     
     style A fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#ffffff
     style B fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#ffffff
