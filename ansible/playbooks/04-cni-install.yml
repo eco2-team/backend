@@ -147,7 +147,7 @@
 
 - name: 모든 Worker가 클러스터에 등록될 때까지 대기
   shell: |
-    EXPECTED_WORKERS=3  # Worker-1, Worker-2, Storage
+    EXPECTED_WORKERS=6  # Worker-1, Worker-2, RabbitMQ, PostgreSQL, Redis, Monitoring
     
     for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
       # 전체 Worker 노드 수 (Role이 없는 노드)
@@ -173,7 +173,7 @@
 
 - name: 모든 노드가 Ready 상태가 될 때까지 대기 (안정화 고려)
   shell: |
-    EXPECTED_TOTAL_NODES=4  # 1 Master + 3 Workers (Worker-1, Worker-2, Storage)
+    EXPECTED_TOTAL_NODES=7  # 1 Master + 6 Workers (Worker-1, Worker-2, RabbitMQ, PostgreSQL, Redis, Monitoring)
     
     echo "노드 안정화 대기 중 (Pod 재시작 허용)..."
     
