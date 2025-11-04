@@ -1,0 +1,47 @@
+# IngressClass 리소스 생성 (Kubernetes v1.22+ 표준)
+# 기존: kubernetes.io/ingress.class annotation (deprecated)
+# 신규: ingressClassName 필드 사용
+---
+- name: "IngressClass 존재 여부 확인"
+  command: kubectl get ingressclass alb
+  register: ic_check
+  failed_when: false
+  changed_when: false
+
+- name: "IngressClass 생성 (alb)"
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: networking.k8s.io/v1
+    kind: IngressClass
+    metadata:
+      name: alb
+      annotations:
+        ingressclass.kubernetes.io/is-default-class: "true"
+      labels:
+        app.kubernetes.io/name: aws-load-balancer-controller
+    spec:
+      controller: ingress.k8s.aws/alb
+    EOF
+  register: ingress_class
+  when: ic_check.rc != 0
+
+- name: "IngressClass 확인"
+  command: kubectl get ingressclass
+  register: ic_list
+  changed_when: false
+
+- name: "IngressClass 정보 출력"
+  debug:
+    msg:
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "✅ IngressClass 설정 완료"
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "{{ ic_list.stdout_lines }}"
+      - ""
+      - "ℹ️ Kubernetes v1.22+ 표준 방식"
+      - "   - 기존: kubernetes.io/ingress.class annotation (deprecated)"
+      - "   - 신규: spec.ingressClassName 필드 사용"
+      - ""
+      - "Controller: ingress.k8s.aws/alb"
+      - "Default: true"
+

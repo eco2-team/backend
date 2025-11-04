@@ -1,17 +1,18 @@
 # Terraform State를 S3에 저장 (원격 상태 관리)
 # 사용 전 S3 버킷과 DynamoDB 테이블을 미리 생성해야 합니다.
 
-terraform {
-  backend "s3" {
-    bucket = "sesacthon-terraform-state"
-    key    = "k8s-cluster/terraform.tfstate"
-    region = "ap-northeast-2"
-    
-    # State Locking (DynamoDB)
-    dynamodb_table = "terraform-state-lock"
-    encrypt        = true
-  }
-}
+# ⚠️ 임시로 주석 처리 (TLS 인증서 오류 우회)
+# terraform {
+#   backend "s3" {
+#     bucket = "sesacthon-terraform-state"
+#     key    = "k8s-cluster/terraform.tfstate"
+#     region = "ap-northeast-2"
+#     
+#     # State Locking (DynamoDB)
+#     dynamodb_table = "terraform-state-lock"
+#     encrypt        = true
+#   }
+# }
 
 # 초기 설정 (최초 1회만 실행):
 # 

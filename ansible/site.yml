@@ -32,13 +32,22 @@
     - import_tasks: playbooks/03-worker-join.yml
   # ⚠️ Worker join 실패 시 여기서 중단됨
 
-- name: CNI 플러그인 설치 및 클러스터 검증
+- name: CNI 플러그인 설치 및 클러스터 검증 (AWS VPC CNI)
   hosts: masters
   become: yes
   become_user: "{{ kubectl_user }}"
   tasks:
-    - import_tasks: playbooks/04-cni-install.yml
+    - include_tasks: playbooks/04-cni-install-vpc.yml
+      when: cni_plugin == 'vpc-cni'
   # ⚠️ 노드 Ready 실패 시 여기서 중단됨
+  
+- name: CNI 플러그인 설치 및 클러스터 검증 (Calico)
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - include_tasks: playbooks/04-cni-install.yml
+      when: cni_plugin != 'vpc-cni'
 
 - name: 노드 레이블 지정
   hosts: masters
@@ -76,6 +85,13 @@
   tasks:
     - import_tasks: playbooks/07-alb-controller.yml
 
+- name: IngressClass 리소스 생성 (Kubernetes v1.22+ 표준)
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/07-1-ingress-class.yml
+
 - name: ArgoCD 설치
   hosts: masters
   become: yes
@@ -103,6 +119,13 @@
   become_user: "{{ kubectl_user }}"
   roles:
     - redis
+
+- name: "PostgreSQL 설치 (Tier 4: Persistence - Database)"
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  roles:
+    - postgresql
 
 - name: Ingress 리소스 생성 (ALB 자동 생성)
   hosts: masters

@@ -29,7 +29,7 @@
     - name: kubeadm init 실행 (프로덕션 검증 설정)
       command: >
         kubeadm init
-        --pod-network-cidr={{ pod_network_cidr }}
+        {% if cni_plugin == 'calico' %}--pod-network-cidr={{ pod_network_cidr }}{% endif %}
         --service-cidr={{ service_cidr }}
         --apiserver-advertise-address={{ private_ip }}
         --control-plane-endpoint={{ private_ip }}:6443
@@ -129,7 +129,7 @@
     kubeadm init phase addon kube-proxy \
       --kubeconfig /etc/kubernetes/admin.conf \
       --apiserver-advertise-address={{ private_ip }} \
-      --pod-network-cidr={{ pod_network_cidr }}
+      {% if cni_plugin == 'calico' %}--pod-network-cidr={{ pod_network_cidr }}{% endif %}
   register: kubeproxy_phase
   retries: 5
   delay: 10
