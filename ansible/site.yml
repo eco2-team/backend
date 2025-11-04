@@ -56,12 +56,34 @@
   tasks:
     - name: Label worker-1 (Application)
       command: kubectl label nodes k8s-worker-1 workload=application instance-type=t3.medium role=application --overwrite
+      register: label_worker1
+      failed_when: label_worker1.rc != 0
     
     - name: Label worker-2 (Async Workers)
       command: kubectl label nodes k8s-worker-2 workload=async-workers instance-type=t3.medium role=workers --overwrite
+      register: label_worker2
+      failed_when: label_worker2.rc != 0
     
     - name: Label storage (Stateful Services)
       command: kubectl label nodes k8s-storage workload=storage instance-type=t3.large role=storage --overwrite
+      register: label_storage
+      failed_when: label_storage.rc != 0
+    
+    - name: Verify storage node label
+      command: kubectl get nodes k8s-storage -L workload --no-headers
+      register: verify_storage_label
+      failed_when: "'storage' not in verify_storage_label.stdout"
+      changed_when: false
+    
+    - name: Display node labels
+      debug:
+        msg:
+          - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          - "✅ 노드 레이블 적용 완료"
+          - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          - "k8s-worker-1: workload=application"
+          - "k8s-worker-2: workload=async-workers"
+          - "k8s-storage:  workload=storage ✅"
 
 - name: Add-ons 설치 (Cert-manager, Metrics)
   hosts: masters

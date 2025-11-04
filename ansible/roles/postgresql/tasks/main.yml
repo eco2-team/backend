@@ -1,6 +1,6 @@
 ---
 # PostgreSQL 설치 (Tier 4: Persistence - Database)
-# Master 노드에 배포 (Master에 Taint Toleration 적용)
+# Storage 노드에 배포 (workload=storage)
 
 - name: "PostgreSQL namespace 생성"
   shell: |
@@ -43,11 +43,7 @@
             tier: database
         spec:
           nodeSelector:
-            node-role.kubernetes.io/control-plane: ""  # Master 노드에 배포
-          tolerations:
-          - key: node-role.kubernetes.io/control-plane
-            operator: Exists
-            effect: NoSchedule
+            workload: storage  # Storage 노드에 배포
           containers:
           - name: postgres
             image: postgres:{{ postgres_version }}-alpine
@@ -166,8 +162,7 @@
       - "  Password: (Secret에 저장됨)"
       - ""
       - "Storage: {{ postgres_persistence_size }} (gp3)"
-      - "Node: Master (node-role.kubernetes.io/control-plane)"
-      - "Tolerations: control-plane taint"
+      - "Node: Storage (workload=storage)"
       - ""
       - "⚠️ 프로덕션 환경에서는 백업 설정 필수!"
       - "⚠️ DB 생성은 별도로 진행해야 합니다."
