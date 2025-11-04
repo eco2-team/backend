@@ -25,8 +25,8 @@
   tasks:
     - import_tasks: playbooks/02-master-init.yml
 
-- name: Workers 조인 (Worker-1, Worker-2, Storage)
-  hosts: workers,storage
+- name: Workers 조인 (All Worker Nodes)
+  hosts: workers,rabbitmq,postgresql,redis,monitoring
   become: yes
   tasks:
     - import_tasks: playbooks/03-worker-join.yml
