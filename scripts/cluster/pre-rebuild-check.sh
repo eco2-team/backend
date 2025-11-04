@@ -174,7 +174,7 @@ fi
 # 노드 레이블 확인
 NODE_LABELS=("k8s-worker-1" "k8s-worker-2" "k8s-rabbitmq" "k8s-postgresql" "k8s-redis" "k8s-monitoring")
 for NODE in "${NODE_LABELS[@]}"; do
-  if grep -q "Label.*$NODE" "$ANSIBLE_DIR/site.yml" 2>/dev/null; then
+  if grep -q "kubectl label nodes $NODE" "$ANSIBLE_DIR/site.yml" 2>/dev/null; then
     check_pass "노드 레이블 설정: $NODE ✅"
   else
     check_warn "노드 레이블 누락 가능: $NODE"
@@ -193,24 +193,61 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 # RabbitMQ 비밀번호
+ENV_WARNINGS=0
+
 if [ -n "$RABBITMQ_PASSWORD" ]; then
-  check_pass "RABBITMQ_PASSWORD 설정됨"
+  check_pass "RABBITMQ_PASSWORD 설정됨 ✅"
 else
-  check_warn "RABBITMQ_PASSWORD 미설정 (기본값 'changeme' 사용)"
+  check_warn "RABBITMQ_PASSWORD 미설정 (Ansible 기본값 사용 예정)"
+  ENV_WARNINGS=$((ENV_WARNINGS + 1))
 fi
 
 # Grafana 비밀번호
 if [ -n "$GRAFANA_PASSWORD" ]; then
-  check_pass "GRAFANA_PASSWORD 설정됨"
+  check_pass "GRAFANA_PASSWORD 설정됨 ✅"
 else
-  check_warn "GRAFANA_PASSWORD 미설정 (기본값 'admin123' 사용)"
+  check_warn "GRAFANA_PASSWORD 미설정 (Ansible 기본값 사용 예정)"
+  ENV_WARNINGS=$((ENV_WARNINGS + 1))
 fi
 
 # PostgreSQL 비밀번호
 if [ -n "$POSTGRES_PASSWORD" ]; then
-  check_pass "POSTGRES_PASSWORD 설정됨"
+  check_pass "POSTGRES_PASSWORD 설정됨 ✅"
 else
-  check_warn "POSTGRES_PASSWORD 미설정 (기본값 'changeme' 사용)"
+  check_warn "POSTGRES_PASSWORD 미설정 (Ansible 기본값 사용 예정)"
+  ENV_WARNINGS=$((ENV_WARNINGS + 1))
+fi
+
+if [ $ENV_WARNINGS -gt 0 ]; then
+  echo ""
+  echo "💡 환경변수 설정 방법:"
+  echo ""
+  echo "   1️⃣ 임시 설정 (현재 세션만):"
+  echo "      export RABBITMQ_PASSWORD='your-secure-password'"
+  echo "      export GRAFANA_PASSWORD='your-secure-password'"
+  echo "      export POSTGRES_PASSWORD='your-secure-password'"
+  echo ""
+  echo "   2️⃣ 영구 설정 (~/.zshrc 또는 ~/.bashrc):"
+  echo "      echo 'export RABBITMQ_PASSWORD=\"your-secure-password\"' >> ~/.zshrc"
+  echo "      echo 'export GRAFANA_PASSWORD=\"your-secure-password\"' >> ~/.zshrc"
+  echo "      echo 'export POSTGRES_PASSWORD=\"your-secure-password\"' >> ~/.zshrc"
+  echo "      source ~/.zshrc"
+  echo ""
+  echo "   3️⃣ .env 파일 사용 (권장):"
+  echo "      cat > \$WORKSPACE_DIR/.env << EOF"
+  echo "export RABBITMQ_PASSWORD='your-secure-password'"
+  echo "export GRAFANA_PASSWORD='your-secure-password'"
+  echo "export POSTGRES_PASSWORD='your-secure-password'"
+  echo "EOF"
+  echo "      source .env"
+  echo ""
+  echo "   ⚠️  미설정 시 Ansible 기본값 사용:"
+  echo "      - RABBITMQ_PASSWORD: changeme (ansible/inventory/group_vars/all.yml)"
+  echo "      - GRAFANA_PASSWORD: admin123 (ansible/inventory/group_vars/all.yml)"
+  echo "      - POSTGRES_PASSWORD: changeme (ansible/inventory/group_vars/all.yml)"
+  echo ""
+  echo "   ℹ️  GitHub Actions CI/CD는 별도 Secrets 사용 (GITHUB_SECRETS_GUIDE.md 참조)"
+  echo ""
 fi
 
 echo ""
