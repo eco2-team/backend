@@ -443,7 +443,7 @@ spec:
   rules:
   - http:
       paths:
-      - path: /api/test
+      - path: /api/v1
         pathType: Prefix
         backend:
           service:
@@ -474,7 +474,7 @@ echo "2️⃣ NodePort (외부):"
 echo "   curl http://$MASTER_NODE:30800/health"
 echo ""
 echo "3️⃣ ALB/Ingress (외부, 약 3분 후):"
-echo "   curl https://growbin.app/api/test/health"
+echo "   curl https://growbin.app/api/v1/health"
 echo ""
 echo "【테스트 엔드포인트】"
 echo "   GET /              # API 정보"

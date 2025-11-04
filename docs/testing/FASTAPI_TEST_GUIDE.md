@@ -67,12 +67,12 @@ graph TB
             RD[(Redis)]
         end
         
-        ING[Ingress<br/>/api/test/*]
+        ING[Ingress<br/>/api/v1/*]
     end
     
     EXT -->|HTTPS| ALB
     EXT -->|HTTP| NP
-    ALB -->|path: /api/test| ING
+    ALB -->|path: /api/v1| ING
     ING --> FS
     NP --> FNP
     
@@ -346,7 +346,7 @@ spec:
   rules:
   - http:
       paths:
-      - path: /api/test
+      - path: /api/v1
         pathType: Prefix
         backend:
           service:
@@ -371,10 +371,10 @@ kubectl get ingress fastapi-test-ingress -n default \
 ```bash
 # ALB 직접 접근 (ALB 주소 사용)
 ALB_DNS=$(kubectl get ingress fastapi-test-ingress -n default -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-curl http://$ALB_DNS/api/test/health
+curl http://$ALB_DNS/api/v1/health
 
 # 도메인 접근 (Route53 연동 시)
-curl https://growbin.app/api/test/health
+curl https://growbin.app/api/v1/health
 ```
 
 ---
@@ -539,7 +539,7 @@ kubectl run test --image=curlimages/curl --rm -it --restart=Never -- \
 curl http://52.79.238.50:30800/test/all
 
 # 4. 외부 테스트 (ALB)
-curl https://growbin.app/api/test/test/all
+curl https://growbin.app/api/v1/test/all
 ```
 
 **성공 기준**:
