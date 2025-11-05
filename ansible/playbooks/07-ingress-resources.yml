@@ -3,6 +3,9 @@
 ---
 - name: "ArgoCD Ingress 생성 (/argocd)"
   shell: |
+    # ArgoCD Service를 NodePort로 변경 (ALB target-type: instance 필수)
+    kubectl patch svc argocd-server -n argocd -p '{"spec":{"type":"NodePort"}}'
+    
     kubectl apply -f - <<EOF
     apiVersion: networking.k8s.io/v1
     kind: Ingress
@@ -42,6 +45,9 @@
 
 - name: "Monitoring Ingress 생성 (/grafana)"
   shell: |
+    # Grafana Service를 NodePort로 변경 (ALB target-type: instance 필수)
+    kubectl patch svc prometheus-grafana -n monitoring -p '{"spec":{"type":"NodePort"}}'
+    
     kubectl apply -f - <<EOF
     apiVersion: networking.k8s.io/v1
     kind: Ingress
@@ -109,6 +115,7 @@
       name: default-backend
       namespace: default
     spec:
+      type: NodePort
       selector:
         app: default-backend
       ports:

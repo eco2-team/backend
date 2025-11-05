@@ -164,7 +164,7 @@ if [ -f "terraform.tfstate" ] || [ -d ".terraform" ]; then
         fi
         echo ""
         
-        # 2. 보안 그룹 확인 및 삭제 (k8s-* 패턴)
+        # 2. 보안 그룹 확인 및 삭제 (k8s-* 패턴) - ALB 삭제 후 재시도 포함
         echo "🔒 Kubernetes 생성 보안 그룹 확인..."
         SG_IDS=$(aws ec2 describe-security-groups \
             --filters "Name=vpc-id,Values=$VPC_ID" "Name=group-name,Values=k8s-*" \
@@ -174,6 +174,10 @@ if [ -f "terraform.tfstate" ] || [ -d ".terraform" ]; then
         
         if [ -n "$SG_IDS" ]; then
             echo "⚠️  Kubernetes 생성 보안 그룹 발견:"
+            
+            # Security Group 정보 및 실패한 SG 추적
+            declare -a FAILED_SGS
+            
             for sg in $SG_IDS; do
                 SG_NAME=$(aws ec2 describe-security-groups --group-ids "$sg" --region "$AWS_REGION" \
                     --query 'SecurityGroups[0].GroupName' --output text 2>/dev/null || echo "?")
@@ -223,16 +227,24 @@ if [ -f "terraform.tfstate" ] || [ -d ".terraform" ]; then
                     if aws ec2 delete-security-group --group-id "$sg" --region "$AWS_REGION" 2>/dev/null; then
                         echo "    ✅ 규칙 정리 후 삭제 성공"
                     else
-                        echo "    ❌ 삭제 실패 (다른 리소스가 사용 중일 수 있음)"
+                        echo "    ⚠️  삭제 실패 (ALB가 사용 중일 수 있음, 나중에 재시도)"
+                        FAILED_SGS+=("$sg:$SG_NAME")
                     fi
                 fi
             done
+            
+            # 실패한 Security Group이 있으면 ALB 삭제 후 재시도할 것임을 표시
+            if [ ${#FAILED_SGS[@]} -gt 0 ]; then
+                echo ""
+                echo "  ℹ️  ${#FAILED_SGS[@]}개의 Security Group이 삭제 실패했습니다."
+                echo "     ALB 삭제 후 자동으로 재시도합니다."
+            fi
         else
             echo "  ✅ Kubernetes 보안 그룹 없음"
         fi
         echo ""
         
-        # 3. Load Balancer 확인
+        # 3. Load Balancer 확인 및 삭제 (완전 삭제 대기 포함)
         echo "⚖️  Load Balancer 확인..."
         ALB_ARNS=$(aws elbv2 describe-load-balancers \
             --region "$AWS_REGION" \
@@ -242,18 +254,101 @@ if [ -f "terraform.tfstate" ] || [ -d ".terraform" ]; then
         if [ -n "$ALB_ARNS" ]; then
             echo "⚠️  남은 Load Balancer 발견 (Kubernetes Ingress):"
             for alb_arn in $ALB_ARNS; do
-                echo "  - 삭제: $alb_arn"
-                # Load Balancer는 삭제되면 자동으로 보안 그룹도 삭제됨
+                ALB_NAME=$(aws elbv2 describe-load-balancers \
+                    --load-balancer-arns "$alb_arn" \
+                    --region "$AWS_REGION" \
+                    --query 'LoadBalancers[0].LoadBalancerName' \
+                    --output text 2>/dev/null || echo "unknown")
+                echo "  - 삭제 요청: $ALB_NAME ($alb_arn)"
                 aws elbv2 delete-load-balancer --load-balancer-arn "$alb_arn" --region "$AWS_REGION" 2>/dev/null || true
             done
-            echo "  ⏳ Load Balancer 삭제 대기 (10초)..."
-            sleep 10
+            
+            # ALB 완전 삭제 대기 (Security Group 해제 확인)
+            echo "  ⏳ Load Balancer 완전 삭제 대기 중..."
+            MAX_WAIT=60  # 최대 60초 대기
+            WAIT_COUNT=0
+            
+            while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+                REMAINING_ALBS=$(aws elbv2 describe-load-balancers \
+                    --region "$AWS_REGION" \
+                    --query "LoadBalancers[?VpcId==\`$VPC_ID\`].LoadBalancerArn" \
+                    --output text 2>/dev/null || echo "")
+                
+                if [ -z "$REMAINING_ALBS" ]; then
+                    echo "     ✅ 모든 Load Balancer 삭제 완료 (${WAIT_COUNT}초 소요)"
+                    break
+                fi
+                
+                if [ $((WAIT_COUNT % 10)) -eq 0 ]; then
+                    echo "     ⏳ 대기 중... (${WAIT_COUNT}초 경과)"
+                fi
+                
+                sleep 2
+                WAIT_COUNT=$((WAIT_COUNT + 2))
+            done
+            
+            if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
+                echo "     ⚠️  타임아웃: Load Balancer가 여전히 삭제 중입니다."
+                echo "        (백그라운드에서 계속 삭제됩니다)"
+            fi
+            
+            # ALB 삭제 후 실패했던 Security Group 재시도
+            if [ ${#FAILED_SGS[@]} -gt 0 ]; then
+                echo ""
+                echo "  🔄 ALB 삭제 완료 후 Security Group 재시도..."
+                
+                for sg_info in "${FAILED_SGS[@]}"; do
+                    sg="${sg_info%%:*}"
+                    sg_name="${sg_info##*:}"
+                    
+                    echo "    - 재시도: $sg ($sg_name)"
+                    
+                    # 규칙이 아직 남아있을 수 있으므로 다시 정리
+                    INGRESS_RULES=$(aws ec2 describe-security-group-rules \
+                        --group-ids "$sg" \
+                        --region "$AWS_REGION" \
+                        --query 'SecurityGroupRules[?IsEgress==`false`].SecurityGroupRuleId' \
+                        --output text 2>/dev/null || echo "")
+                    
+                    if [ -n "$INGRESS_RULES" ]; then
+                        for rule_id in $INGRESS_RULES; do
+                            aws ec2 revoke-security-group-ingress \
+                                --group-id "$sg" \
+                                --security-group-rule-ids "$rule_id" \
+                                --region "$AWS_REGION" 2>/dev/null || true
+                        done
+                    fi
+                    
+                    EGRESS_RULES=$(aws ec2 describe-security-group-rules \
+                        --group-ids "$sg" \
+                        --region "$AWS_REGION" \
+                        --query 'SecurityGroupRules[?IsEgress==`true`].SecurityGroupRuleId' \
+                        --output text 2>/dev/null || echo "")
+                    
+                    if [ -n "$EGRESS_RULES" ]; then
+                        for rule_id in $EGRESS_RULES; do
+                            aws ec2 revoke-security-group-egress \
+                                --group-id "$sg" \
+                                --security-group-rule-ids "$rule_id" \
+                                --region "$AWS_REGION" 2>/dev/null || true
+                        done
+                    fi
+                    
+                    sleep 2
+                    
+                    if aws ec2 delete-security-group --group-id "$sg" --region "$AWS_REGION" 2>/dev/null; then
+                        echo "      ✅ 재시도 성공"
+                    else
+                        echo "      ⚠️  재시도 실패 (ENI나 다른 리소스가 사용 중)"
+                    fi
+                done
+            fi
         else
             echo "  ✅ Load Balancer 없음"
         fi
         echo ""
         
-        # 4. ENI (Elastic Network Interface) 확인
+        # 4. ENI (Elastic Network Interface) 확인 및 삭제 (재시도 포함)
         echo "🌐 ENI 확인..."
         ENI_IDS=$(aws ec2 describe-network-interfaces \
             --filters "Name=vpc-id,Values=$VPC_ID" \
@@ -264,8 +359,25 @@ if [ -f "terraform.tfstate" ] || [ -d ".terraform" ]; then
         if [ -n "$ENI_IDS" ]; then
             echo "⚠️  남은 ENI 발견:"
             for eni in $ENI_IDS; do
-                echo "  - 삭제: $eni"
-                aws ec2 delete-network-interface --network-interface-id "$eni" --region "$AWS_REGION" 2>/dev/null || true
+                ENI_DESC=$(aws ec2 describe-network-interfaces \
+                    --network-interface-ids "$eni" \
+                    --region "$AWS_REGION" \
+                    --query 'NetworkInterfaces[0].Description' \
+                    --output text 2>/dev/null || echo "")
+                echo "  - 삭제 시도: $eni ($ENI_DESC)"
+                
+                if aws ec2 delete-network-interface --network-interface-id "$eni" --region "$AWS_REGION" 2>/dev/null; then
+                    echo "    ✅ 삭제 성공"
+                else
+                    echo "    ⚠️  삭제 실패 (아직 사용 중), 5초 후 재시도..."
+                    sleep 5
+                    
+                    if aws ec2 delete-network-interface --network-interface-id "$eni" --region "$AWS_REGION" 2>/dev/null; then
+                        echo "    ✅ 재시도 성공"
+                    else
+                        echo "    ❌ 재시도 실패 (백그라운드에서 해제될 예정)"
+                    fi
+                fi
             done
         else
             echo "  ✅ 남은 ENI 없음"
@@ -291,14 +403,76 @@ if [ -f "terraform.tfstate" ] || [ -d ".terraform" ]; then
             echo "  ✅ Target Groups 없음"
         fi
         echo ""
+        
+        # 6. NAT Gateway 확인 및 삭제 (VPC 삭제 지연의 주요 원인)
+        echo "🌐 NAT Gateway 확인..."
+        NAT_GW_IDS=$(aws ec2 describe-nat-gateways \
+            --filter "Name=vpc-id,Values=$VPC_ID" "Name=state,Values=available,pending,deleting" \
+            --region "$AWS_REGION" \
+            --query 'NatGateways[*].NatGatewayId' \
+            --output text 2>/dev/null || echo "")
+        
+        if [ -n "$NAT_GW_IDS" ]; then
+            echo "⚠️  NAT Gateway 발견 (삭제 시 3-5분 소요):"
+            for nat_gw in $NAT_GW_IDS; do
+                echo "  - 삭제: $nat_gw"
+                aws ec2 delete-nat-gateway --nat-gateway-id "$nat_gw" --region "$AWS_REGION" 2>/dev/null || true
+            done
+            echo "  ⏳ NAT Gateway 삭제 대기 (30초)..."
+            echo "     (완전 삭제는 백그라운드에서 3-5분 소요됨)"
+            sleep 30
+        else
+            echo "  ✅ NAT Gateway 없음"
+        fi
+        echo ""
+        
+        # 7. VPC Endpoints 확인 및 삭제
+        echo "🔗 VPC Endpoints 확인..."
+        VPC_EP_IDS=$(aws ec2 describe-vpc-endpoints \
+            --filters "Name=vpc-id,Values=$VPC_ID" \
+            --region "$AWS_REGION" \
+            --query 'VpcEndpoints[*].VpcEndpointId' \
+            --output text 2>/dev/null || echo "")
+        
+        if [ -n "$VPC_EP_IDS" ]; then
+            echo "⚠️  VPC Endpoints 발견:"
+            for ep in $VPC_EP_IDS; do
+                echo "  - 삭제: $ep"
+                aws ec2 delete-vpc-endpoints --vpc-endpoint-ids "$ep" --region "$AWS_REGION" 2>/dev/null || true
+            done
+            echo "  ⏳ VPC Endpoints 삭제 대기 (10초)..."
+            sleep 10
+        else
+            echo "  ✅ VPC Endpoints 없음"
+        fi
+        echo ""
+        
+        # 8. VPC Peering Connections 확인 및 삭제
+        echo "🔗 VPC Peering Connections 확인..."
+        VPC_PEER_IDS=$(aws ec2 describe-vpc-peering-connections \
+            --filters "Name=requester-vpc-info.vpc-id,Values=$VPC_ID" \
+            --region "$AWS_REGION" \
+            --query 'VpcPeeringConnections[*].VpcPeeringConnectionId' \
+            --output text 2>/dev/null || echo "")
+        
+        if [ -n "$VPC_PEER_IDS" ]; then
+            echo "⚠️  VPC Peering Connections 발견:"
+            for peer in $VPC_PEER_IDS; do
+                echo "  - 삭제: $peer"
+                aws ec2 delete-vpc-peering-connection --vpc-peering-connection-id "$peer" --region "$AWS_REGION" 2>/dev/null || true
+            done
+        else
+            echo "  ✅ VPC Peering Connections 없음"
+        fi
+        echo ""
     else
         echo "ℹ️  VPC ID를 가져올 수 없습니다 (이미 삭제되었거나 State 파일 없음)"
         echo ""
     fi
     
-    echo "⏳ AWS 리소스 정리 완료 대기 (60초)..."
-    echo "   (AWS API 비동기 처리 완료 대기)"
-    sleep 60
+    echo "⏳ AWS 리소스 정리 완료 대기 (20초)..."
+    echo "   (ALB 삭제가 완료되었으므로 대기 시간 단축)"
+    sleep 20
     echo ""
 else
     echo "ℹ️  Terraform State 파일이 없습니다 (새 배포 또는 이미 삭제됨)"
@@ -439,6 +613,53 @@ echo "4️⃣ Terraform destroy 후 남은 리소스 정리"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "ℹ️  Terraform destroy 후 남은 VPC 리소스를 정리합니다."
+echo ""
+
+# 1. EBS 볼륨 재확인 및 삭제 (Terraform destroy 후)
+echo "💾 EBS 볼륨 최종 확인..."
+ALL_VOLUMES=$(aws ec2 describe-volumes \
+    --region "$AWS_REGION" \
+    --query 'Volumes[?State==`available` || State==`error`].[VolumeId,Size,State,Tags[?Key==`Name`].Value|[0]]' \
+    --output text 2>/dev/null || echo "")
+
+if [ -n "$ALL_VOLUMES" ]; then
+    echo "⚠️  남은 EBS 볼륨 발견:"
+    echo "$ALL_VOLUMES" | while read vol_id size state name; do
+        if [ -z "$vol_id" ]; then
+            continue
+        fi
+        
+        # Kubernetes PVC 볼륨 또는 이름이 있는 볼륨만 삭제
+        if [ -n "$name" ] || aws ec2 describe-volumes --volume-ids "$vol_id" --region "$AWS_REGION" \
+            --query 'Volumes[0].Tags[?Key==`kubernetes.io/created-for/pvc/name`]' --output text 2>/dev/null | grep -q .; then
+            
+            echo "  - 삭제: $vol_id (${size}GB, State: $state, Name: ${name:-N/A})"
+            
+            if aws ec2 delete-volume --volume-id "$vol_id" --region "$AWS_REGION" 2>/dev/null; then
+                echo "    ✅ 삭제 성공"
+            else
+                # 실패 시 5초 대기 후 재시도
+                echo "    ⚠️  삭제 실패, 5초 후 재시도..."
+                sleep 5
+                
+                if aws ec2 delete-volume --volume-id "$vol_id" --region "$AWS_REGION" 2>/dev/null; then
+                    echo "    ✅ 재시도 성공"
+                else
+                    echo "    ❌ 재시도 실패 (아직 사용 중이거나 보호됨)"
+                    
+                    # 볼륨 상세 정보 출력
+                    VOL_INFO=$(aws ec2 describe-volumes --volume-ids "$vol_id" --region "$AWS_REGION" \
+                        --query 'Volumes[0].{State:State,Attachments:Attachments}' --output json 2>/dev/null || echo "{}")
+                    echo "       상세 정보: $VOL_INFO"
+                fi
+            fi
+        else
+            echo "  ℹ️  무시: $vol_id (${size}GB, Name: ${name:-N/A}) - 관리 대상 아님"
+        fi
+    done
+else
+    echo "  ✅ 남은 EBS 볼륨 없음"
+fi
 echo ""
 
 # VPC 목록 확인 (Default VPC 제외)

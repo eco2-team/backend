@@ -77,6 +77,40 @@
       delay: 5
       until: kubelet_active.stdout == "active"
 
+    # Provider ID 설정 (AWS ALB Controller 필수)
+    - name: AWS Instance ID 및 AZ 가져오기
+      shell: |
+        INSTANCE_ID=$(ec2-metadata --instance-id | cut -d ' ' -f 2)
+        AZ=$(ec2-metadata --availability-zone | cut -d ' ' -f 2)
+        echo "$INSTANCE_ID:$AZ"
+      register: aws_metadata
+      when: not kubelet_conf.stat.exists
+
+    - name: Provider ID 파싱
+      set_fact:
+        instance_id: "{{ aws_metadata.stdout.split(':')[0] }}"
+        availability_zone: "{{ aws_metadata.stdout.split(':')[1] }}"
+      when: not kubelet_conf.stat.exists and aws_metadata is defined
+
+    - name: kubelet Provider ID 설정
+      lineinfile:
+        path: /var/lib/kubelet/kubeadm-flags.env
+        regexp: '^KUBELET_KUBEADM_ARGS='
+        line: 'KUBELET_KUBEADM_ARGS="--container-runtime-endpoint=unix:///var/run/containerd/containerd.sock --cloud-provider=external --provider-id=aws:///{{ availability_zone }}/{{ instance_id }}"'
+        backup: yes
+      when: not kubelet_conf.stat.exists and instance_id is defined
+
+    - name: kubelet 재시작 (Provider ID 적용)
+      systemd:
+        name: kubelet
+        state: restarted
+      when: not kubelet_conf.stat.exists and instance_id is defined
+
+    - name: kubelet 재시작 후 대기
+      pause:
+        seconds: 10
+      when: not kubelet_conf.stat.exists and instance_id is defined
+
     - name: join 명령어 파일 삭제
       file:
         path: /tmp/join.sh

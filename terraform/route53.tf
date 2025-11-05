@@ -22,70 +22,93 @@ data "aws_route53_zone" "main" {
 #   }
 # }
 
-# A 레코드: api.yourdomain.com → Master Public IP
-resource "aws_route53_record" "api" {
-  count = var.domain_name != "" ? 1 : 0
-  
-  zone_id = data.aws_route53_zone.main[0].zone_id
-  name    = "api.${var.domain_name}"
-  type    = "A"
-  ttl     = 300
-  records = [aws_eip.master.public_ip]
-}
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ⚠️  Route53 A 레코드는 Ansible에서 관리합니다
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# 이유:
+#   - Terraform: 인프라 생성 시점에 ALB DNS를 알 수 없음
+#   - Ansible: ALB Controller가 ALB를 생성한 후 DNS를 조회하여 Route53 업데이트
+#
+# Route53 업데이트 위치:
+#   - ansible/playbooks/09-route53-update.yml
+#   - ansible/site.yml (Line 250-259)
+#
+# 업데이트되는 도메인:
+#   - growbin.app → ALB (Alias)
+#   - www.growbin.app → ALB (Alias)
+#   - api.growbin.app → ALB (Alias)
+#   - argocd.growbin.app → ALB (Alias)
+#   - grafana.growbin.app → ALB (Alias)
+#
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# A 레코드: argocd.yourdomain.com → Master Public IP
-resource "aws_route53_record" "argocd" {
-  count = var.domain_name != "" ? 1 : 0
-  
-  zone_id = data.aws_route53_zone.main[0].zone_id
-  name    = "argocd.${var.domain_name}"
-  type    = "A"
-  ttl     = 300
-  records = [aws_eip.master.public_ip]
-}
+# 이전 설정 (Master IP로 직접 연결) - 사용하지 않음
+# 
+# # A 레코드: api.yourdomain.com → Master Public IP
+# resource "aws_route53_record" "api" {
+#   count = var.domain_name != "" ? 1 : 0
+#   
+#   zone_id = data.aws_route53_zone.main[0].zone_id
+#   name    = "api.${var.domain_name}"
+#   type    = "A"
+#   ttl     = 300
+#   records = [aws_eip.master.public_ip]
+# }
+# 
+# # A 레코드: argocd.yourdomain.com → Master Public IP
+# resource "aws_route53_record" "argocd" {
+#   count = var.domain_name != "" ? 1 : 0
+#   
+#   zone_id = data.aws_route53_zone.main[0].zone_id
+#   name    = "argocd.${var.domain_name}"
+#   type    = "A"
+#   ttl     = 300
+#   records = [aws_eip.master.public_ip]
+# }
+# 
+# # A 레코드: grafana.yourdomain.com → Master Public IP
+# resource "aws_route53_record" "grafana" {
+#   count = var.domain_name != "" ? 1 : 0
+#   
+#   zone_id = data.aws_route53_zone.main[0].zone_id
+#   name    = "grafana.${var.domain_name}"
+#   type    = "A"
+#   ttl     = 300
+#   records = [aws_eip.master.public_ip]
+# }
+# 
+# # A 레코드: www.yourdomain.com → Master Public IP
+# resource "aws_route53_record" "www" {
+#   count = var.domain_name != "" ? 1 : 0
+#   
+#   zone_id = data.aws_route53_zone.main[0].zone_id
+#   name    = "www.${var.domain_name}"
+#   type    = "A"
+#   ttl     = 300
+#   records = [aws_eip.master.public_ip]
+# }
+# 
+# # Apex 도메인 (growbin.app) → Master Public IP
+# resource "aws_route53_record" "apex" {
+#   count = var.domain_name != "" ? 1 : 0
+#   
+#   zone_id = data.aws_route53_zone.main[0].zone_id
+#   name    = var.domain_name
+#   type    = "A"
+#   ttl     = 300
+#   records = [aws_eip.master.public_ip]
+# }
 
-# A 레코드: grafana.yourdomain.com → Master Public IP
-resource "aws_route53_record" "grafana" {
-  count = var.domain_name != "" ? 1 : 0
-  
-  zone_id = data.aws_route53_zone.main[0].zone_id
-  name    = "grafana.${var.domain_name}"
-  type    = "A"
-  ttl     = 300
-  records = [aws_eip.master.public_ip]
-}
-
-# A 레코드: www.yourdomain.com → Master Public IP
-resource "aws_route53_record" "www" {
-  count = var.domain_name != "" ? 1 : 0
-  
-  zone_id = data.aws_route53_zone.main[0].zone_id
-  name    = "www.${var.domain_name}"
-  type    = "A"
-  ttl     = 300
-  records = [aws_eip.master.public_ip]
-}
-
-# Apex 도메인 (growbin.app) → Master Public IP
-resource "aws_route53_record" "apex" {
-  count = var.domain_name != "" ? 1 : 0
-  
-  zone_id = data.aws_route53_zone.main[0].zone_id
-  name    = var.domain_name
-  type    = "A"
-  ttl     = 300
-  records = [aws_eip.master.public_ip]
-}
-
-# Wildcard A 레코드 (선택사항)
-# *.yourdomain.com → Master Public IP
-resource "aws_route53_record" "wildcard" {
-  count = var.domain_name != "" && var.create_wildcard_record ? 1 : 0
-  
-  zone_id = data.aws_route53_zone.main[0].zone_id
-  name    = "*.${var.domain_name}"
-  type    = "A"
-  ttl     = 300
-  records = [aws_eip.master.public_ip]
-}
+# Wildcard A 레코드 (선택사항) - 사용하지 않음
+# # *.yourdomain.com → Master Public IP
+# resource "aws_route53_record" "wildcard" {
+#   count = var.domain_name != "" && var.create_wildcard_record ? 1 : 0
+#   
+#   zone_id = data.aws_route53_zone.main[0].zone_id
+#   name    = "*.${var.domain_name}"
+#   type    = "A"
+#   ttl     = 300
+#   records = [aws_eip.master.public_ip]
+# }
 

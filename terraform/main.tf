@@ -224,7 +224,7 @@ module "monitoring" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-monitoring"
-  instance_type         = "t3.medium"  # 4GB (Prometheus + Grafana)
+  instance_type         = "t3.large"  # 8GB (Prometheus + Grafana) - Upgraded for CPU
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[1]  # Same AZ as Worker-1
   security_group_ids    = [module.security_groups.worker_sg_id]

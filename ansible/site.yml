@@ -32,6 +32,13 @@
     - import_tasks: playbooks/03-worker-join.yml
   # ⚠️ Worker join 실패 시 여기서 중단됨
 
+- name: Worker 노드 Provider ID 설정 (ALB Controller 필수)
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/03-1-set-provider-id.yml
+
 - name: CNI 플러그인 설치 및 클러스터 검증 (AWS VPC CNI)
   hosts: masters
   become: yes
@@ -241,7 +248,8 @@
 
 # Route53 A 레코드 업데이트 (ALB 연결)
 - name: Route53 업데이트 (ALB 연결)
-  hosts: master
+  hosts: localhost
+  connection: local
   become: no
   gather_facts: no
   vars:
