@@ -149,7 +149,7 @@ resource "aws_route53_record" "cdn_cert_validation" {
 
 # Route53 Record for CDN
 resource "aws_route53_record" "cdn" {
-  zone_id = data.aws.route53_zone.main.zone_id
+  zone_id = data.aws_route53_zone.main.zone_id
   name    = "images.${var.domain_name}"
   type    = "A"
   
