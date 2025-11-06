@@ -1,52 +1,108 @@
 ---
-# Ansible Playbook: 노드 라벨링 (13 Node 구조)
+# Label Kubernetes Nodes for 13-Node Microservices Architecture
 - name: Label Kubernetes Nodes
-  hosts: k8s_cluster
-  become: yes
-  tasks:
-    - name: Wait for nodes to be ready
-      shell: kubectl get nodes
-      register: nodes_status
-      until: nodes_status.rc == 0
-      retries: 10
-      delay: 10
-      delegate_to: "{{ groups['masters'][0] }}"
-      run_once: true
-
-    - name: Label API nodes with service
-      shell: |
-        kubectl label node {{ inventory_hostname }} \
-          service={{ service }} \
-          --overwrite
-      delegate_to: "{{ groups['masters'][0] }}"
-      when: "'api_nodes' in group_names"
-    
-    - name: Label Worker nodes with type
-      shell: |
-        kubectl label node {{ inventory_hostname }} \
-          workload={{ workload }} \
-          type={{ type }} \
-          --overwrite
-      delegate_to: "{{ groups['masters'][0] }}"
-      when: "'workers' in group_names"
-    
-    - name: Label Infrastructure nodes
-      shell: |
-        kubectl label node {{ inventory_hostname }} \
-          workload={{ workload }} \
-          --overwrite
-      delegate_to: "{{ groups['masters'][0] }}"
-      when: "workload is defined and 'api_nodes' not in group_names and 'workers' not in group_names"
-
-- name: Verify node labels
   hosts: masters
   become: yes
+  gather_facts: no
   tasks:
-    - name: Get all node labels
+    - name: Wait for all nodes to be Ready
+      shell: |
+        kubectl get nodes --no-headers | grep -v " Ready " | wc -l
+      register: not_ready_count
+      until: not_ready_count.stdout == "0"
+      retries: 30
+      delay: 10
+      changed_when: false
+
+    # API Nodes - Domain Labels
+    - name: Label API Nodes
+      shell: |
+        kubectl label node {{ item.node }} \
+          workload=api \
+          domain={{ item.domain }} \
+          node-role.kubernetes.io/api={{ item.domain }} \
+          --overwrite
+      loop:
+        - { node: "k8s-api-waste", domain: "waste" }
+        - { node: "k8s-api-auth", domain: "auth" }
+        - { node: "k8s-api-userinfo", domain: "userinfo" }
+        - { node: "k8s-api-location", domain: "location" }
+        - { node: "k8s-api-recycle-info", domain: "recycle-info" }
+        - { node: "k8s-api-chat-llm", domain: "chat-llm" }
+      ignore_errors: yes
+
+    # Worker Nodes - Worker Type Labels
+    - name: Label Worker-Storage Node
+      shell: |
+        kubectl label node k8s-worker-storage \
+          workload=worker-storage \
+          worker-type=io-bound \
+          pool-type=eventlet \
+          node-role.kubernetes.io/worker=storage \
+          --overwrite
+      ignore_errors: yes
+
+    - name: Label Worker-AI Node
+      shell: |
+        kubectl label node k8s-worker-ai \
+          workload=worker-ai \
+          worker-type=network-bound \
+          pool-type=prefork \
+          node-role.kubernetes.io/worker=ai \
+          --overwrite
+      ignore_errors: yes
+
+    # Infrastructure Nodes
+    - name: Label RabbitMQ Node
+      shell: |
+        kubectl label node k8s-rabbitmq \
+          workload=message-queue \
+          node-role.kubernetes.io/infrastructure=rabbitmq \
+          --overwrite
+      ignore_errors: yes
+
+    - name: Label PostgreSQL Node
+      shell: |
+        kubectl label node k8s-postgresql \
+          workload=database \
+          node-role.kubernetes.io/infrastructure=postgresql \
+          --overwrite
+      ignore_errors: yes
+
+    - name: Label Redis Node
+      shell: |
+        kubectl label node k8s-redis \
+          workload=cache \
+          node-role.kubernetes.io/infrastructure=redis \
+          --overwrite
+      ignore_errors: yes
+
+    - name: Label Monitoring Node
+      shell: |
+        kubectl label node k8s-monitoring \
+          workload=monitoring \
+          node-role.kubernetes.io/infrastructure=monitoring \
+          --overwrite
+      ignore_errors: yes
+
+    # Taints for Infrastructure Nodes
+    - name: Taint Infrastructure Nodes
+      shell: |
+        kubectl taint node {{ item }} \
+          node-role.kubernetes.io/infrastructure=true:NoSchedule \
+          --overwrite
+      loop:
+        - k8s-rabbitmq
+        - k8s-postgresql
+        - k8s-redis
+        - k8s-monitoring
+      ignore_errors: yes
+
+    - name: Display Node Labels
       shell: kubectl get nodes --show-labels
       register: node_labels
-    
-    - name: Display node labels
+
+    - name: Show Node Labels
       debug:
-        var: node_labels.stdout_lines
+        msg: "{{ node_labels.stdout_lines }}"
 
