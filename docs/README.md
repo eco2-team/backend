@@ -210,36 +210,44 @@ Monitoring Node (Observability)
 
 ### 네트워킹 아키텍처
 
-```
-인터넷
-  ↓
-Route53 (DNS - growbin.app)
-  ↓
-AWS Application Load Balancer (ALB)
-  ├─ ACM 인증서 (SSL/TLS 자동 관리)
-  ├─ Target Type: instance (NodePort)
-  └─ Path-based Routing:
-      ↓
-      ├─ /argocd   → ArgoCD (Master Node)
-      ├─ /grafana  → Grafana (Monitoring Node)
-      └─ /api/v1/* → API Services (Worker Nodes)
-  ↓
-Kubernetes Ingress (ALB Ingress Class)
-  ├─ AWS Load Balancer Controller (Helm)
-  ├─ IngressClass: alb
-  └─ Ingress Resources (3개: ArgoCD, Grafana, API)
-  ↓
-Kubernetes Services (NodePort)
-  └─ Backend Pods
-      ├─ Worker-1: 동기 API (auth, users, locations)
-      ├─ Worker-2: 비동기 Workers (waste, AI, batch)
-      ├─ Master: ArgoCD
-      └─ Monitoring: Grafana
-
-내부 통신:
-  - Pod-to-Pod: Calico VXLAN (192.168.0.0/16)
-  - Pod-to-Service: ClusterIP (10.96.0.0/12)
-  - External Access: ALB → NodePort → Pod
+```mermaid
+graph TD
+    Internet["인터넷"] --> Route53["Route53<br/>(DNS - growbin.app)"]
+    Route53 --> ALB["AWS Application Load Balancer (ALB)<br/>✓ ACM 인증서 (SSL/TLS 자동 관리)<br/>✓ Target Type: instance (NodePort)<br/>✓ Path-based Routing"]
+    
+    ALB -->|"/argocd"| ArgoCD["ArgoCD<br/>(Master Node)"]
+    ALB -->|"/grafana"| Grafana["Grafana<br/>(Monitoring Node)"]
+    ALB -->|"/api/v1/*"| API["API Services<br/>(Worker Nodes)"]
+    
+    ArgoCD --> K8s["Kubernetes Ingress<br/>(ALB Ingress Class)"]
+    Grafana --> K8s
+    API --> K8s
+    
+    K8s --> Controller["AWS Load Balancer Controller (Helm)<br/>IngressClass: alb<br/>Ingress Resources (3개)"]
+    Controller --> Services["Kubernetes Services<br/>(NodePort)"]
+    Services --> Pods["Backend Pods"]
+    
+    Pods --> Worker1["Worker-1:<br/>동기 API<br/>(auth, users, locations)"]
+    Pods --> Worker2["Worker-2:<br/>비동기 Workers<br/>(waste, AI, batch)"]
+    Pods --> Master["Master:<br/>ArgoCD"]
+    Pods --> Monitor["Monitoring:<br/>Grafana"]
+    
+    Internal["내부 통신"] -.-> PodPod["Pod-to-Pod:<br/>Calico VXLAN<br/>(192.168.0.0/16)"]
+    Internal -.-> PodService["Pod-to-Service:<br/>ClusterIP<br/>(10.96.0.0/12)"]
+    Internal -.-> External["External Access:<br/>ALB → NodePort → Pod"]
+    
+    style Internet fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style Route53 fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style ALB fill:#fff9c4,stroke:#f57f17,stroke-width:3px
+    style K8s fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style Controller fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+    style Services fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style Pods fill:#e1bee7,stroke:#7b1fa2,stroke-width:3px
+    style Worker1 fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px
+    style Worker2 fill:#ffccbc,stroke:#bf360c,stroke-width:2px
+    style Master fill:#b3e5fc,stroke:#0277bd,stroke-width:2px
+    style Monitor fill:#f8bbd0,stroke:#880e4f,stroke-width:2px
+    style Internal fill:#f5f5f5,stroke:#9e9e9e,stroke-width:1px,stroke-dasharray: 5 5
 ```
 
 ---
