@@ -1,5 +1,6 @@
-# 📚 AI Waste Coach Backend - 문서
+# 📚 ♻️ 이코에코(Eco²) Backend - 문서
 
+> **AI 기반 쓰레기 분류 및 재활용 코칭 서비스**  
 > **7-Node Kubernetes 클러스터 프로덕션 인프라**  
 > **Terraform + Ansible 완전 자동화 Self-Managed kubeadm 클러스터**
 

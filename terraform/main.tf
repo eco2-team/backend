@@ -22,22 +22,6 @@ provider "aws" {
   }
 }
 
-# CloudFront ACM Certificate를 위한 us-east-1 provider
-# CloudFront는 global 서비스로 us-east-1 리전의 인증서만 사용 가능
-provider "aws" {
-  alias  = "us_east_1"
-  region = "us-east-1"
-  
-  default_tags {
-    tags = {
-      Project     = "SeSACTHON"
-      ManagedBy   = "Terraform"
-      Environment = var.environment
-      Team        = "Backend"
-    }
-  }
-}
-
 # Data Sources
 data "aws_availability_zones" "available" {
   state = "available"
@@ -110,12 +94,13 @@ module "master" {
   }
 }
 
-# EC2 Instances - API Waste (메인 폐기물 분석)
+# EC2 Instances - API Nodes (6 nodes)
+# API-1: Waste Analysis (High Traffic)
 module "api_waste" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-api-waste"
-  instance_type         = "t3.small"  # 2GB (3 replicas)
+  instance_type         = "t3.small"  # 2GB
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[0]
   security_group_ids    = [module.security_groups.worker_sg_id]
@@ -131,18 +116,17 @@ module "api_waste" {
   
   tags = {
     Role     = "worker"
-    Workload = "api"
-    Service  = "waste"
-    Traffic  = "high"
+    Workload = "api-waste"
+    Domain   = "waste"
   }
 }
 
-# EC2 Instances - API Auth (인증/인가)
+# API-2: Authentication & Authorization
 module "api_auth" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-api-auth"
-  instance_type         = "t3.micro"  # 1GB (2 replicas)
+  instance_type         = "t3.micro"  # 1GB
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[1]
   security_group_ids    = [module.security_groups.worker_sg_id]
@@ -158,18 +142,17 @@ module "api_auth" {
   
   tags = {
     Role     = "worker"
-    Workload = "api"
-    Service  = "auth"
-    Traffic  = "high"
+    Workload = "api-auth"
+    Domain   = "auth"
   }
 }
 
-# EC2 Instances - API Userinfo (사용자 정보)
+# API-3: User Information
 module "api_userinfo" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-api-userinfo"
-  instance_type         = "t3.micro"  # 1GB (2 replicas)
+  instance_type         = "t3.micro"  # 1GB
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[2]
   security_group_ids    = [module.security_groups.worker_sg_id]
@@ -185,18 +168,17 @@ module "api_userinfo" {
   
   tags = {
     Role     = "worker"
-    Workload = "api"
-    Service  = "userinfo"
-    Traffic  = "medium"
+    Workload = "api-userinfo"
+    Domain   = "userinfo"
   }
 }
 
-# EC2 Instances - API Location (지도/위치)
+# API-4: Location & Map
 module "api_location" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-api-location"
-  instance_type         = "t3.micro"  # 1GB (2 replicas)
+  instance_type         = "t3.micro"  # 1GB
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[0]
   security_group_ids    = [module.security_groups.worker_sg_id]
@@ -212,18 +194,17 @@ module "api_location" {
   
   tags = {
     Role     = "worker"
-    Workload = "api"
-    Service  = "location"
-    Traffic  = "medium"
+    Workload = "api-location"
+    Domain   = "location"
   }
 }
 
-# EC2 Instances - API Recycle Info (재활용 정보)
+# API-5: Recycle Information
 module "api_recycle_info" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-api-recycle-info"
-  instance_type         = "t3.micro"  # 1GB (2 replicas)
+  instance_type         = "t3.micro"  # 1GB
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[1]
   security_group_ids    = [module.security_groups.worker_sg_id]
@@ -239,18 +220,17 @@ module "api_recycle_info" {
   
   tags = {
     Role     = "worker"
-    Workload = "api"
-    Service  = "recycle-info"
-    Traffic  = "low"
+    Workload = "api-recycle-info"
+    Domain   = "recycle-info"
   }
 }
 
-# EC2 Instances - API Chat LLM (LLM 채팅)
+# API-6: Chat LLM
 module "api_chat_llm" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-api-chat-llm"
-  instance_type         = "t3.small"  # 2GB (3 replicas)
+  instance_type         = "t3.small"  # 2GB
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[2]
   security_group_ids    = [module.security_groups.worker_sg_id]
@@ -266,25 +246,25 @@ module "api_chat_llm" {
   
   tags = {
     Role     = "worker"
-    Workload = "api"
-    Service  = "chat-llm"
-    Traffic  = "high"
+    Workload = "api-chat-llm"
+    Domain   = "chat-llm"
   }
 }
 
-# EC2 Instances - Worker Storage (image-uploader, rule-retriever, beat)
+# Worker Nodes (2 nodes)
+# Worker-1: Storage & I/O Operations
 module "worker_storage" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-worker-storage"
-  instance_type         = "t3.medium"  # 4GB
+  instance_type         = "t3.medium"  # 4GB (I/O Bound - Eventlet Pool)
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[0]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
   
-  root_volume_size = 40
+  root_volume_size = 40  # Image uploads + Local WAL
   root_volume_type = "gp3"
   
   user_data = templatefile("${path.module}/user-data/common.sh", {
@@ -293,25 +273,24 @@ module "worker_storage" {
   
   tags = {
     Role     = "worker"
-    Workload = "async-workers"
-    Workers  = "image-uploader,rule-retriever,task-scheduler"
-    Type     = "storage-processing"
+    Workload = "worker-storage"
+    Type     = "io-bound"
   }
 }
 
-# EC2 Instances - Worker AI (gpt5-analyzer, response-generator)
+# Worker-2: AI Processing
 module "worker_ai" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-worker-ai"
-  instance_type         = "t3.medium"  # 4GB
+  instance_type         = "t3.medium"  # 4GB (Network Bound - Prefork Pool)
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[1]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
   
-  root_volume_size = 40
+  root_volume_size = 40  # AI models + GPT cache + Local WAL
   root_volume_type = "gp3"
   
   user_data = templatefile("${path.module}/user-data/common.sh", {
@@ -320,34 +299,108 @@ module "worker_ai" {
   
   tags = {
     Role     = "worker"
-    Workload = "async-workers"
-    Workers  = "gpt5-analyzer,response-generator"
-    Type     = "ai-processing"
+    Workload = "worker-ai"
+    Type     = "network-bound"
   }
 }
 
-# EC2 Instances - Storage (Stateful Services)
-module "storage" {
+# EC2 Instances - RabbitMQ (Message Queue)
+module "rabbitmq" {
   source = "./modules/ec2"
   
-  instance_name         = "k8s-storage"
-  instance_type         = "t3.large"  # 8GB (RabbitMQ, PostgreSQL, Redis)
+  instance_name         = "k8s-rabbitmq"
+  instance_type         = "t3.small"  # 2GB (RabbitMQ only)
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[0]  # Same AZ as Master
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
   
-  root_volume_size = 100  # Stateful data
+  root_volume_size = 40  # RabbitMQ data
   root_volume_type = "gp3"
   
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-storage"
+    hostname = "k8s-rabbitmq"
   })
   
   tags = {
     Role     = "worker"
-    Workload = "storage"
+    Workload = "message-queue"
+  }
+}
+
+# EC2 Instances - PostgreSQL (Database - 도메인별 DB 분리)
+module "postgresql" {
+  source = "./modules/ec2"
+  
+  instance_name         = "k8s-postgresql"
+  instance_type         = "t3.medium"  # 4GB (도메인별 DB: auth, waste, chat, location, analytics)
+  ami_id                = data.aws_ami.ubuntu.id
+  subnet_id             = module.vpc.public_subnet_ids[1]  # Different AZ
+  security_group_ids    = [module.security_groups.worker_sg_id]
+  key_name              = aws_key_pair.k8s.key_name
+  iam_instance_profile  = aws_iam_instance_profile.k8s.name
+  
+  root_volume_size = 80  # PostgreSQL data (5 domains)
+  root_volume_type = "gp3"
+  
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname = "k8s-postgresql"
+  })
+  
+  tags = {
+    Role     = "worker"
+    Workload = "database"
+  }
+}
+
+# EC2 Instances - Redis (Cache)
+module "redis" {
+  source = "./modules/ec2"
+  
+  instance_name         = "k8s-redis"
+  instance_type         = "t3.small"  # 2GB (Redis only)
+  ami_id                = data.aws_ami.ubuntu.id
+  subnet_id             = module.vpc.public_subnet_ids[2]  # Different AZ
+  security_group_ids    = [module.security_groups.worker_sg_id]
+  key_name              = aws_key_pair.k8s.key_name
+  iam_instance_profile  = aws_iam_instance_profile.k8s.name
+  
+  root_volume_size = 30  # Redis data (mostly in-memory)
+  root_volume_type = "gp3"
+  
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname = "k8s-redis"
+  })
+  
+  tags = {
+    Role     = "worker"
+    Workload = "cache"
+  }
+}
+
+# EC2 Instances - Monitoring (Prometheus + Grafana)
+module "monitoring" {
+  source = "./modules/ec2"
+  
+  instance_name         = "k8s-monitoring"
+  instance_type         = "t3.large"  # 8GB (Prometheus + Grafana) - Upgraded for CPU
+  ami_id                = data.aws_ami.ubuntu.id
+  subnet_id             = module.vpc.public_subnet_ids[1]  # Same AZ as Worker-1
+  security_group_ids    = [module.security_groups.worker_sg_id]
+  key_name              = aws_key_pair.k8s.key_name
+  iam_instance_profile  = aws_iam_instance_profile.k8s.name
+  
+  root_volume_size = 60  # Prometheus TSDB + Grafana
+  root_volume_type = "gp3"
+  
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname = "k8s-monitoring"
+  })
+  
+  tags = {
+    Role     = "worker"
+    Workload = "monitoring"
   }
 }
 

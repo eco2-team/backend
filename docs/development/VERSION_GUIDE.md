@@ -69,7 +69,7 @@ MAJOR.MINOR.PATCH
 
 ## 🎉 주요 기능
 
-- ✅ AI Waste Coach 서비스 정식 배포
+- ✅ ♻️ 이코에코(Eco²) 서비스 정식 배포
 - ✅ 7-Node Kubernetes 클러스터 운영
 - ✅ GitOps 기반 자동 배포 파이프라인
 - ✅ 무중단 배포 (Rolling Update)

@@ -1,10 +1,10 @@
 # 📊 프로젝트 개요
 
-> **AI Waste Coach Backend - 7-Node Self-Managed Kubernetes 클러스터**
+> **♻️ 이코에코(Eco²) Backend - 7-Node Self-Managed Kubernetes 클러스터**
 
 ## 🎯 프로젝트 요약
 
-**AI 기반 쓰레기 분류 및 재활용 코칭 서비스 - 백엔드 API 서버**
+**♻️ 이코에코(Eco²) - AI 기반 쓰레기 분류 및 재활용 코칭 서비스**
 
 사용자가 쓰레기를 촬영하면 GPT-4o Vision이 분석하고, 분류 방법과 재활용 팁을 제공하는 생활형 AI 환경 코치 서비스
 

@@ -27,7 +27,7 @@
   }
 }}%%
 mindmap
-  root((🎯 AI Waste Coach<br/>Backend))
+  root((♻️ 이코에코(Eco²)<br/>Backend))
     (🏗️ 인프라)
       ✅ Self-Managed K8s
       kubeadm 4-Tier
