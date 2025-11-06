@@ -1,0 +1,43 @@
+# Namespace 리소스 정의
+# 13 Node Microservices Architecture
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api
+  labels:
+    name: api
+    app.kubernetes.io/part-of: growbin-backend
+    app.kubernetes.io/component: api-layer
+    
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: workers
+  labels:
+    name: workers
+    app.kubernetes.io/part-of: growbin-backend
+    app.kubernetes.io/component: worker-layer
+    
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data
+  labels:
+    name: data
+    app.kubernetes.io/part-of: growbin-backend
+    app.kubernetes.io/component: data-layer
+    
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: messaging
+  labels:
+    name: messaging
+    app.kubernetes.io/part-of: growbin-backend
+    app.kubernetes.io/component: messaging-layer
+
