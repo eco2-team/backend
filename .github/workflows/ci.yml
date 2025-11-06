@@ -65,13 +65,13 @@ jobs:
       - name: 의존성 설치
         run: |
           python -m pip install --upgrade pip
-          # requirements.txt가 있으면 설치, 없으면 스킵
+          # Lint 도구 먼저 설치 (필수)
+          pip install black isort flake8 pycodestyle pylint mypy pytest pytest-cov
+          # requirements.txt가 있으면 추가 설치
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
-            pip install pycodestyle pylint mypy
           else
-            echo "⚠️ requirements.txt 없음 - Python 검사 스킵"
-            pip install pycodestyle pylint mypy pytest pytest-cov
+            echo "⚠️ requirements.txt 없음 - 기본 의존성만 사용"
           fi
 
       - name: 📏 PEP 8 스타일 검사 (pycodestyle)
