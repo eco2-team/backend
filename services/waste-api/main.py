@@ -4,14 +4,19 @@ Waste API Service
 폐기물 분류 API 서비스
 """
 
-from fastapi import FastAPI
-from app.health import setup_health_checks, check_postgres, check_redis, check_s3
 import os
 
+from fastapi import FastAPI
+
+from app.health import (
+    check_postgres,
+    check_redis,
+    check_s3,
+    setup_health_checks,
+)
+
 app = FastAPI(
-    title="Waste API",
-    description="폐기물 분류 및 분석 API",
-    version="1.0.0"
+    title="Waste API", description="폐기물 분류 및 분석 API", version="1.0.0"
 )
 
 # Health Check 설정
@@ -21,7 +26,7 @@ health_checker = setup_health_checks(app, service_name="waste-api")
 @app.on_event("startup")
 async def startup_event():
     """서비스 시작 시 readiness check 등록"""
-    
+
     # PostgreSQL check
     health_checker.add_readiness_check(
         "database",
@@ -30,26 +35,26 @@ async def startup_event():
             port=int(os.getenv("POSTGRES_PORT", "5432")),
             database=os.getenv("POSTGRES_DB", "growbin_waste"),
             user=os.getenv("POSTGRES_USER", "growbin"),
-            password=os.getenv("POSTGRES_PASSWORD", "")
-        )
+            password=os.getenv("POSTGRES_PASSWORD", ""),
+        ),
     )
-    
+
     # Redis check
     health_checker.add_readiness_check(
         "cache",
         lambda: check_redis(
             host=os.getenv("REDIS_HOST", "k8s-redis"),
-            port=int(os.getenv("REDIS_PORT", "6379"))
-        )
+            port=int(os.getenv("REDIS_PORT", "6379")),
+        ),
     )
-    
+
     # S3 check
     health_checker.add_readiness_check(
         "storage",
         lambda: check_s3(
             bucket=os.getenv("S3_BUCKET", "growbin-images"),
-            region=os.getenv("AWS_REGION", "ap-northeast-2")
-        )
+            region=os.getenv("AWS_REGION", "ap-northeast-2"),
+        ),
     )
 
 
@@ -73,18 +78,17 @@ async def get_waste_categories():
 async def classify_waste(image_url: str):
     """
     폐기물 이미지 분류
-    
+
     Args:
         image_url: 분류할 이미지 URL
-    
+
     Returns:
         분류 결과 (category, confidence, disposal_method)
     """
-    # TODO: Celery 비동기 작업 호출
     return {
         "task_id": "example-task-id",
         "status": "pending",
-        "message": "분류 작업이 시작되었습니다"
+        "message": "분류 작업이 시작되었습니다",
     }
 
 
@@ -92,10 +96,10 @@ async def classify_waste(image_url: str):
 async def get_classification_result(task_id: str):
     """
     분류 작업 결과 조회
-    
+
     Args:
         task_id: 작업 ID
-    
+
     Returns:
         작업 상태 및 결과
     """
@@ -106,8 +110,8 @@ async def get_classification_result(task_id: str):
         "result": {
             "category": "plastic",
             "confidence": 0.95,
-            "disposal_method": "플라스틱 전용 수거함에 배출"
-        }
+            "disposal_method": "플라스틱 전용 수거함에 배출",
+        },
     }
 
 

@@ -10,10 +10,11 @@ Kubernetes liveness/readiness probe 엔드포인트 제공
     setup_health_checks(app, service_name="waste-api")
 """
 
-from fastapi import FastAPI, HTTPException
-from typing import Dict, Callable, Optional
-import asyncio
 import time
+from typing import Callable, Dict
+
+from fastapi import FastAPI, HTTPException
+
 
 class HealthChecker:
     """Health check 상태 관리"""
@@ -55,12 +56,14 @@ class HealthChecker:
     async def check_readiness(self) -> Dict:
         """
         Readiness probe - 트래픽을 받을 준비가 되었는지 확인
-        
+
         Returns:
             Dict: {status, service, checks}
         """
         if self._is_shutting_down:
-            raise HTTPException(status_code=503, detail="Service is shutting down")
+            raise HTTPException(
+                status_code=503, detail="Service is shutting down"
+            )
         
         checks = {}
         all_ready = True
@@ -99,11 +102,11 @@ class HealthChecker:
 def setup_health_checks(app: FastAPI, service_name: str) -> HealthChecker:
     """
     FastAPI 앱에 health check 엔드포인트 추가
-    
+
     Args:
         app: FastAPI 애플리케이션
         service_name: 서비스 이름
-    
+
     Returns:
         HealthChecker 인스턴스 (readiness check 등록용)
     """
@@ -113,7 +116,7 @@ def setup_health_checks(app: FastAPI, service_name: str) -> HealthChecker:
     async def health():
         """
         Liveness probe endpoint
-        
+
         Kubernetes가 이 엔드포인트로 프로세스 상태 확인
         실패 시 Pod 재시작
         """
@@ -123,7 +126,7 @@ def setup_health_checks(app: FastAPI, service_name: str) -> HealthChecker:
     async def ready():
         """
         Readiness probe endpoint
-        
+
         Kubernetes가 이 엔드포인트로 트래픽 수신 준비 확인
         실패 시 Service에서 제거 (트래픽 차단)
         """
@@ -139,7 +142,11 @@ def setup_health_checks(app: FastAPI, service_name: str) -> HealthChecker:
 
 # 공통 Readiness Check 함수들
 
-async def check_postgres(host: str, port: int, database: str, user: str, password: str) -> bool:
+
+
+async def check_postgres(
+    host: str, port: int, database: str, user: str, password: str
+) -> bool:
     """PostgreSQL 연결 확인"""
     try:
         import asyncpg
@@ -173,7 +180,11 @@ async def check_redis(host: str, port: int) -> bool:
         return False
 
 
-async def check_rabbitmq(host: str, port: int, user: str, password: str) -> bool:
+
+
+async def check_rabbitmq(
+    host: str, port: int, user: str, password: str
+) -> bool:
     """RabbitMQ 연결 확인"""
     try:
         import aio_pika

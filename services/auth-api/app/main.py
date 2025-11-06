@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+import os
+from datetime import datetime, timedelta
+from typing import Optional
+
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
-from datetime import datetime, timedelta
-from typing import Optional
-import os
 
 # FastAPI 앱
 app = FastAPI(
