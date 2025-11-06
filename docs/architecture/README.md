@@ -1,47 +1,70 @@
 # 🏗️ 아키텍처 문서
 
-> **4-Node Kubernetes Cluster Architecture**  
-> **Self-Managed + Instagram + Robin Storage 패턴**
+> **7-Node Kubernetes Cluster Architecture**  
+> **Self-Managed + Terraform + Ansible 완전 자동화**
 
 ## 🎯 핵심 문서
 
 ### 최종 아키텍처 ⭐
 
-1. **[4-Node 배포 아키텍처](deployment-architecture-4node.md)** ⭐⭐⭐⭐⭐
-   - 완전한 시스템 구조
-   - Mermaid 다이어그램 6개
-   - Path-based routing (ALB)
-   - End-to-end 데이터 흐름
+1. **[최종 K8s 아키텍처](final-k8s-architecture.md)** ⭐⭐⭐⭐⭐
+   - 7-Node 클러스터 구조
+   - GitOps 파이프라인
+   - 전체 시스템 설계
    
-2. **[Self-Managed Kubernetes 선택 배경](why-self-managed-k8s.md)** ⭐⭐⭐⭐
+2. **[서비스 아키텍처](SERVICE_ARCHITECTURE.md)** ⭐⭐⭐⭐⭐
+   - Terraform + Ansible 구조
+   - 자동화 배포 프로세스
+   - 인프라 배포 다이어그램
+
+3. **[CI/CD 파이프라인](CI_CD_PIPELINE.md)** ⭐⭐⭐⭐
+   - GitHub Actions + ArgoCD
+   - Rolling Update 전략
+   - Canary 배포 분석
+   
+4. **[Self-Managed Kubernetes 선택 배경](why-self-managed-k8s.md)** ⭐⭐⭐⭐
    - EKS vs kubeadm 비교
    - 비용: $180 vs $253 (29% 절감)
-   - 4-tier 진화 과정
-   - Instagram + Robin 패턴 적용
+   - 7-node 진화 과정
+
+### 네트워크 & 트래픽
+
+5. **[네트워크 라우팅 구조](NETWORK_ROUTING_STRUCTURE.md)** ⭐⭐⭐⭐
+   - ALB → Ingress → Service → Pod
+   - Path-based routing
+   - Calico CNI
+
+6. **[Pod 배치 및 응답 흐름](POD_PLACEMENT_AND_RESPONSE_FLOW.md)** ⭐⭐⭐
+   - NodeSelector 기반 배치
+   - 요청/응답 플로우
+
+7. **[모니터링 트래픽 흐름](MONITORING_TRAFFIC_FLOW.md)** ⭐⭐⭐
+   - Prometheus 메트릭 수집
+   - Grafana 시각화
 
 ### 기술 설계
 
-3. [Task Queue 설계](task-queue-design.md)
+8. [Task Queue 설계](task-queue-design.md)
    - RabbitMQ 5개 큐
    - Celery Worker 분리
-   - Instagram 패턴
 
-4. [최종 K8s 아키텍처](final-k8s-architecture.md)
-   - GitOps 파이프라인
-   - 마이크로서비스 배치
+9. [이미지 처리 아키텍처](image-processing-architecture.md)
+   - S3 기반 저장소
+   - Pre-signed URL
 
 ### 네트워크 & CNI
 
-5. [Calico CNI 비교](../infrastructure/cni-comparison.md)
+10. [Calico CNI 비교](../infrastructure/cni-comparison.md)
    - Flannel → Calico 전환
    - VXLAN vs BGP
 
-### 추가 기술 검토
+11. [ALB & Calico 패턴](ALB_CALICO_PATTERNS_RESEARCH.md)
+    - target-type: instance
+    - NodePort 연동
 
-6. [Istio Service Mesh](istio-service-mesh.md)
-   - MVP 후 검토
+### 추가 검토
    
-7. [Polling vs WebSocket](polling-vs-websocket.md)
+12. [Polling vs WebSocket](polling-vs-websocket.md)
    - 실시간 통신 방식
 
 ---
