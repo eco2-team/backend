@@ -8,9 +8,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 
 # FastAPI 앱
-app = FastAPI(
-    title="Auth API", description="인증/인가 서비스 - JWT 기반 인증", version="1.0.0"
-)
+app = FastAPI(title="Auth API", description="인증/인가 서비스 - JWT 기반 인증", version="1.0.0")
 
 # CORS
 app.add_middleware(
@@ -62,9 +60,7 @@ def ready():
 
 
 # API v1
-@app.post(
-    "/api/v1/auth/register", response_model=User, status_code=status.HTTP_201_CREATED
-)
+@app.post("/api/v1/auth/register", response_model=User, status_code=status.HTTP_201_CREATED)
 async def register(user: UserRegister):
     """회원가입"""
     # TODO: 실제 DB 저장 로직

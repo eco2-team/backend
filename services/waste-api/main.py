@@ -15,12 +15,11 @@ from app.health import (
     setup_health_checks,
 )
 
-app = FastAPI(
-    title="Waste API", description="폐기물 분류 및 분석 API", version="1.0.0"
-)
+app = FastAPI(title="Waste API", description="폐기물 분류 및 분석 API", version="1.0.0")
 
 # Health Check 설정
 health_checker = setup_health_checks(app, service_name="waste-api")
+
 
 # Readiness Checks 등록
 @app.on_event("startup")
@@ -60,6 +59,7 @@ async def startup_event():
 
 # Business Logic Endpoints
 
+
 @app.get("/api/v1/waste/categories")
 async def get_waste_categories():
     """폐기물 카테고리 목록"""
@@ -69,7 +69,7 @@ async def get_waste_categories():
             {"id": 2, "name": "paper", "display_name": "종이"},
             {"id": 3, "name": "glass", "display_name": "유리"},
             {"id": 4, "name": "metal", "display_name": "금속"},
-            {"id": 5, "name": "general", "display_name": "일반쓰레기"}
+            {"id": 5, "name": "general", "display_name": "일반쓰레기"},
         ]
     }
 
@@ -117,5 +117,5 @@ async def get_classification_result(task_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
 
+    uvicorn.run(app, host="0.0.0.0", port=8000)

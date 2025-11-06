@@ -1,9 +1,10 @@
+import uuid
+from datetime import datetime
+from typing import List, Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
-from datetime import datetime
-import uuid
 
 app = FastAPI(
     title="Chat LLM API",
