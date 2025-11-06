@@ -34,7 +34,7 @@
             tier: persistence
         spec:
           nodeSelector:
-            workload: storage  # Storage 노드에 배치
+            workload: cache  # Redis 노드에 배치
           containers:
           - name: redis
             image: redis:7-alpine

@@ -1,0 +1,20 @@
+[all:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/sesacthon
+ansible_python_interpreter=/usr/bin/python3
+
+[masters]
+k8s-master ansible_host=52.78.61.199 private_ip=10.0.1.138
+
+[workers]
+k8s-worker-1 ansible_host=16.184.21.21 private_ip=10.0.2.145 workload=application instance_type=t3.medium
+k8s-worker-2 ansible_host=15.164.165.44 private_ip=10.0.3.180 workload=async-workers instance_type=t3.medium
+
+[storage]
+k8s-storage ansible_host=43.201.72.181 private_ip=10.0.1.115 workload=storage instance_type=t3.large
+
+[k8s_cluster:children]
+masters
+workers
+storage
+

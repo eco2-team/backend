@@ -4,9 +4,12 @@
 kubernetes_version: "1.28.4-1.1"
 kubernetes_cni_version: "1.28.0-1.1"
 
-# 네트워크 (Calico 사용)
-pod_network_cidr: "192.168.0.0/16"  # Calico 기본값
+# 네트워크 (Calico CNI 사용)
+# Calico는 Overlay Network로 VPC와 독립적인 Pod CIDR 사용
+# ALB는 target-type: instance + NodePort로 연결됨
+pod_network_cidr: "192.168.0.0/16"  # Calico Overlay Network
 service_cidr: "10.96.0.0/12"
+cni_plugin: "calico"  # vpc-cni 또는 calico
 
 # Control Plane Endpoint (HA 확장 대비)
 # 현재: 단일 마스터지만 향후 HA 확장을 위해 설정
@@ -26,6 +29,14 @@ cluster_name: "sesacthon"
 vpc_id: "{{ lookup('pipe', 'cd ../../terraform && terraform output -raw vpc_id') }}"
 acm_certificate_arn: "{{ lookup('pipe', 'cd ../../terraform && terraform output -raw acm_certificate_arn') }}"
 domain_name: "growbin.app"
+
+# PostgreSQL
+postgres_namespace: "default"
+postgres_database: "sesacthon"
+postgres_username: "admin"
+postgres_password: "{{ lookup('env', 'POSTGRES_PASSWORD') | default('changeme', true) }}"
+postgres_persistence_size: "50Gi"
+postgres_version: "16"  # PostgreSQL 16
 
 # RabbitMQ
 rabbitmq_namespace: "messaging"

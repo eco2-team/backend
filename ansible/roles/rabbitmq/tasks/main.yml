@@ -104,14 +104,14 @@
               memory: 2Gi
           affinity:
             nodeAffinity:
-              # Storage 노드에만 배치
+              # RabbitMQ 전용 노드에만 배치
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms:
                 - matchExpressions:
                   - key: workload
                     operator: In
                     values:
-                    - storage
+                    - message-queue
           service:
             type: ClusterIP
           rabbitmq:
@@ -214,7 +214,7 @@
       - "  Password: {{ rabbitmq_password }}"
       - ""
       - "Storage: {{ rabbitmq_persistence_size }}"
-      - "Node: Storage (workload=storage)"
+      - "Node: RabbitMQ (workload=message-queue)"
       - ""
       - "⚠️ RabbitMQ는 메시지 전달만 담당!"
       - "⚠️ Progress Tracking은 Redis (Tier 4) 사용!"

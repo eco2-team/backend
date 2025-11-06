@@ -46,44 +46,34 @@ kubernetes.io/cluster/prod-sesacthon: shared
 
 ### 3개 Public Subnets (Private 없음)
 
-```
-┌──────────────────────────────────────────────────────┐
-│ VPC (10.0.0.0/16)                                    │
-│                                                       │
-│  ┌─────────────────────────────────────────────────┐ │
-│  │ Subnet 1 (10.0.1.0/24) - ap-northeast-2a       │ │
-│  │  ┌─────────────┬─────────────┐                 │ │
-│  │  │ Master      │ Storage     │                 │ │
-│  │  │ 10.0.1.235  │ 10.0.1.x    │                 │ │
-│  │  │ EIP: 52.78  │             │                 │ │
-│  │  └─────────────┴─────────────┘                 │ │
-│  │  • 256 IPs                                     │ │
-│  │  • Public ✅                                    │ │
-│  │  • kubernetes.io/role/elb=1                    │ │
-│  └─────────────────────────────────────────────────┘ │
-│                                                       │
-│  ┌─────────────────────────────────────────────────┐ │
-│  │ Subnet 2 (10.0.2.0/24) - ap-northeast-2b       │ │
-│  │  ┌─────────────┐                               │ │
-│  │  │ Worker-1    │                               │ │
-│  │  │ 10.0.2.x    │                               │ │
-│  │  │ App Pods    │                               │ │
-│  │  └─────────────┘                               │ │
-│  │  • 256 IPs                                     │ │
-│  │  • Public ✅                                    │ │
-│  └─────────────────────────────────────────────────┘ │
-│                                                       │
-│  ┌─────────────────────────────────────────────────┐ │
-│  │ Subnet 3 (10.0.3.0/24) - ap-northeast-2c       │ │
-│  │  ┌─────────────┐                               │ │
-│  │  │ Worker-2    │                               │ │
-│  │  │ 10.0.3.x    │                               │ │
-│  │  │ Celery      │                               │ │
-│  │  └─────────────┘                               │ │
-│  │  • 256 IPs                                     │ │
-│  │  • Public ✅                                    │ │
-│  └─────────────────────────────────────────────────┘ │
-└───────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph VPC["VPC (10.0.0.0/16)"]
+        subgraph Subnet1["Subnet 1 (10.0.1.0/24) - ap-northeast-2a"]
+            Master["Master<br/>10.0.1.235<br/>EIP: 52.78"]
+            Storage["Storage<br/>10.0.1.x"]
+            S1Info["• 256 IPs<br/>• Public ✅<br/>• kubernetes.io/role/elb=1"]
+        end
+        
+        subgraph Subnet2["Subnet 2 (10.0.2.0/24) - ap-northeast-2b"]
+            Worker1["Worker-1<br/>10.0.2.x<br/>App Pods"]
+            S2Info["• 256 IPs<br/>• Public ✅"]
+        end
+        
+        subgraph Subnet3["Subnet 3 (10.0.3.0/24) - ap-northeast-2c"]
+            Worker2["Worker-2<br/>10.0.3.x<br/>Celery"]
+            S3Info["• 256 IPs<br/>• Public ✅"]
+        end
+    end
+    
+    style VPC fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+    style Subnet1 fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style Subnet2 fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    style Subnet3 fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    style Master fill:#ffccbc,stroke:#bf360c,stroke-width:2px
+    style Storage fill:#ffccbc,stroke:#bf360c,stroke-width:2px
+    style Worker1 fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px
+    style Worker2 fill:#f8bbd0,stroke:#880e4f,stroke-width:2px
 ```
 
 ### 왜 Public Subnet만?
@@ -200,76 +190,94 @@ Note: Pod CIDR은 Calico가 관리, VPC Route 불필요
 
 ### 외부 → Master (Kubernetes API)
 
-```
-사용자 (인터넷)
-   ↓ HTTPS:6443
-Internet Gateway
-   ↓ NAT (EIP → 10.0.1.235)
-VPC (10.0.0.0/16)
-   ↓ Route Table (10.0.1.235 → Subnet 1)
-Master ENI (10.0.1.235)
-   ↓ Security Group (6443 허용)
-kube-apiserver:6443
+```mermaid
+graph TD
+    User["사용자 (인터넷)"] -->|"HTTPS:6443"| IGW["Internet Gateway"]
+    IGW -->|"NAT (EIP → 10.0.1.235)"| VPC["VPC (10.0.0.0/16)"]
+    VPC -->|"Route Table<br/>(10.0.1.235 → Subnet 1)"| ENI["Master ENI<br/>(10.0.1.235)"]
+    ENI -->|"Security Group<br/>(6443 허용)"| API["kube-apiserver:6443"]
+    
+    style User fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style IGW fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style VPC fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style ENI fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+    style API fill:#fce4ec,stroke:#c2185b,stroke-width:2px
 ```
 
 ### ALB → Pod (Application Traffic)
 
-```
-브라우저
-   ↓ HTTPS
-Internet Gateway
-   ↓ NAT
-ALB (Public Subnets 1,2,3)
-   - TLS 종료 (ACM)
-   - Path 확인: /api/v1/auth
-   ↓ HTTP (평문)
-VPC Routing (192.168.x.x → Worker ENI)
-   ↓
-Worker-1 ENI (10.0.2.x)
-   ↓ Calico VXLAN
-Pod (192.168.2.x)
-   ↓
-auth-service:8000
+```mermaid
+graph TD
+    Browser["브라우저"] -->|"HTTPS"| IGW["Internet Gateway"]
+    IGW -->|"NAT"| ALB["ALB (Public Subnets 1,2,3)<br/>- TLS 종료 (ACM)<br/>- Path: /api/v1/auth"]
+    ALB -->|"HTTP (평문)"| Route["VPC Routing<br/>(192.168.x.x → Worker ENI)"]
+    Route --> ENI["Worker-1 ENI<br/>(10.0.2.x)"]
+    ENI -->|"Calico VXLAN"| Pod["Pod<br/>(192.168.2.x)"]
+    Pod --> Service["auth-service:8000"]
+    
+    style Browser fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style IGW fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style ALB fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Route fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style ENI fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+    style Pod fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px
+    style Service fill:#fce4ec,stroke:#c2185b,stroke-width:2px
 ```
 
 ### Pod → S3 (이미지 다운로드)
 
-```
-Celery Worker Pod (192.168.x.x)
-   ↓ HTTPS
-Calico → Worker ENI
-   ↓
-VPC Route (0.0.0.0/0 → IGW)
-   ↓
-Internet Gateway
-   ↓
-S3 Endpoint (VPC Endpoint 사용 권장)
-   ↓
-prod-sesacthon-images bucket
+```mermaid
+graph TD
+    Pod["Celery Worker Pod<br/>(192.168.x.x)"] -->|"HTTPS"| Calico["Calico → Worker ENI"]
+    Calico --> Route["VPC Route<br/>(0.0.0.0/0 → IGW)"]
+    Route --> IGW["Internet Gateway"]
+    IGW --> S3E["S3 Endpoint<br/>(VPC Endpoint 권장)"]
+    S3E --> Bucket["prod-sesacthon-images<br/>bucket"]
+    
+    style Pod fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px
+    style Calico fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+    style Route fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style IGW fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style S3E fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Bucket fill:#fce4ec,stroke:#c2185b,stroke-width:2px
 ```
 
 ---
 
 ## 🔐 보안 계층
 
-```
-계층 1: VPC Isolation
-- 논리적 네트워크 분리
-- 10.0.0.0/16만 사용
-
-계층 2: Security Groups (Stateful Firewall)
-- Master SG: Control Plane 포트만
-- Worker SG: Pod 통신 포트만
-- Cross-SG rules: 최소 권한
-
-계층 3: Network Policies (Kubernetes)
-- Calico NetworkPolicy (선택)
-- Pod 간 통신 제어
-
-계층 4: IAM (리소스 권한)
-- Instance Profile
-- S3 Pre-signed URL
-- ALB Controller 권한
+```mermaid
+graph TB
+    subgraph Layer1["계층 1: VPC Isolation"]
+        VPC1["논리적 네트워크 분리"]
+        VPC2["10.0.0.0/16만 사용"]
+    end
+    
+    subgraph Layer2["계층 2: Security Groups (Stateful Firewall)"]
+        SG1["Master SG: Control Plane 포트만"]
+        SG2["Worker SG: Pod 통신 포트만"]
+        SG3["Cross-SG rules: 최소 권한"]
+    end
+    
+    subgraph Layer3["계층 3: Network Policies (Kubernetes)"]
+        NP1["Calico NetworkPolicy (선택)"]
+        NP2["Pod 간 통신 제어"]
+    end
+    
+    subgraph Layer4["계층 4: IAM (리소스 권한)"]
+        IAM1["Instance Profile"]
+        IAM2["S3 Pre-signed URL"]
+        IAM3["ALB Controller 권한"]
+    end
+    
+    Layer1 --> Layer2
+    Layer2 --> Layer3
+    Layer3 --> Layer4
+    
+    style Layer1 fill:#e3f2fd,stroke:#1565c0,stroke-width:3px
+    style Layer2 fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    style Layer3 fill:#e8f5e9,stroke:#2e7d32,stroke-width:3px
+    style Layer4 fill:#f3e5f5,stroke:#6a1b9a,stroke-width:3px
 ```
 
 ---

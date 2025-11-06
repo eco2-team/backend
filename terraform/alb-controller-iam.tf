@@ -40,6 +40,7 @@ resource "aws_iam_policy" "alb_controller" {
           "elasticloadbalancing:DescribeLoadBalancers",
           "elasticloadbalancing:DescribeLoadBalancerAttributes",
           "elasticloadbalancing:DescribeListeners",
+          "elasticloadbalancing:DescribeListenerAttributes",
           "elasticloadbalancing:DescribeListenerCertificates",
           "elasticloadbalancing:DescribeSSLPolicies",
           "elasticloadbalancing:DescribeRules",
@@ -166,7 +167,17 @@ resource "aws_iam_policy" "alb_controller" {
       {
         Effect = "Allow"
         Action = [
-          "elasticloadbalancing:AddTags",
+          "elasticloadbalancing:AddTags"
+        ]
+        Resource = [
+          "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*",
+          "arn:aws:elasticloadbalancing:*:*:loadbalancer/net/*/*",
+          "arn:aws:elasticloadbalancing:*:*:loadbalancer/app/*/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "elasticloadbalancing:RemoveTags"
         ]
         Resource = [
@@ -176,7 +187,6 @@ resource "aws_iam_policy" "alb_controller" {
         ]
         Condition = {
           Null = {
-            "aws:RequestTag/elbv2.k8s.aws/cluster"  = "true"
             "aws:ResourceTag/elbv2.k8s.aws/cluster" = "false"
           }
         }
@@ -224,11 +234,12 @@ resource "aws_iam_policy" "alb_controller" {
       {
         Effect = "Allow"
         Action = [
-          "elasticloadbalancing:SetWebAcl",
-          "elasticloadbalancing:ModifyListener",
-          "elasticloadbalancing:AddListenerCertificates",
-          "elasticloadbalancing:RemoveListenerCertificates",
-          "elasticloadbalancing:ModifyRule"
+        "elasticloadbalancing:SetWebAcl",
+        "elasticloadbalancing:ModifyListener",
+        "elasticloadbalancing:AddListenerCertificates",
+        "elasticloadbalancing:RemoveListenerCertificates",
+        "elasticloadbalancing:ModifyRule",
+        "elasticloadbalancing:SetRulePriorities"
         ]
         Resource = "*"
       }

@@ -1,4 +1,4 @@
-# Prometheus + Grafana 설치
+# Prometheus + Grafana 설치 (Monitoring 노드 전용)
 ---
 - name: Prometheus Helm repository 추가
   command: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -16,21 +16,24 @@
   register: prometheus_check
   changed_when: false
 
-- name: Prometheus + Grafana 설치 (리소스 최적화)
+- name: Prometheus + Grafana 설치 (Monitoring 노드 전용 배치)
   command: >
     helm install prometheus prometheus-community/kube-prometheus-stack
     --namespace {{ monitoring_namespace }}
     --set prometheus.prometheusSpec.retention=7d
     --set prometheus.prometheusSpec.retentionSize=40GB
-    --set prometheus.prometheusSpec.resources.requests.cpu=1000m
+    --set prometheus.prometheusSpec.resources.requests.cpu=500m
     --set prometheus.prometheusSpec.resources.requests.memory=2Gi
     --set prometheus.prometheusSpec.resources.limits.memory=4Gi
     --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=50Gi
+    --set prometheus.prometheusSpec.nodeSelector.workload=monitoring
     --set grafana.adminPassword={{ grafana_admin_password }}
     --set grafana.resources.requests.cpu=500m
     --set grafana.resources.requests.memory=512Mi
+    --set grafana.nodeSelector.workload=monitoring
     --set alertmanager.alertmanagerSpec.resources.requests.cpu=250m
     --set alertmanager.alertmanagerSpec.resources.requests.memory=256Mi
+    --set alertmanager.alertmanagerSpec.nodeSelector.workload=monitoring
   when: "'prometheus' not in prometheus_check.stdout"
 
 - name: Prometheus Operator 설치 대기 (60초)
@@ -56,7 +59,7 @@
   ignore_errors: yes
 
 - name: Monitoring Pods 상태 확인
-  command: kubectl get pods -n {{ monitoring_namespace }}
+  command: kubectl get pods -n {{ monitoring_namespace }} -o wide
   register: monitoring_pods
   changed_when: false
 
@@ -64,11 +67,31 @@
   debug:
     msg: "{{ monitoring_pods.stdout_lines }}"
 
-- name: Grafana 접속 정보
+- name: Monitoring 배치 정보
   debug:
     msg:
-      - "Grafana가 설치되었습니다."
-      - "접속: kubectl port-forward -n {{ monitoring_namespace }} svc/prometheus-grafana 3000:80"
-      - "Username: admin"
-      - "Password: {{ grafana_admin_password }}"
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "✅ Monitoring 설치 완료 (Dedicated Node)"
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "배치 노드: k8s-monitoring (workload=monitoring)"
+      - ""
+      - "Prometheus:"
+      - "  - 노드: k8s-monitoring"
+      - "  - Retention: 7d / 40GB"
+      - "  - Resources: 500m CPU, 2Gi Memory"
+      - "  - Storage: 50Gi (gp3)"
+      - ""
+      - "Grafana:"
+      - "  - 노드: k8s-monitoring"
+      - "  - Resources: 500m CPU, 512Mi Memory"
+      - "  - Username: admin"
+      - "  - Password: {{ grafana_admin_password }}"
+      - ""
+      - "Alertmanager:"
+      - "  - 노드: k8s-monitoring"
+      - "  - Resources: 250m CPU, 256Mi Memory"
+      - ""
+      - "접속:"
+      - "  kubectl port-forward -n {{ monitoring_namespace }} svc/prometheus-grafana 3000:80"
+      - "  https://{{ domain_name }}/grafana (ALB Ingress)"
 

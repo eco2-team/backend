@@ -1,0 +1,226 @@
+---
+# Route53 A 레코드 업데이트 (ALB 연결)
+# ALB 생성 후 자동으로 Route53를 ALB로 연결
+
+- name: "ALB DNS 이름 가져오기"
+  shell: kubectl get ingress argocd-ingress -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+  register: alb_dns_result
+  retries: 10
+  delay: 30
+  until: alb_dns_result.stdout != ""
+  failed_when: false
+  changed_when: false
+
+- name: "ALB DNS 확인"
+  debug:
+    msg:
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "🔍 ALB DNS 확인"
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "ALB DNS: {{ alb_dns_result.stdout }}"
+  when: alb_dns_result.stdout != ""
+
+- name: "ALB Hosted Zone ID 가져오기"
+  shell: |
+    aws elbv2 describe-load-balancers \
+      --region {{ aws_region }} \
+      --query "LoadBalancers[?DNSName=='{{ alb_dns_result.stdout }}'].CanonicalHostedZoneId | [0]" \
+      --output text
+  register: alb_zone_id_result
+  when: alb_dns_result.stdout != ""
+  delegate_to: localhost
+  changed_when: false
+
+- name: "Hosted Zone ID 가져오기"
+  shell: |
+    aws route53 list-hosted-zones-by-name \
+      --dns-name {{ domain_name }} \
+      --query "HostedZones[?Name=='{{ domain_name }}.'].Id | [0]" \
+      --output text | sed 's|/hostedzone/||'
+  register: hosted_zone_id_result
+  when: alb_dns_result.stdout != "" and domain_name != ""
+  delegate_to: localhost
+  changed_when: false
+
+- name: "Route53 A 레코드 업데이트 (Apex - growbin.app)"
+  shell: |
+    aws route53 change-resource-record-sets \
+      --hosted-zone-id {{ hosted_zone_id_result.stdout }} \
+      --change-batch '{
+        "Changes": [{
+          "Action": "UPSERT",
+          "ResourceRecordSet": {
+            "Name": "{{ domain_name }}",
+            "Type": "A",
+            "AliasTarget": {
+              "HostedZoneId": "{{ alb_zone_id_result.stdout }}",
+              "DNSName": "{{ alb_dns_result.stdout }}",
+              "EvaluateTargetHealth": true
+            }
+          }
+        }]
+      }'
+  register: apex_record_update
+  when: 
+    - alb_dns_result.stdout != ""
+    - domain_name != ""
+    - hosted_zone_id_result.stdout != ""
+  delegate_to: localhost
+  changed_when: "'PENDING' in apex_record_update.stdout"
+
+- name: "Route53 A 레코드 업데이트 (www.growbin.app)"
+  shell: |
+    aws route53 change-resource-record-sets \
+      --hosted-zone-id {{ hosted_zone_id_result.stdout }} \
+      --change-batch '{
+        "Changes": [{
+          "Action": "UPSERT",
+          "ResourceRecordSet": {
+            "Name": "www.{{ domain_name }}",
+            "Type": "A",
+            "AliasTarget": {
+              "HostedZoneId": "{{ alb_zone_id_result.stdout }}",
+              "DNSName": "{{ alb_dns_result.stdout }}",
+              "EvaluateTargetHealth": true
+            }
+          }
+        }]
+      }'
+  register: www_record_update
+  when: 
+    - alb_dns_result.stdout != ""
+    - domain_name != ""
+    - hosted_zone_id_result.stdout != ""
+  delegate_to: localhost
+  changed_when: "'PENDING' in www_record_update.stdout"
+
+- name: "Route53 A 레코드 업데이트 (api.growbin.app)"
+  shell: |
+    aws route53 change-resource-record-sets \
+      --hosted-zone-id {{ hosted_zone_id_result.stdout }} \
+      --change-batch '{
+        "Changes": [{
+          "Action": "UPSERT",
+          "ResourceRecordSet": {
+            "Name": "api.{{ domain_name }}",
+            "Type": "A",
+            "AliasTarget": {
+              "HostedZoneId": "{{ alb_zone_id_result.stdout }}",
+              "DNSName": "{{ alb_dns_result.stdout }}",
+              "EvaluateTargetHealth": true
+            }
+          }
+        }]
+      }'
+  register: api_record_update
+  when: 
+    - alb_dns_result.stdout != ""
+    - domain_name != ""
+    - hosted_zone_id_result.stdout != ""
+  delegate_to: localhost
+  changed_when: "'PENDING' in api_record_update.stdout"
+
+- name: "Route53 A 레코드 업데이트 (argocd.growbin.app)"
+  shell: |
+    aws route53 change-resource-record-sets \
+      --hosted-zone-id {{ hosted_zone_id_result.stdout }} \
+      --change-batch '{
+        "Changes": [{
+          "Action": "UPSERT",
+          "ResourceRecordSet": {
+            "Name": "argocd.{{ domain_name }}",
+            "Type": "A",
+            "AliasTarget": {
+              "HostedZoneId": "{{ alb_zone_id_result.stdout }}",
+              "DNSName": "{{ alb_dns_result.stdout }}",
+              "EvaluateTargetHealth": true
+            }
+          }
+        }]
+      }'
+  register: argocd_record_update
+  when: 
+    - alb_dns_result.stdout != ""
+    - domain_name != ""
+    - hosted_zone_id_result.stdout != ""
+  delegate_to: localhost
+  changed_when: "'PENDING' in argocd_record_update.stdout"
+
+- name: "Route53 A 레코드 업데이트 (grafana.growbin.app)"
+  shell: |
+    aws route53 change-resource-record-sets \
+      --hosted-zone-id {{ hosted_zone_id_result.stdout }} \
+      --change-batch '{
+        "Changes": [{
+          "Action": "UPSERT",
+          "ResourceRecordSet": {
+            "Name": "grafana.{{ domain_name }}",
+            "Type": "A",
+            "AliasTarget": {
+              "HostedZoneId": "{{ alb_zone_id_result.stdout }}",
+              "DNSName": "{{ alb_dns_result.stdout }}",
+              "EvaluateTargetHealth": true
+            }
+          }
+        }]
+      }'
+  register: grafana_record_update
+  when: 
+    - alb_dns_result.stdout != ""
+    - domain_name != ""
+    - hosted_zone_id_result.stdout != ""
+  delegate_to: localhost
+  changed_when: "'PENDING' in grafana_record_update.stdout"
+
+- name: "Route53 업데이트 완료 정보 출력"
+  debug:
+    msg:
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "✅ Route53 A 레코드 업데이트 완료"
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "ALB DNS: {{ alb_dns_result.stdout }}"
+      - "ALB Hosted Zone ID: {{ alb_zone_id_result.stdout }}"
+      - "Route53 Hosted Zone ID: {{ hosted_zone_id_result.stdout }}"
+      - ""
+      - "업데이트된 도메인:"
+      - "  ✅ {{ domain_name }} → ALB"
+      - "  ✅ www.{{ domain_name }} → ALB"
+      - "  ✅ api.{{ domain_name }} → ALB"
+      - "  ✅ argocd.{{ domain_name }} → ALB"
+      - "  ✅ grafana.{{ domain_name }} → ALB"
+      - ""
+      - "⏳ DNS 전파 대기 (1-5분):"
+      - "  dig {{ domain_name }}"
+      - "  dig www.{{ domain_name }}"
+      - ""
+      - "접속 URL:"
+      - "  🌐 https://{{ domain_name }}/argocd"
+      - "  🌐 https://{{ domain_name }}/grafana"
+      - "  🌐 https://{{ domain_name }}/api/v1/*"
+      - ""
+      - "ℹ️  Path-based Routing:"
+      - "  - /argocd → ArgoCD (namespace: argocd)"
+      - "  - /grafana → Grafana (namespace: monitoring)"
+      - "  - /api/v1/* → API Services (namespace: default)"
+  when: alb_dns_result.stdout != ""
+
+- name: "⚠️ ALB DNS를 찾을 수 없음"
+  debug:
+    msg:
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "⚠️ ALB DNS를 찾을 수 없습니다"
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "원인:"
+      - "  1. ALB Controller가 아직 ALB를 생성하지 않음"
+      - "  2. Ingress 리소스에 문제가 있음"
+      - "  3. IAM 권한 문제"
+      - ""
+      - "확인 명령:"
+      - "  kubectl get ingress -A"
+      - "  kubectl describe ingress argocd-ingress -n argocd"
+      - "  kubectl logs -n kube-system deployment/aws-load-balancer-controller"
+      - ""
+      - "수동 확인:"
+      - "  AWS Console → EC2 → Load Balancers"
+  when: alb_dns_result.stdout == ""
+

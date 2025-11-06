@@ -1,0 +1,173 @@
+---
+# PostgreSQL 설치 (Tier 4: Persistence - Database)
+# Storage 노드에 배포 (workload=storage)
+
+- name: "PostgreSQL namespace 생성"
+  shell: |
+    kubectl get namespace {{ postgres_namespace }} || kubectl create namespace {{ postgres_namespace }}
+  register: ns_create
+
+- name: "PostgreSQL 설치 여부 확인"
+  shell: kubectl get statefulset -n {{ postgres_namespace }} postgres 2>/dev/null
+  register: postgres_check
+  failed_when: false
+  changed_when: false
+
+- name: "PostgreSQL 비밀번호 Secret 생성"
+  shell: |
+    kubectl create secret generic postgres-secret \
+      -n {{ postgres_namespace }} \
+      --from-literal=postgres-password='{{ postgres_password }}' \
+      --dry-run=client -o yaml | kubectl apply -f -
+  when: postgres_check.rc != 0
+  register: postgres_secret
+
+- name: "PostgreSQL StatefulSet 생성"
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: apps/v1
+    kind: StatefulSet
+    metadata:
+      name: postgres
+      namespace: {{ postgres_namespace }}
+    spec:
+      serviceName: postgres
+      replicas: 1
+      selector:
+        matchLabels:
+          app: postgres
+      template:
+        metadata:
+          labels:
+            app: postgres
+            tier: database
+        spec:
+          nodeSelector:
+            workload: database  # PostgreSQL 노드에 배포
+          containers:
+          - name: postgres
+            image: postgres:{{ postgres_version }}-alpine
+            ports:
+            - containerPort: 5432
+              name: postgres
+            env:
+            - name: POSTGRES_DB
+              value: {{ postgres_database }}
+            - name: POSTGRES_USER
+              value: {{ postgres_username }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: postgres-password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+            resources:
+              requests:
+                memory: "1Gi"
+                cpu: "500m"
+              limits:
+                memory: "2Gi"
+                cpu: "1000m"
+            livenessProbe:
+              exec:
+                command:
+                - pg_isready
+                - -U
+                - {{ postgres_username }}
+              initialDelaySeconds: 30
+              periodSeconds: 10
+            readinessProbe:
+              exec:
+                command:
+                - pg_isready
+                - -U
+                - {{ postgres_username }}
+              initialDelaySeconds: 5
+              periodSeconds: 5
+      volumeClaimTemplates:
+      - metadata:
+          name: postgres-storage
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          storageClassName: gp3
+          resources:
+            requests:
+              storage: {{ postgres_persistence_size }}
+    EOF
+  when: postgres_check.rc != 0
+  register: postgres_statefulset
+
+- name: "PostgreSQL Service 생성"
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: postgres
+      namespace: {{ postgres_namespace }}
+      labels:
+        app: postgres
+    spec:
+      type: ClusterIP
+      ports:
+      - port: 5432
+        targetPort: 5432
+        protocol: TCP
+        name: postgres
+      selector:
+        app: postgres
+    EOF
+  when: postgres_check.rc != 0
+  register: postgres_service
+
+- name: "PostgreSQL Pod 상태 확인 (최대 5분 대기)"
+  shell: |
+    kubectl wait --for=condition=ready pod \
+      -l app=postgres \
+      -n {{ postgres_namespace }} \
+      --timeout=300s
+  register: postgres_ready
+  failed_when: false
+  changed_when: false
+
+- name: "PostgreSQL 연결 테스트"
+  shell: |
+    kubectl exec -n {{ postgres_namespace }} statefulset/postgres -- \
+      psql -U {{ postgres_username }} -d {{ postgres_database }} -c "SELECT version();"
+  register: postgres_test
+  retries: 3
+  delay: 10
+  until: postgres_test.rc == 0
+  failed_when: false
+  changed_when: false
+  when: postgres_ready.rc == 0
+
+- name: "PostgreSQL 정보 출력"
+  debug:
+    msg:
+      - "✅ PostgreSQL 설치 완료 (Tier 4: Persistence)"
+      - "역할: 주요 데이터베이스"
+      - "버전: PostgreSQL {{ postgres_version }}"
+      - "데이터베이스: {{ postgres_database }}"
+      - ""
+      - "연결 정보:"
+      - "  Host: postgres.{{ postgres_namespace }}.svc.cluster.local"
+      - "  Port: 5432"
+      - "  Database: {{ postgres_database }}"
+      - "  Username: {{ postgres_username }}"
+      - "  Password: (Secret에 저장됨)"
+      - ""
+      - "Storage: {{ postgres_persistence_size }} (gp3)"
+      - "Node: PostgreSQL (workload=database)"
+      - ""
+      - "⚠️ 프로덕션 환경에서는 백업 설정 필수!"
+      - "⚠️ DB 생성은 별도로 진행해야 합니다."
+      - ""
+      - "📡 클러스터 전반 접근:"
+      - "  Host: postgres.{{ postgres_namespace }}.svc.cluster.local:5432"
+  when: postgres_ready is defined
+
