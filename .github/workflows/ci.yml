@@ -77,10 +77,14 @@ jobs:
       - name: 📏 PEP 8 스타일 검사 (pycodestyle)
         run: |
           echo "::group::PEP 8 준수 여부 검사"
-          if [ -d app/ ]; then
-            pycodestyle app/ --max-line-length=100 --statistics
+          DIRS_TO_CHECK=""
+          [ -d app/ ] && DIRS_TO_CHECK="$DIRS_TO_CHECK app/"
+          [ -d services/ ] && DIRS_TO_CHECK="$DIRS_TO_CHECK services/"
+          
+          if [ -n "$DIRS_TO_CHECK" ]; then
+            pycodestyle $DIRS_TO_CHECK --max-line-length=100 --statistics
           else
-            echo "⚠️ app/ 디렉토리 없음 - 스킵"
+            echo "⚠️ 검사할 디렉토리 없음 - 스킵"
           fi
           echo "::endgroup::"
         continue-on-error: false
@@ -102,11 +106,15 @@ jobs:
       - name: 🔍 Flake8 린트 검사 (PEP 8 + 추가 규칙)
         run: |
           echo "::group::Flake8 종합 린트 검사"
-          if [ -d app/ ]; then
+          DIRS_TO_CHECK=""
+          [ -d app/ ] && DIRS_TO_CHECK="$DIRS_TO_CHECK app/"
+          [ -d services/ ] && DIRS_TO_CHECK="$DIRS_TO_CHECK services/"
+          
+          if [ -n "$DIRS_TO_CHECK" ]; then
             pip install flake8
-            flake8 app/ --statistics --show-source || echo "⚠️ Flake8 검사 실패 (경고만)"
+            flake8 $DIRS_TO_CHECK --statistics --show-source || echo "⚠️ Flake8 검사 실패 (경고만)"
           else
-            echo "⚠️ app/ 디렉토리 없음 - 스킵"
+            echo "⚠️ 검사할 디렉토리 없음 - 스킵"
           fi
           echo "::endgroup::"
         continue-on-error: true
@@ -114,10 +122,14 @@ jobs:
       - name: 🔬 Pylint 정적 분석 (선택)
         run: |
           echo "::group::Pylint 정적 분석"
-          if [ -d app/ ]; then
-            pylint app/ --rcfile=.pylintrc 2>/dev/null || echo "⚠️ Pylint 검사 실패 (경고만)"
+          DIRS_TO_CHECK=""
+          [ -d app/ ] && DIRS_TO_CHECK="$DIRS_TO_CHECK app/"
+          [ -d services/ ] && DIRS_TO_CHECK="$DIRS_TO_CHECK services/"
+          
+          if [ -n "$DIRS_TO_CHECK" ]; then
+            pylint $DIRS_TO_CHECK --rcfile=.pylintrc 2>/dev/null || echo "⚠️ Pylint 검사 실패 (경고만)"
           else
-            echo "⚠️ app/ 디렉토리 없음 - 스킵"
+            echo "⚠️ 검사할 디렉토리 없음 - 스킵"
           fi
           echo "::endgroup::"
         continue-on-error: true
@@ -125,10 +137,14 @@ jobs:
       - name: 🏷️ MyPy 타입 검사 (선택)
         run: |
           echo "::group::MyPy 타입 힌트 검사"
-          if [ -d app/ ] && [ -f pyproject.toml ]; then
-            mypy app/ --config-file=pyproject.toml || echo "⚠️ MyPy 검사 실패 (경고만)"
+          DIRS_TO_CHECK=""
+          [ -d app/ ] && DIRS_TO_CHECK="$DIRS_TO_CHECK app/"
+          [ -d services/ ] && DIRS_TO_CHECK="$DIRS_TO_CHECK services/"
+          
+          if [ -n "$DIRS_TO_CHECK" ] && [ -f pyproject.toml ]; then
+            mypy $DIRS_TO_CHECK --config-file=pyproject.toml || echo "⚠️ MyPy 검사 실패 (경고만)"
           else
-            echo "⚠️ app/ 또는 pyproject.toml 없음 - 스킵"
+            echo "⚠️ 검사할 디렉토리 또는 pyproject.toml 없음 - 스킵"
           fi
           echo "::endgroup::"
         continue-on-error: true
@@ -161,11 +177,15 @@ jobs:
 
       - name: Python 보안 취약점 검사 (Bandit)
         run: |
-          if [ -d app/ ]; then
+          DIRS_TO_CHECK=""
+          [ -d app/ ] && DIRS_TO_CHECK="$DIRS_TO_CHECK app/"
+          [ -d services/ ] && DIRS_TO_CHECK="$DIRS_TO_CHECK services/"
+          
+          if [ -n "$DIRS_TO_CHECK" ]; then
             pip install bandit
-            bandit -r app/ -f json -o bandit-report.json || echo "⚠️ Bandit 검사 실패 (경고만)"
+            bandit -r $DIRS_TO_CHECK -f json -o bandit-report.json || echo "⚠️ Bandit 검사 실패 (경고만)"
           else
-            echo "⚠️ app/ 디렉토리 없음 - 스킵"
+            echo "⚠️ 검사할 디렉토리 없음 - 스킵"
           fi
         continue-on-error: true
 

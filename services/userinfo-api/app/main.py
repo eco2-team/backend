@@ -1,12 +1,11 @@
+from datetime import datetime
+from typing import List, Optional
+
 from fastapi import FastAPI, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
-from datetime import datetime
 
-app = FastAPI(
-    title="Userinfo API", description="사용자 정보 관리 서비스", version="1.0.0"
-)
+app = FastAPI(title="Userinfo API", description="사용자 정보 관리 서비스", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
