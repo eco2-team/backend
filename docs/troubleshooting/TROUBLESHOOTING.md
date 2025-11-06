@@ -21,6 +21,9 @@
 11. [RabbitMQ Pod MountVolume 실패 - Secret 키 누락](#11-rabbitmq-pod-mountvolume-실패---secret-키-누락)
 12. [Terraform Output 중복 키 오류](#12-terraform-output-중복-키-오류)
 13. [Ingress 리소스 파일 삭제](#13-ingress-리소스-파일-삭제)
+14. [ALB Controller Provider ID 문제 - Target Group 등록 실패](#14-alb-controller-provider-id-문제---target-group-등록-실패)
+15. [ArgoCD 502 Bad Gateway - 프로토콜 불일치](#15-argocd-502-bad-gateway---프로토콜-불일치)
+16. [Route53 DNS가 ALB가 아닌 Master IP를 가리킴](#16-route53-dns가-alb가-아닌-master-ip를-가리킴)
 
 ---
 
@@ -1564,9 +1567,301 @@ git checkout <commit-hash> -- ansible/playbooks/07-ingress-resources.yml
 
 ---
 
-**마지막 업데이트**: 2025-11-03  
-**총 해결 문제**: 13개  
-**총 커밋**: 10개 (3개 수동 해결)  
+---
+
+## 14. ALB Controller Provider ID 문제 - Target Group 등록 실패
+
+### 🐛 문제
+
+**증상**:
+- ALB가 생성되었지만 Target Group에 Instance가 등록되지 않음
+- `https://growbin.app` 접속 시 `503 Service Unavailable` 발생
+- Ingress의 `ADDRESS` 필드가 비어있음
+
+**에러 메시지**:
+```
+{"level":"error","msg":"Reconciler error","error":"providerID is not specified for node: k8s-worker-1"}
+{"level":"error","msg":"Reconciler error","error":"providerID is not specified for node: k8s-worker-2"}
+```
+
+**노드 Provider ID 확인**:
+```bash
+kubectl get nodes -o custom-columns='NAME:.metadata.name,PROVIDER_ID:.spec.providerID'
+
+NAME             PROVIDER_ID
+k8s-master       <none>
+k8s-worker-1     aws:///ap-northeast-2a/    # ← Instance ID 누락!
+k8s-worker-2     aws:///ap-northeast-2a/    # ← Instance ID 누락!
+```
+
+### 🔍 원인
+
+**Worker 노드의 `spec.providerID`가 불완전**:
+- 현재 값: `aws:///ap-northeast-2a/` (Instance ID 누락)
+- 필요한 값: `aws:///ap-northeast-2b/i-09bcfaaae046d7b4c`
+
+**AWS Load Balancer Controller의 동작**:
+1. Ingress 리소스 감지
+2. Service의 NodePort 확인
+3. **각 노드의 `spec.providerID`에서 AWS Instance ID 추출** ← 실패!
+4. ALB Target Group에 Instance 등록
+
+Provider ID가 불완전하면 Instance ID를 찾지 못하고 Target 등록이 실패합니다.
+
+### ✅ 해결
+
+**방법 1: 수동 수정 (현재 클러스터)**
+
+각 Worker 노드에서:
+```bash
+# 1. kubelet 중지
+sudo systemctl stop kubelet
+
+# 2. Instance ID 확인
+INSTANCE_ID=$(ec2-metadata --instance-id | cut -d " " -f 2)
+AVAILABILITY_ZONE=$(ec2-metadata --availability-zone | cut -d " " -f 2)
+
+# 3. kubeadm-flags.env 업데이트
+sudo sed -i "s|--cloud-provider=aws|--cloud-provider=aws --provider-id=aws:///$AVAILABILITY_ZONE/$INSTANCE_ID|" /var/lib/kubelet/kubeadm-flags.env
+
+# 4. kubelet 재시작
+sudo systemctl start kubelet
+```
+
+**방법 2: Ansible 자동화 (향후 재배포)**
+
+`ansible/playbooks/03-worker-join.yml`에 Provider ID 설정 추가:
+```yaml
+- name: Worker Node Provider ID 자동 설정
+  shell: |
+    INSTANCE_ID=$(ec2-metadata --instance-id | cut -d " " -f 2)
+    AZ=$(ec2-metadata --availability-zone | cut -d " " -f 2)
+    sudo sed -i "s|--cloud-provider=aws|--cloud-provider=aws --provider-id=aws:///$AZ/$INSTANCE_ID|" /var/lib/kubelet/kubeadm-flags.env
+    sudo systemctl restart kubelet
+```
+
+**검증**:
+```bash
+# Provider ID 확인
+kubectl get nodes -o custom-columns='NAME:.metadata.name,PROVIDER_ID:.spec.providerID'
+
+# ALB Controller 로그 확인
+kubectl logs -n kube-system deployment/aws-load-balancer-controller --tail=50
+
+# Target Group 상태 확인
+aws elbv2 describe-target-health --target-group-arn <TG_ARN>
+```
+
+### 💡 핵심 교훈
+
+**Self-Managed Kubernetes의 AWS 통합**:
+- kubelet의 `--provider-id` 플래그 필수
+- 형식: `aws:///<AZ>/<INSTANCE_ID>`
+- ALB Controller, EBS CSI Driver 등이 이 정보 사용
+
+---
+
+## 15. ArgoCD 502 Bad Gateway - 프로토콜 불일치
+
+### 🐛 문제
+
+**증상**:
+```
+https://growbin.app/argocd
+→ 502 Bad Gateway
+```
+
+**ALB Target Health**:
+```
+모든 Target이 Unhealthy
+Reason: Target.FailedHealthChecks
+```
+
+### 🔍 원인
+
+**프로토콜 불일치**:
+```
+Ingress:
+  backend-protocol: HTTPS
+  Service Port: 443
+  ↓ (HTTPS 요청)
+ArgoCD Pod:
+  HTTP 8080 (tls: false)
+  ↓
+  프로토콜 불일치! ❌
+```
+
+**ArgoCD 설정 확인**:
+```bash
+kubectl logs -n argocd -l app.kubernetes.io/name=argocd-server --tail=20
+# 출력: "argocd v3.1.9+8665140 serving on port 8080 (url: , tls: false)"
+#                                                           ^^^^^^^^
+```
+
+ALB가 HTTPS로 연결 시도 → ArgoCD는 HTTP만 지원 → Health Check 실패 → 502
+
+### ✅ 해결
+
+**Ingress 수정**:
+```bash
+# backend-protocol을 HTTP로 변경
+kubectl annotate ingress argocd-ingress -n argocd \
+  alb.ingress.kubernetes.io/backend-protocol=HTTP \
+  --overwrite
+
+# Service Port를 443 → 80으로 변경
+kubectl patch ingress argocd-ingress -n argocd --type json -p '[
+  {
+    "op": "replace",
+    "path": "/spec/rules/0/http/paths/0/backend/service/port/number",
+    "value": 80
+  }
+]'
+```
+
+**Ansible 설정 업데이트**:
+
+`ansible/playbooks/07-ingress-resources.yml`:
+```yaml
+annotations:
+  alb.ingress.kubernetes.io/backend-protocol: HTTP  # ← HTTPS에서 HTTP로
+spec:
+  rules:
+  - host: growbin.app
+    http:
+      paths:
+      - path: /argocd
+        backend:
+          service:
+            name: argocd-server
+            port:
+              number: 80  # ← 443에서 80으로
+```
+
+### 💡 핵심 교훈
+
+**ArgoCD Ingress 설정**:
+- ArgoCD는 기본적으로 `tls: false` (HTTP 8080)
+- Ingress `backend-protocol`은 HTTP로 설정
+- SSL/TLS는 ALB에서 종료 (ACM 인증서 사용)
+
+---
+
+## 16. Route53 DNS가 ALB가 아닌 Master IP를 가리킴
+
+### 🐛 문제
+
+**증상**:
+```
+Route53:
+  growbin.app → Master Public IP (52.79.238.50) ❌
+  argocd.growbin.app → Master Public IP ❌
+  grafana.growbin.app → Master Public IP ❌
+```
+
+**문제점**:
+- Route53이 Master Node의 Public IP를 직접 가리킴
+- ALB를 우회하고 Master Node로 직접 트래픽 전송
+- ALB + Ingress 구조가 무용지물
+- SSL/TLS 종료가 ALB가 아닌 Master에서 처리되어야 함
+- 부하 분산 불가
+
+### 🔍 원인
+
+**Terraform Route53 설정 오류**:
+```hcl
+# ❌ 잘못된 설정
+resource "aws_route53_record" "apex" {
+  zone_id = data.aws_route53_zone.main[0].zone_id
+  name    = var.domain_name
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.master.public_ip]  # ← Master IP 직접 연결
+}
+```
+
+### ✅ 해결
+
+**Terraform `route53.tf` 수정**:
+```hcl
+# ✅ 올바른 설정 (ALB Alias)
+resource "aws_route53_record" "apex" {
+  count = var.domain_name != "" ? 1 : 0
+  
+  zone_id = data.aws_route53_zone.main[0].zone_id
+  name    = var.domain_name
+  type    = "A"
+  
+  alias {
+    name                   = data.kubernetes_ingress_v1.alb[0].status[0].load_balancer[0].ingress[0].hostname
+    zone_id                = data.aws_elb_hosted_zone_id.main.id
+    evaluate_target_health = true
+  }
+}
+
+# ALB Hosted Zone ID 조회
+data "aws_elb_hosted_zone_id" "main" {}
+
+# Ingress에서 ALB 정보 가져오기
+data "kubernetes_ingress_v1" "alb" {
+  count = var.domain_name != "" ? 1 : 0
+  
+  metadata {
+    name      = "argocd-ingress"
+    namespace = "argocd"
+  }
+}
+```
+
+**적용**:
+```bash
+cd terraform
+terraform apply -auto-approve
+
+# 전파 확인 (최대 60초)
+dig growbin.app +short
+# 출력: k8s-growbin-XXX.ap-northeast-2.elb.amazonaws.com (ALB DNS)
+```
+
+**올바른 구조**:
+```
+인터넷
+  ↓
+Route53 (DNS)
+  └─ growbin.app → ALB (Alias 레코드) ✅
+  ↓
+AWS Application Load Balancer (ALB)
+  ├─ ACM 인증서 (SSL/TLS 자동 관리)
+  └─ Path-based Routing
+      ├─ /argocd → Target Group → Worker Nodes (NodePort)
+      ├─ /grafana → Target Group → Worker Nodes (NodePort)
+      └─ /api/v1/* → Target Group → Worker Nodes (NodePort)
+  ↓
+Kubernetes Cluster
+  ├─ Ingress 리소스
+  └─ Service (ClusterIP)
+      └─ Pod
+```
+
+### 💡 핵심 교훈
+
+**Route53 Alias vs A 레코드**:
+- **A 레코드**: IP 주소 직접 지정 (TTL 적용, 정적)
+- **Alias 레코드**: AWS 리소스 동적 참조 (ALB, CloudFront 등)
+  - TTL 없음 (자동 관리)
+  - Health Check 가능
+  - AWS 내부 트래픽 (무료)
+
+**Path-based Routing 장점**:
+- 단일 도메인, 단일 ALB로 여러 서비스 관리
+- 비용 절감 (ALB 1개)
+- SSL/TLS 인증서 1개 (*.growbin.app)
+
+---
+
+**마지막 업데이트**: 2025-11-06  
+**총 해결 문제**: 16개  
+**총 커밋**: 13개 (3개 수동 해결)  
 **상태**: ✅ 모든 문제 해결 완료
 
 ---
@@ -1588,4 +1883,7 @@ git checkout <commit-hash> -- ansible/playbooks/07-ingress-resources.yml
 11. **Operator Secret**: Operator가 요구하는 특정 키 이름 확인 필수
 12. **YAML 중복**: 중복 키는 마지막 값 사용, 경고 제거 권장
 13. **파일 복구**: Git 히스토리 확인 후 `git checkout`으로 복구
+14. **Provider ID**: kubelet `--provider-id` 플래그 필수, ALB Controller가 Instance ID 추출에 사용
+15. **ArgoCD Ingress**: `backend-protocol: HTTP`, Service Port 80 (ArgoCD는 tls: false)
+16. **Route53 Alias**: A 레코드 대신 Alias 레코드로 ALB 참조, Health Check 및 동적 업데이트 가능
 
