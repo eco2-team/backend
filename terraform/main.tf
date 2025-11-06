@@ -22,6 +22,22 @@ provider "aws" {
   }
 }
 
+# CloudFront ACM Certificate를 위한 us-east-1 provider
+# CloudFront는 global 서비스로 us-east-1 리전의 인증서만 사용 가능
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+  
+  default_tags {
+    tags = {
+      Project     = "SeSACTHON"
+      ManagedBy   = "Terraform"
+      Environment = var.environment
+      Team        = "Backend"
+    }
+  }
+}
+
 # Data Sources
 data "aws_availability_zones" "available" {
   state = "available"
