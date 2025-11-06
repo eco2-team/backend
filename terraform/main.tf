@@ -94,53 +94,213 @@ module "master" {
   }
 }
 
-# EC2 Instances - Worker 1 (Application Pods - Sync API)
-module "worker_1" {
+# EC2 Instances - API Nodes (6 nodes)
+# API-1: Waste Analysis (High Traffic)
+module "api_waste" {
   source = "./modules/ec2"
   
-  instance_name         = "k8s-worker-1"
-  instance_type         = "t3.medium"  # 4GB (FastAPI Pods)
+  instance_name         = "k8s-api-waste"
+  instance_type         = "t3.small"  # 2GB
+  ami_id                = data.aws_ami.ubuntu.id
+  subnet_id             = module.vpc.public_subnet_ids[0]
+  security_group_ids    = [module.security_groups.worker_sg_id]
+  key_name              = aws_key_pair.k8s.key_name
+  iam_instance_profile  = aws_iam_instance_profile.k8s.name
+  
+  root_volume_size = 30
+  root_volume_type = "gp3"
+  
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname = "k8s-api-waste"
+  })
+  
+  tags = {
+    Role     = "worker"
+    Workload = "api-waste"
+    Domain   = "waste"
+  }
+}
+
+# API-2: Authentication & Authorization
+module "api_auth" {
+  source = "./modules/ec2"
+  
+  instance_name         = "k8s-api-auth"
+  instance_type         = "t3.micro"  # 1GB
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[1]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
   
-  root_volume_size = 40  # App + Images
+  root_volume_size = 20
   root_volume_type = "gp3"
   
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-worker-1"
+    hostname = "k8s-api-auth"
   })
   
   tags = {
     Role     = "worker"
-    Workload = "application"
+    Workload = "api-auth"
+    Domain   = "auth"
   }
 }
 
-# EC2 Instances - Worker 2 (Celery Workers - Async Processing)
-module "worker_2" {
+# API-3: User Information
+module "api_userinfo" {
   source = "./modules/ec2"
   
-  instance_name         = "k8s-worker-2"
-  instance_type         = "t3.medium"  # 4GB (Celery Workers)
+  instance_name         = "k8s-api-userinfo"
+  instance_type         = "t3.micro"  # 1GB
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[2]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
   
-  root_volume_size = 40  # Worker images
+  root_volume_size = 20
   root_volume_type = "gp3"
   
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-worker-2"
+    hostname = "k8s-api-userinfo"
   })
   
   tags = {
     Role     = "worker"
-    Workload = "async-workers"
+    Workload = "api-userinfo"
+    Domain   = "userinfo"
+  }
+}
+
+# API-4: Location & Map
+module "api_location" {
+  source = "./modules/ec2"
+  
+  instance_name         = "k8s-api-location"
+  instance_type         = "t3.micro"  # 1GB
+  ami_id                = data.aws_ami.ubuntu.id
+  subnet_id             = module.vpc.public_subnet_ids[0]
+  security_group_ids    = [module.security_groups.worker_sg_id]
+  key_name              = aws_key_pair.k8s.key_name
+  iam_instance_profile  = aws_iam_instance_profile.k8s.name
+  
+  root_volume_size = 20
+  root_volume_type = "gp3"
+  
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname = "k8s-api-location"
+  })
+  
+  tags = {
+    Role     = "worker"
+    Workload = "api-location"
+    Domain   = "location"
+  }
+}
+
+# API-5: Recycle Information
+module "api_recycle_info" {
+  source = "./modules/ec2"
+  
+  instance_name         = "k8s-api-recycle-info"
+  instance_type         = "t3.micro"  # 1GB
+  ami_id                = data.aws_ami.ubuntu.id
+  subnet_id             = module.vpc.public_subnet_ids[1]
+  security_group_ids    = [module.security_groups.worker_sg_id]
+  key_name              = aws_key_pair.k8s.key_name
+  iam_instance_profile  = aws_iam_instance_profile.k8s.name
+  
+  root_volume_size = 20
+  root_volume_type = "gp3"
+  
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname = "k8s-api-recycle-info"
+  })
+  
+  tags = {
+    Role     = "worker"
+    Workload = "api-recycle-info"
+    Domain   = "recycle-info"
+  }
+}
+
+# API-6: Chat LLM
+module "api_chat_llm" {
+  source = "./modules/ec2"
+  
+  instance_name         = "k8s-api-chat-llm"
+  instance_type         = "t3.small"  # 2GB
+  ami_id                = data.aws_ami.ubuntu.id
+  subnet_id             = module.vpc.public_subnet_ids[2]
+  security_group_ids    = [module.security_groups.worker_sg_id]
+  key_name              = aws_key_pair.k8s.key_name
+  iam_instance_profile  = aws_iam_instance_profile.k8s.name
+  
+  root_volume_size = 30
+  root_volume_type = "gp3"
+  
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname = "k8s-api-chat-llm"
+  })
+  
+  tags = {
+    Role     = "worker"
+    Workload = "api-chat-llm"
+    Domain   = "chat-llm"
+  }
+}
+
+# Worker Nodes (2 nodes)
+# Worker-1: Storage & I/O Operations
+module "worker_storage" {
+  source = "./modules/ec2"
+  
+  instance_name         = "k8s-worker-storage"
+  instance_type         = "t3.medium"  # 4GB (I/O Bound - Eventlet Pool)
+  ami_id                = data.aws_ami.ubuntu.id
+  subnet_id             = module.vpc.public_subnet_ids[0]
+  security_group_ids    = [module.security_groups.worker_sg_id]
+  key_name              = aws_key_pair.k8s.key_name
+  iam_instance_profile  = aws_iam_instance_profile.k8s.name
+  
+  root_volume_size = 40  # Image uploads + Local WAL
+  root_volume_type = "gp3"
+  
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname = "k8s-worker-storage"
+  })
+  
+  tags = {
+    Role     = "worker"
+    Workload = "worker-storage"
+    Type     = "io-bound"
+  }
+}
+
+# Worker-2: AI Processing
+module "worker_ai" {
+  source = "./modules/ec2"
+  
+  instance_name         = "k8s-worker-ai"
+  instance_type         = "t3.medium"  # 4GB (Network Bound - Prefork Pool)
+  ami_id                = data.aws_ami.ubuntu.id
+  subnet_id             = module.vpc.public_subnet_ids[1]
+  security_group_ids    = [module.security_groups.worker_sg_id]
+  key_name              = aws_key_pair.k8s.key_name
+  iam_instance_profile  = aws_iam_instance_profile.k8s.name
+  
+  root_volume_size = 40  # AI models + GPT cache + Local WAL
+  root_volume_type = "gp3"
+  
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname = "k8s-worker-ai"
+  })
+  
+  tags = {
+    Role     = "worker"
+    Workload = "worker-ai"
+    Type     = "network-bound"
   }
 }
 
@@ -169,19 +329,19 @@ module "rabbitmq" {
   }
 }
 
-# EC2 Instances - PostgreSQL (Database)
+# EC2 Instances - PostgreSQL (Database - 도메인별 DB 분리)
 module "postgresql" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-postgresql"
-  instance_type         = "t3.small"  # 2GB (PostgreSQL only)
+  instance_type         = "t3.medium"  # 4GB (도메인별 DB: auth, waste, chat, location, analytics)
   ami_id                = data.aws_ami.ubuntu.id
   subnet_id             = module.vpc.public_subnet_ids[1]  # Different AZ
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
   
-  root_volume_size = 60  # PostgreSQL data
+  root_volume_size = 80  # PostgreSQL data (5 domains)
   root_volume_type = "gp3"
   
   user_data = templatefile("${path.module}/user-data/common.sh", {
