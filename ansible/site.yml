@@ -26,7 +26,7 @@
     - import_tasks: playbooks/02-master-init.yml
 
 - name: Workers 조인 (All Worker Nodes)
-  hosts: workers,rabbitmq,postgresql,redis,monitoring
+  hosts: workers,api_nodes,rabbitmq,postgresql,redis,monitoring
   become: yes
   tasks:
     - import_tasks: playbooks/03-worker-join.yml
@@ -56,77 +56,12 @@
     - include_tasks: playbooks/04-cni-install.yml
       when: cni_plugin != 'vpc-cni'
 
-- name: 노드 레이블 지정
+- name: 노드 레이블 지정 (13-Node Architecture)
   hosts: masters
   become: yes
   become_user: "{{ kubectl_user }}"
   tasks:
-    - name: Label worker-1 (Application)
-      command: kubectl label nodes k8s-worker-1 workload=application instance-type=t3.medium role=application --overwrite
-      register: label_worker1
-      failed_when: label_worker1.rc != 0
-    
-    - name: Label worker-2 (Async Workers)
-      command: kubectl label nodes k8s-worker-2 workload=async-workers instance-type=t3.medium role=workers --overwrite
-      register: label_worker2
-      failed_when: label_worker2.rc != 0
-    
-    - name: Label rabbitmq (Message Queue)
-      command: kubectl label nodes k8s-rabbitmq workload=message-queue instance-type=t3.small role=message-queue --overwrite
-      register: label_rabbitmq
-      failed_when: label_rabbitmq.rc != 0
-    
-    - name: Label postgresql (Database)
-      command: kubectl label nodes k8s-postgresql workload=database instance-type=t3.small role=database --overwrite
-      register: label_postgresql
-      failed_when: label_postgresql.rc != 0
-    
-    - name: Label redis (Cache)
-      command: kubectl label nodes k8s-redis workload=cache instance-type=t3.small role=cache --overwrite
-      register: label_redis
-      failed_when: label_redis.rc != 0
-    
-    - name: Label monitoring (Prometheus + Grafana)
-      command: kubectl label nodes k8s-monitoring workload=monitoring instance-type=t3.medium role=monitoring --overwrite
-      register: label_monitoring
-      failed_when: label_monitoring.rc != 0
-    
-    - name: Verify rabbitmq node label
-      command: kubectl get nodes k8s-rabbitmq -L workload --no-headers
-      register: verify_rabbitmq_label
-      failed_when: "'message-queue' not in verify_rabbitmq_label.stdout"
-      changed_when: false
-    
-    - name: Verify postgresql node label
-      command: kubectl get nodes k8s-postgresql -L workload --no-headers
-      register: verify_postgresql_label
-      failed_when: "'database' not in verify_postgresql_label.stdout"
-      changed_when: false
-    
-    - name: Verify redis node label
-      command: kubectl get nodes k8s-redis -L workload --no-headers
-      register: verify_redis_label
-      failed_when: "'cache' not in verify_redis_label.stdout"
-      changed_when: false
-    
-    - name: Verify monitoring node label
-      command: kubectl get nodes k8s-monitoring -L workload --no-headers
-      register: verify_monitoring_label
-      failed_when: "'monitoring' not in verify_monitoring_label.stdout"
-      changed_when: false
-    
-    - name: Display node labels
-      debug:
-        msg:
-          - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          - "✅ 노드 레이블 적용 완료"
-          - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          - "k8s-worker-1: workload=application"
-          - "k8s-worker-2: workload=async-workers"
-          - "k8s-rabbitmq: workload=message-queue ✅"
-          - "k8s-postgresql: workload=database ✅"
-          - "k8s-redis: workload=cache ✅"
-          - "k8s-monitoring: workload=monitoring ✅"
+    - import_tasks: playbooks/label-nodes.yml
 
 - name: Add-ons 설치 (Cert-manager, Metrics)
   hosts: masters
