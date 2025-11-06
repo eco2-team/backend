@@ -6,7 +6,7 @@ global:
   image:
     registry: ghcr.io
     repository: your-org/growbin-backend
-    tag: latest
+    tag: 3f56cfcb95eeb5cd172bd03e27e3bdbf8c4f54f6
     pullPolicy: Always
   
   domain: growbin.app
@@ -98,7 +98,7 @@ api:
     
     image:
       repository: ghcr.io/your-org/waste-api
-      tag: latest
+      tag: 3f56cfcb95eeb5cd172bd03e27e3bdbf8c4f54f6
     
     resources:
       requests:
@@ -137,7 +137,7 @@ api:
     
     image:
       repository: ghcr.io/your-org/auth-api
-      tag: latest
+      tag: 3f56cfcb95eeb5cd172bd03e27e3bdbf8c4f54f6
     
     resources:
       requests:
@@ -165,7 +165,7 @@ api:
     
     image:
       repository: ghcr.io/your-org/userinfo-api
-      tag: latest
+      tag: 3f56cfcb95eeb5cd172bd03e27e3bdbf8c4f54f6
     
     resources:
       requests:
@@ -188,7 +188,7 @@ api:
     
     image:
       repository: ghcr.io/your-org/location-api
-      tag: latest
+      tag: 3f56cfcb95eeb5cd172bd03e27e3bdbf8c4f54f6
     
     resources:
       requests:
@@ -216,7 +216,7 @@ api:
     
     image:
       repository: ghcr.io/your-org/recycle-info-api
-      tag: latest
+      tag: 3f56cfcb95eeb5cd172bd03e27e3bdbf8c4f54f6
     
     resources:
       requests:
@@ -239,7 +239,7 @@ api:
     
     image:
       repository: ghcr.io/your-org/chat-llm-api
-      tag: latest
+      tag: 3f56cfcb95eeb5cd172bd03e27e3bdbf8c4f54f6
     
     resources:
       requests:
@@ -284,7 +284,7 @@ workers:
     
     image:
       repository: ghcr.io/your-org/growbin-backend
-      tag: latest
+      tag: 3f56cfcb95eeb5cd172bd03e27e3bdbf8c4f54f6
     
     command:
       - celery
@@ -322,7 +322,7 @@ workers:
     
     image:
       repository: ghcr.io/your-org/growbin-backend
-      tag: latest
+      tag: 3f56cfcb95eeb5cd172bd03e27e3bdbf8c4f54f6
     
     command:
       - celery
@@ -361,7 +361,7 @@ workers:
     
     image:
       repository: ghcr.io/your-org/growbin-backend
-      tag: latest
+      tag: 3f56cfcb95eeb5cd172bd03e27e3bdbf8c4f54f6
     
     command:
       - celery
@@ -393,7 +393,7 @@ workers:
     
     image:
       repository: ghcr.io/your-org/growbin-backend
-      tag: latest
+      tag: 3f56cfcb95eeb5cd172bd03e27e3bdbf8c4f54f6
     
     command:
       - celery
@@ -431,7 +431,7 @@ workers:
     
     image:
       repository: ghcr.io/your-org/growbin-backend
-      tag: latest
+      tag: 3f56cfcb95eeb5cd172bd03e27e3bdbf8c4f54f6
     
     command:
       - celery
