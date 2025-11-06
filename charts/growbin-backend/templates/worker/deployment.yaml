@@ -1,0 +1,108 @@
+{{- range $name, $config := .Values.worker }}
+{{- if $config.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $config.name }}
+  labels:
+    app: {{ $config.name }}
+    component: worker
+    worker-type: {{ $name }}
+spec:
+  replicas: {{ $config.replicas }}
+  selector:
+    matchLabels:
+      app: {{ $config.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $config.name }}
+        component: worker
+        worker-type: {{ $name }}
+    spec:
+      {{- if $config.nodeSelector }}
+      nodeSelector:
+        {{- toYaml $config.nodeSelector | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $config.name }}
+          image: "{{ $.Values.global.imageRegistry }}/{{ $config.image.repository }}:{{ $config.image.tag }}"
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: 8000
+              protocol: TCP
+          env:
+            {{- range $.Values.env.common }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- range $.Values.env.database }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- range $.Values.env.cache }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- range $.Values.env.queue }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- range $config.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          livenessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - app
+                - inspect
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - app
+                - inspect
+                - active
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml $config.resources | nindent 12 }}
+          volumeMounts:
+            - name: wal-storage
+              mountPath: /var/lib/growbin
+      volumes:
+        - name: wal-storage
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $config.name }}
+  labels:
+    app: {{ $config.name }}
+    component: worker
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    app: {{ $config.name }}
+{{- end }}
+{{- end }}
+
