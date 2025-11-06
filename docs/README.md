@@ -297,6 +297,13 @@ Kubernetes Services (NodePort)
   - 단계별 구축 순서
   - 우선순위별 작업
   - 예상 시간
+
+- **[ArgoCD 운영 가이드](guides/ARGOCD_GUIDE.md)** ⭐⭐⭐⭐⭐
+  - ArgoCD 접근 방법 (Port-forward, ALB Ingress)
+  - 초기 비밀번호 확인
+  - CLI 설치 및 로그인
+  - Application 관리
+  - 트러블슈팅
   
 - [배포 방법 정리](guides/DEPLOYMENT_METHODS.md)
   - Helm vs kubectl vs Operator 배포 방식
@@ -399,7 +406,6 @@ Kubernetes Services (NodePort)
   - GITHUB_TOKEN 인증
   - 이미지 태그 전략
   
-- [VPC CNI 마이그레이션](deployment/VPC_CNI_MIGRATION.md)
 - [배포 전략 비교](plans/DEPLOYMENT_STRATEGIES_COMPARISON.md) ⭐ NEW
 
 ---
@@ -473,9 +479,6 @@ Kubernetes Services (NodePort)
 
 # Route53 → ALB 연결
 ./scripts/maintenance/update-route53-to-alb.sh
-
-# VPC CNI로 전환
-./scripts/maintenance/switch-to-vpc-cni.sh
 ```
 
 ### 배포
@@ -755,7 +758,6 @@ SeSACTHON/backend/
 │   │   └── FASTAPI_TEST_GUIDE.md
 │   │
 │   ├── deployment/ (배포)
-│   │   ├── VPC_CNI_MIGRATION.md
 │   │   └── gitops-argocd-helm.md
 │   │
 │   ├── plans/ (향후 계획) ⭐ NEW
