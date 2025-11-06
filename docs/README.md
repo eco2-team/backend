@@ -144,7 +144,7 @@ graph TB
 - **총 스토리지**: 350GB
 - **월 비용**: ~$214
 
----
+```
 Master Node (Control Plane)
 ├─ Instance: t3.large (2 vCPU, 8GB, 80GB gp3)
 ├─ 비용: $60/월
