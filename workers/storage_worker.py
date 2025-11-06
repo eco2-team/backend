@@ -22,6 +22,7 @@ from celery.signals import (
     worker_shutdown,
 )
 
+from app.postgres_sync import PostgreSQLSyncManager
 from app.wal import WALManager, WALRecovery
 
 # 로깅 설정
@@ -52,6 +53,9 @@ app.config_from_object(
 
 # WAL Manager (Global)
 wal_manager: WALManager = None
+
+# PostgreSQL Sync Manager (Global)
+postgres_sync: PostgreSQLSyncManager = None
 
 
 # Celery Task 베이스 클래스 (WAL 통합)
@@ -94,13 +98,32 @@ class WALTask(Task):
 @worker_ready.connect
 def on_worker_ready(sender, **kwargs):
     """Worker 시작 시 WAL 초기화 및 복구"""
-    global wal_manager
+    global wal_manager, postgres_sync
 
     logger.info("Initializing WAL Manager...")
 
     # WAL Manager 초기화
     db_path = os.getenv("WAL_DB_PATH", "/var/lib/growbin/wal/storage_worker.db")
     wal_manager = WALManager(db_path=db_path)
+
+    # PostgreSQL Sync Manager 초기화
+    logger.info("Initializing PostgreSQL Sync Manager...")
+    postgres_sync = PostgreSQLSyncManager(
+        host=os.getenv("POSTGRES_HOST", "postgresql"),
+        port=int(os.getenv("POSTGRES_PORT", "5432")),
+        database=os.getenv("POSTGRES_DB", "growbin_storage"),
+        user=os.getenv("POSTGRES_USER", "growbin"),
+        password=os.getenv("POSTGRES_PASSWORD", ""),
+        wal_manager=wal_manager,
+    )
+
+    # PostgreSQL 연결 풀 초기화 (비동기)
+    import asyncio
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(postgres_sync.init_pool(min_size=2, max_size=10))
+    loop.run_until_complete(postgres_sync.ensure_tables())
 
     # 통계 출력
     stats = wal_manager.get_stats()
@@ -121,7 +144,7 @@ def on_worker_ready(sender, **kwargs):
 @worker_shutdown.connect
 def on_worker_shutdown(sender, **kwargs):
     """Worker 종료 시 WAL 정리"""
-    global wal_manager
+    global wal_manager, postgres_sync
 
     if wal_manager:
         logger.info("Closing WAL Manager...")
@@ -138,6 +161,17 @@ def on_worker_shutdown(sender, **kwargs):
 
         logger.info("WAL Manager closed successfully")
 
+    if postgres_sync:
+        logger.info("Closing PostgreSQL Sync Manager...")
+
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(postgres_sync.close_pool())
+
+        logger.info("PostgreSQL Sync Manager closed successfully")
+
 
 # Task 시작 시 WAL 업데이트
 @task_prerun.connect
@@ -152,9 +186,8 @@ def on_task_prerun(sender, task_id, task, args, kwargs, **extra):
 @task_postrun.connect
 def on_task_postrun(sender, task_id, task, args, kwargs, retval, **extra):
     """Task 완료 후 비동기 PostgreSQL 동기화"""
-    # 별도 백그라운드 작업으로 동기화
-    # sync_to_postgres.apply_async((task_id,), countdown=5)
-    pass
+    # 5초 후 동기화 (배치 처리 효율)
+    sync_to_postgres.apply_async((task_id,), countdown=5)
 
 
 # 작업 정의
@@ -239,32 +272,27 @@ def sync_to_postgres(task_id: str) -> bool:
     Returns:
         성공 여부
     """
-    if not wal_manager:
-        logger.error("WAL Manager not initialized")
+    if not postgres_sync:
+        logger.error("PostgreSQL Sync Manager not initialized")
         return False
+
+    import asyncio
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
     try:
-        # WAL에서 작업 조회
-        tasks = wal_manager.get_unsynced_tasks(limit=1)
-        if not tasks:
-            logger.debug(f"Task {task_id} already synced")
-            return True
+        # 배치 동기화 (효율성)
+        synced_count = loop.run_until_complete(postgres_sync.sync_batch(limit=50))
 
-        task = tasks[0]
-
-        # PostgreSQL에 저장 (예시)
-        logger.info(f"Syncing task {task_id} to PostgreSQL")
-        # db.execute("INSERT INTO task_results (...) VALUES (...)")
-
-        # 동기화 완료 표시
-        wal_manager.mark_synced(task_id)
-
-        logger.info(f"Task {task_id} synced to PostgreSQL")
-        return True
+        logger.info(f"Synced {synced_count} tasks to PostgreSQL")
+        return synced_count > 0
 
     except Exception as e:
-        logger.error(f"Failed to sync task {task_id}: {e}")
+        logger.error(f"Failed to sync to PostgreSQL: {e}")
         return False
+    finally:
+        loop.close()
 
 
 @app.task
