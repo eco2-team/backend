@@ -73,8 +73,8 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/waste-api
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
+            type=ref,event=pr
+            type=sha,format=short
       
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -125,8 +125,8 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/auth-api
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
+            type=ref,event=pr
+            type=sha,format=short
       
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -177,8 +177,8 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/userinfo-api
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
+            type=ref,event=pr
+            type=sha,format=short
       
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -218,8 +218,8 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/location-api
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
+            type=ref,event=pr
+            type=sha,format=short
       
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -259,8 +259,8 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/recycle-info-api
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
+            type=ref,event=pr
+            type=sha,format=short
       
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -300,8 +300,8 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/chat-llm-api
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
+            type=ref,event=pr
+            type=sha,format=short
       
       - name: Build and push
         uses: docker/build-push-action@v5
