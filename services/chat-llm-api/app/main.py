@@ -8,7 +8,7 @@ import uuid
 app = FastAPI(
     title="Chat LLM API",
     description="LLM 채팅 서비스 - 분리수거 질의응답",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 app.add_middleware(
@@ -19,20 +19,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Pydantic 모델
 class Message(BaseModel):
     role: str  # "user" | "assistant"
     content: str
     timestamp: datetime = datetime.now()
 
+
 class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     message: str
+
 
 class ChatResponse(BaseModel):
     session_id: str
     message: str
     suggestions: List[str] = []
+
 
 class ChatSession(BaseModel):
     session_id: str
@@ -40,19 +44,23 @@ class ChatSession(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
 class Feedback(BaseModel):
     session_id: str
     message_index: int
     rating: int  # 1-5
     comment: Optional[str] = None
 
+
 @app.get("/health")
 def health():
     return {"status": "healthy", "service": "chat-llm-api"}
 
+
 @app.get("/ready")
 def ready():
     return {"status": "ready", "service": "chat-llm-api"}
+
 
 @app.post("/api/v1/chat/messages", response_model=ChatResponse)
 async def send_message(request: ChatRequest):
@@ -60,9 +68,9 @@ async def send_message(request: ChatRequest):
     # TODO: Redis에서 대화 히스토리 조회
     # TODO: OpenAI API 호출 (GPT-4o mini)
     # TODO: 응답 생성 후 Redis에 저장
-    
+
     session_id = request.session_id or str(uuid.uuid4())
-    
+
     # Dummy response
     return {
         "session_id": session_id,
@@ -70,9 +78,10 @@ async def send_message(request: ChatRequest):
         "suggestions": [
             "플라스틱 용기는 어떻게 버려요?",
             "유리병 배출 방법이 궁금해요",
-            "스티로폼은 재활용되나요?"
-        ]
+            "스티로폼은 재활용되나요?",
+        ],
     }
+
 
 @app.get("/api/v1/chat/sessions/{session_id}", response_model=ChatSession)
 async def get_session(session_id: str):
@@ -84,23 +93,25 @@ async def get_session(session_id: str):
             {
                 "role": "user",
                 "content": "페트병은 어떻게 버려요?",
-                "timestamp": datetime.now()
+                "timestamp": datetime.now(),
             },
             {
                 "role": "assistant",
                 "content": "페트병은 세척 후 압착하여 배출하시면 됩니다.",
-                "timestamp": datetime.now()
-            }
+                "timestamp": datetime.now(),
+            },
         ],
         "created_at": datetime.now(),
-        "updated_at": datetime.now()
+        "updated_at": datetime.now(),
     }
+
 
 @app.delete("/api/v1/chat/sessions/{session_id}")
 async def delete_session(session_id: str):
     """세션 삭제"""
     # TODO: Redis에서 세션 삭제
     return {"message": f"Session {session_id} deleted"}
+
 
 @app.get("/api/v1/chat/suggestions")
 async def get_suggestions():
@@ -111,9 +122,10 @@ async def get_suggestions():
             "종이팩과 종이는 구분해서 버려야 하나요?",
             "일회용 플라스틱 용기는 재활용되나요?",
             "스티로폼은 어떻게 배출하나요?",
-            "음식물 쓰레기는 어디까지 버릴 수 있나요?"
+            "음식물 쓰레기는 어디까지 버릴 수 있나요?",
         ]
     }
+
 
 @app.post("/api/v1/chat/feedback")
 async def submit_feedback(feedback: Feedback):
@@ -122,7 +134,8 @@ async def submit_feedback(feedback: Feedback):
     # TODO: LLM 성능 개선을 위한 데이터로 활용
     return {"message": "Feedback submitted successfully"}
 
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
 
+    uvicorn.run(app, host="0.0.0.0", port=8000)

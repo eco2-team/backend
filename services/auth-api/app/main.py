@@ -8,9 +8,7 @@ import os
 
 # FastAPI 앱
 app = FastAPI(
-    title="Auth API",
-    description="인증/인가 서비스 - JWT 기반 인증",
-    version="1.0.0"
+    title="Auth API", description="인증/인가 서비스 - JWT 기반 인증", version="1.0.0"
 )
 
 # CORS
@@ -25,20 +23,24 @@ app.add_middleware(
 # OAuth2 스키마
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
+
 # Pydantic 모델
 class Token(BaseModel):
     access_token: str
     token_type: str
     expires_in: int
 
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
 
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
     username: str
+
 
 class User(BaseModel):
     id: int
@@ -46,17 +48,22 @@ class User(BaseModel):
     username: str
     created_at: datetime
 
+
 # Health check
 @app.get("/health")
 def health():
     return {"status": "healthy", "service": "auth-api"}
 
+
 @app.get("/ready")
 def ready():
     return {"status": "ready", "service": "auth-api"}
 
+
 # API v1
-@app.post("/api/v1/auth/register", response_model=User, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/api/v1/auth/register", response_model=User, status_code=status.HTTP_201_CREATED
+)
 async def register(user: UserRegister):
     """회원가입"""
     # TODO: 실제 DB 저장 로직
@@ -64,8 +71,9 @@ async def register(user: UserRegister):
         "id": 1,
         "email": user.email,
         "username": user.username,
-        "created_at": datetime.now()
+        "created_at": datetime.now(),
     }
+
 
 @app.post("/api/v1/auth/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -75,14 +83,16 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     return {
         "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
         "token_type": "bearer",
-        "expires_in": 3600
+        "expires_in": 3600,
     }
+
 
 @app.post("/api/v1/auth/logout")
 async def logout(token: str = Depends(oauth2_scheme)):
     """로그아웃 - 토큰 무효화"""
     # TODO: Redis에 블랙리스트 추가
     return {"message": "Successfully logged out"}
+
 
 @app.get("/api/v1/auth/me", response_model=User)
 async def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -92,8 +102,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         "id": 1,
         "email": "user@example.com",
         "username": "testuser",
-        "created_at": datetime.now()
+        "created_at": datetime.now(),
     }
+
 
 @app.post("/api/v1/auth/refresh", response_model=Token)
 async def refresh_token(token: str = Depends(oauth2_scheme)):
@@ -102,10 +113,11 @@ async def refresh_token(token: str = Depends(oauth2_scheme)):
     return {
         "access_token": "new_token_here",
         "token_type": "bearer",
-        "expires_in": 3600
+        "expires_in": 3600,
     }
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
 
+    uvicorn.run(app, host="0.0.0.0", port=8000)

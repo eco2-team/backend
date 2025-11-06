@@ -6,7 +6,7 @@ from typing import List, Optional
 app = FastAPI(
     title="Recycle Info API",
     description="재활용 정보 서비스 - 품목별 분리배출 안내",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 app.add_middleware(
@@ -16,6 +16,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Pydantic 모델
 class RecycleItem(BaseModel):
@@ -27,14 +28,17 @@ class RecycleItem(BaseModel):
     notes: List[str] = []
     recyclable: bool
 
+
 class Category(BaseModel):
     id: int
     name: str
     icon: str
     item_count: int
 
+
 class SearchRequest(BaseModel):
     query: str
+
 
 class FAQ(BaseModel):
     id: int
@@ -42,13 +46,16 @@ class FAQ(BaseModel):
     answer: str
     category: str
 
+
 @app.get("/health")
 def health():
     return {"status": "healthy", "service": "recycle-info-api"}
 
+
 @app.get("/ready")
 def ready():
     return {"status": "ready", "service": "recycle-info-api"}
+
 
 @app.get("/api/v1/recycle/items/{item_id}", response_model=RecycleItem)
 async def get_item(item_id: int):
@@ -63,10 +70,11 @@ async def get_item(item_id: int):
         "notes": [
             "뚜껑과 라벨은 별도 분리",
             "음료 잔여물은 완전히 제거",
-            "압착하면 보관 공간 절약"
+            "압착하면 보관 공간 절약",
         ],
-        "recyclable": True
+        "recyclable": True,
     }
+
 
 @app.get("/api/v1/recycle/categories", response_model=List[Category])
 async def get_categories():
@@ -79,6 +87,7 @@ async def get_categories():
         {"id": 4, "name": "금속", "icon": "🥫", "item_count": 15},
     ]
 
+
 @app.post("/api/v1/recycle/search", response_model=List[RecycleItem])
 async def search_items(request: SearchRequest):
     """품목 검색"""
@@ -90,9 +99,10 @@ async def search_items(request: SearchRequest):
             "category": "플라스틱",
             "disposal_method": "세척 후 압착 배출",
             "notes": [],
-            "recyclable": True
+            "recyclable": True,
         }
     ]
+
 
 @app.get("/api/v1/recycle/rules/{region}")
 async def get_regional_rules(region: str):
@@ -103,15 +113,16 @@ async def get_regional_rules(region: str):
         "rules": [
             "투명 페트병은 별도 배출",
             "스티로폼은 요일제 배출",
-            "음식물은 물기 제거 후 배출"
-        ]
+            "음식물은 물기 제거 후 배출",
+        ],
     }
+
 
 @app.get("/api/v1/recycle/faq", response_model=List[FAQ])
 async def get_faq(
     category: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=50)
+    limit: int = Query(10, ge=1, le=50),
 ):
     """FAQ 목록"""
     # TODO: DB에서 FAQ 조회
@@ -120,11 +131,12 @@ async def get_faq(
             "id": 1,
             "question": "페트병 라벨은 어떻게 제거하나요?",
             "answer": "물에 담가두면 쉽게 벗겨집니다. 또는 칼로 잘라내세요.",
-            "category": "플라스틱"
+            "category": "플라스틱",
         }
     ]
 
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
 
+    uvicorn.run(app, host="0.0.0.0", port=8000)
