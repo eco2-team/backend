@@ -55,49 +55,96 @@ cd /Users/mango/workspace/SeSACTHON/backend
 
 ### 7-Node 클러스터 구성
 
+```mermaid
+graph TB
+    subgraph Internet["🌐 Internet"]
+        User[User/Browser]
+        Route53["`**Route53**
+        growbin.app`"]
+    end
+    
+    subgraph AWS["☁️ AWS Cloud (ap-northeast-2)"]
+        ACM["`**ACM**
+        *.growbin.app`"]
+        ALB["`**Application LB**
+        SSL/TLS Termination
+        Path-based Routing`"]
+        
+        subgraph VPC["VPC (10.0.0.0/16)"]
+            Ingress["`**Ingress**
+            ALB Ingress Controller`"]
+            
+            subgraph Control["Control Plane"]
+                Master["`**Master**
+                t3.large, 8GB
+                etcd, API Server`"]
+            end
+            
+            subgraph Application["Application Layer"]
+                W1["`**Worker-1**
+                t3.medium, 4GB
+                FastAPI Pods`"]
+                W2["`**Worker-2**
+                t3.medium, 4GB
+                Celery Workers`"]
+            end
+            
+            subgraph Infrastructure["Infrastructure Layer"]
+                RMQ["`**RabbitMQ**
+                t3.small, 2GB`"]
+                PG["`**PostgreSQL**
+                t3.small, 2GB`"]
+                Redis["`**Redis**
+                t3.small, 2GB`"]
+                Mon["`**Monitoring**
+                t3.large, 8GB
+                Prometheus + Grafana`"]
+            end
+        end
+        
+        S3["`**S3 Bucket**
+        Image Storage
+        Pre-signed URL`"]
+    end
+    
+    User --> Route53
+    Route53 --> ALB
+    ALB --> ACM
+    ALB --> Ingress
+    Ingress --> W1
+    Ingress --> W2
+    W1 --> PG
+    W1 --> Redis
+    W1 --> RMQ
+    W2 --> RMQ
+    W2 --> S3
+    Mon -.-> Master
+    Mon -.-> W1
+    Mon -.-> W2
+    
+    style Master fill:#4A90E2,stroke:#2E5C8A,stroke-width:3px,color:#fff
+    style W1 fill:#7B68EE,stroke:#4B3C8C,stroke-width:3px,color:#fff
+    style W2 fill:#9370DB,stroke:#5A478A,stroke-width:3px,color:#fff
+    style RMQ fill:#F39C12,stroke:#C87F0A,stroke-width:2px,color:#000
+    style PG fill:#3498DB,stroke:#2874A6,stroke-width:2px,color:#fff
+    style Redis fill:#E74C3C,stroke:#C0392B,stroke-width:2px,color:#fff
+    style Mon fill:#2ECC71,stroke:#27AE60,stroke-width:2px,color:#fff
+    style ALB fill:#FF6B6B,stroke:#C92A2A,stroke-width:3px,color:#fff
+    style Route53 fill:#FFE066,stroke:#F59F00,stroke-width:2px,color:#000
+    style S3 fill:#51CF66,stroke:#2F9E44,stroke-width:2px,color:#fff
+    style VPC fill:#F8F9FA,stroke:#6C757D,stroke-width:2px,color:#000
+    style Internet fill:#FFF9E6,stroke:#FFE4B3,stroke-width:2px,color:#000
+    style AWS fill:#E6F7FF,stroke:#B3E0FF,stroke-width:2px,color:#000
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        AWS Cloud                            │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  Route53 → ALB (SSL/TLS) → Ingress                   │  │
-│  │    - /argocd  → ArgoCD                                │  │
-│  │    - /grafana → Grafana                               │  │
-│  │    - /api/v1/* → API Services                         │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │           Kubernetes Cluster (7 Nodes)              │   │
-│  │                                                      │   │
-│  │  Control Plane:                                      │   │
-│  │  ├─ Master (t3.large, 8GB) - Control Plane          │   │
-│  │  │   └─ etcd, API Server, Scheduler, Controllers    │   │
-│  │                                                      │   │
-│  │  Data Plane (Application):                           │   │
-│  │  ├─ Worker-1 (t3.medium, 4GB) - Sync API            │   │
-│  │  │   └─ auth, users, locations services             │   │
-│  │  ├─ Worker-2 (t3.medium, 4GB) - Async Workers       │   │
-│  │      └─ waste, AI, batch workers                     │   │
-│  │                                                      │   │
-│  │  Data Plane (Message Queue):                         │   │
-│  │  └─ RabbitMQ Node (t3.small, 2GB) - MQ Only         │   │
-│  │      └─ RabbitMQ Cluster Operator                    │   │
-│  │                                                      │   │
-│  │  Data Plane (Persistence):                           │   │
-│  │  ├─ PostgreSQL Node (t3.small, 2GB) - DB Only       │   │
-│  │  │   └─ PostgreSQL StatefulSet                       │   │
-│  │  ├─ Redis Node (t3.small, 2GB) - Cache Only         │   │
-│  │  │   └─ Redis Deployment                             │   │
-│  │  └─ Monitoring Node (t3.large, 4GB) - Monitoring    │   │
-│  │      └─ Prometheus + Grafana + Alertmanager          │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
 
-총 비용: $214/월 (7 Nodes)
-```
+**클러스터 스펙**
+- **총 노드**: 7개 (1 Master + 6 Workers)
+- **총 vCPU**: 14 cores
+- **총 RAM**: 30GB
+- **총 스토리지**: 350GB
+- **월 비용**: ~$214
 
-### 노드별 상세 구성
-
-```
+---
 Master Node (Control Plane)
 ├─ Instance: t3.large (2 vCPU, 8GB, 80GB gp3)
 ├─ 비용: $60/월
@@ -337,9 +384,9 @@ Kubernetes Services (NodePort)
 ### 🚀 [배포](deployment/)
 
 - [VPC CNI 마이그레이션](deployment/VPC_CNI_MIGRATION.md)
-- [배포 아키텍처 (4-Node)](deployment/deployment-architecture-4node.md)
 - [GitOps ArgoCD Helm](deployment/gitops-argocd-helm.md)
 - [GHCR 설정](deployment/ghcr-setup.md)
+- [배포 전략 비교](plans/DEPLOYMENT_STRATEGIES_COMPARISON.md) ⭐ NEW
 
 ---
 
@@ -600,7 +647,7 @@ SeSACTHON/backend/
 │   │   ├── NETWORK_ROUTING_STRUCTURE.md ⭐⭐⭐⭐
 │   │   ├── POD_PLACEMENT_AND_RESPONSE_FLOW.md ⭐⭐⭐
 │   │   ├── MONITORING_TRAFFIC_FLOW.md ⭐⭐⭐
-│   │   ├── STORAGE_SEPARATION_STRATEGY.md ⭐⭐⭐
+│   │   ├── CI_CD_PIPELINE.md ⭐⭐⭐⭐
 │   │   └── task-queue-design.md
 │   │
 │   ├── guides/ (운영 가이드)
@@ -644,6 +691,12 @@ SeSACTHON/backend/
 │   ├── deployment/ (배포)
 │   │   ├── VPC_CNI_MIGRATION.md
 │   │   └── gitops-argocd-helm.md
+│   │
+│   ├── plans/ (향후 계획) ⭐ NEW
+│   │   ├── README.md
+│   │   ├── DEPLOYMENT_STRATEGIES_COMPARISON.md
+│   │   ├── CANARY_DEPLOYMENT_CONSIDERATIONS.md
+│   │   └── AB_TESTING_STRATEGY.md
 │   │
 │   ├── analysis/ (분석)
 │   │   ├── SECURITY_AUDIT.md
@@ -809,12 +862,18 @@ Phase 9: GitOps 파이프라인 (계획 중)
 4. **[트러블슈팅 가이드](troubleshooting/README.md)** - 8개 주요 문제 해결
 5. **[인프라 배포 다이어그램](architecture/INFRASTRUCTURE_DEPLOYMENT_DIAGRAM.md)** - 배포 플로우
 
+### 배포 전략 ⭐⭐⭐⭐⭐
+
+- **[배포 전략 비교](plans/DEPLOYMENT_STRATEGIES_COMPARISON.md)** - 블루-그린 vs 카나리
+- **[Argo Rollouts 가이드](plans/CANARY_DEPLOYMENT_CONSIDERATIONS.md)** - 카나리 배포 적용
+
 ### 아키텍처 문서 ⭐⭐⭐⭐
 
 - [네트워크 라우팅 구조](architecture/NETWORK_ROUTING_STRUCTURE.md)
 - [Pod 배치 및 응답 흐름](architecture/POD_PLACEMENT_AND_RESPONSE_FLOW.md)
 - [모니터링 트래픽 흐름](architecture/MONITORING_TRAFFIC_FLOW.md)
-- [스토리지 분리 전략](architecture/STORAGE_SEPARATION_STRATEGY.md)
+- [CI/CD 파이프라인](architecture/CI_CD_PIPELINE.md)
+- [클러스터 리소스 현황](infrastructure/CLUSTER_RESOURCES.md)
 
 ### 트러블슈팅 ⭐⭐⭐⭐
 
@@ -861,21 +920,8 @@ https://growbin.app/grafana
 Username: admin
 Password: <GRAFANA_PASSWORD>
 
-# ArgoCD (Port Forward)
-kubectl port-forward -n argocd svc/argocd-server 8080:443
-https://localhost:8080
-
-# Grafana (Port Forward)
-kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
-http://localhost:3000
-
 # Prometheus (Port Forward)
-kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
-http://localhost:9090
-
-# RabbitMQ Management
-kubectl port-forward -n messaging svc/rabbitmq 15672:15672
-http://localhost:15672 (admin / <RABBITMQ_PASSWORD>)
+http://growbin.app/prometheus
 ```
 
 ### 주요 명령어
@@ -960,7 +1006,7 @@ docs/troubleshooting/README.md
 
 ---
 
-**문서 버전**: 4.0  
+**문서 버전**: 0.4  
 **최종 업데이트**: 2025-11-05  
 **아키텍처**: 7-Node Self-Managed Kubernetes (Terraform + Ansible)  
 **상태**: ✅ 인프라 구축 완료, 트러블슈팅 완료, 애플리케이션 배포 준비 완료
