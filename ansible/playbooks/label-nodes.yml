@@ -1,0 +1,52 @@
+---
+# Ansible Playbook: 노드 라벨링 (13 Node 구조)
+- name: Label Kubernetes Nodes
+  hosts: k8s_cluster
+  become: yes
+  tasks:
+    - name: Wait for nodes to be ready
+      shell: kubectl get nodes
+      register: nodes_status
+      until: nodes_status.rc == 0
+      retries: 10
+      delay: 10
+      delegate_to: "{{ groups['masters'][0] }}"
+      run_once: true
+
+    - name: Label API nodes with service
+      shell: |
+        kubectl label node {{ inventory_hostname }} \
+          service={{ service }} \
+          --overwrite
+      delegate_to: "{{ groups['masters'][0] }}"
+      when: "'api_nodes' in group_names"
+    
+    - name: Label Worker nodes with type
+      shell: |
+        kubectl label node {{ inventory_hostname }} \
+          workload={{ workload }} \
+          type={{ type }} \
+          --overwrite
+      delegate_to: "{{ groups['masters'][0] }}"
+      when: "'workers' in group_names"
+    
+    - name: Label Infrastructure nodes
+      shell: |
+        kubectl label node {{ inventory_hostname }} \
+          workload={{ workload }} \
+          --overwrite
+      delegate_to: "{{ groups['masters'][0] }}"
+      when: "workload is defined and 'api_nodes' not in group_names and 'workers' not in group_names"
+
+- name: Verify node labels
+  hosts: masters
+  become: yes
+  tasks:
+    - name: Get all node labels
+      shell: kubectl get nodes --show-labels
+      register: node_labels
+    
+    - name: Display node labels
+      debug:
+        var: node_labels.stdout_lines
+

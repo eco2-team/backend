@@ -1,0 +1,89 @@
+{{- if .Values.api.userinfo.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: userinfo-api
+  namespace: {{ .Values.namespaces.api }}
+  labels:
+    app: userinfo-api
+    component: api
+    domain: userinfo
+    {{- include "growbin-backend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.userinfo.replicas }}
+  selector:
+    matchLabels:
+      app: userinfo-api
+  template:
+    metadata:
+      labels:
+        app: userinfo-api
+        component: api
+        domain: userinfo
+    spec:
+      {{- if .Values.api.userinfo.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.api.userinfo.nodeSelector | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: api
+        image: "{{ .Values.api.userinfo.image.repository }}:{{ .Values.api.userinfo.image.tag | default .Values.global.image.tag }}"
+        imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.api.userinfo.port }}
+          protocol: TCP
+        env:
+        {{- range .Values.api.userinfo.env }}
+        - name: {{ .name }}
+          {{- if .value }}
+          value: {{ .value | quote }}
+          {{- else if .valueFrom }}
+          valueFrom:
+            {{- toYaml .valueFrom | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        - name: DATABASE_URL
+          value: "postgresql://{{ .Values.secrets.postgresql.username }}:{{ .Values.secrets.postgresql.password }}@{{ .Values.externalServices.postgresql.host }}:{{ .Values.externalServices.postgresql.port }}/{{ .Values.externalServices.postgresql.database }}"
+        - name: REDIS_URL
+          value: "redis://{{ .Values.externalServices.redis.host }}:{{ .Values.externalServices.redis.port }}/0"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          {{- toYaml .Values.api.userinfo.resources | nindent 10 }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: userinfo-api
+  namespace: {{ .Values.namespaces.api }}
+  labels:
+    app: userinfo-api
+    {{- include "growbin-backend.labels" . | nindent 4 }}
+spec:
+  type: NodePort
+  ports:
+  - port: {{ .Values.api.userinfo.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app: userinfo-api
+{{- end }}
+

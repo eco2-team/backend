@@ -1,0 +1,90 @@
+---
+# Ansible Playbook: Install AWS Load Balancer Controller
+# ALB Ingress Controller 자동 설치
+
+- name: Install AWS Load Balancer Controller
+  hosts: masters
+  become: yes
+  vars:
+    cluster_name: "{{ cluster_name | default('k8s-cluster') }}"
+    aws_region: "{{ aws_region | default('ap-northeast-2') }}"
+    controller_version: "v2.7.0"
+  
+  tasks:
+    - name: Check if kubectl is available
+      command: kubectl version --client
+      register: kubectl_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Add EKS Helm repository
+      command: helm repo add eks https://aws.github.io/eks-charts
+      register: helm_repo_add
+      changed_when: "'has been added' in helm_repo_add.stdout"
+      failed_when: false
+    
+    - name: Update Helm repositories
+      command: helm repo update
+      changed_when: false
+    
+    - name: Check if AWS Load Balancer Controller is already installed
+      command: helm list -n kube-system -o json
+      register: helm_list
+      changed_when: false
+    
+    - name: Parse Helm list output
+      set_fact:
+        controller_installed: "{{ (helm_list.stdout | from_json) | selectattr('name', 'equalto', 'aws-load-balancer-controller') | list | length > 0 }}"
+    
+    - name: Install AWS Load Balancer Controller
+      command: >
+        helm install aws-load-balancer-controller eks/aws-load-balancer-controller
+        -n kube-system
+        --set clusterName={{ cluster_name }}
+        --set serviceAccount.create=true
+        --set serviceAccount.name=aws-load-balancer-controller
+        --set region={{ aws_region }}
+        --set vpcId={{ vpc_id }}
+      when: not controller_installed
+      register: helm_install
+    
+    - name: Wait for ALB Controller deployment
+      command: kubectl wait --for=condition=available --timeout=300s deployment/aws-load-balancer-controller -n kube-system
+      when: not controller_installed
+    
+    - name: Verify ALB Controller is running
+      command: kubectl get deployment -n kube-system aws-load-balancer-controller
+      register: controller_status
+      changed_when: false
+    
+    - name: Display ALB Controller status
+      debug:
+        msg: "{{ controller_status.stdout_lines }}"
+    
+    - name: Check ALB Controller logs
+      command: kubectl logs -n kube-system deployment/aws-load-balancer-controller --tail=20
+      register: controller_logs
+      changed_when: false
+      failed_when: false
+    
+    - name: Display recent logs
+      debug:
+        msg: "{{ controller_logs.stdout_lines }}"
+      when: controller_logs.rc == 0
+    
+    - name: Verify IngressClass is available
+      command: kubectl get ingressclass alb
+      register: ingressclass_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Display IngressClass status
+      debug:
+        msg: |
+          {% if ingressclass_check.rc == 0 %}
+          ✅ ALB IngressClass is available
+          {% else %}
+          ⚠️  ALB IngressClass not found - may need manual verification
+          {% endif %}
+
+
