@@ -1,0 +1,51 @@
+---
+# Growbin Backend - Worker Services ApplicationSet
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: growbin-worker-services
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - worker: storage
+            namespace: workers
+            replicas: "2"
+            poolType: eventlet
+          - worker: ai
+            namespace: workers
+            replicas: "2"
+            poolType: prefork
+  
+  template:
+    metadata:
+      name: 'growbin-worker-{{worker}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/SeSACTHON/backend.git
+        targetRevision: HEAD
+        path: charts/growbin-backend
+        helm:
+          valueFiles:
+            - values-13nodes.yaml
+          parameters:
+            - name: "worker.{{worker}}.enabled"
+              value: "true"
+            - name: "worker.{{worker}}.replicas"
+              value: "{{replicas}}"
+            - name: "worker.{{worker}}.poolType"
+              value: "{{poolType}}"
+      
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+

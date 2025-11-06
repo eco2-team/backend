@@ -1,0 +1,315 @@
+name: Deploy API Services
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'services/**'
+      - 'charts/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'services/**'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: sesacthon
+
+jobs:
+  # 변경된 서비스 감지
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      waste: ${{ steps.changes.outputs.waste }}
+      auth: ${{ steps.changes.outputs.auth }}
+      userinfo: ${{ steps.changes.outputs.userinfo }}
+      location: ${{ steps.changes.outputs.location }}
+      recycle-info: ${{ steps.changes.outputs.recycle-info }}
+      chat-llm: ${{ steps.changes.outputs.chat-llm }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            waste:
+              - 'services/waste-api/**'
+            auth:
+              - 'services/auth-api/**'
+            userinfo:
+              - 'services/userinfo-api/**'
+            location:
+              - 'services/location-api/**'
+            recycle-info:
+              - 'services/recycle-info-api/**'
+            chat-llm:
+              - 'services/chat-llm-api/**'
+
+  # Waste API 빌드 & 배포
+  build-waste:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.waste == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/waste-api
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=short
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/waste-api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Update Helm values
+        if: github.ref == 'refs/heads/main'
+        run: |
+          NEW_TAG="${{ github.sha }}"
+          sed -i "s|tag: .*|tag: ${NEW_TAG}|" charts/growbin-backend/values.yaml
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add charts/growbin-backend/values.yaml
+          git commit -m "chore: Update waste-api image to ${NEW_TAG}"
+          git push
+
+  # Auth API 빌드 & 배포
+  build-auth:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.auth == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/auth-api
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=short
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/auth-api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Update Helm values
+        if: github.ref == 'refs/heads/main'
+        run: |
+          NEW_TAG="${{ github.sha }}"
+          sed -i "s|tag: .*  # auth-api|tag: ${NEW_TAG}  # auth-api|" charts/growbin-backend/values.yaml
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add charts/growbin-backend/values.yaml
+          git commit -m "chore: Update auth-api image to ${NEW_TAG}"
+          git push
+
+  # Userinfo API 빌드 & 배포
+  build-userinfo:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.userinfo == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/userinfo-api
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=short
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/userinfo-api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Location API 빌드 & 배포
+  build-location:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.location == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/location-api
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=short
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/location-api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Recycle Info API 빌드 & 배포
+  build-recycle-info:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.recycle-info == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/recycle-info-api
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=short
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/recycle-info-api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Chat LLM API 빌드 & 배포
+  build-chat-llm:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.chat-llm == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/chat-llm-api
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=short
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/chat-llm-api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+

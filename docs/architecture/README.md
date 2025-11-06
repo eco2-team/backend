@@ -55,8 +55,8 @@
 ### 네트워크 & CNI
 
 10. [Calico CNI 비교](../infrastructure/cni-comparison.md)
-    - Flannel → Calico 전환
-    - VXLAN vs BGP
+   - Flannel → Calico 전환
+   - VXLAN vs BGP
 
 11. [ALB & Calico 패턴](ALB_CALICO_PATTERNS_RESEARCH.md)
     - target-type: instance
@@ -65,7 +65,7 @@
 ### 추가 검토
    
 12. [Polling vs WebSocket](polling-vs-websocket.md)
-    - 실시간 통신 방식
+   - 실시간 통신 방식
 
 ---
 
