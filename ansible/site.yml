@@ -1,260 +1,103 @@
-# Kubernetes 클러스터 전체 설정
 ---
-- name: Prerequisites - OS 설정
-  hosts: k8s_cluster
+# Ansible Playbook: 전체 배포 (13 Node 구조)
+- name: Setup Kubernetes Cluster (13 Nodes)
+  hosts: all
   become: yes
   gather_facts: yes
-  roles:
-    - common
-
-- name: Docker 설치
-  hosts: k8s_cluster
-  become: yes
-  roles:
-    - docker
-
-- name: Kubernetes 패키지 설치
-  hosts: k8s_cluster
-  become: yes
-  roles:
-    - kubernetes
-
-- name: Master 초기화
-  hosts: masters
-  become: yes
-  tasks:
-    - import_tasks: playbooks/02-master-init.yml
-
-- name: Workers 조인 (All Worker Nodes)
-  hosts: workers,rabbitmq,postgresql,redis,monitoring
-  become: yes
-  tasks:
-    - import_tasks: playbooks/03-worker-join.yml
-  # ⚠️ Worker join 실패 시 여기서 중단됨
-
-- name: Worker 노드 Provider ID 설정 (ALB Controller 필수)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/03-1-set-provider-id.yml
-
-- name: CNI 플러그인 설치 및 클러스터 검증 (AWS VPC CNI)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - include_tasks: playbooks/04-cni-install-vpc.yml
-      when: cni_plugin == 'vpc-cni'
-  # ⚠️ 노드 Ready 실패 시 여기서 중단됨
   
-- name: CNI 플러그인 설치 및 클러스터 검증 (Calico)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
   tasks:
-    - include_tasks: playbooks/04-cni-install.yml
-      when: cni_plugin != 'vpc-cni'
+    - name: Display cluster info
+      debug:
+        msg: "Setting up 13-node Kubernetes cluster: 1 Master + 6 API + 2 Workers + 4 Infrastructure"
+      run_once: true
 
-- name: 노드 레이블 지정
+# Master 노드 설정
+- name: Initialize Kubernetes Master
+  import_playbook: roles/master/tasks/main.yml
+  when: "'masters' in group_names"
+
+# Worker 노드 Join
+- name: Join Worker Nodes
+  import_playbook: roles/worker/tasks/main.yml
+  when: "'masters' not in group_names"
+
+# 노드 라벨링
+- name: Label All Nodes
+  import_playbook: label-nodes.yml
+
+# Helm 설치
+- name: Install Helm
+  import_playbook: roles/helm/tasks/main.yml
+  when: "'masters' in group_names"
+
+# ArgoCD 설치
+- name: Install ArgoCD
+  import_playbook: roles/argocd/tasks/main.yml
+  when: "'masters' in group_names"
+
+# Monitoring 설치
+- name: Install Prometheus & Grafana
+  import_playbook: roles/monitoring/tasks/main.yml
+  when: "'monitoring' in group_names"
+
+# RabbitMQ 설치
+- name: Install RabbitMQ
+  import_playbook: roles/rabbitmq/tasks/main.yml
+  when: "'rabbitmq' in group_names"
+
+# PostgreSQL 설치
+- name: Install PostgreSQL
+  import_playbook: roles/postgresql/tasks/main.yml
+  when: "'postgresql' in group_names"
+
+# Redis 설치
+- name: Install Redis
+  import_playbook: roles/redis/tasks/main.yml
+  when: "'redis' in group_names"
+
+# ArgoCD Application 배포
+- name: Deploy ArgoCD Application
   hosts: masters
   become: yes
-  become_user: "{{ kubectl_user }}"
   tasks:
-    - name: Label worker-1 (Application)
-      command: kubectl label nodes k8s-worker-1 workload=application instance-type=t3.medium role=application --overwrite
-      register: label_worker1
-      failed_when: label_worker1.rc != 0
+    - name: Apply ArgoCD Application
+      shell: kubectl apply -f /root/argocd/application.yaml
+      args:
+        chdir: /root
     
-    - name: Label worker-2 (Async Workers)
-      command: kubectl label nodes k8s-worker-2 workload=async-workers instance-type=t3.medium role=workers --overwrite
-      register: label_worker2
-      failed_when: label_worker2.rc != 0
+    - name: Get ArgoCD Application status
+      shell: kubectl get applications -n argocd
+      register: app_status
     
-    - name: Label rabbitmq (Message Queue)
-      command: kubectl label nodes k8s-rabbitmq workload=message-queue instance-type=t3.small role=message-queue --overwrite
-      register: label_rabbitmq
-      failed_when: label_rabbitmq.rc != 0
+    - name: Display ArgoCD status
+      debug:
+        var: app_status.stdout_lines
+
+# 최종 확인
+- name: Verify Cluster Status
+  hosts: masters
+  become: yes
+  tasks:
+    - name: Get all nodes
+      shell: kubectl get nodes -o wide
+      register: nodes
     
-    - name: Label postgresql (Database)
-      command: kubectl label nodes k8s-postgresql workload=database instance-type=t3.small role=database --overwrite
-      register: label_postgresql
-      failed_when: label_postgresql.rc != 0
+    - name: Get all namespaces
+      shell: kubectl get ns
+      register: namespaces
     
-    - name: Label redis (Cache)
-      command: kubectl label nodes k8s-redis workload=cache instance-type=t3.small role=cache --overwrite
-      register: label_redis
-      failed_when: label_redis.rc != 0
+    - name: Get all pods
+      shell: kubectl get pods --all-namespaces
+      register: pods
     
-    - name: Label monitoring (Prometheus + Grafana)
-      command: kubectl label nodes k8s-monitoring workload=monitoring instance-type=t3.medium role=monitoring --overwrite
-      register: label_monitoring
-      failed_when: label_monitoring.rc != 0
-    
-    - name: Verify rabbitmq node label
-      command: kubectl get nodes k8s-rabbitmq -L workload --no-headers
-      register: verify_rabbitmq_label
-      failed_when: "'message-queue' not in verify_rabbitmq_label.stdout"
-      changed_when: false
-    
-    - name: Verify postgresql node label
-      command: kubectl get nodes k8s-postgresql -L workload --no-headers
-      register: verify_postgresql_label
-      failed_when: "'database' not in verify_postgresql_label.stdout"
-      changed_when: false
-    
-    - name: Verify redis node label
-      command: kubectl get nodes k8s-redis -L workload --no-headers
-      register: verify_redis_label
-      failed_when: "'cache' not in verify_redis_label.stdout"
-      changed_when: false
-    
-    - name: Verify monitoring node label
-      command: kubectl get nodes k8s-monitoring -L workload --no-headers
-      register: verify_monitoring_label
-      failed_when: "'monitoring' not in verify_monitoring_label.stdout"
-      changed_when: false
-    
-    - name: Display node labels
+    - name: Display cluster status
       debug:
         msg:
-          - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          - "✅ 노드 레이블 적용 완료"
-          - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          - "k8s-worker-1: workload=application"
-          - "k8s-worker-2: workload=async-workers"
-          - "k8s-rabbitmq: workload=message-queue ✅"
-          - "k8s-postgresql: workload=database ✅"
-          - "k8s-redis: workload=cache ✅"
-          - "k8s-monitoring: workload=monitoring ✅"
-
-- name: Add-ons 설치 (Cert-manager, Metrics)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/05-addons.yml
-    - import_tasks: playbooks/06-cert-manager-issuer.yml
-
-- name: AWS EBS CSI Driver 및 StorageClass 설정
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/05-1-ebs-csi-driver.yml
-
-- name: AWS Load Balancer Controller 설치
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/07-alb-controller.yml
-
-- name: IngressClass 리소스 생성 (Kubernetes v1.22+ 표준)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/07-1-ingress-class.yml
-
-- name: ArgoCD 설치
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  roles:
-    - argocd
-
-- name: Monitoring 설치 (Prometheus Operator - ServiceMonitor CRD 제공)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/08-monitoring.yml
-
-- name: "RabbitMQ 설치 (Tier 3: Message Queue)"
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  roles:
-    - rabbitmq
-
-- name: "Redis 설치 (Tier 4: Persistence - Cache & State)"
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  roles:
-    - redis
-
-- name: "PostgreSQL 설치 (Tier 4: Persistence - Database)"
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  roles:
-    - postgresql
-
-- name: Ingress 리소스 생성 (ALB 자동 생성)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/07-ingress-resources.yml
-
-- name: etcd 백업 설정
-  hosts: masters
-  become: yes
-  tasks:
-    - import_tasks: playbooks/09-etcd-backup.yml
-
-- name: 클러스터 정보 출력
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - name: Get nodes
-      command: kubectl get nodes -o wide
-      register: nodes_output
-    
-    - name: Display nodes
-      debug:
-        msg: "{{ nodes_output.stdout_lines }}"
-    
-    - name: etcd 상태 확인
-      shell: |
-        ETCDCTL_API=3 etcdctl endpoint health \
-          --endpoints=https://127.0.0.1:2379 \
-          --cacert=/etc/kubernetes/pki/etcd/ca.crt \
-          --cert=/etc/kubernetes/pki/etcd/server.crt \
-          --key=/etc/kubernetes/pki/etcd/server.key
-      register: etcd_health
-      changed_when: false
-      failed_when: false
-    
-    - name: etcd 상태 출력
-      debug:
-        msg: "{{ etcd_health.stdout_lines if etcd_health.rc == 0 else 'etcd health check failed' }}"
-    
-    - name: Get ArgoCD initial password
-      shell: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-      register: argocd_password
-      ignore_errors: yes
-    
-    - name: Display ArgoCD info
-      debug:
-        msg:
-          - "ArgoCD URL: https://{{ ansible_host }}:8080"
-          - "Username: admin"
-          - "Password: {{ argocd_password.stdout }}"
-      when: argocd_password is succeeded
-
-# Route53 A 레코드 업데이트 (ALB 연결)
-- name: Route53 업데이트 (ALB 연결)
-  hosts: localhost
-  connection: local
-  become: no
-  gather_facts: no
-  vars:
-    aws_region: "{{ lookup('pipe', 'cd ../terraform && terraform output -raw aws_region') }}"
-    domain_name: "{{ lookup('pipe', 'cd ../terraform && terraform output -json dns_records | jq -r .apex_domain | sed \"s|https://||\"') }}"
-  tasks:
-    - import_tasks: playbooks/09-route53-update.yml
-
+          - "=== NODES ==="
+          - "{{ nodes.stdout_lines }}"
+          - ""
+          - "=== NAMESPACES ==="
+          - "{{ namespaces.stdout_lines }}"
+          - ""
+          - "=== PODS ==="
+          - "{{ pods.stdout_lines }}"

@@ -1,0 +1,52 @@
+{{- if .Values.workers.imageUploader.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-uploader
+  namespace: {{ .Values.namespaces.workers }}
+  labels:
+    app: image-uploader
+    component: worker
+    queue: q.image_upload
+    {{- include "growbin-backend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.workers.imageUploader.replicas }}
+  selector:
+    matchLabels:
+      app: image-uploader
+  template:
+    metadata:
+      labels:
+        app: image-uploader
+        component: worker
+        queue: q.image_upload
+    spec:
+      {{- with .Values.workers.imageUploader.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: worker
+        image: "{{ .Values.workers.imageUploader.image.repository }}:{{ .Values.workers.imageUploader.image.tag | default .Values.global.image.tag }}"
+        imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+        command:
+          {{- toYaml .Values.workers.imageUploader.command | nindent 10 }}
+        env:
+        {{- range .Values.workers.common.env }}
+        - name: {{ .name }}
+          value: {{ .value | quote }}
+        {{- end }}
+        {{- range .Values.workers.imageUploader.env }}
+        - name: {{ .name }}
+          {{- if .value }}
+          value: {{ .value | quote }}
+          {{- else if .valueFrom }}
+          valueFrom:
+            {{- toYaml .valueFrom | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.workers.imageUploader.resources | nindent 10 }}
+{{- end }}
+

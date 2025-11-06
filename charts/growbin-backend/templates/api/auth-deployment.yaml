@@ -1,0 +1,81 @@
+{{- if .Values.api.auth.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-api
+  namespace: {{ .Values.namespaces.api }}
+  labels:
+    app: auth-api
+    component: api
+    domain: auth
+    {{- include "growbin-backend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.auth.replicas }}
+  selector:
+    matchLabels:
+      app: auth-api
+  template:
+    metadata:
+      labels:
+        app: auth-api
+        component: api
+        domain: auth
+    spec:
+      {{- with .Values.api.common.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: api
+        image: "{{ .Values.api.auth.image.repository }}:{{ .Values.api.auth.image.tag | default .Values.global.image.tag }}"
+        imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.api.auth.port }}
+          protocol: TCP
+        env:
+        {{- range .Values.api.auth.env }}
+        - name: {{ .name }}
+          {{- if .value }}
+          value: {{ .value | quote }}
+          {{- else if .valueFrom }}
+          valueFrom:
+            {{- toYaml .valueFrom | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        - name: DATABASE_URL
+          value: "postgresql://{{ .Values.secrets.postgresql.username }}:{{ .Values.secrets.postgresql.password }}@{{ .Values.externalServices.postgresql.host }}:{{ .Values.externalServices.postgresql.port }}/{{ .Values.externalServices.postgresql.database }}"
+        - name: REDIS_URL
+          value: "redis://{{ .Values.externalServices.redis.host }}:{{ .Values.externalServices.redis.port }}/0"
+        {{- if .Values.api.auth.livenessProbe }}
+        livenessProbe:
+          {{- toYaml .Values.api.auth.livenessProbe | nindent 10 }}
+        {{- end }}
+        {{- if .Values.api.auth.readinessProbe }}
+        readinessProbe:
+          {{- toYaml .Values.api.auth.readinessProbe | nindent 10 }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.api.auth.resources | nindent 10 }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-api
+  namespace: {{ .Values.namespaces.api }}
+  labels:
+    app: auth-api
+    {{- include "growbin-backend.labels" . | nindent 4 }}
+spec:
+  type: NodePort
+  ports:
+  - port: {{ .Values.api.auth.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app: auth-api
+{{- end }}
+

@@ -1,0 +1,344 @@
+# Growbin Backend - Helm Chart Values (13 Node Microservices)
+# 각 API는 독립된 노드에서 실행
+
+# Global 설정
+global:
+  image:
+    registry: ghcr.io
+    repository: sesacthon
+    tag: latest
+    pullPolicy: Always
+  
+  domain: growbin.app
+  
+  # 환경 변수
+  env:
+    - name: ENVIRONMENT
+      value: "production"
+    - name: LOG_LEVEL
+      value: "info"
+
+# Namespace 설정
+namespaces:
+  api: api
+  workers: workers
+  data: data
+  messaging: messaging
+
+# 외부 서비스 연결
+externalServices:
+  postgresql:
+    host: postgresql.data.svc.cluster.local
+    port: 5432
+    database: growbin
+  
+  redis:
+    host: redis.data.svc.cluster.local
+    port: 6379
+  
+  rabbitmq:
+    host: rabbitmq.messaging.svc.cluster.local
+    port: 5672
+    managementPort: 15672
+
+# Secrets
+secrets:
+  postgresql:
+    username: admin
+    password: changeme
+  
+  rabbitmq:
+    username: admin
+    password: changeme
+  
+  openai:
+    apiKey: sk-xxx
+  
+  jwt:
+    secretKey: your-jwt-secret-key
+  
+  kakao:
+    apiKey: your-kakao-api-key
+
+#############################################
+# API Services (6 Independent Nodes)
+#############################################
+
+api:
+  # 공통 설정
+  common:
+    serviceAccount: api-sa
+    imagePullSecrets: []
+  
+  # Ingress 설정
+  ingress:
+    enabled: true
+    className: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: instance
+      alb.ingress.kubernetes.io/healthcheck-path: /health
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: '443'
+    host: api.growbin.app
+  
+  # 1. Waste API (메인 폐기물 분석) - 독립 노드
+  waste:
+    enabled: true
+    replicas: 3
+    port: 8000
+    path: /api/v1/waste
+    
+    nodeSelector:
+      service: waste  # k8s-api-waste 노드만 지정
+    
+    image:
+      repository: ghcr.io/sesacthon/waste-api
+      tag: latest
+    
+    resources:
+      requests:
+        cpu: 300m
+        memory: 512Mi
+      limits:
+        cpu: 800m
+        memory: 1024Mi
+    
+    env:
+      - name: SERVICE_NAME
+        value: "waste-api"
+  
+  # 2. Auth API - 독립 노드
+  auth:
+    enabled: true
+    replicas: 2
+    port: 8000
+    path: /api/v1/auth
+    
+    nodeSelector:
+      service: auth  # k8s-api-auth 노드만 지정
+    
+    image:
+      repository: ghcr.io/sesacthon/auth-api
+      tag: latest
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 400m
+        memory: 512Mi
+  
+  # 3. Userinfo API - 독립 노드
+  userinfo:
+    enabled: true
+    replicas: 2
+    port: 8000
+    path: /api/v1/users
+    
+    nodeSelector:
+      service: userinfo  # k8s-api-userinfo 노드만 지정
+    
+    image:
+      repository: ghcr.io/sesacthon/userinfo-api
+      tag: latest
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 400m
+        memory: 512Mi
+  
+  # 4. Location API - 독립 노드
+  location:
+    enabled: true
+    replicas: 2
+    port: 8000
+    path: /api/v1/locations
+    
+    nodeSelector:
+      service: location  # k8s-api-location 노드만 지정
+    
+    image:
+      repository: ghcr.io/sesacthon/location-api
+      tag: latest
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 400m
+        memory: 512Mi
+  
+  # 5. Recycle Info API - 독립 노드
+  recycleInfo:
+    enabled: true
+    replicas: 2
+    port: 8000
+    path: /api/v1/recycle
+    
+    nodeSelector:
+      service: recycle-info  # k8s-api-recycle-info 노드만 지정
+    
+    image:
+      repository: ghcr.io/sesacthon/recycle-info-api
+      tag: latest
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 400m
+        memory: 512Mi
+  
+  # 6. Chat LLM API - 독립 노드
+  chatLlm:
+    enabled: true
+    replicas: 3
+    port: 8000
+    path: /api/v1/chat
+    
+    nodeSelector:
+      service: chat-llm  # k8s-api-chat-llm 노드만 지정
+    
+    image:
+      repository: ghcr.io/sesacthon/chat-llm-api
+      tag: latest
+    
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 800m
+        memory: 1024Mi
+
+#############################################
+# Celery Workers (2 Dedicated Nodes)
+#############################################
+
+workers:
+  # 공통 설정
+  common:
+    serviceAccount: workers-sa
+    imagePullSecrets: []
+    
+    env:
+      - name: CELERY_BROKER_URL
+        value: "amqp://admin:password@rabbitmq.messaging.svc.cluster.local:5672//"
+      - name: CELERY_RESULT_BACKEND
+        value: "redis://redis.data.svc.cluster.local:6379/0"
+  
+  # 1. Image Uploader (k8s-worker-storage)
+  imageUploader:
+    enabled: true
+    replicas: 3
+    
+    nodeSelector:
+      type: storage
+      workload: async-workers
+    
+    image:
+      repository: ghcr.io/sesacthon/growbin-backend
+      tag: latest
+    
+    resources:
+      requests:
+        cpu: 300m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1024Mi
+  
+  # 2. GPT-5 Analyzer (k8s-worker-ai)
+  gpt5Analyzer:
+    enabled: true
+    replicas: 5
+    
+    nodeSelector:
+      type: ai
+      workload: async-workers
+    
+    image:
+      repository: ghcr.io/your-org/growbin-backend
+      tag: latest
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  
+  # 3. Rule Retriever (k8s-worker-storage)
+  ruleRetriever:
+    enabled: true
+    replicas: 2
+    
+    nodeSelector:
+      type: storage
+      workload: async-workers
+    
+    image:
+      repository: ghcr.io/your-org/growbin-backend
+      tag: latest
+    
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 800m
+        memory: 512Mi
+  
+  # 4. Response Generator (k8s-worker-ai)
+  responseGenerator:
+    enabled: true
+    replicas: 3
+    
+    nodeSelector:
+      type: ai
+      workload: async-workers
+    
+    image:
+      repository: ghcr.io/your-org/growbin-backend
+      tag: latest
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  
+  # 5. Task Scheduler (k8s-worker-storage)
+  taskScheduler:
+    enabled: true
+    replicas: 1  # ⚠️ 반드시 1개만!
+    
+    nodeSelector:
+      type: storage
+      workload: async-workers
+    
+    image:
+      repository: ghcr.io/your-org/growbin-backend
+      tag: latest
+    
+    strategy:
+      type: Recreate
+    
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+

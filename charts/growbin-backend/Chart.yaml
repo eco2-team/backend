@@ -1,0 +1,16 @@
+apiVersion: v2
+name: growbin-backend
+description: Growbin Backend Services - Complete API & Worker Platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - waste
+  - recycling
+  - api
+  - celery
+  - gpt5
+maintainers:
+  - name: Growbin Team
+    email: admin@growbin.app
+
