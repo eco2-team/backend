@@ -131,6 +131,8 @@ echo "   - Worker: 2 (t3a.large)"
 echo "   - Infrastructure: 4 (t3a.medium)"
 echo ""
 
+cd "$PROJECT_ROOT/terraform"
+
 echo "🔧 Terraform 초기화 (재확인)..."
 terraform init -migrate-state -upgrade
 echo ""
