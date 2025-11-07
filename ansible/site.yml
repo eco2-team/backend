@@ -56,12 +56,7 @@
     - include_tasks: playbooks/04-cni-install.yml
       when: cni_plugin != 'vpc-cni'
 
-- name: 노드 레이블 지정 (13-Node Architecture)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/label-nodes.yml
+- import_playbook: playbooks/label-nodes.yml
 
 - name: Add-ons 설치 (Cert-manager, Metrics)
   hosts: masters
