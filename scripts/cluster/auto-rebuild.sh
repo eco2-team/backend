@@ -1,61 +1,401 @@
 #!/bin/bash
-# 완전 자동 재구축 (확인 없이 진행)
-# 1. cleanup.sh 실행 (인프라 및 구성요소 삭제)
-# 2. build-cluster.sh 실행 (인프라 구축)
+# 완전 자동 재구축 - 13-Node Architecture + v0.6.0
+# 1. Terraform destroy (기존 인프라 삭제)
+# 2. Terraform apply (13-Node 인프라 구축)
+# 3. Ansible playbook (Kubernetes 설치)
+# 4. Monitoring Stack 배포 (Prometheus/Grafana)
+# 5. Worker 이미지 빌드 & 배포 (Storage/AI Workers)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🤖 완전 자동 재구축 시작"
+echo "🤖 완전 자동 재구축 시작 (13-Node + v0.6.0)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "⚠️  확인 프롬프트 없이 자동 실행됩니다!"
 echo ""
 echo "📋 실행 순서:"
-echo "   1️⃣  cleanup.sh (인프라 및 구성요소 삭제)"
-echo "   2️⃣  build-cluster.sh (인프라 구축)"
+echo "   1️⃣  Terraform destroy (기존 인프라 삭제)"
+echo "   2️⃣  Terraform apply (13-Node 인프라 구축)"
+echo "   3️⃣  Ansible playbook (Kubernetes 설치)"
+echo "   4️⃣  Monitoring Stack 배포 (원격)"
+echo "   5️⃣  Worker 이미지 빌드 (로컬)"
+echo "   6️⃣  Worker 배포 (원격)"
+echo ""
+echo "⏱️  예상 소요 시간: 50-70분"
+echo ""
+
+# 환경 변수 확인
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔍 환경 변수 확인"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Docker 및 GHCR 인증 확인
+if [ -z "$GITHUB_TOKEN" ] || [ -z "$GITHUB_USERNAME" ]; then
+    echo "⚠️  경고: GITHUB_TOKEN 또는 GITHUB_USERNAME이 설정되지 않았습니다."
+    echo "   Worker 이미지 빌드를 건너뛰고 진행합니다."
+    echo ""
+    SKIP_WORKER_BUILD=true
+else
+    SKIP_WORKER_BUILD=false
+    echo "✅ GitHub 인증 정보 확인됨"
+fi
+
+# 버전 설정
+VERSION=${VERSION:-v0.6.0}
+echo "   Version: $VERSION"
 echo ""
 
 # 자동 모드 설정
 export AUTO_MODE=true
 
-# 1. 인프라 및 구성요소 삭제
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Step 1: Terraform Destroy
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "1️⃣ 인프라 및 구성요소 삭제 (cleanup.sh)"
+echo "1️⃣ Terraform Destroy - 기존 인프라 삭제"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# cleanup.sh가 없으면 destroy-with-cleanup.sh 사용 (하위 호환)
-CLEANUP_SCRIPT="$SCRIPT_DIR/cleanup.sh"
-if [ ! -f "$CLEANUP_SCRIPT" ]; then
-    CLEANUP_SCRIPT="$SCRIPT_DIR/destroy-with-cleanup.sh"
+cd "$PROJECT_ROOT/terraform"
+
+echo "🔧 Terraform 초기화..."
+terraform init -migrate-state -upgrade
+echo ""
+
+# 기존 리소스 확인
+if terraform state list >/dev/null 2>&1; then
+    RESOURCE_COUNT=$(terraform state list 2>/dev/null | wc -l | tr -d ' ')
+    
+    if [ "$RESOURCE_COUNT" -gt 0 ]; then
+        echo "📊 현재 리소스 개수: $RESOURCE_COUNT"
+        echo ""
+        echo "🗑️  Terraform destroy 실행..."
+        
+        set +e  # destroy 실패해도 계속 진행
+        terraform destroy -auto-approve
+        DESTROY_EXIT_CODE=$?
+        set -e
+        
+        if [ $DESTROY_EXIT_CODE -ne 0 ]; then
+            echo ""
+            echo "⚠️  Terraform destroy 실패 (exit code: $DESTROY_EXIT_CODE)"
+            echo "   일부 리소스가 남아있을 수 있습니다."
+            echo "   계속 진행합니다..."
+            echo ""
+        else
+            echo "✅ 기존 인프라 삭제 완료"
+        fi
+        
+        # AWS 리소스 완전 삭제 대기
+        echo ""
+        echo "⏳ AWS 리소스 완전 삭제 대기 (30초)..."
+        sleep 30
+    else
+        echo "ℹ️  기존 인프라가 없습니다."
+    fi
+else
+    echo "ℹ️  State 파일이 없습니다. 새로운 배포입니다."
 fi
 
-set +e  # cleanup 실패해도 계속 진행
-"$CLEANUP_SCRIPT"
-CLEANUP_EXIT_CODE=$?
-set -e  # 다시 에러 체크 활성화
+echo ""
 
-if [ $CLEANUP_EXIT_CODE -ne 0 ]; then
-    echo ""
-    echo "⚠️  cleanup.sh 실패 (exit code: $CLEANUP_EXIT_CODE)"
-    echo "   일부 리소스가 남아있을 수 있습니다."
-    echo "   계속 진행합니다..."
-    echo ""
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Step 2: Terraform Apply (13-Node)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "2️⃣ Terraform Apply - 13-Node 인프라 구축"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+echo "📋 13-Node 구성:"
+echo "   - Master: 1 (t3a.large)"
+echo "   - API: 6 (t3a.medium)"
+echo "   - Worker: 2 (t3a.large)"
+echo "   - Infrastructure: 4 (t3a.medium)"
+echo ""
+
+echo "🔧 Terraform 초기화 (재확인)..."
+terraform init -migrate-state -upgrade
+echo ""
+
+echo "🚀 Terraform apply 실행..."
+terraform apply -auto-approve
+
+if [ $? -ne 0 ]; then
+    echo "❌ Terraform apply 실패!"
+    exit 1
 fi
 
-# 2. 인프라 구축
+echo "✅ 13-Node 인프라 생성 완료"
 echo ""
+
+# 인스턴스 정보 출력
+echo "📋 생성된 인스턴스 정보:"
+terraform output -json | jq -r '
+  "Master: " + (.master_public_ip.value // "N/A"),
+  "API Nodes: " + ((.api_nodes_public_ips.value // []) | length | tostring) + " nodes",
+  "Worker Nodes: " + ((.worker_nodes_public_ips.value // []) | length | tostring) + " nodes",
+  "Infrastructure Nodes: " + ((.infra_nodes_public_ips.value // []) | length | tostring) + " nodes"
+' 2>/dev/null || echo "  (인스턴스 정보 확인 중...)"
+echo ""
+
+# Master IP 저장 (나중에 사용)
+MASTER_IP=$(terraform output -raw master_public_ip 2>/dev/null || echo "")
+VPC_ID=$(terraform output -raw vpc_id 2>/dev/null || echo "")
+ACM_ARN=$(terraform output -raw acm_certificate_arn 2>/dev/null || echo "")
+
+echo "  Master IP: $MASTER_IP"
+echo "  VPC ID: $VPC_ID"
+echo ""
+
+# SSM Agent 등록 대기
+echo "⏳ SSM Agent 등록 및 초기화 대기 (90초)..."
+sleep 90
+echo ""
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Step 3: Ansible Playbook
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "2️⃣ 인프라 구축 (build-cluster.sh)"
+echo "3️⃣ Ansible Playbook - Kubernetes 설치"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-"$SCRIPT_DIR/build-cluster.sh"
+# Ansible Inventory 생성
+echo "📝 Ansible inventory 생성 중..."
+terraform output -raw ansible_inventory > "$PROJECT_ROOT/ansible/inventory/hosts.ini"
+
+if [ $? -ne 0 ]; then
+    echo "❌ Inventory 생성 실패!"
+    exit 1
+fi
+
+echo "✅ Inventory 생성 완료"
+echo ""
+
+# Ansible 실행
+cd "$PROJECT_ROOT/ansible"
+
+echo "🚀 Ansible playbook 실행..."
+ansible-playbook -i inventory/hosts.ini site.yml \
+    -e "vpc_id=$VPC_ID" \
+    -e "acm_certificate_arn=$ACM_ARN"
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Ansible playbook 실패!"
+    echo ""
+    echo "디버깅 명령어:"
+    echo "  ssh ubuntu@$MASTER_IP"
+    echo "  kubectl get nodes"
+    echo "  kubectl get pods -A"
+    exit 1
+fi
+
+echo "✅ Kubernetes 설치 완료"
+echo ""
+
+# 클러스터 상태 확인 대기
+echo "⏳ 클러스터 초기화 대기 (60초)..."
+sleep 60
+echo ""
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Step 4: Monitoring Stack 배포 (원격)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "4️⃣ Monitoring Stack 배포 (Prometheus/Grafana)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+if [ -z "$MASTER_IP" ]; then
+    echo "❌ Master IP를 찾을 수 없습니다. 모니터링 배포를 건너뜁니다."
+else
+    echo "📦 모니터링 파일 복사 중..."
+    
+    # k8s/monitoring 디렉토리 복사
+    scp -r "$PROJECT_ROOT/k8s/monitoring" ubuntu@$MASTER_IP:~/
+    
+    # deploy-monitoring.sh 복사
+    scp "$PROJECT_ROOT/scripts/deploy-monitoring.sh" ubuntu@$MASTER_IP:~/
+    
+    echo "✅ 파일 복사 완료"
+    echo ""
+    
+    echo "🚀 원격으로 모니터링 배포 실행..."
+    ssh ubuntu@$MASTER_IP << 'ENDSSH'
+        # Node Exporter 배포
+        echo "📊 Node Exporter 배포..."
+        kubectl apply -f ~/monitoring/node-exporter.yaml
+        
+        # Prometheus Rules ConfigMap 생성
+        echo "📊 Prometheus Rules 생성..."
+        kubectl create configmap prometheus-rules \
+            --from-file=~/monitoring/prometheus-rules.yaml \
+            --namespace=default \
+            --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Prometheus 배포
+        echo "📊 Prometheus 배포..."
+        kubectl apply -f ~/monitoring/prometheus-deployment.yaml
+        
+        # Grafana Dashboards ConfigMap 생성
+        echo "📊 Grafana Dashboards 생성..."
+        kubectl create configmap grafana-dashboards \
+            --from-file=~/monitoring/grafana-dashboard-13nodes.json \
+            --namespace=default \
+            --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Grafana 배포
+        echo "📊 Grafana 배포..."
+        kubectl apply -f ~/monitoring/grafana-deployment.yaml
+        
+        echo ""
+        echo "✅ 모니터링 스택 배포 완료"
+        
+        # 상태 확인
+        echo ""
+        echo "📊 배포 상태:"
+        kubectl get pods -l component=monitoring
+ENDSSH
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ 모니터링 배포 성공"
+    else
+        echo "⚠️  모니터링 배포 실패 (계속 진행)"
+    fi
+fi
 
 echo ""
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Step 5: Worker 이미지 빌드 (로컬)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "5️⃣ Worker 이미지 빌드 (로컬)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+cd "$PROJECT_ROOT"
+
+if [ "$SKIP_WORKER_BUILD" = true ]; then
+    echo "⚠️  GitHub 인증 정보가 없어 Worker 빌드를 건너뜁니다."
+    echo ""
+    echo "수동으로 실행하려면:"
+    echo "  export GITHUB_TOKEN=<your-token>"
+    echo "  export GITHUB_USERNAME=<your-username>"
+    echo "  export VERSION=$VERSION"
+    echo "  ./scripts/build-workers.sh"
+    echo ""
+else
+    echo "🐳 GHCR 로그인..."
+    echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_USERNAME" --password-stdin
+    
+    if [ $? -ne 0 ]; then
+        echo "❌ GHCR 로그인 실패. Worker 빌드를 건너뜁니다."
+        SKIP_WORKER_BUILD=true
+    else
+        echo "✅ GHCR 로그인 성공"
+        echo ""
+        
+        echo "🔨 Worker 이미지 빌드..."
+        export VERSION=$VERSION
+        ./scripts/build-workers.sh
+        
+        if [ $? -eq 0 ]; then
+            echo "✅ Worker 이미지 빌드 및 푸시 완료"
+        else
+            echo "❌ Worker 이미지 빌드 실패"
+            SKIP_WORKER_BUILD=true
+        fi
+    fi
+fi
+
+echo ""
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Step 6: Worker 배포 (원격)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "6️⃣ Worker 배포 (원격)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+if [ "$SKIP_WORKER_BUILD" = true ]; then
+    echo "⚠️  Worker 이미지가 빌드되지 않아 배포를 건너뜁니다."
+    echo ""
+elif [ -z "$MASTER_IP" ]; then
+    echo "❌ Master IP를 찾을 수 없습니다. Worker 배포를 건너뜁니다."
+else
+    echo "📦 Worker 설정 파일 복사 중..."
+    
+    # k8s/workers 디렉토리 복사
+    scp -r "$PROJECT_ROOT/k8s/workers" ubuntu@$MASTER_IP:~/
+    
+    echo "✅ 파일 복사 완료"
+    echo ""
+    
+    echo "🚀 원격으로 Worker 배포 실행..."
+    ssh ubuntu@$MASTER_IP << ENDSSH
+        # Worker 배포
+        echo "📦 Worker 배포..."
+        kubectl apply -f ~/workers/worker-wal-deployments.yaml
+        
+        echo ""
+        echo "✅ Worker 배포 완료"
+        
+        # 상태 확인
+        echo ""
+        echo "📊 배포 상태:"
+        kubectl get pods -l component=worker
+        kubectl get pvc -l component=wal
+ENDSSH
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ Worker 배포 성공"
+    else
+        echo "⚠️  Worker 배포 실패"
+    fi
+fi
+
+echo ""
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 완료 요약
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅ 자동 재구축 완료!"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
 
+echo "📊 배포 결과:"
+echo "  ✅ 13-Node Kubernetes 클러스터"
+echo "  ✅ Prometheus/Grafana 모니터링"
+if [ "$SKIP_WORKER_BUILD" = false ]; then
+    echo "  ✅ Storage/AI Workers with WAL"
+else
+    echo "  ⚠️  Workers (수동 배포 필요)"
+fi
+echo ""
 
+echo "🔍 클러스터 확인:"
+if [ -n "$MASTER_IP" ]; then
+    echo "  ssh ubuntu@$MASTER_IP"
+    echo "  kubectl get nodes -o wide"
+    echo "  kubectl get pods -A"
+    echo ""
+    echo "📊 모니터링 접속:"
+    echo "  Prometheus: kubectl port-forward svc/prometheus 9090:9090"
+    echo "  Grafana: kubectl port-forward svc/grafana 3000:3000"
+    echo ""
+    echo "Grafana 비밀번호 확인:"
+    echo "  kubectl get secret grafana-admin -o jsonpath='{.data.password}' | base64 -d"
+fi
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
