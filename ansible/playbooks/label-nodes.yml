@@ -1,5 +1,5 @@
 ---
-# Label Kubernetes Nodes for 13-Node Microservices Architecture
+# Label Kubernetes Nodes for 14-Node Microservices Architecture (Phase 1&2)
 - name: Label Kubernetes Nodes
   hosts: masters
   become: yes
@@ -14,57 +14,78 @@
       delay: 10
       changed_when: false
 
-    # API Nodes - Domain Labels
-    - name: Label API Nodes
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Phase 1&2: API Nodes (5 nodes)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    - name: Label API Nodes (Phase 1&2)
       shell: |
         kubectl label node {{ item.node }} \
           workload=api \
           domain={{ item.domain }} \
+          phase={{ item.phase }} \
           node-role.kubernetes.io/api={{ item.domain }} \
           --overwrite
       loop:
-        - { node: "k8s-api-waste", domain: "waste" }
-        - { node: "k8s-api-auth", domain: "auth" }
-        - { node: "k8s-api-userinfo", domain: "userinfo" }
-        - { node: "k8s-api-location", domain: "location" }
-        - { node: "k8s-api-recycle-info", domain: "recycle-info" }
-        - { node: "k8s-api-chat-llm", domain: "chat-llm" }
+        - { node: "k8s-api-auth", domain: "auth", phase: "1" }
+        - { node: "k8s-api-my", domain: "my", phase: "1" }
+        - { node: "k8s-api-scan", domain: "scan", phase: "2" }
+        - { node: "k8s-api-character", domain: "character", phase: "2" }
+        - { node: "k8s-api-location", domain: "location", phase: "2" }
       ignore_errors: yes
 
-    # Worker Nodes - Worker Type Labels
-    - name: Label Worker-Storage Node
-      shell: |
-        kubectl label node k8s-worker-storage \
-          workload=worker-storage \
-          worker-type=io-bound \
-          pool-type=eventlet \
-          node-role.kubernetes.io/worker=storage \
-          --overwrite
-      ignore_errors: yes
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Phase 3: Extended API Nodes (주석 처리)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    - name: Label Worker-AI Node
-      shell: |
-        kubectl label node k8s-worker-ai \
-          workload=worker-ai \
-          worker-type=network-bound \
-          pool-type=prefork \
-          node-role.kubernetes.io/worker=ai \
-          --overwrite
-      ignore_errors: yes
+    # - name: Label API Nodes (Phase 3)
+    #   shell: |
+    #     kubectl label node {{ item.node }} \
+    #       workload=api \
+    #       domain={{ item.domain }} \
+    #       phase={{ item.phase }} \
+    #       node-role.kubernetes.io/api={{ item.domain }} \
+    #       --overwrite
+    #   loop:
+    #     - { node: "k8s-api-info", domain: "info", phase: "3" }
+    #     - { node: "k8s-api-chat", domain: "chat", phase: "3" }
+    #   ignore_errors: yes
 
-    # Infrastructure Nodes
-    - name: Label RabbitMQ Node
-      shell: |
-        kubectl label node k8s-rabbitmq \
-          workload=message-queue \
-          node-role.kubernetes.io/infrastructure=rabbitmq \
-          --overwrite
-      ignore_errors: yes
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Phase 4: Worker Nodes (주석 처리)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    # - name: Label Worker-Storage Node
+    #   shell: |
+    #     kubectl label node k8s-worker-storage \
+    #       workload=worker-storage \
+    #       worker-type=io-bound \
+    #       pool-type=eventlet \
+    #       phase=4 \
+    #       node-role.kubernetes.io/worker=storage \
+    #       --overwrite
+    #   ignore_errors: yes
+
+    # - name: Label Worker-AI Node
+    #   shell: |
+    #     kubectl label node k8s-worker-ai \
+    #       workload=worker-ai \
+    #       worker-type=network-bound \
+    #       pool-type=prefork \
+    #       phase=4 \
+    #       node-role.kubernetes.io/worker=ai \
+    #       --overwrite
+    #   ignore_errors: yes
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Phase 1: Infrastructure Nodes (PostgreSQL, Redis)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     - name: Label PostgreSQL Node
       shell: |
         kubectl label node k8s-postgresql \
           workload=database \
+          phase=1 \
           node-role.kubernetes.io/infrastructure=postgresql \
           --overwrite
       ignore_errors: yes
@@ -73,30 +94,61 @@
       shell: |
         kubectl label node k8s-redis \
           workload=cache \
+          phase=1 \
           node-role.kubernetes.io/infrastructure=redis \
           --overwrite
       ignore_errors: yes
 
-    - name: Label Monitoring Node
-      shell: |
-        kubectl label node k8s-monitoring \
-          workload=monitoring \
-          node-role.kubernetes.io/infrastructure=monitoring \
-          --overwrite
-      ignore_errors: yes
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Phase 4: Infrastructure Nodes (RabbitMQ, Monitoring) - 주석 처리
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    # Taints for Infrastructure Nodes
-    - name: Taint Infrastructure Nodes
+    # - name: Label RabbitMQ Node
+    #   shell: |
+    #     kubectl label node k8s-rabbitmq \
+    #       workload=message-queue \
+    #       phase=4 \
+    #       node-role.kubernetes.io/infrastructure=rabbitmq \
+    #       --overwrite
+    #   ignore_errors: yes
+
+    # - name: Label Monitoring Node
+    #   shell: |
+    #     kubectl label node k8s-monitoring \
+    #       workload=monitoring \
+    #       phase=4 \
+    #       node-role.kubernetes.io/infrastructure=monitoring \
+    #       --overwrite
+    #   ignore_errors: yes
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Taints for Infrastructure Nodes (Phase 1 only)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    - name: Taint Infrastructure Nodes (Phase 1)
       shell: |
         kubectl taint node {{ item }} \
           node-role.kubernetes.io/infrastructure=true:NoSchedule \
           --overwrite
       loop:
-        - k8s-rabbitmq
         - k8s-postgresql
         - k8s-redis
-        - k8s-monitoring
       ignore_errors: yes
+
+    # Phase 4 Taints (주석 처리)
+    # - name: Taint Infrastructure Nodes (Phase 4)
+    #   shell: |
+    #     kubectl taint node {{ item }} \
+    #       node-role.kubernetes.io/infrastructure=true:NoSchedule \
+    #       --overwrite
+    #   loop:
+    #     - k8s-rabbitmq
+    #     - k8s-monitoring
+    #   ignore_errors: yes
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Display Labels
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     - name: Display Node Labels
       shell: kubectl get nodes --show-labels
@@ -106,3 +158,20 @@
       debug:
         msg: "{{ node_labels.stdout_lines }}"
 
+    - name: Display Deployment Summary
+      debug:
+        msg: |
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          ✅ Phase 1&2 Deployment Complete (8 nodes)
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          
+          Active Nodes:
+          - Master: k8s-master
+          - API (Phase 1): auth, my
+          - API (Phase 2): scan, character, location
+          - Infrastructure: postgresql, redis
+          
+          Total: 8 nodes (16 vCPU, 22GB RAM)
+          
+          Phase 3 & 4 ready to enable when vCPU quota increases!
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

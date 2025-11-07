@@ -1,10 +1,11 @@
 #!/bin/bash
-# 완전 자동 재구축 - 13-Node Architecture + v0.6.0
+# 완전 자동 재구축 - 14-Node Architecture (Phase 1&2) + v0.6.0
+# Phase 1&2: 8 nodes (16 vCPU, 22GB RAM)
 # 1. Terraform destroy (기존 인프라 삭제)
-# 2. Terraform apply (13-Node 인프라 구축)
+# 2. Terraform apply (Phase 1&2 인프라 구축)
 # 3. Ansible playbook (Kubernetes 설치)
-# 4. Monitoring Stack 배포 (Prometheus/Grafana)
-# 5. Worker 이미지 빌드 & 배포 (Storage/AI Workers)
+# 4. Monitoring Stack 배포 (Phase 4에서 활성화)
+# 5. Worker 이미지 빌드 & 배포 (Phase 4에서 활성화)
 
 set -e
 
@@ -30,20 +31,26 @@ log "━━━━━━━━━━━━━━━━━━━━━━━━━
 log ""
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🤖 완전 자동 재구축 시작 (13-Node + v0.6.0)"
+echo "🤖 완전 자동 재구축 시작 (Phase 1&2 - 8 nodes)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "⚠️  확인 프롬프트 없이 자동 실행됩니다!"
 echo ""
 echo "📋 실행 순서:"
 echo "   1️⃣  Terraform destroy (기존 인프라 삭제)"
-echo "   2️⃣  Terraform apply (13-Node 인프라 구축)"
+echo "   2️⃣  Terraform apply (Phase 1&2 인프라 구축 - 8 nodes)"
 echo "   3️⃣  Ansible playbook (Kubernetes 설치)"
-echo "   4️⃣  Monitoring Stack 배포 (원격)"
-echo "   5️⃣  Worker 이미지 빌드 (로컬)"
-echo "   6️⃣  Worker 배포 (원격)"
+echo "   4️⃣  Monitoring Stack 배포 (Phase 4에서 활성화)"
+echo "   5️⃣  Worker 이미지 빌드 (Phase 4에서 활성화)"
+echo "   6️⃣  Worker 배포 (Phase 4에서 활성화)"
 echo ""
-echo "⏱️  예상 소요 시간: 50-70분"
+echo "📊 Phase 1&2 구성:"
+echo "   - Master (t3.large, 8GB)"
+echo "   - API Nodes: auth, my, scan, character, location (5 nodes)"
+echo "   - Infrastructure: PostgreSQL, Redis (2 nodes)"
+echo "   - Total: 8 nodes, 16 vCPU, 22GB RAM"
+echo ""
+echo "⏱️  예상 소요 시간: 40-50분"
 echo ""
 
 # 환경 변수 확인
@@ -135,19 +142,20 @@ fi
 echo ""
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Step 2: Terraform Apply (13-Node)
+# Step 2: Terraform Apply (Phase 1&2 - 8 nodes)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "2️⃣ Terraform Apply - 13-Node 인프라 구축"
+echo "2️⃣ Terraform Apply - Phase 1&2 인프라 구축 (8 nodes)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-echo "📋 13-Node 구성 (최적화):"
-echo "   - Master: 1 (t3.large)"
-echo "   - API: 6 (t3.micro/small)"
-echo "   - Worker: 2 (t3.small)"
-echo "   - Infrastructure: 4 (t3.small/medium)"
-echo "   - 총 vCPU: 15 (16 한도 내)"
+echo "📋 Phase 1&2 구성:"
+echo "   - Control Plane: 1 (t3.large)"
+echo "   - API Phase 1: 2 (auth, my - t3.micro)"
+echo "   - API Phase 2: 3 (scan, character, location - t3.small/micro)"
+echo "   - Infrastructure: 2 (PostgreSQL, Redis - t3.medium/small)"
+echo "   - 총 vCPU: 16 (한도 16 내)"
+echo "   - 총 메모리: 22GB"
 echo ""
 
 cd "$PROJECT_ROOT/terraform"
