@@ -15,8 +15,8 @@ k8s-api-recycle-info ansible_host=${api_recycle_info_public_ip} private_ip=${api
 k8s-api-chat-llm ansible_host=${api_chat_llm_public_ip} private_ip=${api_chat_llm_private_ip} domain=chat-llm instance_type=t3.small
 
 [workers]
-k8s-worker-storage ansible_host=${worker_storage_public_ip} private_ip=${worker_storage_private_ip} workload=worker-storage worker_type=io-bound instance_type=t3.medium
-k8s-worker-ai ansible_host=${worker_ai_public_ip} private_ip=${worker_ai_private_ip} workload=worker-ai worker_type=network-bound instance_type=t3.medium
+k8s-worker-storage ansible_host=${worker_storage_public_ip} private_ip=${worker_storage_private_ip} workload=worker-storage worker_type=io-bound instance_type=t3.small
+k8s-worker-ai ansible_host=${worker_ai_public_ip} private_ip=${worker_ai_private_ip} workload=worker-ai worker_type=network-bound instance_type=t3.small
 
 [rabbitmq]
 k8s-rabbitmq ansible_host=${rabbitmq_public_ip} private_ip=${rabbitmq_private_ip} workload=message-queue instance_type=t3.small
@@ -28,7 +28,7 @@ k8s-postgresql ansible_host=${postgresql_public_ip} private_ip=${postgresql_priv
 k8s-redis ansible_host=${redis_public_ip} private_ip=${redis_private_ip} workload=cache instance_type=t3.small
 
 [monitoring]
-k8s-monitoring ansible_host=${monitoring_public_ip} private_ip=${monitoring_private_ip} workload=monitoring instance_type=t3.large
+k8s-monitoring ansible_host=${monitoring_public_ip} private_ip=${monitoring_private_ip} workload=monitoring instance_type=t3.medium
 
 [k8s_cluster:children]
 masters

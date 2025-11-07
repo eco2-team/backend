@@ -209,9 +209,9 @@ output "cluster_info" {
       module.monitoring.public_ip
     ]
     total_nodes        = 13
-    total_vcpu         = 18  # 2+1*4+1+1+2+2+2+1+1+1+2
-    total_memory_gb    = 26  # 8+2*2+1*4+4+4+2+4+2+8
-    estimated_cost_usd = 180  # t3.large*2 + t3.medium*3 + t3.small*4 + t3.micro*4
+    total_vcpu         = 15  # 최적화: 2+1*6+1*2+2+1+2
+    total_memory_gb    = 38  # 8+2*2+1*4+2*2+4+2+4
+    estimated_cost_usd = 238  # 최적화: t3.large*1 + t3.medium*3 + t3.small*6 + t3.micro*4
   }
 }
 
@@ -226,12 +226,12 @@ output "node_roles" {
     api_location     = "Location & Map API (t3.micro, 1GB)"
     api_recycle_info = "Recycle Information API (t3.micro, 1GB)"
     api_chat_llm     = "Chat LLM API (t3.small, 2GB)"
-    worker_storage   = "Storage Worker - I/O Bound (t3.medium, 4GB)"
-    worker_ai        = "AI Worker - Network Bound (t3.medium, 4GB)"
+    worker_storage   = "Storage Worker - I/O Bound (t3.small, 2GB)"
+    worker_ai        = "AI Worker - Network Bound (t3.small, 2GB)"
     rabbitmq         = "RabbitMQ (t3.small, 2GB)"
     postgresql       = "PostgreSQL - 도메인별 DB (t3.medium, 4GB)"
     redis            = "Redis Cache (t3.small, 2GB)"
-    monitoring       = "Prometheus + Grafana (t3.large, 8GB)"
+    monitoring       = "Prometheus + Grafana (t3.medium, 4GB)"
   }
 }
 
