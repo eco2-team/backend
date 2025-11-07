@@ -404,6 +404,245 @@ if [ -f "terraform.tfstate" ] || [ -d ".terraform" ]; then
         fi
         echo ""
         
+        # 5-1. CloudFront Distribution 확인 및 삭제 (S3 버킷 연결된 경우)
+        echo "🌐 CloudFront Distribution 확인..."
+        CF_DISTRIBUTIONS=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?contains(Origins.Items[].DomainName, 'sesacthon-images')].Id" \
+            --output text 2>/dev/null || echo "")
+        
+        if [ -n "$CF_DISTRIBUTIONS" ]; then
+            echo "⚠️  CloudFront Distribution 발견 (삭제 시 5-10분 소요):"
+            for dist_id in $CF_DISTRIBUTIONS; do
+                echo "  📋 Distribution ID: $dist_id"
+                
+                # 1. Distribution Config 가져오기
+                CONFIG=$(aws cloudfront get-distribution-config --id "$dist_id" --output json 2>/dev/null || echo "")
+                
+                if [ -n "$CONFIG" ] && [ "$CONFIG" != "" ]; then
+                    ETAG=$(echo "$CONFIG" | jq -r '.ETag' 2>/dev/null || echo "")
+                    IS_ENABLED=$(echo "$CONFIG" | jq -r '.DistributionConfig.Enabled' 2>/dev/null || echo "true")
+                    
+                    if [ "$IS_ENABLED" = "true" ]; then
+                        echo "  - Disabling Distribution: $dist_id"
+                        
+                        # Enabled를 false로 변경
+                        NEW_CONFIG=$(echo "$CONFIG" | jq '.DistributionConfig | .Enabled = false' 2>/dev/null)
+                        
+                        if [ -n "$NEW_CONFIG" ] && [ -n "$ETAG" ]; then
+                            aws cloudfront update-distribution \
+                                --id "$dist_id" \
+                                --if-match "$ETAG" \
+                                --distribution-config "$NEW_CONFIG" \
+                                >/dev/null 2>&1 || true
+                            
+                            echo "  ⏳ Distribution Disabled 상태 대기 (2분)..."
+                            sleep 120
+                        fi
+                    fi
+                    
+                    # 2. 삭제
+                    echo "  - Deleting Distribution: $dist_id"
+                    FINAL_CONFIG=$(aws cloudfront get-distribution-config --id "$dist_id" --output json 2>/dev/null || echo "")
+                    FINAL_ETAG=$(echo "$FINAL_CONFIG" | jq -r '.ETag' 2>/dev/null || echo "")
+                    
+                    if [ -n "$FINAL_ETAG" ]; then
+                        aws cloudfront delete-distribution --id "$dist_id" --if-match "$FINAL_ETAG" 2>/dev/null || \
+                            echo "    ⚠️  삭제 실패 (아직 배포 중이거나 사용 중)"
+                    fi
+                fi
+            done
+        else
+            echo "  ✅ CloudFront Distribution 없음"
+        fi
+        echo ""
+        
+        # 5-2. Route53 레코드 정리 (CloudFront 관련)
+        echo "🌐 Route53 레코드 확인..."
+        
+        # Domain Name이 설정된 경우에만 실행
+        DOMAIN_NAME=$(terraform output -raw domain_name 2>/dev/null || echo "")
+        
+        if [ -n "$DOMAIN_NAME" ] && [ "$DOMAIN_NAME" != "" ]; then
+            HOSTED_ZONE_ID=$(aws route53 list-hosted-zones-by-name \
+                --query "HostedZones[?Name=='${DOMAIN_NAME}.'].Id" \
+                --output text 2>/dev/null | cut -d'/' -f3)
+            
+            if [ -n "$HOSTED_ZONE_ID" ]; then
+                echo "  📋 Hosted Zone ID: $HOSTED_ZONE_ID"
+                
+                # images. 서브도메인 레코드 삭제
+                RECORDS=$(aws route53 list-resource-record-sets \
+                    --hosted-zone-id "$HOSTED_ZONE_ID" \
+                    --query "ResourceRecordSets[?starts_with(Name, 'images.')]" \
+                    --output json 2>/dev/null || echo "[]")
+                
+                RECORD_COUNT=$(echo "$RECORDS" | jq '. | length' 2>/dev/null || echo "0")
+                
+                if [ "$RECORD_COUNT" -gt 0 ]; then
+                    echo "  ⚠️  images.* 레코드 발견: $RECORD_COUNT 개"
+                    echo "$RECORDS" | jq -c '.[]' 2>/dev/null | while read -r record; do
+                        RECORD_NAME=$(echo "$record" | jq -r '.Name' 2>/dev/null || echo "")
+                        RECORD_TYPE=$(echo "$record" | jq -r '.Type' 2>/dev/null || echo "")
+                        
+                        if [ "$RECORD_TYPE" != "NS" ] && [ "$RECORD_TYPE" != "SOA" ]; then
+                            echo "    - 삭제: $RECORD_NAME ($RECORD_TYPE)"
+                            
+                            CHANGE_BATCH=$(cat <<JSON
+{
+    "Changes": [{
+        "Action": "DELETE",
+        "ResourceRecordSet": $record
+    }]
+}
+JSON
+)
+                            
+                            aws route53 change-resource-record-sets \
+                                --hosted-zone-id "$HOSTED_ZONE_ID" \
+                                --change-batch "$CHANGE_BATCH" \
+                                >/dev/null 2>&1 || echo "      ⚠️  삭제 실패"
+                        fi
+                    done
+                else
+                    echo "  ✅ images.* 레코드 없음"
+                fi
+            else
+                echo "  ℹ️  Hosted Zone을 찾을 수 없습니다"
+            fi
+        else
+            echo "  ℹ️  Domain Name이 설정되지 않음 (Skip)"
+        fi
+        echo ""
+        
+        # 5-3. S3 Bucket 정리
+        echo "🪣 S3 Bucket 정리..."
+        BUCKETS=$(aws s3api list-buckets \
+            --query "Buckets[?starts_with(Name, 'prod-sesacthon')].Name" \
+            --output text 2>/dev/null || echo "")
+        
+        if [ -n "$BUCKETS" ]; then
+            echo "⚠️  S3 Bucket 발견:"
+            for bucket in $BUCKETS; do
+                echo "  📋 Bucket: $bucket"
+                
+                # 버킷 내용물 삭제
+                echo "    - 버킷 내용물 삭제 중..."
+                OBJECT_COUNT=$(aws s3 ls "s3://$bucket" --recursive 2>/dev/null | wc -l | tr -d ' ')
+                
+                if [ "$OBJECT_COUNT" -gt 0 ]; then
+                    echo "      (객체 수: $OBJECT_COUNT)"
+                    aws s3 rm "s3://$bucket" --recursive 2>/dev/null || echo "      ⚠️  내용물 삭제 실패"
+                fi
+                
+                # 버킷 삭제
+                echo "    - 버킷 삭제 중..."
+                aws s3api delete-bucket --bucket "$bucket" --region "$AWS_REGION" 2>/dev/null || \
+                    echo "      ⚠️  버킷 삭제 실패 (비어있지 않거나 정책 문제)"
+            done
+        else
+            echo "  ✅ S3 Bucket 없음"
+        fi
+        echo ""
+        
+        # 5-4. ACM Certificate 정리 (us-east-1)
+        echo "🔐 ACM Certificate 정리 (us-east-1)..."
+        CERT_ARNS=$(aws acm list-certificates \
+            --region us-east-1 \
+            --query "CertificateSummaryList[?contains(DomainName, 'images.')].CertificateArn" \
+            --output text 2>/dev/null || echo "")
+        
+        if [ -n "$CERT_ARNS" ]; then
+            echo "⚠️  ACM Certificate 발견:"
+            for cert_arn in $CERT_ARNS; do
+                CERT_DOMAIN=$(aws acm describe-certificate \
+                    --certificate-arn "$cert_arn" \
+                    --region us-east-1 \
+                    --query 'Certificate.DomainName' \
+                    --output text 2>/dev/null || echo "unknown")
+                
+                echo "  - 삭제: $CERT_DOMAIN"
+                echo "    ARN: $cert_arn"
+                
+                # CloudFront가 사용 중이면 실패 가능
+                aws acm delete-certificate --certificate-arn "$cert_arn" --region us-east-1 2>/dev/null || \
+                    echo "    ⚠️  삭제 실패 (CloudFront가 사용 중일 수 있음)"
+            done
+        else
+            echo "  ✅ ACM Certificate 없음"
+        fi
+        echo ""
+        
+        # 5-5. IAM Policy 강제 정리
+        echo "🔐 IAM Policy 강제 정리..."
+        POLICY_ARNS=$(aws iam list-policies --scope Local \
+            --query "Policies[?contains(PolicyName, 'alb-controller') || contains(PolicyName, 'ecoeco')].Arn" \
+            --output text 2>/dev/null || echo "")
+        
+        if [ -n "$POLICY_ARNS" ]; then
+            echo "⚠️  IAM Policy 발견:"
+            for policy_arn in $POLICY_ARNS; do
+                POLICY_NAME=$(aws iam list-policies --scope Local \
+                    --query "Policies[?Arn=='$policy_arn'].PolicyName" \
+                    --output text 2>/dev/null || echo "unknown")
+                
+                echo "  📋 Policy: $POLICY_NAME"
+                echo "    ARN: $policy_arn"
+                
+                # Role에서 detach
+                ATTACHED_ROLES=$(aws iam list-entities-for-policy \
+                    --policy-arn "$policy_arn" \
+                    --entity-filter Role \
+                    --query 'PolicyRoles[*].RoleName' \
+                    --output text 2>/dev/null || echo "")
+                
+                if [ -n "$ATTACHED_ROLES" ]; then
+                    echo "    - Role에서 분리 중..."
+                    for role in $ATTACHED_ROLES; do
+                        echo "      - Detach from: $role"
+                        aws iam detach-role-policy --role-name "$role" --policy-arn "$policy_arn" 2>/dev/null || true
+                    done
+                fi
+                
+                # User에서 detach
+                ATTACHED_USERS=$(aws iam list-entities-for-policy \
+                    --policy-arn "$policy_arn" \
+                    --entity-filter User \
+                    --query 'PolicyUsers[*].UserName' \
+                    --output text 2>/dev/null || echo "")
+                
+                if [ -n "$ATTACHED_USERS" ]; then
+                    echo "    - User에서 분리 중..."
+                    for user in $ATTACHED_USERS; do
+                        echo "      - Detach from: $user"
+                        aws iam detach-user-policy --user-name "$user" --policy-arn "$policy_arn" 2>/dev/null || true
+                    done
+                fi
+                
+                # Group에서 detach
+                ATTACHED_GROUPS=$(aws iam list-entities-for-policy \
+                    --policy-arn "$policy_arn" \
+                    --entity-filter Group \
+                    --query 'PolicyGroups[*].GroupName' \
+                    --output text 2>/dev/null || echo "")
+                
+                if [ -n "$ATTACHED_GROUPS" ]; then
+                    echo "    - Group에서 분리 중..."
+                    for group in $ATTACHED_GROUPS; do
+                        echo "      - Detach from: $group"
+                        aws iam detach-group-policy --group-name "$group" --policy-arn "$policy_arn" 2>/dev/null || true
+                    done
+                fi
+                
+                # Policy 삭제
+                echo "    - Policy 삭제 중..."
+                aws iam delete-policy --policy-arn "$policy_arn" 2>/dev/null || \
+                    echo "      ⚠️  삭제 실패 (아직 연결되어 있을 수 있음)"
+            done
+        else
+            echo "  ✅ IAM Policy 없음"
+        fi
+        echo ""
+        
         # 6. NAT Gateway 확인 및 삭제 (VPC 삭제 지연의 주요 원인)
         echo "🌐 NAT Gateway 확인..."
         NAT_GW_IDS=$(aws ec2 describe-nat-gateways \
