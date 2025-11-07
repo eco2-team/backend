@@ -198,9 +198,52 @@ echo "  Master IP: $MASTER_IP"
 echo "  VPC ID: $VPC_ID"
 echo ""
 
-# SSM Agent 등록 대기
-echo "⏳ SSM Agent 등록 및 초기화 대기 (90초)..."
-sleep 90
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Step 2.5: SSM Agent 등록 확인
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "2.5️⃣ SSM Agent 등록 확인"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+echo "⏳ SSM Agent 등록 대기 중..."
+echo "   (인스턴스 생성 후 약 3-5분 소요)"
+echo ""
+
+MAX_WAIT=300  # 최대 5분
+ELAPSED=0
+EXPECTED_NODES=8  # Phase 1&2: 8 nodes
+
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+    REGISTERED=$(aws ssm describe-instance-information \
+        --region ap-northeast-2 \
+        --filters "Key=tag:Name,Values=k8s-*" \
+        --query 'length(InstanceInformationList[?PingStatus==`Online`])' \
+        --output text 2>/dev/null || echo "0")
+    
+    if [ "$REGISTERED" -ge "$EXPECTED_NODES" ]; then
+        echo "✅ 모든 노드 SSM 등록 완료 ($REGISTERED/$EXPECTED_NODES)"
+        break
+    fi
+    
+    echo "   ⏳ SSM 등록 진행 중... ($REGISTERED/$EXPECTED_NODES 노드) - ${ELAPSED}초 경과"
+    sleep 10
+    ELAPSED=$((ELAPSED + 10))
+done
+
+if [ "$REGISTERED" -lt "$EXPECTED_NODES" ]; then
+    echo ""
+    echo "⚠️  일부 노드만 SSM 등록됨 ($REGISTERED/$EXPECTED_NODES)"
+    echo "   계속 진행하시겠습니까? (y/n)"
+    read -r CONTINUE
+    if [ "$CONTINUE" != "y" ]; then
+        echo "❌ 사용자가 중단했습니다."
+        exit 1
+    fi
+fi
+
+echo ""
+echo "✅ SSM 준비 완료 - Ansible 실행 가능"
 echo ""
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -211,23 +254,11 @@ echo "3️⃣ Ansible Playbook - Kubernetes 설치"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# Ansible Inventory 생성
-echo "📝 Ansible inventory 생성 중..."
-terraform output -raw ansible_inventory > "$PROJECT_ROOT/ansible/inventory/hosts.ini"
-
-if [ $? -ne 0 ]; then
-    echo "❌ Inventory 생성 실패!"
-    exit 1
-fi
-
-echo "✅ Inventory 생성 완료"
-echo ""
-
-# Ansible 실행
+# Ansible 실행 (terraform/hosts 사용 - SSM 방식)
 cd "$PROJECT_ROOT/ansible"
 
-echo "🚀 Ansible playbook 실행..."
-ansible-playbook -i inventory/hosts.ini site.yml \
+echo "🚀 Ansible playbook 실행 (SSM 방식)..."
+ansible-playbook -i ../terraform/hosts site.yml \
     -e "vpc_id=$VPC_ID" \
     -e "acm_certificate_arn=$ACM_ARN"
 

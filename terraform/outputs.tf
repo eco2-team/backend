@@ -175,23 +175,23 @@ output "redis_private_ip" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "ansible_inventory" {
-  description = "Ansible Inventory 내용"
+  description = "Ansible Inventory 내용 (SSM 방식)"
   value = templatefile("${path.module}/templates/hosts.tpl", {
-    master_public_ip         = aws_eip.master.public_ip
+    master_instance_id       = module.master.instance_id
     master_private_ip        = module.master.private_ip
-    api_auth_public_ip       = module.api_auth.public_ip
+    api_auth_instance_id     = module.api_auth.instance_id
     api_auth_private_ip      = module.api_auth.private_ip
-    api_my_public_ip         = module.api_my.public_ip
+    api_my_instance_id       = module.api_my.instance_id
     api_my_private_ip        = module.api_my.private_ip
-    api_scan_public_ip       = module.api_scan.public_ip
+    api_scan_instance_id     = module.api_scan.instance_id
     api_scan_private_ip      = module.api_scan.private_ip
-    api_character_public_ip  = module.api_character.public_ip
+    api_character_instance_id = module.api_character.instance_id
     api_character_private_ip = module.api_character.private_ip
-    api_location_public_ip   = module.api_location.public_ip
+    api_location_instance_id = module.api_location.instance_id
     api_location_private_ip  = module.api_location.private_ip
-    postgresql_public_ip     = module.postgresql.public_ip
+    postgresql_instance_id   = module.postgresql.instance_id
     postgresql_private_ip    = module.postgresql.private_ip
-    redis_public_ip          = module.redis.public_ip
+    redis_instance_id        = module.redis.instance_id
     redis_private_ip         = module.redis.private_ip
   })
 }

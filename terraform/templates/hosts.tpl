@@ -1,7 +1,7 @@
 [all:vars]
-ansible_user=ubuntu
-ansible_ssh_private_key_file=~/.ssh/k8s-temp
-ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+ansible_connection=aws_ssm
+ansible_aws_ssm_bucket_name=
+ansible_aws_ssm_region=ap-northeast-2
 ansible_python_interpreter=/usr/bin/python3
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -9,18 +9,18 @@ ansible_python_interpreter=/usr/bin/python3
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [masters]
-k8s-master ansible_host=${master_public_ip} private_ip=${master_private_ip} instance_type=t3.large
+k8s-master ansible_host=${master_instance_id} private_ip=${master_private_ip} instance_type=t3.large
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # API Nodes (Phase 1&2: 5 nodes)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [api_nodes]
-k8s-api-auth ansible_host=${api_auth_public_ip} private_ip=${api_auth_private_ip} domain=auth instance_type=t3.micro phase=1
-k8s-api-my ansible_host=${api_my_public_ip} private_ip=${api_my_private_ip} domain=my instance_type=t3.micro phase=1
-k8s-api-scan ansible_host=${api_scan_public_ip} private_ip=${api_scan_private_ip} domain=scan instance_type=t3.small phase=2
-k8s-api-character ansible_host=${api_character_public_ip} private_ip=${api_character_private_ip} domain=character instance_type=t3.micro phase=2
-k8s-api-location ansible_host=${api_location_public_ip} private_ip=${api_location_private_ip} domain=location instance_type=t3.micro phase=2
+k8s-api-auth ansible_host=${api_auth_instance_id} private_ip=${api_auth_private_ip} domain=auth instance_type=t3.micro phase=1
+k8s-api-my ansible_host=${api_my_instance_id} private_ip=${api_my_private_ip} domain=my instance_type=t3.micro phase=1
+k8s-api-scan ansible_host=${api_scan_instance_id} private_ip=${api_scan_private_ip} domain=scan instance_type=t3.small phase=2
+k8s-api-character ansible_host=${api_character_instance_id} private_ip=${api_character_private_ip} domain=character instance_type=t3.micro phase=2
+k8s-api-location ansible_host=${api_location_instance_id} private_ip=${api_location_private_ip} domain=location instance_type=t3.micro phase=2
 
 # Phase 3: Extended APIs (주석 처리)
 # k8s-api-info ansible_host=TBD private_ip=TBD domain=info instance_type=t3.micro phase=3
@@ -40,11 +40,11 @@ k8s-api-location ansible_host=${api_location_public_ip} private_ip=${api_locatio
 
 # PostgreSQL (Phase 1)
 [postgresql]
-k8s-postgresql ansible_host=${postgresql_public_ip} private_ip=${postgresql_private_ip} workload=database instance_type=t3.medium phase=1
+k8s-postgresql ansible_host=${postgresql_instance_id} private_ip=${postgresql_private_ip} workload=database instance_type=t3.medium phase=1
 
 # Redis (Phase 1)
 [redis]
-k8s-redis ansible_host=${redis_public_ip} private_ip=${redis_private_ip} workload=cache instance_type=t3.small phase=1
+k8s-redis ansible_host=${redis_instance_id} private_ip=${redis_private_ip} workload=cache instance_type=t3.small phase=1
 
 # RabbitMQ (Phase 4: 주석 처리)
 [rabbitmq]
