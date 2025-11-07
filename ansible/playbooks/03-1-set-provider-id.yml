@@ -5,11 +5,11 @@
 ---
 - name: AWS CLI로 Worker 노드 정보 수집
   block:
-    - name: 모든 k8s Worker 노드 정보 조회 (AWS CLI)
+    - name: 모든 k8s Worker 노드 정보 조회 (AWS CLI) - 13 Nodes
       shell: |
         aws ec2 describe-instances \
           --region {{ aws_region | default('ap-northeast-2') }} \
-          --filters "Name=tag:Name,Values=k8s-worker-1,k8s-worker-2,k8s-rabbitmq,k8s-postgresql,k8s-redis,k8s-monitoring" \
+          --filters "Name=tag:Name,Values=k8s-api-*,k8s-worker-*,k8s-rabbitmq,k8s-postgresql,k8s-redis,k8s-monitoring" \
                     "Name=instance-state-name,Values=running" \
           --query 'Reservations[*].Instances[*].{Name:Tags[?Key==`Name`].Value|[0],InstanceId:InstanceId,AZ:Placement.AvailabilityZone}' \
           --output json

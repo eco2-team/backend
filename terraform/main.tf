@@ -22,6 +22,21 @@ provider "aws" {
   }
 }
 
+# CloudFront requires ACM certificate in us-east-1
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+  
+  default_tags {
+    tags = {
+      Project     = "SeSACTHON"
+      ManagedBy   = "Terraform"
+      Environment = var.environment
+      Team        = "Backend"
+    }
+  }
+}
+
 # Data Sources
 data "aws_availability_zones" "available" {
   state = "available"
