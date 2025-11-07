@@ -1,39 +1,43 @@
-{{- if .Values.api.waste.enabled }}
+{{- if .Values.api.info.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: waste-api
+  name: info-api
   namespace: {{ .Values.namespaces.api }}
   labels:
-    app: waste-api
+    app: info-api
     component: api
+    domain: info
+    phase: "3"
     {{- include "ecoeco-backend.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.api.waste.replicas }}
+  replicas: {{ .Values.api.info.replicas }}
   selector:
     matchLabels:
-      app: waste-api
+      app: info-api
   template:
     metadata:
       labels:
-        app: waste-api
+        app: info-api
         component: api
+        domain: info
+        phase: "3"
     spec:
-      {{- if .Values.api.waste.nodeSelector }}
+      {{- if .Values.api.info.nodeSelector }}
       nodeSelector:
-        {{- toYaml .Values.api.waste.nodeSelector | nindent 8 }}
+        {{- toYaml .Values.api.info.nodeSelector | nindent 8 }}
       {{- end }}
       containers:
       - name: api
-        image: "{{ .Values.api.waste.image.repository }}:{{ .Values.api.waste.image.tag | default .Values.global.image.tag }}"
+        image: "{{ .Values.api.info.image.repository }}:{{ .Values.api.info.image.tag | default .Values.global.image.tag }}"
         imagePullPolicy: {{ .Values.global.image.pullPolicy }}
         ports:
         - name: http
-          containerPort: {{ .Values.api.waste.port }}
+          containerPort: {{ .Values.api.info.port }}
           protocol: TCP
         env:
-        {{- range .Values.api.waste.env }}
+        {{- range .Values.api.info.env }}
         - name: {{ .name }}
           {{- if .value }}
           value: {{ .value | quote }}
@@ -46,8 +50,6 @@ spec:
           value: "postgresql://{{ .Values.secrets.postgresql.username }}:{{ .Values.secrets.postgresql.password }}@{{ .Values.externalServices.postgresql.host }}:{{ .Values.externalServices.postgresql.port }}/{{ .Values.externalServices.postgresql.database }}"
         - name: REDIS_URL
           value: "redis://{{ .Values.externalServices.redis.host }}:{{ .Values.externalServices.redis.port }}/0"
-        - name: RABBITMQ_URL
-          value: "amqp://{{ .Values.secrets.rabbitmq.username }}:{{ .Values.secrets.rabbitmq.password }}@{{ .Values.externalServices.rabbitmq.host }}:{{ .Values.externalServices.rabbitmq.port }}//"
         livenessProbe:
           httpGet:
             path: /health
@@ -65,25 +67,25 @@ spec:
           timeoutSeconds: 3
           failureThreshold: 3
         resources:
-          {{- toYaml .Values.api.waste.resources | nindent 10 }}
+          {{- toYaml .Values.api.info.resources | nindent 10 }}
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: waste-api
+  name: info-api
   namespace: {{ .Values.namespaces.api }}
   labels:
-    app: waste-api
+    app: info-api
     {{- include "ecoeco-backend.labels" . | nindent 4 }}
 spec:
   type: NodePort
   ports:
-  - port: {{ .Values.api.waste.port }}
+  - port: {{ .Values.api.info.port }}
     targetPort: http
     protocol: TCP
     name: http
   selector:
-    app: waste-api
+    app: info-api
 {{- end }}
 

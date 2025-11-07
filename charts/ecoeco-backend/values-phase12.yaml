@@ -1,0 +1,313 @@
+# Ecoeco Backend - Phase 1&2 (8 Nodes)
+# 14-Node Architecture Values for Helm Chart
+# Phase 1: auth, my
+# Phase 2: scan, character, location
+
+global:
+  image:
+    registry: ghcr.io/sesacthon
+    pullPolicy: IfNotPresent
+    tag: latest
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Phase 1: Essential APIs (2 nodes)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+api:
+  # API-1: Authentication & Authorization
+  auth:
+    enabled: true
+    replicas: 2
+    image:
+      repository: ghcr.io/sesacthon/auth-api
+      tag: latest
+    port: 8000
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    nodeSelector:
+      domain: auth
+      phase: "1"
+    env:
+      - name: SERVICE_NAME
+        value: "auth-api"
+      - name: LOG_LEVEL
+        value: "info"
+
+  # API-2: My Page (User Profile)
+  my:
+    enabled: true
+    replicas: 2
+    image:
+      repository: ghcr.io/sesacthon/my-api
+      tag: latest
+    port: 8000
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    nodeSelector:
+      domain: my
+      phase: "1"
+    env:
+      - name: SERVICE_NAME
+        value: "my-api"
+      - name: LOG_LEVEL
+        value: "info"
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Phase 2: Core Feature APIs (3 nodes)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  # API-3: Waste Scan (핵심 기능)
+  scan:
+    enabled: true
+    replicas: 2
+    image:
+      repository: ghcr.io/sesacthon/scan-api
+      tag: latest
+    port: 8000
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    nodeSelector:
+      domain: scan
+      phase: "2"
+    env:
+      - name: SERVICE_NAME
+        value: "scan-api"
+      - name: LOG_LEVEL
+        value: "info"
+      - name: MAX_UPLOAD_SIZE
+        value: "10485760"  # 10MB
+
+  # API-4: Character & Mission
+  character:
+    enabled: true
+    replicas: 2
+    image:
+      repository: ghcr.io/sesacthon/character-api
+      tag: latest
+    port: 8000
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    nodeSelector:
+      domain: character
+      phase: "2"
+    env:
+      - name: SERVICE_NAME
+        value: "character-api"
+      - name: LOG_LEVEL
+        value: "info"
+
+  # API-5: Location & Map
+  location:
+    enabled: true
+    replicas: 2
+    image:
+      repository: ghcr.io/sesacthon/location-api
+      tag: latest
+    port: 8000
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    nodeSelector:
+      domain: location
+      phase: "2"
+    env:
+      - name: SERVICE_NAME
+        value: "location-api"
+      - name: LOG_LEVEL
+        value: "info"
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Phase 3: Extended APIs (주석 처리 - vCPU 한도 증가 후 활성화)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  # API-6: Recycle Information
+  info:
+    enabled: false  # Phase 3
+    replicas: 2
+    image:
+      repository: ghcr.io/sesacthon/info-api
+      tag: latest
+    port: 8000
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    nodeSelector:
+      domain: info
+      phase: "3"
+    env:
+      - name: SERVICE_NAME
+        value: "info-api"
+      - name: LOG_LEVEL
+        value: "info"
+
+  # API-7: Chat LLM
+  chat:
+    enabled: false  # Phase 3
+    replicas: 2
+    image:
+      repository: ghcr.io/sesacthon/chat-api
+      tag: latest
+    port: 8000
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    nodeSelector:
+      domain: chat
+      phase: "3"
+    env:
+      - name: SERVICE_NAME
+        value: "chat-api"
+      - name: LOG_LEVEL
+        value: "info"
+      - name: OPENAI_MODEL
+        value: "gpt-4"
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Worker Services (Phase 4 - 주석 처리)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+worker:
+  storage:
+    enabled: false  # Phase 4
+    replicas: 2
+    image:
+      repository: ghcr.io/sesacthon/storage-worker
+      tag: latest
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    nodeSelector:
+      workload: worker-storage
+      worker-type: io-bound
+      phase: "4"
+
+  ai:
+    enabled: false  # Phase 4
+    replicas: 2
+    image:
+      repository: ghcr.io/sesacthon/ai-worker
+      tag: latest
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    nodeSelector:
+      workload: worker-ai
+      worker-type: network-bound
+      phase: "4"
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# External Services (Infrastructure)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+externalServices:
+  postgresql:
+    host: k8s-postgresql
+    port: 5432
+    database: ecoeco
+  redis:
+    host: k8s-redis
+    port: 6379
+  rabbitmq:
+    enabled: false  # Phase 4
+    host: k8s-rabbitmq
+    port: 5672
+  s3:
+    bucket: prod-sesacthon-images
+    region: ap-northeast-2
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Secrets (환경변수로 주입)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+secrets:
+  postgresql:
+    username: postgres
+    password: changeme  # 실제 배포 시 변경 필요
+  redis:
+    password: ""  # Optional
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Namespaces
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+namespaces:
+  api: api
+  worker: workers
+  infra: infrastructure
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Ingress
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+  hosts:
+    - host: api.growbin.app
+      paths:
+        - path: /auth
+          pathType: Prefix
+          service: auth-api
+          port: 8000
+        - path: /my
+          pathType: Prefix
+          service: my-api
+          port: 8000
+        - path: /scan
+          pathType: Prefix
+          service: scan-api
+          port: 8000
+        - path: /character
+          pathType: Prefix
+          service: character-api
+          port: 8000
+        - path: /location
+          pathType: Prefix
+          service: location-api
+          port: 8000
+

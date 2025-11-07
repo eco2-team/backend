@@ -1,41 +1,43 @@
-{{- if .Values.api.userinfo.enabled }}
+{{- if .Values.api.chat.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: userinfo-api
+  name: chat-api
   namespace: {{ .Values.namespaces.api }}
   labels:
-    app: userinfo-api
+    app: chat-api
     component: api
-    domain: userinfo
+    domain: chat
+    phase: "3"
     {{- include "ecoeco-backend.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.api.userinfo.replicas }}
+  replicas: {{ .Values.api.chat.replicas }}
   selector:
     matchLabels:
-      app: userinfo-api
+      app: chat-api
   template:
     metadata:
       labels:
-        app: userinfo-api
+        app: chat-api
         component: api
-        domain: userinfo
+        domain: chat
+        phase: "3"
     spec:
-      {{- if .Values.api.userinfo.nodeSelector }}
+      {{- if .Values.api.chat.nodeSelector }}
       nodeSelector:
-        {{- toYaml .Values.api.userinfo.nodeSelector | nindent 8 }}
+        {{- toYaml .Values.api.chat.nodeSelector | nindent 8 }}
       {{- end }}
       containers:
       - name: api
-        image: "{{ .Values.api.userinfo.image.repository }}:{{ .Values.api.userinfo.image.tag | default .Values.global.image.tag }}"
+        image: "{{ .Values.api.chat.image.repository }}:{{ .Values.api.chat.image.tag | default .Values.global.image.tag }}"
         imagePullPolicy: {{ .Values.global.image.pullPolicy }}
         ports:
         - name: http
-          containerPort: {{ .Values.api.userinfo.port }}
+          containerPort: {{ .Values.api.chat.port }}
           protocol: TCP
         env:
-        {{- range .Values.api.userinfo.env }}
+        {{- range .Values.api.chat.env }}
         - name: {{ .name }}
           {{- if .value }}
           value: {{ .value | quote }}
@@ -48,6 +50,11 @@ spec:
           value: "postgresql://{{ .Values.secrets.postgresql.username }}:{{ .Values.secrets.postgresql.password }}@{{ .Values.externalServices.postgresql.host }}:{{ .Values.externalServices.postgresql.port }}/{{ .Values.externalServices.postgresql.database }}"
         - name: REDIS_URL
           value: "redis://{{ .Values.externalServices.redis.host }}:{{ .Values.externalServices.redis.port }}/0"
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-credentials
+              key: api-key
         livenessProbe:
           httpGet:
             path: /health
@@ -65,25 +72,25 @@ spec:
           timeoutSeconds: 3
           failureThreshold: 3
         resources:
-          {{- toYaml .Values.api.userinfo.resources | nindent 10 }}
+          {{- toYaml .Values.api.chat.resources | nindent 10 }}
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: userinfo-api
+  name: chat-api
   namespace: {{ .Values.namespaces.api }}
   labels:
-    app: userinfo-api
+    app: chat-api
     {{- include "ecoeco-backend.labels" . | nindent 4 }}
 spec:
   type: NodePort
   ports:
-  - port: {{ .Values.api.userinfo.port }}
+  - port: {{ .Values.api.chat.port }}
     targetPort: http
     protocol: TCP
     name: http
   selector:
-    app: userinfo-api
+    app: chat-api
 {{- end }}
 

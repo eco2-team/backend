@@ -9,6 +9,7 @@ metadata:
     app: auth-api
     component: api
     domain: auth
+    phase: "1"
     {{- include "ecoeco-backend.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.api.auth.replicas }}
@@ -21,6 +22,7 @@ spec:
         app: auth-api
         component: api
         domain: auth
+        phase: "1"
     spec:
       {{- if .Values.api.auth.nodeSelector }}
       nodeSelector:

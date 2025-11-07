@@ -1,43 +1,43 @@
-{{- if .Values.api.location.enabled }}
+{{- if .Values.api.character.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: location-api
+  name: character-api
   namespace: {{ .Values.namespaces.api }}
   labels:
-    app: location-api
+    app: character-api
     component: api
-    domain: location
+    domain: character
     phase: "2"
     {{- include "ecoeco-backend.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.api.location.replicas }}
+  replicas: {{ .Values.api.character.replicas }}
   selector:
     matchLabels:
-      app: location-api
+      app: character-api
   template:
     metadata:
       labels:
-        app: location-api
+        app: character-api
         component: api
-        domain: location
+        domain: character
         phase: "2"
     spec:
-      {{- if .Values.api.location.nodeSelector }}
+      {{- if .Values.api.character.nodeSelector }}
       nodeSelector:
-        {{- toYaml .Values.api.location.nodeSelector | nindent 8 }}
+        {{- toYaml .Values.api.character.nodeSelector | nindent 8 }}
       {{- end }}
       containers:
       - name: api
-        image: "{{ .Values.api.location.image.repository }}:{{ .Values.api.location.image.tag | default .Values.global.image.tag }}"
+        image: "{{ .Values.api.character.image.repository }}:{{ .Values.api.character.image.tag | default .Values.global.image.tag }}"
         imagePullPolicy: {{ .Values.global.image.pullPolicy }}
         ports:
         - name: http
-          containerPort: {{ .Values.api.location.port }}
+          containerPort: {{ .Values.api.character.port }}
           protocol: TCP
         env:
-        {{- range .Values.api.location.env }}
+        {{- range .Values.api.character.env }}
         - name: {{ .name }}
           {{- if .value }}
           value: {{ .value | quote }}
@@ -67,25 +67,25 @@ spec:
           timeoutSeconds: 3
           failureThreshold: 3
         resources:
-          {{- toYaml .Values.api.location.resources | nindent 10 }}
+          {{- toYaml .Values.api.character.resources | nindent 10 }}
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: location-api
+  name: character-api
   namespace: {{ .Values.namespaces.api }}
   labels:
-    app: location-api
+    app: character-api
     {{- include "ecoeco-backend.labels" . | nindent 4 }}
 spec:
   type: NodePort
   ports:
-  - port: {{ .Values.api.location.port }}
+  - port: {{ .Values.api.character.port }}
     targetPort: http
     protocol: TCP
     name: http
   selector:
-    app: location-api
+    app: character-api
 {{- end }}
 

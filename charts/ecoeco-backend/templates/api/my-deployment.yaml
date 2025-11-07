@@ -1,41 +1,43 @@
-{{- if .Values.api.chatLlm.enabled }}
+{{- if .Values.api.my.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: chat-llm-api
+  name: my-api
   namespace: {{ .Values.namespaces.api }}
   labels:
-    app: chat-llm-api
+    app: my-api
     component: api
-    domain: chat
+    domain: my
+    phase: "1"
     {{- include "ecoeco-backend.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.api.chatLlm.replicas }}
+  replicas: {{ .Values.api.my.replicas }}
   selector:
     matchLabels:
-      app: chat-llm-api
+      app: my-api
   template:
     metadata:
       labels:
-        app: chat-llm-api
+        app: my-api
         component: api
-        domain: chat
+        domain: my
+        phase: "1"
     spec:
-      {{- if .Values.api.chatLlm.nodeSelector }}
+      {{- if .Values.api.my.nodeSelector }}
       nodeSelector:
-        {{- toYaml .Values.api.chatLlm.nodeSelector | nindent 8 }}
+        {{- toYaml .Values.api.my.nodeSelector | nindent 8 }}
       {{- end }}
       containers:
       - name: api
-        image: "{{ .Values.api.chatLlm.image.repository }}:{{ .Values.api.chatLlm.image.tag | default .Values.global.image.tag }}"
+        image: "{{ .Values.api.my.image.repository }}:{{ .Values.api.my.image.tag | default .Values.global.image.tag }}"
         imagePullPolicy: {{ .Values.global.image.pullPolicy }}
         ports:
         - name: http
-          containerPort: {{ .Values.api.chatLlm.port }}
+          containerPort: {{ .Values.api.my.port }}
           protocol: TCP
         env:
-        {{- range .Values.api.chatLlm.env }}
+        {{- range .Values.api.my.env }}
         - name: {{ .name }}
           {{- if .value }}
           value: {{ .value | quote }}
@@ -65,25 +67,25 @@ spec:
           timeoutSeconds: 3
           failureThreshold: 3
         resources:
-          {{- toYaml .Values.api.chatLlm.resources | nindent 10 }}
+          {{- toYaml .Values.api.my.resources | nindent 10 }}
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: chat-llm-api
+  name: my-api
   namespace: {{ .Values.namespaces.api }}
   labels:
-    app: chat-llm-api
+    app: my-api
     {{- include "ecoeco-backend.labels" . | nindent 4 }}
 spec:
   type: NodePort
   ports:
-  - port: {{ .Values.api.chatLlm.port }}
+  - port: {{ .Values.api.my.port }}
     targetPort: http
     protocol: TCP
     name: http
   selector:
-    chat-llm-api
+    app: my-api
 {{- end }}
 
