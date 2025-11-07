@@ -40,14 +40,13 @@ MAJOR.MINOR.PATCH
 
 | 버전 | 날짜 | 마일스톤 | 상태 |
 |------|------|----------|------|
-| v0.1.0 | 2025-11-01 | 인프라 프로비저닝 | ✅ 완료 |
-| v0.2.0 | 2025-11-03 | Kubernetes 플랫폼 구축 | ✅ 완료 |
-| v0.3.0 | 2025-11-04 | 인프라 자동화 & 모니터링 | ✅ 완료 |
-| v0.4.0 | 2025-11-05 | GitOps 인프라 구축 | ✅ 완료 |
-| v0.4.1 | 2025-11-06 | GitOps 파이프라인 문서화 | ✅ 완료 |
-| v0.5.0 | 예정 | Application Stack 배포 | 🔄 진행 중 |
-| v0.6.0 | 예정 | 모니터링 & 알림 강화 | ⏳ 계획 중 |
-| v0.7.0 | 예정 | 고급 배포 전략 | ⏳ 계획 중 |
+| v0.1.0 | 2025-11-01 | 인프라 프로비저닝 (Terraform) | ✅ 완료 |
+| v0.2.0 | 2025-11-02 | Kubernetes 플랫폼 구축 (Ansible) | ✅ 완료 |
+| v0.3.0 | 2025-11-03 | 인프라 자동화 & 모니터링 | ✅ 완료 |
+| v0.4.0 | 2025-11-04 | GitOps 인프라 구축 (ArgoCD) | ✅ 완료 |
+| v0.5.0 | 2025-11-05 | 13-Node Microservices Architecture | ✅ 완료 |
+| v0.6.0 | 2025-11-07 | Worker Local SQLite WAL + 완전 자동화 | ✅ 완료 |
+| v0.7.0 | 예정 | AI 모델 통합 & E2E 테스트 | ⏳ 계획 중 |
 | v0.8.0 | 예정 | 성능 최적화 & 보안 강화 | ⏳ 계획 중 |
 | v0.9.0 | 예정 | 프로덕션 사전 검증 | ⏳ 계획 중 |
 
@@ -153,7 +152,124 @@ git push origin v0.4.2
 
 ## 📝 버전별 체크리스트
 
-### v0.5.0 체크리스트 (Application Stack)
+### v0.6.0 체크리스트 (Worker Local SQLite WAL + 완전 자동화) ✅ 완료
+
+**13-Node Microservices Architecture:**
+- [x] 13-Node 클러스터 구성
+  - [x] Master: 1 (t3a.large)
+  - [x] API: 6 (t3a.medium) - Waste, Auth, User, Location, Recycle, Chat
+  - [x] Worker: 2 (t3a.large) - Storage, AI
+  - [x] Infrastructure: 4 (t3a.medium) - RabbitMQ, PostgreSQL, Redis, Monitoring
+- [x] Terraform 13-Node 프로비저닝
+- [x] Ansible 13-Node 자동 설치
+- [x] Node Labels 자동 설정
+- [x] Provider ID 자동 주입
+
+**Worker Local SQLite WAL:**
+- [x] WAL Manager 구현 (Robin 패턴)
+- [x] Storage Worker 구현
+- [x] AI Worker 구현
+- [x] PostgreSQL 동기화 로직
+- [x] Worker Dockerfile 작성
+- [x] Kubernetes PV/PVC 설정
+- [x] Worker 배포 매니페스트
+
+**CloudFront CDN:**
+- [x] S3 Bucket 생성
+- [x] CloudFront Distribution 구성
+- [x] ACM Certificate (us-east-1)
+- [x] Route53 레코드 설정
+- [x] Cache Invalidation 스크립트
+
+**모니터링 스택:**
+- [x] Prometheus 배포 (30일 retention)
+- [x] Grafana 배포
+- [x] Node Exporter (13개 노드)
+- [x] ServiceMonitor (API 6개 + Worker 2개)
+- [x] Prometheus Rules
+- [x] Grafana Dashboard (13-Node)
+
+**스크립트 자동화:**
+- [x] auto-rebuild.sh (완전 자동 재구축)
+- [x] destroy-with-cleanup.sh (완전 정리)
+  - [x] CloudFront 정리
+  - [x] Route53 레코드 정리
+  - [x] S3 Bucket 정리
+  - [x] ACM Certificate 정리 (us-east-1)
+  - [x] IAM Policy 강제 정리
+- [x] build-workers.sh (Worker 이미지 빌드)
+- [x] deploy-monitoring.sh (모니터링 배포)
+- [x] request-vcpu-increase.sh (vCPU 한도 증가)
+- [x] invalidate-cdn-cache.sh (CDN 캐시 무효화)
+
+**문서화:**
+- [x] TROUBLESHOOTING.md 작성
+- [x] README.md 업데이트 (13-Node + WAL)
+- [x] AUTO_REBUILD_GUIDE.md
+- [x] MONITORING_SETUP.md
+- [x] WORKER_WAL_IMPLEMENTATION.md
+- [x] VERSION_GUIDE.md 업데이트
+
+### v0.5.0 체크리스트 (13-Node Microservices Architecture) ✅ 완료
+
+**13-Node 클러스터 구성:**
+- [x] Master 노드 정의
+- [x] API 노드 6개 정의 (도메인별 분리)
+- [x] Worker 노드 2개 정의
+- [x] Infrastructure 노드 4개 정의
+
+**Terraform:**
+- [x] 13-Node EC2 인스턴스 프로비저닝
+- [x] VPC, Subnets, Security Groups
+- [x] IAM Roles & Policies
+- [x] S3 Bucket 생성
+- [x] CloudFront Distribution
+
+**Ansible:**
+- [x] Kubernetes 자동 설치 (kubeadm)
+- [x] Node Labels 자동 설정
+- [x] Provider ID 설정
+- [x] CNI 플러그인 설치 (Calico)
+
+**Helm Charts:**
+- [x] values-13nodes.yaml 작성
+- [x] API 서비스 템플릿 (6개)
+- [x] Worker 서비스 템플릿 (2개)
+
+**ArgoCD:**
+- [x] Application 매니페스트 (8개)
+- [x] 자동 Sync 설정
+
+**문서:**
+- [x] 13-Node 아키텍처 문서
+- [x] Helm 배포 가이드
+- [x] ArgoCD 설정 가이드
+
+### v0.7.0 체크리스트 (AI 모델 통합 & E2E 테스트) ⏳ 계획 중
+
+**AI 모델 통합:**
+- [ ] GPT-5 Vision API 통합
+- [ ] GPT-4o mini API 통합
+- [ ] 이미지 전처리 파이프라인
+- [ ] AI 응답 캐싱 (Redis)
+
+**PostgreSQL 스키마:**
+- [ ] task_results 테이블 최종 검증
+- [ ] task_history 테이블 인덱싱
+- [ ] 데이터 마이그레이션 스크립트
+
+**E2E 테스트:**
+- [ ] 이미지 업로드 → S3 → CloudFront 테스트
+- [ ] Waste API → RabbitMQ → Worker 테스트
+- [ ] Worker → PostgreSQL 동기화 테스트
+- [ ] AI Vision 분석 테스트
+
+**성능 테스트:**
+- [ ] 로드 테스트 (1,000 RPS)
+- [ ] 스트레스 테스트
+- [ ] Worker 동시 처리 테스트
+
+### v1.0.0 체크리스트 (프로덕션 릴리스) ⏳ 계획 중
 
 - [ ] FastAPI 마이크로서비스 5개 배포
   - [ ] auth-service
@@ -322,7 +438,7 @@ git log v0.4.0..v0.4.1 --oneline
 
 ---
 
-**문서 버전**: v0.4.1  
-**최종 업데이트**: 2025-11-06  
+**문서 버전**: v0.6.0  
+**최종 업데이트**: 2025-11-07  
 **작성자**: Backend Team
 

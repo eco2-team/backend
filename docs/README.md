@@ -1,7 +1,7 @@
 # 📚 ♻️ 이코에코(Eco²) Backend - 문서
 
 > **AI 기반 쓰레기 분류 및 재활용 코칭 서비스**  
-> **7-Node Kubernetes 클러스터 프로덕션 인프라**  
+> **13-Node Kubernetes 클러스터 + Worker Local SQLite WAL**  
 > **Terraform + Ansible 완전 자동화 Self-Managed kubeadm 클러스터**
 
 ![Kubernetes Architecture](images/architecture-diagram.png)
@@ -10,1173 +10,636 @@
 
 ## 🚀 빠른 시작
 
-### 처음이신가요?
+### 📖 필독 문서
 
-**→ [최종 아키텍처](architecture/final-k8s-architecture.md)** - 전체 아키텍처 확인  
-**→ [서비스 아키텍처](architecture/SERVICE_ARCHITECTURE.md)** - Terraform/Ansible 기반 배포  
-**→ [배포 다이어그램](architecture/INFRASTRUCTURE_DEPLOYMENT_DIAGRAM.md)** - 배포 프로세스 상세  
-**→ [재구축 가이드](guides/REBUILD_GUIDE.md)** - 클러스터 재구축 가이드
+**→ [13-Node 아키텍처](architecture/README.md)** - 최종 아키텍처 확인  
+**→ [자동 재구축 가이드](deployment/AUTO_REBUILD_GUIDE.md)** - 한 번에 클러스터 구축  
+**→ [Troubleshooting](TROUBLESHOOTING.md)** - 문제 해결 가이드  
+**→ [모니터링 설정](deployment/MONITORING_SETUP.md)** - Prometheus/Grafana 배포
 
-### 자동 배포
+### ⚡ 자동 재구축 (권장)
 
 ```bash
 cd /Users/mango/workspace/SeSACTHON/backend
 
-# 1. 사전 체크
-./scripts/cluster/pre-rebuild-check.sh
+# 환경 변수 설정
+export GITHUB_TOKEN="<your-github-token>"
+export GITHUB_USERNAME="<your-github-username>"
+export VERSION="v0.6.0"
 
-# 2. 완전 자동 구축
-./scripts/cluster/build-cluster.sh
+# vCPU 한도 확인 (32 이상 필요)
+aws service-quotas get-service-quota \
+    --service-code ec2 \
+    --quota-code L-1216C47A \
+    --region ap-northeast-2 \
+    --query 'Quota.Value'
 
-# 소요 시간: 25-30분
+# 완전 자동 재구축 (50-70분)
+./scripts/cluster/auto-rebuild.sh
 ```
 
-### 배포 프로세스
+### 📋 단계별 배포
 
 ```bash
-# 1. 인프라 및 구성요소 삭제
+# 1. 기존 인프라 완전 삭제 (10-15분)
 ./scripts/maintenance/destroy-with-cleanup.sh
 
-# 2. 인프라 구축 및 클러스터 구성
-./scripts/cluster/build-cluster.sh
+# 2. Terraform 인프라 구축 (15-20분)
+cd terraform
+terraform init -migrate-state -upgrade
+terraform apply -auto-approve
 
-# 3. 클러스터 상태 확인
-./scripts/diagnostics/check-cluster-health.sh
+# 3. Ansible Kubernetes 설치 (15-20분)
+cd ../ansible
+terraform output -raw ansible_inventory > inventory/hosts.ini
+ansible-playbook -i inventory/hosts.ini site.yml
+
+# 4. 모니터링 배포 (3-5분)
+./scripts/deploy-monitoring.sh
+
+# 5. Worker 이미지 빌드 & 배포 (5-10분)
+./scripts/build-workers.sh
 ```
 
 ---
 
-## 🏗️ 최종 아키텍처
+## 🏗️ 최종 아키텍처 (v0.6.0)
 
-### 전체 시스템 아키텍처
-
-![Architecture Diagram](images/architecture-diagram.png)
-
-> **상세 설명**: [최종 K8s 아키텍처](architecture/final-k8s-architecture.md)
-
-### 7-Node 클러스터 구성
+### 13-Node Microservices Architecture
 
 ```mermaid
 graph TB
     subgraph Internet["🌐 Internet"]
         User[User/Browser]
         Route53["`**Route53**
-        ecoeco.app`"]
+        eco²app`"]
     end
     
     subgraph AWS["☁️ AWS Cloud (ap-northeast-2)"]
         ACM["`**ACM**
-        *.ecoeco.app`"]
+        *.eco²app`"]
+        CF["`**CloudFront**
+        S3 Image CDN`"]
         ALB["`**Application LB**
-        SSL/TLS Termination
-        Path-based Routing`"]
+        SSL/TLS
+        Path Routing`"]
+        S3["`**S3 Bucket**
+        prod-sesacthon-images
+        Lifecycle: 90d`"]
         
         subgraph VPC["VPC (10.0.0.0/16)"]
-            Ingress["`**Ingress**
-            ALB Ingress Controller`"]
-            
-            subgraph Control["Control Plane"]
+            subgraph Control["🎛️ Control Plane"]
                 Master["`**Master**
-                t3.large, 8GB
+                t3a.large (2 vCPU, 8GB)
                 etcd, API Server`"]
             end
             
-            subgraph Application["Application Layer"]
-                W1["`**Worker-1**
-                t3.medium, 4GB
-                FastAPI Pods`"]
-                W2["`**Worker-2**
-                t3.medium, 4GB
-                Celery Workers`"]
+            subgraph APIs["🌐 API Layer (6 Nodes)"]
+                API1["`**Waste API**
+                t3a.medium
+                /api/waste/*`"]
+                API2["`**Auth API**
+                t3a.medium
+                /api/auth/*`"]
+                API3["`**UserInfo API**
+                t3a.medium
+                /api/user/*`"]
+                API4["`**Location API**
+                t3a.medium
+                /api/location/*`"]
+                API5["`**Recycle Info API**
+                t3a.medium
+                /api/recycle/*`"]
+                API6["`**Chat LLM API**
+                t3a.medium
+                /api/chat/*`"]
             end
             
-            subgraph Infrastructure["Infrastructure Layer"]
+            subgraph Workers["⚙️ Worker Layer (2 Nodes)"]
+                W1["`**Storage Worker**
+                t3a.large (2 vCPU, 8GB)
+                Local SQLite WAL
+                S3 Upload`"]
+                W2["`**AI Worker**
+                t3a.large (2 vCPU, 8GB)
+                Local SQLite WAL
+                Vision AI`"]
+            end
+            
+            subgraph Infra["🔧 Infrastructure Layer (4 Nodes)"]
                 RMQ["`**RabbitMQ**
-                t3.small, 2GB`"]
+                t3a.medium (2 vCPU, 4GB)
+                Task Queue`"]
                 PG["`**PostgreSQL**
-                t3.small, 2GB`"]
+                t3a.medium (2 vCPU, 4GB)
+                Central DB`"]
                 Redis["`**Redis**
-                t3.small, 2GB`"]
+                t3a.medium (2 vCPU, 4GB)
+                Cache`"]
                 Mon["`**Monitoring**
-                t3.large, 8GB
+                t3a.medium (2 vCPU, 4GB)
                 Prometheus + Grafana`"]
             end
         end
-        
-        S3["`**S3 Bucket**
-        Image Storage
-        Pre-signed URL`"]
     end
     
     User --> Route53
     Route53 --> ALB
-    ALB --> ACM
-    ALB --> Ingress
-    Ingress --> W1
-    Ingress --> W2
+    Route53 --> CF
+    CF --> S3
+    ALB --> API1 & API2 & API3 & API4 & API5 & API6
+    API1 --> RMQ
+    API2 --> PG
+    API3 --> PG
+    API4 --> PG
+    API5 --> PG
+    API6 --> Redis
+    RMQ --> W1 & W2
+    W1 --> S3
     W1 --> PG
-    W1 --> Redis
-    W1 --> RMQ
-    W2 --> RMQ
-    W2 --> S3
-    Mon -.-> Master
-    Mon -.-> W1
-    Mon -.-> W2
+    W2 --> PG
+    Mon -.-> Master & API1 & API2 & API3 & API4 & API5 & API6 & W1 & W2 & RMQ & PG & Redis
+
+    classDef control fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef api fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    classDef worker fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef infra fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef aws fill:#fff8e1,stroke:#f57f17,stroke-width:2px
     
-    style Master fill:#4A90E2,stroke:#2E5C8A,stroke-width:3px,color:#fff
-    style W1 fill:#7B68EE,stroke:#4B3C8C,stroke-width:3px,color:#fff
-    style W2 fill:#9370DB,stroke:#5A478A,stroke-width:3px,color:#fff
-    style RMQ fill:#F39C12,stroke:#C87F0A,stroke-width:2px,color:#000
-    style PG fill:#3498DB,stroke:#2874A6,stroke-width:2px,color:#fff
-    style Redis fill:#E74C3C,stroke:#C0392B,stroke-width:2px,color:#fff
-    style Mon fill:#2ECC71,stroke:#27AE60,stroke-width:2px,color:#fff
-    style ALB fill:#FF6B6B,stroke:#C92A2A,stroke-width:3px,color:#fff
-    style Route53 fill:#FFE066,stroke:#F59F00,stroke-width:2px,color:#000
-    style S3 fill:#51CF66,stroke:#2F9E44,stroke-width:2px,color:#fff
-    style VPC fill:#F8F9FA,stroke:#6C757D,stroke-width:2px,color:#000
-    style Internet fill:#FFF9E6,stroke:#FFE4B3,stroke-width:2px,color:#000
-    style AWS fill:#E6F7FF,stroke:#B3E0FF,stroke-width:2px,color:#000
+    class Master control
+    class API1,API2,API3,API4,API5,API6 api
+    class W1,W2 worker
+    class RMQ,PG,Redis,Mon infra
+    class ALB,S3,CF,ACM aws
 ```
 
-**클러스터 스펙**
-- **총 노드**: 7개 (1 Master + 6 Workers)
-- **총 vCPU**: 14 cores
-- **총 RAM**: 30GB
-- **총 스토리지**: 350GB
-- **월 비용**: ~$214
+### 리소스 사양
 
-```
-Master Node (Control Plane)
-├─ Instance: t3.large (2 vCPU, 8GB, 80GB gp3)
-├─ 비용: $60/월
-└─ Pods:
-    ├─ kube-apiserver, etcd, scheduler, controller-manager
-    ├─ AWS Load Balancer Controller
-    ├─ ArgoCD (GitOps)
-    ├─ Cert-manager (SSL/TLS)
-    ├─ Calico (CNI)
-    └─ EBS CSI Driver
+| 구분 | 노드 수 | 인스턴스 타입 | vCPU/노드 | Memory/노드 | 총 vCPU | 총 Memory |
+|------|---------|--------------|-----------|-------------|---------|-----------|
+| **Master** | 1 | t3a.large | 2 | 8 GB | 2 | 8 GB |
+| **API** | 6 | t3a.medium | 2 | 4 GB | 12 | 24 GB |
+| **Worker** | 2 | t3a.large | 2 | 8 GB | 4 | 16 GB |
+| **Infrastructure** | 4 | t3a.medium | 2 | 4 GB | 8 | 16 GB |
+| **합계** | **13** | | | | **26** | **64 GB** |
 
-Worker-1 Node (Sync API)
-├─ Instance: t3.medium (2 vCPU, 4GB, 40GB gp3)
-├─ 비용: $30/월
-├─ Label: workload=application
-└─ Pods:
-    ├─ auth-service ×2
-    ├─ users-service ×1
-    └─ locations-service ×1
-
-Worker-2 Node (Async Workers)
-├─ Instance: t3.medium (2 vCPU, 4GB, 40GB gp3)
-├─ 비용: $30/월
-├─ Label: workload=async-workers
-└─ Pods:
-    ├─ waste-service ×2
-    ├─ AI Workers ×3 (GPT-4o Vision)
-    └─ Batch Workers ×2
-
-RabbitMQ Node (Message Queue)
-├─ Instance: t3.small (2 vCPU, 2GB, 30GB gp3)
-├─ 비용: $21/월
-├─ Label: workload=message-queue
-└─ Pods:
-    └─ RabbitMQ ×1 (Operator 관리)
-        └─ 5 Queues: q.ai, q.batch, q.api, q.sched, q.dlq
-
-PostgreSQL Node (Database)
-├─ Instance: t3.small (2 vCPU, 2GB, 30GB gp3)
-├─ 비용: $21/월
-├─ Label: workload=database
-└─ Pods:
-    └─ PostgreSQL StatefulSet (50GB PVC)
-
-Redis Node (Cache)
-├─ Instance: t3.small (2 vCPU, 2GB, 30GB gp3)
-├─ 비용: $21/월
-├─ Label: workload=cache
-└─ Pods:
-    └─ Redis Deployment (Cache + Result Backend)
-
-Monitoring Node (Observability)
-├─ Instance: t3.large (2 vCPU, 8GB, 60GB gp3)
-├─ 비용: $60/월
-├─ Label: workload=monitoring
-└─ Pods:
-    ├─ Prometheus (500m CPU, 2Gi Memory)
-    ├─ Grafana (500m CPU, 512Mi Memory)
-    └─ Alertmanager (250m CPU, 256Mi Memory)
-
-총 비용: $214/월 (EC2 7 Nodes) + S3 $5/월 = $219/월
-```
-
-### 네트워킹 아키텍처
-
-```mermaid
-graph TD
-    Internet["인터넷"] --> Route53["Route53<br/>(DNS - ecoeco.app)"]
-    Route53 --> ALB["AWS Application Load Balancer (ALB)<br/>✓ ACM 인증서 (SSL/TLS 자동 관리)<br/>✓ Target Type: instance (NodePort)<br/>✓ Path-based Routing"]
-    
-    ALB -->|"/argocd"| ArgoCD["ArgoCD<br/>(Master Node)"]
-    ALB -->|"/grafana"| Grafana["Grafana<br/>(Monitoring Node)"]
-    ALB -->|"/api/v1/*"| API["API Services<br/>(Worker Nodes)"]
-    
-    ArgoCD --> K8s["Kubernetes Ingress<br/>(ALB Ingress Class)"]
-    Grafana --> K8s
-    API --> K8s
-    
-    K8s --> Controller["AWS Load Balancer Controller (Helm)<br/>IngressClass: alb<br/>Ingress Resources (3개)"]
-    Controller --> Services["Kubernetes Services<br/>(NodePort)"]
-    Services --> Pods["Backend Pods"]
-    
-    Pods --> Worker1["Worker-1:<br/>동기 API<br/>(auth, users, locations)"]
-    Pods --> Worker2["Worker-2:<br/>비동기 Workers<br/>(waste, AI, batch)"]
-    Pods --> Master["Master:<br/>ArgoCD"]
-    Pods --> Monitor["Monitoring:<br/>Grafana"]
-    
-    Internal["내부 통신"] -.-> PodPod["Pod-to-Pod:<br/>Calico VXLAN<br/>(192.168.0.0/16)"]
-    Internal -.-> PodService["Pod-to-Service:<br/>ClusterIP<br/>(10.96.0.0/12)"]
-    Internal -.-> External["External Access:<br/>ALB → NodePort → Pod"]
-    
-    style Internet fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style Route53 fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    style ALB fill:#fff9c4,stroke:#f57f17,stroke-width:3px
-    style K8s fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-    style Controller fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
-    style Services fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    style Pods fill:#e1bee7,stroke:#7b1fa2,stroke-width:3px
-    style Worker1 fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px
-    style Worker2 fill:#ffccbc,stroke:#bf360c,stroke-width:2px
-    style Master fill:#b3e5fc,stroke:#0277bd,stroke-width:2px
-    style Monitor fill:#f8bbd0,stroke:#880e4f,stroke-width:2px
-    style Internal fill:#f5f5f5,stroke:#9e9e9e,stroke-width:1px,stroke-dasharray: 5 5
-```
+⚠️ **vCPU 한도**: AWS 계정 한도가 32 vCPU 이상이어야 합니다.  
+→ [vCPU 한도 증가 가이드](TROUBLESHOOTING.md#31-vcpulimitexceeded)
 
 ---
 
-## 📖 문서 카테고리
+## 🎯 주요 기능 (v0.6.0)
 
-### 🎯 [시작하기](getting-started/)
+### ✅ 완료된 기능
 
-- [프로젝트 구조](getting-started/project-structure.md)
-- [설치 가이드](getting-started/installation.md)
-- [빠른 시작](getting-started/quickstart.md)
+#### 1. 13-Node Microservices Architecture
+- **도메인별 API 분리**: Waste, Auth, User, Location, Recycle, Chat
+- **전용 Worker 노드**: Storage, AI Vision 처리
+- **전용 Infrastructure 노드**: RabbitMQ, PostgreSQL, Redis, Monitoring
 
-### 🏗️ [아키텍처](architecture/)
+#### 2. Worker Local SQLite WAL
+- **Robin 패턴 구현**: 로컬 SQLite를 WAL로 사용
+- **비동기 작업 로깅**: Task lifecycle 추적 (pending/processing/completed/failed)
+- **PostgreSQL 동기화**: 완료된 작업만 중앙 DB에 동기화
+- **장애 복구**: Worker 재시작 시 미완료 작업 자동 복구
 
-- **[최종 K8s 아키텍처](architecture/final-k8s-architecture.md)** ⭐⭐⭐⭐⭐
-  - 7-Node 클러스터 구조
-  - 마이크로서비스 배치 전략
-  - Task Queue 구조
-  - GitOps 파이프라인
-  
-- **[서비스 아키텍처](architecture/SERVICE_ARCHITECTURE.md)** ⭐⭐⭐⭐⭐
-  - Terraform/Ansible 기반 IaC
-  - 노드별 워크로드 분리
-  - 수평 확장 전략
-  
-- **[인프라 배포 다이어그램](architecture/INFRASTRUCTURE_DEPLOYMENT_DIAGRAM.md)** ⭐⭐⭐⭐
-  - 전체 배포 플로우 (시퀀스 다이어그램)
-  - Phase별 상세 프로세스
-  - CI/CD 로드맵
+#### 3. Terraform + Ansible 완전 자동화
+- **13-Node 프로비저닝**: EC2, VPC, Security Groups, IAM
+- **Kubernetes 자동 설치**: kubeadm 기반 클러스터 구성
+- **Node Labels**: workload, domain, instance-type 자동 라벨링
+- **Provider ID**: AWS Instance ID 자동 주입
 
-- **[네트워크 라우팅 구조](architecture/NETWORK_ROUTING_STRUCTURE.md)** ⭐⭐⭐⭐
-  - Route53 → ALB → Ingress → Service → Pod
-  - Path-based 라우팅 구성
+#### 4. CloudFront CDN 최적화
+- **S3 + CloudFront**: 이미지 업로드 → S3 → CloudFront 캐싱
+- **ACM 인증서**: us-east-1에서 SSL/TLS 인증서 관리
+- **Cache Invalidation**: 스크립트를 통한 캐시 무효화
 
-- **[Pod 배치 및 응답 흐름](architecture/POD_PLACEMENT_AND_RESPONSE_FLOW.md)** ⭐⭐⭐
-  - 노드별 Pod 배치 전략
-  - 외부 요청 처리 흐름
+#### 5. 모니터링 스택
+- **Prometheus**: 13개 노드 메트릭 수집 (30일 retention)
+- **Grafana**: 통합 대시보드 (API, Worker, Infrastructure 모니터링)
+- **Node Exporter**: 모든 노드의 시스템 메트릭
+- **ServiceMonitor**: Kubernetes 네이티브 모니터링
 
-- **[모니터링 트래픽 흐름](architecture/MONITORING_TRAFFIC_FLOW.md)** ⭐⭐⭐
-  - Prometheus 메트릭 수집 구조
-  - Grafana 대시보드 접근
-
-- [Task Queue 설계](architecture/task-queue-design.md)
-  - RabbitMQ + Celery 구조
-
-### 🎯 [가이드](guides/)
-
-빠른 시작 및 실용 가이드
-
-- **[클러스터 재구축 가이드](guides/REBUILD_GUIDE.md)** ⭐⭐⭐⭐⭐
-  - 전체 재구축 프로세스
-  - 트러블슈팅 포함
-  
-- **[구축 체크리스트](guides/SETUP_CHECKLIST.md)** ⭐⭐⭐⭐⭐
-  - 단계별 구축 순서
-  - 우선순위별 작업
-  - 예상 시간
-
-- **[ArgoCD 운영 가이드](guides/ARGOCD_GUIDE.md)** ⭐⭐⭐⭐⭐
-  - ArgoCD 접근 방법 (Port-forward, ALB Ingress)
-  - 초기 비밀번호 확인
-  - CLI 설치 및 로그인
-  - Application 관리
-  - 트러블슈팅
-  
-- [배포 방법 정리](guides/DEPLOYMENT_METHODS.md)
-  - Helm vs kubectl vs Operator 배포 방식
-  
-- [etcd 상태 확인 가이드](guides/ETCD_HEALTH_CHECK_GUIDE.md)
-  - etcd health check 방법
-  
-- [Helm 상태 확인 가이드](guides/HELM_STATUS_GUIDE.md)
-  - Helm Release 확인 방법
-
-### 🏗️ [인프라](infrastructure/)
-
-네트워크 및 인프라 설계
-
-- **[코드 리뷰 결과](infrastructure/CODE_REVIEW_RESULT.md)** ⭐⭐⭐⭐
-  - Terraform/Ansible 구조 분석
-  - 개선 권장 사항
-
-- **[수동 작업 자동화](infrastructure/MANUAL_OPERATIONS_TO_IAC.md)** ⭐⭐⭐⭐
-  - Route53 DNS 설정
-  - Provider ID 자동화
-  - IAM 권한 추가
-
-- **[VPC 네트워크 설계](infrastructure/vpc-network-design.md)** ⭐⭐⭐
-  - VPC (10.0.0.0/16)
-  - 3 Public Subnets
-  - Security Groups 상세
-  - 포트 목록
-
-- [K8s 클러스터 구축](infrastructure/k8s-cluster-setup.md)
-- [RabbitMQ HA 설정](infrastructure/rabbitmq-ha-setup.md)
-- [Redis 설정](infrastructure/redis-configuration.md)
-- [IaC 빠른 시작](infrastructure/IaC_QUICK_START.md)
-
-### 🔧 [트러블슈팅](troubleshooting/)
-
-- **[트러블슈팅 가이드](troubleshooting/README.md)** ⭐⭐⭐⭐⭐
-  - 8개 주요 문제 카탈로그
-  - 우선순위 및 긴급도 분류
-  - 일반적인 디버깅 절차
-
-- **[Prometheus Pod Pending](troubleshooting/PROMETHEUS_PENDING.md)** ⭐⭐⭐⭐
-  - CPU 부족 문제 (1000m → 500m 최적화)
-  - 리소스 계산 및 해결
-
-- **[ArgoCD 502 Bad Gateway](troubleshooting/ARGOCD_502_BAD_GATEWAY.md)** ⭐⭐⭐⭐
-  - 프로토콜 불일치 (HTTPS → HTTP)
-  - Backend 설정 수정
-
-- **[ALB Provider ID 문제](troubleshooting/ALB_PROVIDER_ID.md)** ⭐⭐⭐⭐
-  - Worker 노드 Target 등록 실패
-  - Provider ID 자동 설정
-
-- **[VPC 삭제 지연](troubleshooting/VPC_DELETION_DELAY.md)** ⭐⭐⭐⭐
-  - Kubernetes 리소스 정리
-  - Security Group 순환 참조
-  - 삭제 시간 50% 단축
-
-- **[Route53 ALB 라우팅](troubleshooting/ROUTE53_ALB_ROUTING_FIX.md)** ⭐⭐⭐
-  - DNS A 레코드 → ALB Alias
-  - Service 타입 변경
-
-- [PostgreSQL 스케줄링 오류](troubleshooting/POSTGRESQL_SCHEDULING_ERROR.md)
-- [macOS TLS 인증서 오류](troubleshooting/MACOS_TLS_CERTIFICATE_ERROR.md)
-- [클러스터 구축 트러블슈팅](troubleshooting/TROUBLESHOOTING.md)
-
-### 📊 [분석 및 평가](analysis/)
-
-- [보안 감사](analysis/SECURITY_AUDIT.md)
-- [RabbitMQ 배포 평가](analysis/RABBITMQ_DEPLOYMENT_EVALUATION.md)
-- [자동 재구축 분석](analysis/AUTO_REBUILD_ANALYSIS.md)
-
-### 🔒 [보안](security/)
-
-- [외부 접근 감사](security/EXTERNAL_ACCESS_AUDIT.md)
-  - MQ, Redis, PostgreSQL 내부 전용 확인
-  - NetworkPolicy 설정
-
-### 🧪 [테스팅](testing/)
-
-- [FastAPI 테스트 가이드](testing/FASTAPI_TEST_GUIDE.md)
-  - 테스트 서버 배포
-  - 내외부 통신 검증
-
-### 🚀 [배포](deployment/)
-
-- **[GitOps ArgoCD Helm](deployment/gitops-argocd-helm.md)** ⭐⭐⭐⭐⭐
-  - GitHub Actions CI 파이프라인
-  - ArgoCD CD 자동 배포
-  - Helm Charts 구조
-  - GHCR 이미지 관리
-  
-- **[배포 환경 구축](deployment/DEPLOYMENT_SETUP.md)** ⭐⭐⭐⭐⭐
-  - 전체 배포 흐름
-  - GitHub Secrets 설정
-  - ArgoCD Applications 등록
-  
-- **[GHCR 설정](deployment/ghcr-setup.md)** ⭐⭐⭐⭐
-  - GitHub Container Registry 설정
-  - GITHUB_TOKEN 인증
-  - 이미지 태그 전략
-  
-- [배포 전략 비교](plans/DEPLOYMENT_STRATEGIES_COMPARISON.md) ⭐ NEW
+#### 6. 스크립트 자동화
+- **auto-rebuild.sh**: 한 번에 전체 클러스터 재구축
+- **destroy-with-cleanup.sh**: IAM, S3, CloudFront, Route53, ACM 완전 정리
+- **build-workers.sh**: Worker Docker 이미지 빌드 & GHCR 푸시
+- **deploy-monitoring.sh**: 모니터링 스택 자동 배포
 
 ---
 
-## 🔧 스크립트 가이드
-
-### 클러스터 관리
-
-```bash
-# 사전 체크 (필수!)
-./scripts/cluster/pre-rebuild-check.sh
-
-# 클러스터 구축
-./scripts/cluster/build-cluster.sh
-
-# 클러스터 재구축 (빠른 버전)
-./scripts/cluster/quick-rebuild.sh
-
-# 클러스터 완전 재구축
-./scripts/cluster/rebuild-cluster.sh
-
-# 클러스터 초기화
-./scripts/cluster/reset-cluster.sh
-```
-
-### 진단 및 모니터링
-
-```bash
-# 전체 클러스터 상태 점검
-./scripts/diagnostics/check-cluster-health.sh
-
-# etcd 상태 상세 확인
-./scripts/diagnostics/check-etcd-health.sh
-
-# Monitoring 상태 확인
-./scripts/diagnostics/check-monitoring-status.sh
-
-# 네트워크 보안 확인
-./scripts/diagnostics/check-network-security.sh
-
-# PostgreSQL 진단
-./scripts/diagnostics/diagnose-postgresql.sh
-
-# Redis 진단
-./scripts/diagnostics/diagnose-redis.sh
-
-# Pod 진단 (원격)
-./scripts/diagnostics/diagnose-pods-remote.sh
-
-# 클러스터 검증
-./scripts/diagnostics/verify-cluster-status.sh
-```
-
-### 유지보수
-
-```bash
-# 인프라 완전 삭제 (cleanup 포함)
-./scripts/maintenance/destroy-with-cleanup.sh
-
-# RabbitMQ Secret 수정
-./scripts/maintenance/fix-rabbitmq-secret.sh
-
-# RabbitMQ + Redis 수정
-./scripts/maintenance/fix-rabbitmq-redis.sh
-
-# 노드 레이블 수정
-./scripts/maintenance/fix-node-labels.sh
-
-# ArgoCD/Grafana 서브 경로 설정
-./scripts/maintenance/configure-subpath.sh
-
-# Route53 → ALB 연결
-./scripts/maintenance/update-route53-to-alb.sh
-```
-
-### 배포
-
-```bash
-# FastAPI 테스트 서버 배포
-./scripts/deployment/deploy-fastapi-test.sh
-```
-
-### 테스팅
-
-```bash
-# 테스트 Pod 정리
-./scripts/testing/cleanup-test-pod.sh
-```
-
-### 설정
-
-```bash
-# SSH 키 생성
-./scripts/setup/create-ssh-key.sh
-```
-
-### 유틸리티
-
-```bash
-# 인스턴스 조회
-./scripts/utilities/get-instances.sh
-
-# SSH 접속
-./scripts/utilities/connect-ssh.sh master
-./scripts/utilities/connect-ssh.sh worker-1
-
-# 변경사항 감지
-./scripts/utilities/detect-changes.sh
-```
-
----
-
-## 📊 주요 기술 스택
-
-### Infrastructure as Code
-
-```
-Terraform v1.5.7
-├─ AWS Provider v5.0+
-├─ VPC, Subnets, Security Groups
-├─ EC2 Instances (7 Nodes)
-├─ IAM Roles, Policies
-├─ S3 Bucket (Terraform State)
-├─ Route53, ACM (SSL/TLS)
-└─ Elastic IP (Master Node)
-
-Ansible v2.15.5
-├─ Inventory: Terraform Output 기반 자동 생성
-├─ Playbooks:
-│   ├─ 01-common.yml (OS 설정, Docker)
-│   ├─ 02-master-init.yml (kubeadm init)
-│   ├─ 03-worker-join.yml (Worker 조인, Provider ID)
-│   ├─ 03-1-set-provider-id.yml (Provider ID 설정)
-│   ├─ 04-cni-install.yml (Calico VXLAN)
-│   ├─ 05-addons.yml (CoreDNS, Metrics Server)
-│   ├─ 05-1-ebs-csi-driver.yml (EBS CSI)
-│   ├─ 06-cert-manager.yml (Cert-manager)
-│   ├─ 07-alb-controller.yml (ALB Controller)
-│   ├─ 07-1-ingress-class.yml (IngressClass)
-│   ├─ 07-ingress-resources.yml (Ingress 리소스)
-│   ├─ 08-monitoring.yml (Prometheus Stack)
-│   ├─ 09-route53-update.yml (Route53 A 레코드)
-│   └─ 09-etcd-backup.yml (etcd 백업)
-└─ Roles:
-    ├─ argocd (ArgoCD 설치)
-    ├─ rabbitmq (RabbitMQ Operator)
-    ├─ redis (Redis Deployment)
-    └─ postgresql (PostgreSQL StatefulSet)
-```
-
-### Kubernetes Platform
-
-```
-Kubernetes v1.28.3
-├─ Distribution: kubeadm (Self-Managed)
-├─ Cluster: 1 Master + 6 Workers
-├─ CNI: Calico v3.26.1 (VXLAN Always, BGP Disabled)
-├─ Storage: EBS CSI Driver v1.22.0
-├─ StorageClass: gp3 (기본)
-└─ Network:
-    ├─ Pod CIDR: 192.168.0.0/16 (Calico)
-    ├─ Service CIDR: 10.96.0.0/12
-    └─ VPC CIDR: 10.0.0.0/16
-
-Add-ons & Controllers
-├─ AWS Load Balancer Controller v2.8.1 (Helm)
-├─ Cert-manager v1.13.2 (kubectl)
-├─ Metrics Server v0.6.4 (kubectl)
-└─ EBS CSI Driver v1.22.0 (kubectl)
-```
-
-### Application Stack
-
-```
-Message Queue
-├─ RabbitMQ Cluster Operator v2.9.0
-└─ RabbitMQ v3.12.8
-    ├─ 단일 Pod (RabbitMQ Node 전용)
-    ├─ Persistence: 10Gi (gp3)
-    └─ 5 Queues: q.ai, q.batch, q.api, q.sched, q.dlq
-
-Database & Cache
-├─ PostgreSQL v15
-│   ├─ StatefulSet (PostgreSQL Node 전용)
-│   ├─ Persistence: 50Gi (gp3)
-│   └─ Single Instance
-└─ Redis v7.0
-    ├─ Deployment (Redis Node 전용)
-    └─ Cache + Celery Result Backend
-
-API Services (FastAPI)
-├─ auth-service (인증/인가)
-├─ users-service (사용자 관리)
-├─ locations-service (수거함 정보)
-├─ waste-service (쓰레기 분석)
-└─ recycling-service (재활용 가이드)
-
-Async Workers (Celery)
-├─ AI Workers ×3 (GPT-4o Vision)
-├─ Batch Workers ×2 (배치 처리)
-├─ API Workers (비동기 API)
-└─ Celery Beat (스케줄러)
-```
-
-### GitOps & Monitoring
-
-```
-GitOps (완료) ✅
-├─ ArgoCD v2.12.6 (kubectl)
-│   ├─ 설치: Ansible Role (ansible/roles/argocd/)
-│   ├─ 접근: https://ecoeco.app/argocd
-│   ├─ 인증: admin / kubectl -n argocd get secret
-│   └─ Ingress: ALB + ACM SSL/TLS
-│
-├─ 배포 파이프라인 (설계 완료)
-│   ├─ GitHub Actions (CI)
-│   │   ├─ Lint & Test (PEP 8, pytest)
-│   │   ├─ Docker Build & Push (GHCR)
-│   │   └─ Helm values 업데이트
-│   │
-│   ├─ GitHub Container Registry (GHCR)
-│   │   ├─ 레지스트리: ghcr.io/sesacthon/backend
-│   │   ├─ 인증: GITHUB_TOKEN (자동)
-│   │   ├─ 비용: 무료 (Private 포함)
-│   │   └─ 태그: {sha}, latest, v{version}
-│   │
-│   ├─ Helm Charts (준비 중)
-│   │   ├─ charts/auth/
-│   │   ├─ charts/users/
-│   │   ├─ charts/waste/
-│   │   ├─ charts/recycling/
-│   │   └─ charts/locations/
-│   │
-│   └─ ArgoCD Applications (준비 중)
-│       ├─ Git 모니터링 (3분 폴링)
-│       ├─ Helm 렌더링
-│       ├─ 자동 Sync (automated)
-│       └─ Self-Heal (enabled)
-│
-├─ Helm v3.12+
-│   └─ Charts 기반 배포 관리
-│
-└─ GitHub Actions (CI)
-    ├─ 서비스별 워크플로우
-    │   ├─ ci-build-auth.yml
-    │   ├─ ci-build-users.yml
-    │   ├─ ci-build-waste.yml
-    │   └─ ci-build-recycling.yml
-    │
-    └─ 배포 흐름
-        1. 코드 Push → GitHub
-        2. Lint & Test → GitHub Actions
-        3. Docker Build → GHCR Push
-        4. Helm values 업데이트 → Git Commit
-        5. Git 변경 감지 → ArgoCD
-        6. Helm Diff 계산 → ArgoCD
-        7. Kubernetes 배포 → Rolling Update
-        8. Health Check → 완료
-
-Monitoring (완료) ✅
-├─ Prometheus v2.46.0
-│   ├─ CPU: 500m (최적화)
-│   ├─ Memory: 2Gi
-│   ├─ Retention: 7d / 40GB
-│   └─ Storage: 50Gi (gp3)
-├─ Grafana v10.1.0
-│   ├─ 접근: https://ecoeco.app/grafana
-│   ├─ CPU: 500m
-│   └─ Memory: 512Mi
-└─ Alertmanager v0.26.0
-    ├─ CPU: 250m
-    └─ Memory: 256Mi
-
-Load Balancing (완료) ✅
-├─ AWS Application Load Balancer
-│   ├─ Scheme: internet-facing
-│   ├─ Target Type: instance (NodePort)
-│   ├─ SSL/TLS: ACM Certificate
-│   └─ Path-based Routing
-│       ├─ /argocd → ArgoCD (Master Node)
-│       ├─ /grafana → Grafana (Monitoring Node)
-│       └─ /api/v1/* → API Services (Worker Nodes)
-├─ ACM Certificate
-│   └─ Domain: *.ecoeco.app
-└─ Route53 DNS
-    ├─ A Record (Alias) → ALB
-    └─ 자동화: Ansible (09-route53-update.yml)
-```
-
----
-
-## 🗺️ 문서 네비게이션
+## 📂 프로젝트 구조
 
 ```
 SeSACTHON/backend/
-├── README.md (프로젝트 메인)
+├── terraform/                  # Terraform 인프라 코드
+│   ├── main.tf                # 13-Node EC2 인스턴스 정의
+│   ├── vpc.tf                 # VPC, Subnets, Security Groups
+│   ├── s3.tf                  # S3 Bucket (이미지 저장)
+│   ├── cloudfront.tf          # CloudFront CDN
+│   ├── alb-controller-iam.tf  # ALB Controller IAM
+│   └── modules/               # 재사용 가능한 모듈
 │
-├── docs/
-│   ├── README.md (이 파일) ⭐
-│   ├── _sidebar.md (docsify 사이드바)
-│   ├── images/ (이미지 리소스)
-│   │   └── architecture-diagram.png
-│   │
-│   ├── architecture/ (아키텍처 설계)
-│   │   ├── final-k8s-architecture.md ⭐⭐⭐⭐⭐
-│   │   ├── SERVICE_ARCHITECTURE.md ⭐⭐⭐⭐⭐
-│   │   ├── INFRASTRUCTURE_DEPLOYMENT_DIAGRAM.md ⭐⭐⭐⭐
-│   │   ├── NETWORK_ROUTING_STRUCTURE.md ⭐⭐⭐⭐
-│   │   ├── POD_PLACEMENT_AND_RESPONSE_FLOW.md ⭐⭐⭐
-│   │   ├── MONITORING_TRAFFIC_FLOW.md ⭐⭐⭐
-│   │   ├── CI_CD_PIPELINE.md ⭐⭐⭐⭐
-│   │   └── task-queue-design.md
-│   │
-│   ├── guides/ (운영 가이드)
-│   │   ├── REBUILD_GUIDE.md ⭐⭐⭐⭐⭐
-│   │   ├── SETUP_CHECKLIST.md ⭐⭐⭐⭐⭐
-│   │   ├── DEPLOYMENT_METHODS.md
-│   │   ├── ETCD_HEALTH_CHECK_GUIDE.md
-│   │   └── HELM_STATUS_GUIDE.md
-│   │
-│   ├── infrastructure/ (인프라 설계)
-│   │   ├── CODE_REVIEW_RESULT.md ⭐⭐⭐⭐
-│   │   ├── MANUAL_OPERATIONS_TO_IAC.md ⭐⭐⭐⭐
-│   │   ├── vpc-network-design.md ⭐⭐⭐
-│   │   ├── k8s-cluster-setup.md
-│   │   ├── IaC_QUICK_START.md
-│   │   └─ iac-terraform-ansible.md
-│   │
-│   ├── troubleshooting/ (문제 해결)
-│   │   ├── README.md ⭐⭐⭐⭐⭐
-│   │   ├── PROMETHEUS_PENDING.md ⭐⭐⭐⭐
-│   │   ├── ARGOCD_502_BAD_GATEWAY.md ⭐⭐⭐⭐
-│   │   ├── ALB_PROVIDER_ID.md ⭐⭐⭐⭐
-│   │   ├── VPC_DELETION_DELAY.md ⭐⭐⭐⭐
-│   │   ├── ROUTE53_ALB_ROUTING_FIX.md ⭐⭐⭐
-│   │   ├── POSTGRESQL_SCHEDULING_ERROR.md
-│   │   ├── MACOS_TLS_CERTIFICATE_ERROR.md
-│   │   └── TROUBLESHOOTING.md
-│   │
-│   ├── overview/ (프로젝트 개요)
-│   │   ├── FINAL_ARCHITECTURE.md
-│   │   ├── PROJECT_SUMMARY.md
-│   │   ├── ARCHITECTURE_DECISION.md
-│   │   └── DOCUMENT_TREE.md
-│   │
-│   ├── security/ (보안)
-│   │   └── EXTERNAL_ACCESS_AUDIT.md
-│   │
-│   ├── testing/ (테스팅)
-│   │   └── FASTAPI_TEST_GUIDE.md
-│   │
-│   ├── deployment/ (배포)
-│   │   └── gitops-argocd-helm.md
-│   │
-│   ├── plans/ (향후 계획) ⭐ NEW
-│   │   ├── README.md
-│   │   ├── DEPLOYMENT_STRATEGIES_COMPARISON.md
-│   │   ├── CANARY_DEPLOYMENT_CONSIDERATIONS.md
-│   │   └── AB_TESTING_STRATEGY.md
-│   │
-│   ├── analysis/ (분석)
-│   │   ├── SECURITY_AUDIT.md
-│   │   └── RABBITMQ_DEPLOYMENT_EVALUATION.md
-│   │
-│   ├── development/ (개발 가이드)
-│   │   └── conventions.md
-│   │
-│   └── getting-started/ (시작 가이드)
-│       ├── project-structure.md
-│       ├── installation.md
-│       └── quickstart.md
+├── ansible/                   # Ansible 설정
+│   ├── site.yml               # 메인 플레이북
+│   ├── playbooks/             # 개별 플레이북
+│   │   ├── label-nodes.yml    # Node 라벨링
+│   │   ├── 03-1-set-provider-id.yml  # Provider ID 설정
+│   │   └── ...
+│   └── inventory/             # Ansible Inventory
 │
-├── terraform/ (Infrastructure as Code)
-│   ├── main.tf (7 Nodes 정의)
-│   ├── vpc.tf (VPC, Subnets, IGW)
-│   ├── security-groups.tf (Master, Worker, Storage SGs)
-│   ├── route53.tf (DNS, ACM)
-│   ├── alb-controller-iam.tf (ALB Controller IAM)
-│   ├── outputs.tf (Ansible Inventory 생성)
-│   ├── modules/
-│   │   ├── vpc/
-│   │   ├── ec2/
-│   │   └── security-groups/
-│   └── backend.tf (S3 State Backend)
+├── k8s/                       # Kubernetes 매니페스트
+│   ├── monitoring/            # Prometheus/Grafana
+│   │   ├── prometheus-deployment.yaml
+│   │   ├── grafana-deployment.yaml
+│   │   ├── servicemonitors.yaml
+│   │   ├── prometheus-rules.yaml
+│   │   ├── grafana-dashboard-13nodes.json
+│   │   └── node-exporter.yaml
+│   └── workers/               # Worker 배포
+│       └── worker-wal-deployments.yaml
 │
-├── ansible/ (Configuration Management)
-│   ├── site.yml (메인 플레이북)
-│   ├── inventory/ (Terraform 생성)
-│   │   ├── hosts (7 Nodes)
-│   │   └── group_vars/all.yml
-│   ├── playbooks/
-│   │   ├── 01-common.yml
-│   │   ├── 02-master-init.yml
-│   │   ├── 03-worker-join.yml
-│   │   ├── 03-1-set-provider-id.yml
-│   │   ├── 04-cni-install.yml
-│   │   ├── 05-addons.yml
-│   │   ├── 05-1-ebs-csi-driver.yml
-│   │   ├── 06-cert-manager.yml
-│   │   ├── 07-alb-controller.yml
-│   │   ├── 07-1-ingress-class.yml
-│   │   ├── 07-ingress-resources.yml
-│   │   ├── 08-monitoring.yml
-│   │   ├── 09-route53-update.yml
-│   │   └── 09-etcd-backup.yml
-│   └── roles/
-│       ├── argocd/
-│       ├── rabbitmq/
-│       ├── redis/
-│       └── postgresql/
+├── workers/                   # Worker 코드
+│   ├── storage_worker.py      # Storage Worker (S3 업로드)
+│   ├── ai_worker.py           # AI Worker (Vision 분석)
+│   ├── Dockerfile.storage     # Storage Worker 이미지
+│   ├── Dockerfile.ai          # AI Worker 이미지
+│   └── requirements.txt       # Python 의존성
 │
-└── scripts/ (자동화 스크립트) 📁
-    ├── README.md (스크립트 가이드)
-    ├── cluster/ (클러스터 관리)
-    │   ├── build-cluster.sh ⭐
-    │   ├── pre-rebuild-check.sh ⭐
-    │   ├── quick-rebuild.sh
-    │   ├── rebuild-cluster.sh
-    │   └── reset-cluster.sh
-    ├── diagnostics/ (진단 및 모니터링)
-    │   ├── check-cluster-health.sh
-    │   ├── check-etcd-health.sh
-    │   ├── diagnose-postgresql.sh
-    │   └── diagnose-redis.sh
-    ├── maintenance/ (유지보수)
-    │   ├── destroy-with-cleanup.sh ⭐
-    │   ├── configure-subpath.sh
-    │   └── update-route53-to-alb.sh
-    ├── deployment/ (배포)
-    ├── testing/ (테스팅)
-    ├── setup/ (설정)
-    └── utilities/ (유틸리티)
+├── app/                       # 공통 라이브러리
+│   ├── wal.py                 # WAL Manager (Robin 패턴)
+│   ├── postgres_sync.py       # PostgreSQL 동기화
+│   └── health.py              # Health Check 엔드포인트
+│
+├── scripts/                   # 자동화 스크립트
+│   ├── cluster/
+│   │   └── auto-rebuild.sh    # 완전 자동 재구축
+│   ├── maintenance/
+│   │   └── destroy-with-cleanup.sh  # 완전 삭제
+│   ├── utilities/
+│   │   ├── request-vcpu-increase.sh  # vCPU 한도 증가
+│   │   └── invalidate-cdn-cache.sh   # CDN 캐시 무효화
+│   ├── deploy-monitoring.sh   # 모니터링 배포
+│   └── build-workers.sh       # Worker 이미지 빌드
+│
+└── docs/                      # 문서
+    ├── README.md              # 이 문서
+    ├── TROUBLESHOOTING.md     # 문제 해결 가이드
+    ├── architecture/          # 아키텍처 문서
+    ├── deployment/            # 배포 가이드
+    ├── guides/                # 사용 가이드
+    └── development/           # 개발 가이드
+        └── VERSION_GUIDE.md   # 버전 가이드
 ```
 
 ---
 
-## 🎯 프로젝트 상태
+## 📖 문서 가이드
 
-### ✅ 완료된 단계
+### 📐 아키텍처
 
-```
-Phase 1: Infrastructure (완료)
-├─ Terraform 인프라 자동화
-├─ 7-Node 구조 (Master + 6 Workers)
-├─ AWS 리소스 프로비저닝 (VPC, EC2, S3, IAM, Route53, ACM)
-└─ Security Groups, Elastic IP
+- **[13-Node 아키텍처](architecture/README.md)** - 최종 아키텍처 개요
+- **[Worker WAL 아키텍처](guides/WORKER_WAL_IMPLEMENTATION.md)** - Robin 패턴 상세
+- **[RabbitMQ WAL 아키텍처](RABBITMQ_WAL_ARCHITECTURE.md)** - 메시징 아키텍처
 
-Phase 2: Kubernetes Platform (완료)
-├─ kubeadm 클러스터 구축 (1M + 6W)
-├─ Calico VXLAN CNI 설치
-├─ EBS CSI Driver + gp3 StorageClass
-├─ AWS Load Balancer Controller
-└─ Provider ID 자동 설정 (03-1-set-provider-id.yml)
+### 🚀 배포 가이드
 
-Phase 3: Add-ons & Monitoring (완료)
-├─ Cert-manager (SSL/TLS 자동 관리)
-├─ Prometheus Stack (Monitoring Node 전용)
-│   ├─ Prometheus (500m CPU 최적화)
-│   ├─ Grafana (500m CPU)
-│   └─ Alertmanager (250m CPU)
-└─ ArgoCD (Master Node)
+- **[자동 재구축 가이드](deployment/AUTO_REBUILD_GUIDE.md)** - auto-rebuild.sh 사용법
+- **[모니터링 설정](deployment/MONITORING_SETUP.md)** - Prometheus/Grafana 배포
+- **[Terraform 가이드](guides/TERRAFORM_INFRASTRUCTURE_SETUP.md)** - 인프라 구축
+- **[Ansible 가이드](guides/ANSIBLE_K8S_SETUP.md)** - Kubernetes 설치
 
-Phase 4: Message Queue & Storage (완료)
-├─ RabbitMQ (Operator, RabbitMQ Node 전용)
-├─ Redis (Deployment, Redis Node 전용)
-└─ PostgreSQL (StatefulSet, PostgreSQL Node 전용)
+### 🔧 운영 가이드
 
-Phase 5: Networking (완료)
-├─ ALB Ingress Controller
-├─ Route53 A 레코드 (Ansible 자동화)
-├─ Path-based Routing (/argocd, /grafana, /api/v1/*)
-├─ ACM SSL/TLS 인증서
-└─ NodePort Services (target-type: instance)
+- **[Troubleshooting](TROUBLESHOOTING.md)** - 문제 해결 (필독!)
+- **[Prometheus/Grafana 모니터링](guides/PROMETHEUS_GRAFANA_MONITORING.md)** - 모니터링 사용법
+- **[CDN 캐시 무효화](guides/CDN_CACHE_INVALIDATION.md)** - CloudFront 캐시 관리
 
-Phase 6: 인프라 자동화 (완료)
-├─ build-cluster.sh (전체 구축)
-├─ destroy-with-cleanup.sh (완전 삭제)
-├─ pre-rebuild-check.sh (사전 체크)
-└─ 상태 확인 스크립트 세트 (12개)
+### 📝 개발 가이드
 
-Phase 7: 트러블슈팅 (완료)
-├─ 8개 주요 문제 문서화
-│   ├─ Prometheus CPU 부족 해결
-│   ├─ ArgoCD 502 Bad Gateway 해결
-│   ├─ ALB Provider ID 문제 해결
-│   ├─ VPC 삭제 지연 해결 (50% 단축)
-│   ├─ Route53 ALB 라우팅 수정
-│   ├─ PostgreSQL 스케줄링 오류 해결
-│   ├─ macOS TLS 인증서 오류 해결
-│   └─ 종합 트러블슈팅 가이드
-└─ 문서화 완료 (troubleshooting/README.md)
-
-Phase 8: GitOps 배포 파이프라인 (완료)
-├─ ArgoCD v2.12.6 설치 (Ansible 자동화)
-├─ ALB Ingress 연동 (/argocd 경로)
-├─ HTTPS 접근 (https://ecoeco.app/argocd)
-├─ GitHub Container Registry (GHCR) 통합 준비
-└─ Helm Charts 기반 배포 구조 설계
-    ├─ GitHub Actions (CI) - 빌드 & 테스트
-    ├─ GHCR Push - 컨테이너 이미지 저장
-    ├─ ArgoCD (CD) - Git 모니터링 & 자동 배포
-    └─ Rolling Update - 무중단 배포
-```
-
-### 🔄 진행 중
-
-```
-Phase 9: Application Stack (진행 중)
-├─ FastAPI 마이크로서비스 배포 준비
-├─ Celery Workers 구성
-├─ GitHub Actions CI/CD 워크플로우 작성
-└─ ArgoCD Application 매니페스트 작성
-```
-
-### ⏳ 계획 중
-
-```
-Phase 10: 고급 배포 전략 (계획 중)
-├─ Canary 배포 (Argo Rollouts)
-├─ Blue-Green 배포
-├─ A/B 테스트 구조
-└─ 자동 롤백 전략
-```
+- **[버전 가이드](development/VERSION_GUIDE.md)** - 버전 관리 및 로드맵
+- **[v0.6.0 완료 가이드](development/V0.6.0_COMPLETION_GUIDE.md)** - 현재 버전 완료 체크리스트
 
 ---
 
-## 📚 주요 문서 링크
+## 🔍 핵심 개념
 
-### 필수 읽기 ⭐⭐⭐⭐⭐
+### 1. Robin 패턴 (Worker Local SQLite WAL)
 
-1. **[최종 K8s 아키텍처](architecture/final-k8s-architecture.md)** - 전체 시스템 설계
-2. **[서비스 아키텍처](architecture/SERVICE_ARCHITECTURE.md)** - Terraform/Ansible 구조
-3. **[재구축 가이드](guides/REBUILD_GUIDE.md)** - 클러스터 재구축 전체 프로세스
-4. **[트러블슈팅 가이드](troubleshooting/README.md)** - 8개 주요 문제 해결
-5. **[인프라 배포 다이어그램](architecture/INFRASTRUCTURE_DEPLOYMENT_DIAGRAM.md)** - 배포 플로우
+**개념**: Worker가 로컬 SQLite를 WAL(Write-Ahead Log)로 사용하여 작업 처리
 
-### 배포 전략 ⭐⭐⭐⭐⭐
+```python
+# app/wal.py
+class WALManager:
+    def log_task_start(self, task_id, task_type, payload):
+        """작업 시작 로깅 (SQLite)"""
+        
+    def log_task_complete(self, task_id, result):
+        """작업 완료 로깅 (SQLite)"""
+        
+    def log_task_failure(self, task_id, error):
+        """작업 실패 로깅 (SQLite)"""
+        
+    def recover_pending_tasks(self):
+        """미완료 작업 복구 (Worker 재시작 시)"""
+```
 
-- **[GitOps 배포 가이드](deployment/gitops-argocd-helm.md)** - ArgoCD + Helm 전체 가이드
-- **[배포 환경 구축](deployment/DEPLOYMENT_SETUP.md)** - GitHub Actions + GHCR + ArgoCD
-- **[배포 전략 비교](plans/DEPLOYMENT_STRATEGIES_COMPARISON.md)** - 블루-그린 vs 카나리
-- **[Argo Rollouts 가이드](plans/CANARY_DEPLOYMENT_CONSIDERATIONS.md)** - 카나리 배포 적용
-- **[GHCR 설정](deployment/ghcr-setup.md)** - GitHub Container Registry 설정
+**흐름**:
+1. RabbitMQ에서 task 수신
+2. SQLite WAL에 `pending` 상태로 기록
+3. Task 처리 (`processing` 상태)
+4. 완료 시 SQLite에 `completed` 기록
+5. PostgreSQL에 동기화 (주기적/배치)
 
-### 아키텍처 문서 ⭐⭐⭐⭐
+**장점**:
+- ✅ 네트워크 장애 시에도 작업 손실 방지
+- ✅ Worker 재시작 후 자동 복구
+- ✅ PostgreSQL 부하 감소 (배치 동기화)
+- ✅ 작업 이력 추적 용이
 
-- [네트워크 라우팅 구조](architecture/NETWORK_ROUTING_STRUCTURE.md)
-- [Pod 배치 및 응답 흐름](architecture/POD_PLACEMENT_AND_RESPONSE_FLOW.md)
-- [모니터링 트래픽 흐름](architecture/MONITORING_TRAFFIC_FLOW.md)
-- [CI/CD 파이프라인](architecture/CI_CD_PIPELINE.md)
-- [클러스터 리소스 현황](infrastructure/CLUSTER_RESOURCES.md)
+### 2. 13-Node 도메인 분리
 
-### 트러블슈팅 ⭐⭐⭐⭐
+**API 레이어 분리**:
+- **Waste API**: 쓰레기 분류 및 등록
+- **Auth API**: 사용자 인증 및 토큰 관리
+- **UserInfo API**: 사용자 정보 관리
+- **Location API**: 위치 기반 서비스
+- **Recycle Info API**: 재활용 정보 제공
+- **Chat LLM API**: GPT 기반 채팅 코칭
 
-- [Prometheus CPU 부족](troubleshooting/PROMETHEUS_PENDING.md)
-- [ArgoCD 502 에러](troubleshooting/ARGOCD_502_BAD_GATEWAY.md)
-- [ALB Provider ID](troubleshooting/ALB_PROVIDER_ID.md)
-- [VPC 삭제 지연](troubleshooting/VPC_DELETION_DELAY.md)
-- [Route53 ALB 라우팅](troubleshooting/ROUTE53_ALB_ROUTING_FIX.md)
+**Worker 레이어 분리**:
+- **Storage Worker**: 이미지 S3 업로드
+- **AI Worker**: GPT Vision 분석
 
-### 인프라 문서 ⭐⭐⭐
+**Infrastructure 레이어**:
+- **RabbitMQ**: 비동기 Task Queue
+- **PostgreSQL**: 중앙 데이터베이스
+- **Redis**: 세션 및 캐시
+- **Monitoring**: Prometheus + Grafana
 
-- [코드 리뷰 결과](infrastructure/CODE_REVIEW_RESULT.md)
-- [수동 작업 자동화](infrastructure/MANUAL_OPERATIONS_TO_IAC.md)
-- [VPC 네트워크 설계](infrastructure/vpc-network-design.md)
-- [IaC 빠른 시작](infrastructure/IaC_QUICK_START.md)
+### 3. CloudFront CDN 최적화
 
-### 참고 문서
+**업로드 플로우**:
+1. Client → Waste API: 이미지 업로드 요청
+2. Waste API → RabbitMQ: Storage task 등록
+3. Storage Worker → S3: 이미지 업로드
+4. S3 → CloudFront: CDN 캐싱
+5. Client ← CloudFront: 이미지 조회 (빠른 응답)
 
-- [배포 방법 정리](guides/DEPLOYMENT_METHODS.md)
-- [etcd 상태 확인](guides/ETCD_HEALTH_CHECK_GUIDE.md)
-- [Helm 상태 확인](guides/HELM_STATUS_GUIDE.md)
-- [보안 감사](analysis/SECURITY_AUDIT.md)
-- [외부 접근 감사](security/EXTERNAL_ACCESS_AUDIT.md)
-- [FastAPI 테스트 가이드](testing/FASTAPI_TEST_GUIDE.md)
+**캐시 전략**:
+- **TTL**: 7일 (604800초)
+- **Lifecycle**: 30일 후 STANDARD_IA, 90일 후 삭제
+- **Invalidation**: 필요 시 `./scripts/utilities/invalidate-cdn-cache.sh` 실행
 
 ---
 
-## 🔍 빠른 참조
+## 🛠️ 개발 환경 설정
 
-### 클러스터 접속 정보
+### 필수 도구
 
 ```bash
-# Master Node SSH
-ssh -i ~/.ssh/sesacthon.pem ubuntu@<MASTER_PUBLIC_IP>
+# Terraform
+terraform version  # >= 1.5.0
 
-# ArgoCD (External)
-https://ecoeco.app/argocd
-Username: admin
-Password: kubectl -n argocd get secret argocd-initial-admin-secret \
-         -o jsonpath="{.data.password}" | base64 -d
+# Ansible
+ansible --version  # >= 2.15
 
-# Grafana (External)
-https://ecoeco.app/grafana
-Username: admin
-Password: <GRAFANA_PASSWORD>
+# AWS CLI
+aws --version      # >= 2.0
 
-# Prometheus (Port Forward)
-http://ecoeco.app/prometheus
+# kubectl
+kubectl version    # >= 1.28
+
+# GitHub CLI
+gh version         # >= 2.0
+
+# Docker
+docker --version   # >= 24.0
+
+# jq (JSON 처리)
+jq --version       # >= 1.6
 ```
 
-### 주요 명령어
+### AWS 인증 설정
 
 ```bash
+# AWS CLI 설정
+aws configure
+# Access Key, Secret Key, Region(ap-northeast-2) 입력
+
+# 인증 확인
+aws sts get-caller-identity
+```
+
+### GitHub 인증 설정
+
+```bash
+# GitHub CLI 로그인
+gh auth login
+
+# 또는 환경 변수 설정
+export GITHUB_TOKEN="<your-token>"
+export GITHUB_USERNAME="<your-username>"
+```
+
+---
+
+## 🔐 보안
+
+### IAM 권한
+
+**필요한 AWS IAM 권한**:
+- `ec2:*` (EC2 인스턴스 관리)
+- `vpc:*` (VPC, Subnet, Security Group)
+- `iam:*` (IAM Role, Policy)
+- `s3:*` (S3 Bucket)
+- `cloudfront:*` (CloudFront Distribution)
+- `route53:*` (Route53 레코드)
+- `elasticloadbalancing:*` (ALB)
+- `servicequotas:*` (Service Quotas)
+
+### Secrets 관리
+
+**GitHub Actions Secrets**:
+- `GITHUB_TOKEN`: 자동 제공 (등록 불필요)
+- `GITHUB_USERNAME`: 수동 등록 필요
+- `VERSION`: Repository Variable로 등록
+
+**등록 방법**:
+```bash
+# GitHub CLI 사용
+gh secret set GITHUB_USERNAME --body "mangowhoiscloud"
+gh variable set VERSION --body "v0.6.0"
+
+# 또는 GitHub Web UI
+# Repository → Settings → Secrets and variables → Actions
+```
+
+---
+
+## 📊 모니터링
+
+### Prometheus
+
+**메트릭 수집 대상**:
+- 13개 노드 시스템 메트릭 (CPU, Memory, Disk, Network)
+- 8개 서비스 메트릭 (API 6개 + Worker 2개)
+- RabbitMQ, PostgreSQL, Redis 메트릭
+
+**접속**:
+```bash
+kubectl port-forward svc/prometheus 9090:9090
+# http://localhost:9090
+```
+
+### Grafana
+
+**대시보드**:
+- **13-Node Overview**: 전체 노드 현황
+- **API Services**: 6개 API 서비스 메트릭
+- **Worker Services**: 2개 Worker 메트릭
+- **Infrastructure**: RabbitMQ, PostgreSQL, Redis 현황
+
+**접속**:
+```bash
+kubectl port-forward svc/grafana 3000:3000
+# http://localhost:3000
+# Admin 비밀번호 확인:
+kubectl get secret grafana-admin -o jsonpath='{.data.password}' | base64 -d
+```
+
+---
+
+## 🧪 테스트
+
+### Health Check
+
+```bash
+# Master 노드 SSH 접속
+ssh ubuntu@<master-ip>
+
 # 노드 상태 확인
 kubectl get nodes -o wide
 
-# 전체 Pod 상태
-kubectl get pods -A -o wide
-
-# Ingress 확인
-kubectl get ingress -A
+# Pod 상태 확인
+kubectl get pods -A
 
 # Service 확인
 kubectl get svc -A
 
-# PVC 확인
-kubectl get pvc -A
-
-# Helm Releases
-helm list -A
-
-# 노드별 Pod 확인
-kubectl get pods -A --field-selector spec.nodeName=k8s-worker-1
-kubectl get pods -A --field-selector spec.nodeName=k8s-monitoring
-
-# 리소스 사용량 확인
-kubectl top nodes
-kubectl top pods -A
+# Ingress 확인
+kubectl get ingress -A
 ```
 
-### 문제 발생 시
+### API 테스트
 
 ```bash
-# 1. 클러스터 전체 상태 확인
-./scripts/diagnostics/check-cluster-health.sh
+# Waste API Health Check
+curl https://api.eco²app/waste/health
 
-# 2. 특정 컴포넌트 진단
-./scripts/diagnostics/diagnose-postgresql.sh
-./scripts/diagnostics/diagnose-redis.sh
+# Auth API Health Check
+curl https://api.eco²app/auth/health
 
-# 3. 로그 확인
-kubectl logs -n <namespace> <pod-name>
-kubectl describe pod -n <namespace> <pod-name>
-
-# 4. 트러블슈팅 문서 참조
-docs/troubleshooting/README.md
+# User API Health Check
+curl https://api.eco²app/user/health
 ```
 
 ---
 
-## 🔄 버전 히스토리
+## 🚨 문제 해결
 
-> **버전 관리 전략**: [Semantic Versioning](https://semver.org/) 기반
-> - **0.x.y**: 초기 개발 단계 (프로덕션 이전)
-> - **1.0.0**: 첫 프로덕션 릴리스 (서비스 배포 완료)
-> - **x.y.z**: MAJOR.MINOR.PATCH
->   - MAJOR: 아키텍처 변경 또는 breaking changes
->   - MINOR: 새로운 기능/단계 완료
->   - PATCH: 문서 개선, 버그 수정
+### 빠른 진단
 
-### v0.4.1 (2025-11-06) - GitOps 파이프라인 문서화
+```bash
+# 1. vCPU 한도 확인
+aws service-quotas get-service-quota \
+    --service-code ec2 \
+    --quota-code L-1216C47A \
+    --region ap-northeast-2 \
+    --query 'Quota.Value'
 
-**GitOps 배포 파이프라인 구축 완료:**
-- ✅ ArgoCD v2.12.6 설치 (Ansible 자동화)
-- ✅ ALB Ingress 연동 (https://ecoeco.app/argocd)
-- ✅ GitHub Container Registry (GHCR) 통합 설계
-- ✅ Helm Charts 기반 배포 구조 완성
-- ✅ GitHub Actions CI 파이프라인 설계
-- ✅ 문서 구조 개선 (클러스터 스펙 코드 블록 수정)
+# 2. Terraform 상태 확인
+cd terraform
+terraform state list
 
-**배포 자동화:**
-- CI: GitHub Actions (Lint → Test → Build → Push GHCR)
-- CD: ArgoCD (Git 모니터링 → Helm Diff → 자동 배포)
-- 무중단 배포: Rolling Update 전략
-- 이미지 관리: GHCR (무료, GITHUB_TOKEN 자동 인증)
+# 3. AWS 리소스 확인
+aws ec2 describe-instances --region ap-northeast-2 \
+    --filters "Name=tag:Project,Values=SeSACTHON" \
+    --query 'Reservations[*].Instances[*].[InstanceId,State.Name,Tags[?Key==`Name`].Value|[0]]'
 
-**다음 마일스톤 (v0.5.0):**
-- FastAPI 마이크로서비스 배포
-- Celery Workers 구성
-- GitHub Actions CI/CD 워크플로우 구현
-- ArgoCD Application 매니페스트 작성
+# 4. IAM Policy 확인
+aws iam list-policies --scope Local \
+    --query "Policies[?contains(PolicyName, 'alb-controller') || contains(PolicyName, 'ecoeco') || contains(PolicyName, 's3-presigned-url')]"
+```
 
-### v0.4.0 (2025-11-05) - GitOps 인프라 구축
+### 자주 발생하는 문제
 
-**주요 변경사항:**
-- ✅ Prometheus CPU 최적화 (1000m → 500m)
-- ✅ ArgoCD 502 Bad Gateway 해결 (프로토콜 불일치 수정)
-- ✅ ALB Provider ID 자동 설정 로직 추가 (03-1-set-provider-id.yml)
-- ✅ Route53 A 레코드 Ansible 자동화 (09-route53-update.yml)
-- ✅ VPC 삭제 지연 문제 해결 (destroy-with-cleanup.sh 개선)
-- ✅ Worker join 대상 그룹 수정 (7-Node 구조 반영)
-- ✅ 모니터링 노드 업그레이드 (t3.medium → t3.large)
-- ✅ 스크립트 경로 문제 수정 (16개 스크립트)
-- ✅ 트러블슈팅 문서 8개 추가
-- ✅ docs 디렉토리 재구성 (최상위 파일 → 하위 디렉토리)
+→ **[Troubleshooting 가이드](TROUBLESHOOTING.md)** 참고
 
-### v0.3.0 (2025-11-04) - 인프라 자동화 및 모니터링
-
-**완료:**
-- ✅ 7-Node 클러스터 구축 자동화
-- ✅ Terraform + Ansible 완전 자동화
-- ✅ Prometheus Stack 설치
-- ✅ RabbitMQ, Redis, PostgreSQL 배포
-
-### v0.2.0 (2025-11-03) - Kubernetes 플랫폼 구축
-
-**완료:**
-- ✅ kubeadm 클러스터 구축 (1M + 6W)
-- ✅ Calico CNI 설치
-- ✅ AWS Load Balancer Controller
-- ✅ EBS CSI Driver
-
-### v0.1.0 (2025-11-01) - 인프라 프로비저닝
-
-**완료:**
-- ✅ Terraform 인프라 자동화
-- ✅ VPC, EC2, S3, Route53, ACM 설정
-- ✅ 7-Node 아키텍처 설계
-
-**트러블슈팅 문서:**
-- [Prometheus Pod Pending](troubleshooting/PROMETHEUS_PENDING.md)
-- [ArgoCD 502 Bad Gateway](troubleshooting/ARGOCD_502_BAD_GATEWAY.md)
-- [ALB Provider ID 문제](troubleshooting/ALB_PROVIDER_ID.md)
-- [VPC 삭제 지연](troubleshooting/VPC_DELETION_DELAY.md)
-- [Route53 ALB 라우팅](troubleshooting/ROUTE53_ALB_ROUTING_FIX.md)
-- [PostgreSQL 스케줄링](troubleshooting/POSTGRESQL_SCHEDULING_ERROR.md)
-- [macOS TLS 인증서](troubleshooting/MACOS_TLS_CERTIFICATE_ERROR.md)
-- [트러블슈팅 통합 가이드](troubleshooting/README.md)
-
-**인프라 문서:**
-- [코드 리뷰 결과](infrastructure/CODE_REVIEW_RESULT.md)
-- [수동 작업 자동화](infrastructure/MANUAL_OPERATIONS_TO_IAC.md)
+**주요 이슈**:
+1. [vCPU 한도 초과](TROUBLESHOOTING.md#31-vcpulimitexceeded)
+2. [IAM Policy 중복](TROUBLESHOOTING.md#21-entityalreadyexists---iam-policy)
+3. [Terraform 리소스 중복](TROUBLESHOOTING.md#11-duplicate-resource-configuration)
+4. [CloudFront 생성 시간](TROUBLESHOOTING.md#61-cloudfront-생성-시간)
+5. [GitHub CLI 인증](TROUBLESHOOTING.md#51-missing-required-scope)
 
 ---
 
-**문서 버전**: v0.4.1  
-**최종 업데이트**: 2025-11-06  
-**아키텍처**: 7-Node Self-Managed Kubernetes (Terraform + Ansible)  
-**프로젝트 상태**: 🚧 초기 개발 단계 (Pre-Production)
-- ✅ Phase 1-8 완료: 인프라, K8s, GitOps 파이프라인
-- 🔄 Phase 9 진행 중: Application Stack 배포
-- ⏳ Phase 10 계획 중: 고급 배포 전략
+## 📜 라이선스
 
-**프로덕션 준비 로드맵**:
-- v0.5.0: Application Stack 배포 완료
-- v0.6.0: 모니터링 & 알림 강화
-- v0.7.0: 고급 배포 전략 (Canary, Blue-Green)
-- v0.8.0: 성능 최적화 & 보안 강화
-- v0.9.0: 프로덕션 사전 검증
-- **v1.0.0**: 🚀 프로덕션 릴리스 (서비스 정식 배포)
+이 프로젝트는 MIT 라이선스를 따릅니다.
 
 ---
 
-## 📞 문의 및 지원
+## 👥 기여
 
-문제가 발생하거나 도움이 필요하신 경우:
+**프로젝트 팀**: SeSACTHON Backend Team  
+**주요 기여자**: @mangowhoiscloud
 
-1. **트러블슈팅 가이드 확인**: [troubleshooting/README.md](troubleshooting/README.md)
-2. **GitHub Issues** 작성: 문제 재현 단계, 로그, 환경 정보 포함
-3. **PR 제출**: 개선 사항이나 버그 수정
+**기여 방법**:
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ---
 
-**🚀 Happy Deploying!**
+## 📧 문의
+
+- **GitHub Issues**: https://github.com/mangowhoiscloud/backend/issues
+- **AWS Support**: https://console.aws.amazon.com/support/
+- **Terraform Forum**: https://discuss.hashicorp.com/
+
+---
+
+## 🎉 완료 상태 (v0.6.0)
+
+### ✅ 구현 완료
+
+- [x] 13-Node Microservices Architecture
+- [x] Worker Local SQLite WAL (Robin 패턴)
+- [x] Terraform 13-Node 프로비저닝
+- [x] Ansible Kubernetes 자동 설치
+- [x] CloudFront CDN + S3 이미지 캐싱
+- [x] Prometheus + Grafana 모니터링
+- [x] auto-rebuild.sh 완전 자동화
+- [x] destroy-with-cleanup.sh 완전 정리
+- [x] Worker Docker 이미지 빌드/배포
+- [x] GitHub Container Registry 통합
+
+### 🚧 향후 계획 (v0.7.0)
+
+- [ ] AI 모델 실제 통합 (GPT-5 Vision, GPT-4o mini)
+- [ ] PostgreSQL 스키마 최종 검증
+- [ ] 실제 S3 버킷 연동 테스트
+- [ ] End-to-End 통합 테스트
+- [ ] AlertManager 연동 (Slack/Email)
+- [ ] Thanos 설정 (장기 메트릭 보관)
+
+---
+
+**최종 업데이트**: 2025-11-07  
+**현재 버전**: v0.6.0  
+**아키텍처**: 13-Node Microservices + Worker Local SQLite WAL  
+**앱 이름**: 이코에코(Eco²) - AI 기반 쓰레기 분류 및 재활용 코칭 서비스
