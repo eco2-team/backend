@@ -124,11 +124,12 @@ echo "2️⃣ Terraform Apply - 13-Node 인프라 구축"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-echo "📋 13-Node 구성:"
-echo "   - Master: 1 (t3a.large)"
-echo "   - API: 6 (t3a.medium)"
-echo "   - Worker: 2 (t3a.large)"
-echo "   - Infrastructure: 4 (t3a.medium)"
+echo "📋 13-Node 구성 (최적화):"
+echo "   - Master: 1 (t3.large)"
+echo "   - API: 6 (t3.micro/small)"
+echo "   - Worker: 2 (t3.small)"
+echo "   - Infrastructure: 4 (t3.small/medium)"
+echo "   - 총 vCPU: 15 (16 한도 내)"
 echo ""
 
 cd "$PROJECT_ROOT/terraform"
@@ -236,7 +237,7 @@ else
     scp -r "$PROJECT_ROOT/k8s/monitoring" ubuntu@$MASTER_IP:~/
     
     # deploy-monitoring.sh 복사
-    scp "$PROJECT_ROOT/scripts/deploy-monitoring.sh" ubuntu@$MASTER_IP:~/
+    scp "$PROJECT_ROOT/scripts/deployment/deploy-monitoring.sh" ubuntu@$MASTER_IP:~/
     
     echo "✅ 파일 복사 완료"
     echo ""
@@ -304,7 +305,7 @@ if [ "$SKIP_WORKER_BUILD" = true ]; then
     echo "  export GITHUB_TOKEN=<your-token>"
     echo "  export GITHUB_USERNAME=<your-username>"
     echo "  export VERSION=$VERSION"
-    echo "  ./scripts/build-workers.sh"
+    echo "  ./scripts/deployment/build-workers.sh"
     echo ""
 else
     echo "🐳 GHCR 로그인..."
@@ -319,7 +320,7 @@ else
         
         echo "🔨 Worker 이미지 빌드..."
         export VERSION=$VERSION
-        ./scripts/build-workers.sh
+        ./scripts/deployment/build-workers.sh
         
         if [ $? -eq 0 ]; then
             echo "✅ Worker 이미지 빌드 및 푸시 완료"
