@@ -12,7 +12,7 @@
 
 ### 📖 필독 문서
 
-**→ [13-Node 아키텍처](architecture/README.md)** - 최종 아키텍처 확인  
+**→ [13-Node 아키텍처](architecture/01-README.md)** - 최종 아키텍처 확인  
 **→ [자동 재구축 가이드](deployment/AUTO_REBUILD_GUIDE.md)** - 한 번에 클러스터 구축  
 **→ [Troubleshooting](TROUBLESHOOTING.md)** - 문제 해결 가이드  
 **→ [모니터링 설정](deployment/MONITORING_SETUP.md)** - Prometheus/Grafana 배포
@@ -298,27 +298,25 @@ SeSACTHON/backend/
 
 ### 📐 아키텍처
 
-- **[13-Node 아키텍처](architecture/README.md)** - 최종 아키텍처 개요
+- **[13-Node 아키텍처](architecture/01-README.md)** - 최종 아키텍처 개요
 - **[Worker WAL 아키텍처](guides/WORKER_WAL_IMPLEMENTATION.md)** - Robin 패턴 상세
-- **[RabbitMQ WAL 아키텍처](RABBITMQ_WAL_ARCHITECTURE.md)** - 메시징 아키텍처
+- **[데이터베이스 스키마 구조](architecture/02-database-schema-structure.md)** - PostgreSQL 스키마 분리
 
 ### 🚀 배포 가이드
 
 - **[자동 재구축 가이드](deployment/AUTO_REBUILD_GUIDE.md)** - auto-rebuild.sh 사용법
 - **[모니터링 설정](deployment/MONITORING_SETUP.md)** - Prometheus/Grafana 배포
-- **[Terraform 가이드](guides/TERRAFORM_INFRASTRUCTURE_SETUP.md)** - 인프라 구축
-- **[Ansible 가이드](guides/ANSIBLE_K8S_SETUP.md)** - Kubernetes 설치
+- **[서비스 아키텍처](architecture/03-SERVICE_ARCHITECTURE.md)** - Terraform + Ansible 배포 프로세스
 
 ### 🔧 운영 가이드
 
 - **[Troubleshooting](TROUBLESHOOTING.md)** - 문제 해결 (필독!)
 - **[Prometheus/Grafana 모니터링](guides/PROMETHEUS_GRAFANA_MONITORING.md)** - 모니터링 사용법
-- **[CDN 캐시 무효화](guides/CDN_CACHE_INVALIDATION.md)** - CloudFront 캐시 관리
 
 ### 📝 개발 가이드
 
-- **[버전 가이드](development/VERSION_GUIDE.md)** - 버전 관리 및 로드맵
-- **[v0.6.0 완료 가이드](development/V0.6.0_COMPLETION_GUIDE.md)** - 현재 버전 완료 체크리스트
+- **[버전 가이드](development/02-VERSION_GUIDE.md)** - 버전 관리 및 로드맵
+- **[v0.6.0 완료 가이드](development/03-V0.6.0_COMPLETION_GUIDE.md)** - 현재 버전 완료 체크리스트
 
 ---
 
