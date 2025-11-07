@@ -187,7 +187,7 @@ Response: kube_pod_status_phase{pod="rabbitmq-xxx",phase="Running"} 1
 │                      외부 사용자 (브라우저)                        │
 └────────────────────────────────────────────────────────────────────┘
                               ↓
-                  https://growbin.app/grafana
+                  https://ecoeco.app/grafana
                               ↓
 ┌────────────────────────────────────────────────────────────────────┐
 │                   Route53 (DNS)                                    │
@@ -392,7 +392,7 @@ prometheus-node-exporter-xxx (Monitoring)   k8s-monitoring   192.168.6.50
 
 ```bash
 # URL
-https://growbin.app/grafana
+https://ecoeco.app/grafana
 
 # 로그인
 Username: admin
@@ -512,7 +512,7 @@ http://localhost:3000
 ### 3️⃣ **외부 접근 (ALB)**
 
 ```
-✅ Grafana UI: https://growbin.app/grafana
+✅ Grafana UI: https://ecoeco.app/grafana
 ✅ target-type: instance (NodePort 사용)
 ✅ Prometheus는 외부 노출 안됨 (보안)
 ```

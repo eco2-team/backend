@@ -70,7 +70,7 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 ✅ EC2 Instances ×4 (Master, Worker-1, Worker-2, Storage)
 ✅ EBS Volumes ×4
 ✅ S3 Bucket (이미지 저장)
-✅ ACM Certificate (*.growbin.app)
+✅ ACM Certificate (*.ecoeco.app)
 ✅ IAM Instance Profile
 
 비용: $185/월

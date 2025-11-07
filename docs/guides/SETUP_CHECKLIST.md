@@ -548,7 +548,7 @@ ingress:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:xxxxx:certificate/xxxxx
-    alb.ingress.kubernetes.io/group.name: growbin-alb
+    alb.ingress.kubernetes.io/group.name: ecoeco-alb
   hosts:
     - host: api.yourdomain.com
       paths:
@@ -814,7 +814,7 @@ kubectl get ingress -A
 kubectl get ingress main-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 
 # Route53에서 Alias 레코드:
-# growbin.app → ALB DNS
+# ecoeco.app → ALB DNS
 
 # 테스트
 curl http://MASTER_PUBLIC_IP

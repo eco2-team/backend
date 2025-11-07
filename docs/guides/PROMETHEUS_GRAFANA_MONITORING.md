@@ -182,7 +182,7 @@ spec:
 
 ```mermaid
 graph TD
-    D[Growbin API Dashboard]
+    D[Ecoeco API Dashboard]
     
     D --> P1[API Request Rate<br/>req/s per service]
     D --> P2[API Error Rate %<br/>5xx errors]

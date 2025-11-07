@@ -15,16 +15,16 @@ graph TD
     end
 
     subgraph Route53["☁️ AWS Route53 (DNS)"]
-        DNS_Apex[growbin.app]
-        DNS_WWW[www.growbin.app]
-        DNS_API[api.growbin.app]
-        DNS_ArgoCD[argocd.growbin.app]
-        DNS_Grafana[grafana.growbin.app]
+        DNS_Apex[ecoeco.app]
+        DNS_WWW[www.ecoeco.app]
+        DNS_API[api.ecoeco.app]
+        DNS_ArgoCD[argocd.ecoeco.app]
+        DNS_Grafana[grafana.ecoeco.app]
     end
 
     subgraph AWS["🏢 AWS"]
         subgraph ACM["🔒 ACM Certificate"]
-            Cert[growbin.app<br/>*.growbin.app]
+            Cert[ecoeco.app<br/>*.ecoeco.app]
         end
 
         subgraph ALB["⚖️ Application Load Balancer"]
@@ -136,10 +136,10 @@ sequenceDiagram
     participant Service as 🔌 Service
     participant Pod as 📦 Pod
 
-    User->>Route53: DNS 쿼리 (growbin.app)
+    User->>Route53: DNS 쿼리 (ecoeco.app)
     Route53->>User: ALB DNS 반환 (Alias)
     
-    User->>ALB: HTTPS 요청 (growbin.app/argocd)
+    User->>ALB: HTTPS 요청 (ecoeco.app/argocd)
     ALB->>ACM: SSL/TLS 인증서 확인
     ACM-->>ALB: 인증서 검증 완료
     
@@ -169,11 +169,11 @@ sequenceDiagram
 
 | 레코드 | 타입 | 값 | 설명 |
 |--------|------|-----|------|
-| `growbin.app` | A (Alias) | ALB DNS | Apex 도메인 |
-| `www.growbin.app` | A (Alias) | ALB DNS | WWW 서브도메인 |
-| `api.growbin.app` | A (Alias) | ALB DNS | API 서브도메인 (향후) |
-| `argocd.growbin.app` | A (Alias) | ALB DNS | ArgoCD 서브도메인 (향후) |
-| `grafana.growbin.app` | A (Alias) | ALB DNS | Grafana 서브도메인 (향후) |
+| `ecoeco.app` | A (Alias) | ALB DNS | Apex 도메인 |
+| `www.ecoeco.app` | A (Alias) | ALB DNS | WWW 서브도메인 |
+| `api.ecoeco.app` | A (Alias) | ALB DNS | API 서브도메인 (향후) |
+| `argocd.ecoeco.app` | A (Alias) | ALB DNS | ArgoCD 서브도메인 (향후) |
+| `grafana.ecoeco.app` | A (Alias) | ALB DNS | Grafana 서브도메인 (향후) |
 
 **특징**:
 - ✅ **Alias 레코드**: A 레코드지만 IP 대신 AWS 리소스 (ALB)를 직접 가리킴
@@ -190,8 +190,8 @@ sequenceDiagram
 
 | 항목 | 값 |
 |------|-----|
-| **도메인** | `growbin.app` |
-| **SAN** | `*.growbin.app` |
+| **도메인** | `ecoeco.app` |
+| **SAN** | `*.ecoeco.app` |
 | **검증 방법** | DNS 검증 |
 | **자동 갱신** | ✅ 활성화 |
 | **ALB 연결** | ✅ Listener 443 |
@@ -199,7 +199,7 @@ sequenceDiagram
 **특징**:
 - ✅ **무료**: AWS에서 제공하는 SSL/TLS 인증서
 - ✅ **자동 갱신**: 만료 전 자동으로 갱신
-- ✅ **Wildcard**: `*.growbin.app` 모든 서브도메인 지원
+- ✅ **Wildcard**: `*.ecoeco.app` 모든 서브도메인 지원
 
 **설정 파일**:
 - Terraform: `terraform/acm.tf`
@@ -226,7 +226,7 @@ sequenceDiagram
 
 **특징**:
 - ✅ **자동 생성**: AWS Load Balancer Controller가 Ingress 감지 후 자동 생성
-- ✅ **통합 관리**: `alb.ingress.kubernetes.io/group.name: growbin-alb`로 단일 ALB 사용
+- ✅ **통합 관리**: `alb.ingress.kubernetes.io/group.name: ecoeco-alb`로 단일 ALB 사용
 - ✅ **우선순위**: `group.order`로 Path 우선순위 결정
 
 **Health Check**:
@@ -272,13 +272,13 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: instance
     alb.ingress.kubernetes.io/certificate-arn: <ACM_CERT_ARN>
-    alb.ingress.kubernetes.io/group.name: growbin-alb
+    alb.ingress.kubernetes.io/group.name: ecoeco-alb
     alb.ingress.kubernetes.io/group.order: '10'
     alb.ingress.kubernetes.io/backend-protocol: HTTPS
 spec:
   ingressClassName: alb
   rules:
-  - host: growbin.app
+  - host: ecoeco.app
     http:
       paths:
       - path: /argocd
@@ -303,13 +303,13 @@ metadata:
   name: grafana-ingress
   namespace: monitoring
   annotations:
-    alb.ingress.kubernetes.io/group.name: growbin-alb
+    alb.ingress.kubernetes.io/group.name: ecoeco-alb
     alb.ingress.kubernetes.io/group.order: '20'
     alb.ingress.kubernetes.io/backend-protocol: HTTP
 spec:
   ingressClassName: alb
   rules:
-  - host: growbin.app
+  - host: ecoeco.app
     http:
       paths:
       - path: /grafana
@@ -402,14 +402,14 @@ spec:
 ### 현재 구성: Path-based Routing
 
 ```
-https://growbin.app/argocd    → ArgoCD
-https://growbin.app/grafana   → Grafana
-https://growbin.app/api/v1/*  → API Services
+https://ecoeco.app/argocd    → ArgoCD
+https://ecoeco.app/grafana   → Grafana
+https://ecoeco.app/api/v1/*  → API Services
 ```
 
 **장점**:
 - ✅ **단일 ALB**: 비용 절감 ($16/month)
-- ✅ **단일 인증서**: `growbin.app` 하나로 충분
+- ✅ **단일 인증서**: `ecoeco.app` 하나로 충분
 - ✅ **단순한 DNS**: A 레코드 하나만 필요
 
 **단점**:
@@ -421,9 +421,9 @@ https://growbin.app/api/v1/*  → API Services
 ### 향후 확장: Subdomain-based Routing (선택)
 
 ```
-https://argocd.growbin.app    → ArgoCD
-https://grafana.growbin.app   → Grafana
-https://api.growbin.app       → API Services
+https://argocd.ecoeco.app    → ArgoCD
+https://grafana.ecoeco.app   → Grafana
+https://api.ecoeco.app       → API Services
 ```
 
 **장점**:
@@ -459,7 +459,7 @@ echo ""
 
 # 1. Route53 → ALB
 echo "1️⃣ Route53 DNS 확인:"
-dig growbin.app +short
+dig ecoeco.app +short
 echo ""
 
 # 2. ALB DNS
@@ -479,7 +479,7 @@ echo ""
 
 # 5. Health Check
 echo "5️⃣ ALB Health Check:"
-curl -I https://growbin.app/argocd
+curl -I https://ecoeco.app/argocd
 echo ""
 ```
 

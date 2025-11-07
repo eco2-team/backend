@@ -1,7 +1,7 @@
 # 🔄 ArgoCD 운영 가이드
 
 > **현재 상태**: ArgoCD v2.12.6이 Master Node에 배포되어 실행 중  
-> **접근 방법**: Port-forward, ALB Ingress (https://growbin.app/argocd)  
+> **접근 방법**: Port-forward, ALB Ingress (https://ecoeco.app/argocd)  
 > **날짜**: 2025-11-06
 
 ---
@@ -63,24 +63,24 @@ status:
 # ArgoCD Ingress 확인
 ubuntu@k8s-master:~$ kubectl get ingress -n argocd
 NAME             CLASS   HOSTS         ADDRESS                                                                 PORTS   AGE
-argocd-ingress   alb     growbin.app   k8s-growbinalb-18c99b272a-1896386009.ap-northeast-2.elb.amazonaws.com   80      39h
+argocd-ingress   alb     ecoeco.app   k8s-ecoecoalb-18c99b272a-1896386009.ap-northeast-2.elb.amazonaws.com   80      39h
 
 # Ingress 상세 정보
 ubuntu@k8s-master:~$ kubectl describe ingress argocd-ingress -n argocd
 Name:             argocd-ingress
 Labels:           <none>
 Namespace:        argocd
-Address:          k8s-growbinalb-18c99b272a-1896386009.ap-northeast-2.elb.amazonaws.com
+Address:          k8s-ecoecoalb-18c99b272a-1896386009.ap-northeast-2.elb.amazonaws.com
 Ingress Class:    alb
 Default backend:  <default>
 Rules:
   Host         Path  Backends
   ----         ----  --------
-  growbin.app  
+  ecoeco.app  
                /argocd   argocd-server:80 (192.168.230.8:8080)
 Annotations:   alb.ingress.kubernetes.io/backend-protocol: HTTP
                alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/fed2966c-7f9e-4849-ae20-0592ec04a373
-               alb.ingress.kubernetes.io/group.name: growbin-alb
+               alb.ingress.kubernetes.io/group.name: ecoeco-alb
                alb.ingress.kubernetes.io/group.order: 10
                alb.ingress.kubernetes.io/healthcheck-interval-seconds: 15
                alb.ingress.kubernetes.io/healthcheck-path: /argocd/api/version
@@ -150,14 +150,14 @@ kubectl get svc argocd-server -n argocd
 # Ingress 확인
 ubuntu@k8s-master:~$ kubectl get ingress argocd-ingress -n argocd
 NAME             CLASS   HOSTS         ADDRESS                                                                 PORTS   AGE
-argocd-ingress   alb     growbin.app   k8s-growbinalb-18c99b272a-1896386009.ap-northeast-2.elb.amazonaws.com   80      39h
+argocd-ingress   alb     ecoeco.app   k8s-ecoecoalb-18c99b272a-1896386009.ap-northeast-2.elb.amazonaws.com   80      39h
 
 # ALB DNS 확인
 ubuntu@k8s-master:~$ kubectl get ingress argocd-ingress -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-k8s-growbinalb-18c99b272a-1896386009.ap-northeast-2.elb.amazonaws.com
+k8s-ecoecoalb-18c99b272a-1896386009.ap-northeast-2.elb.amazonaws.com
 
 # 브라우저에서 접속
-# https://growbin.app/argocd
+# https://ecoeco.app/argocd
 ```
 
 **ALB Ingress 설정 확인:**
@@ -170,7 +170,7 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/backend-protocol: HTTP
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/fed2966c-7f9e-4849-ae20-0592ec04a373
-    alb.ingress.kubernetes.io/group.name: growbin-alb
+    alb.ingress.kubernetes.io/group.name: ecoeco-alb
     alb.ingress.kubernetes.io/group.order: "10"
     alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
     alb.ingress.kubernetes.io/healthcheck-path: /argocd/api/version
@@ -183,10 +183,10 @@ metadata:
     alb.ingress.kubernetes.io/target-type: instance
     alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
     kubectl.kubernetes.io/last-applied-configuration: |
-      {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"alb.ingress.kubernetes.io/backend-protocol":"HTTPS","alb.ingress.kubernetes.io/certificate-arn":"arn:aws:acm:ap-northeast-2:721622471953:certificate/fed2966c-7f9e-4849-ae20-0592ec04a373","alb.ingress.kubernetes.io/group.name":"growbin-alb","alb.ingress.kubernetes.io/group.order":"10","alb.ingress.kubernetes.io/healthcheck-interval-seconds":"15","alb.ingress.kubernetes.io/healthcheck-path":"/argocd/health","alb.ingress.kubernetes.io/healthcheck-timeout-seconds":"5","alb.ingress.kubernetes.io/healthy-threshold-count":"2","alb.ingress.kubernetes.io/listen-ports":"[{\"HTTP\": 80}, {\"HTTPS\": 443}]","alb.ingress.kubernetes.io/scheme":"internet-facing","alb.ingress.kubernetes.io/ssl-redirect":"443","alb.ingress.kubernetes.io/target-type":"instance","alb.ingress.kubernetes.io/unhealthy-threshold-count":"2"},"name":"argocd-ingress","namespace":"argocd"},"spec":{"ingressClassName":"alb","rules":[{"host":"growbin.app","http":{"paths":[{"backend":{"service":{"name":"argocd-server","port":{"number":443}}},"path":"/argocd","pathType":"Prefix"}]}}]}}
+      {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"alb.ingress.kubernetes.io/backend-protocol":"HTTPS","alb.ingress.kubernetes.io/certificate-arn":"arn:aws:acm:ap-northeast-2:721622471953:certificate/fed2966c-7f9e-4849-ae20-0592ec04a373","alb.ingress.kubernetes.io/group.name":"ecoeco-alb","alb.ingress.kubernetes.io/group.order":"10","alb.ingress.kubernetes.io/healthcheck-interval-seconds":"15","alb.ingress.kubernetes.io/healthcheck-path":"/argocd/health","alb.ingress.kubernetes.io/healthcheck-timeout-seconds":"5","alb.ingress.kubernetes.io/healthy-threshold-count":"2","alb.ingress.kubernetes.io/listen-ports":"[{\"HTTP\": 80}, {\"HTTPS\": 443}]","alb.ingress.kubernetes.io/scheme":"internet-facing","alb.ingress.kubernetes.io/ssl-redirect":"443","alb.ingress.kubernetes.io/target-type":"instance","alb.ingress.kubernetes.io/unhealthy-threshold-count":"2"},"name":"argocd-ingress","namespace":"argocd"},"spec":{"ingressClassName":"alb","rules":[{"host":"ecoeco.app","http":{"paths":[{"backend":{"service":{"name":"argocd-server","port":{"number":443}}},"path":"/argocd","pathType":"Prefix"}]}}]}}
   creationTimestamp: "2025-11-04T13:02:14Z"
   finalizers:
-  - group.ingress.k8s.aws/growbin-alb
+  - group.ingress.k8s.aws/ecoeco-alb
   generation: 2
   name: argocd-ingress
   namespace: argocd
@@ -195,7 +195,7 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-  - host: growbin.app
+  - host: ecoeco.app
     http:
       paths:
       - backend:
@@ -208,7 +208,7 @@ spec:
 status:
   loadBalancer:
     ingress:
-    - hostname: k8s-growbinalb-18c99b272a-1896386009.ap-northeast-2.elb.amazonaws.com
+    - hostname: k8s-ecoecoalb-18c99b272a-1896386009.ap-northeast-2.elb.amazonaws.com
 ```
 
 **주요 annotation:**
@@ -309,12 +309,12 @@ argocd login localhost:8080 \
 
 ```bash
 # ALB 도메인으로 로그인
-argocd login growbin.app/argocd \
+argocd login ecoeco.app/argocd \
   --username admin \
   --password <초기_비밀번호>
 
 # 또는 GRPC 사용 (더 빠름)
-argocd login growbin.app:443 \
+argocd login ecoeco.app:443 \
   --grpc-web \
   --username admin \
   --password <초기_비밀번호>

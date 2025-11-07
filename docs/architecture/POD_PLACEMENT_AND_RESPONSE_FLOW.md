@@ -169,7 +169,7 @@ sequenceDiagram
     participant Calico as 🔗 Calico VXLAN
     participant IGW as 🌐 Internet Gateway
 
-    User->>ALB: HTTPS 요청 (growbin.app/argocd)
+    User->>ALB: HTTPS 요청 (ecoeco.app/argocd)
     ALB->>Worker: HTTP 요청 (NodePort)
     Worker->>Pod: HTTP 요청 (ClusterIP)
     

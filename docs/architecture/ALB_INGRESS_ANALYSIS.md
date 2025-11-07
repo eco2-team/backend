@@ -45,7 +45,7 @@ Pod (Calico Overlay Network: 192.168.0.0/16)
 **구성 요소**:
 - **AWS Load Balancer Controller** (Helm 배포)
 - **Ingress Resources** (3개): argocd-ingress, grafana-ingress, api-ingress
-- **ALB Group**: `growbin-alb` (단일 ALB로 모든 Ingress 통합)
+- **ALB Group**: `ecoeco-alb` (단일 ALB로 모든 Ingress 통합)
 - **SSL/TLS**: ACM Certificate (Terraform 관리)
 - **Routing**: Path-based (`/argocd`, `/grafana`, `/api/v1`)
 
@@ -65,12 +65,12 @@ metadata:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: '443'  # ✅ HTTP → HTTPS
     alb.ingress.kubernetes.io/certificate-arn: <ACM_ARN>
-    alb.ingress.kubernetes.io/group.name: growbin-alb  # ✅ 단일 ALB
+    alb.ingress.kubernetes.io/group.name: ecoeco-alb  # ✅ 단일 ALB
     alb.ingress.kubernetes.io/group.order: '10'
     alb.ingress.kubernetes.io/backend-protocol: HTTPS  # ArgoCD는 HTTPS
 spec:
   rules:
-  - host: growbin.app
+  - host: ecoeco.app
     http:
       paths:
       - path: /argocd
@@ -92,7 +92,7 @@ metadata:
     # backend-protocol: HTTP (Grafana는 HTTP)
 spec:
   rules:
-  - host: growbin.app
+  - host: ecoeco.app
     http:
       paths:
       - path: /grafana
@@ -113,7 +113,7 @@ metadata:
     alb.ingress.kubernetes.io/group.order: '30'
 spec:
   rules:
-  - host: growbin.app
+  - host: ecoeco.app
     http:
       paths:
       - path: /api/v1
@@ -140,7 +140,7 @@ spec:
 
 | 항목 | 참고 글 권장사항 | 현재 구성 | 상태 |
 |------|----------------|----------|------|
-| **단일 ALB 사용** | 비용 효율화 | `alb.ingress.kubernetes.io/group.name: growbin-alb` | ✅ |
+| **단일 ALB 사용** | 비용 효율화 | `alb.ingress.kubernetes.io/group.name: ecoeco-alb` | ✅ |
 | **Path-based Routing** | `/api`, `/admin` 등 | `/argocd`, `/grafana`, `/api/v1` | ✅ |
 | **SSL/TLS** | cert-manager 권장 | ACM Certificate (AWS 네이티브) | ✅ |
 | **HTTP → HTTPS Redirect** | 보안 강화 | `ssl-redirect: '443'` | ✅ |
@@ -168,13 +168,13 @@ rules:
         servicePort: 8080
 ```
 
-**현재**: Path-based만 사용 (`growbin.app/argocd`, `growbin.app/grafana`)
+**현재**: Path-based만 사용 (`ecoeco.app/argocd`, `ecoeco.app/grafana`)
 
 **개선안**: 서브도메인 추가 지원
-- `argocd.growbin.app` → ArgoCD
-- `grafana.growbin.app` → Grafana
-- `api.growbin.app` → API Services
-- `growbin.app` → Frontend (Root)
+- `argocd.ecoeco.app` → ArgoCD
+- `grafana.ecoeco.app` → Grafana
+- `api.ecoeco.app` → API Services
+- `ecoeco.app` → Frontend (Root)
 
 **장점**:
 - ✅ URL이 더 깔끔 (`/argocd` prefix 불필요)
@@ -183,7 +183,7 @@ rules:
 
 **단점**:
 - ⚠️ Route53 레코드 추가 필요 (서브도메인당 1개)
-- ⚠️ ACM 인증서에 와일드카드(`*.growbin.app`) 필요
+- ⚠️ ACM 인증서에 와일드카드(`*.ecoeco.app`) 필요
 
 ---
 
@@ -254,7 +254,7 @@ metadata:
 spec:
   ingressClassName: alb  # ✅ 권장 방식
   rules:
-  - host: growbin.app
+  - host: ecoeco.app
     ...
 ```
 
@@ -374,7 +374,7 @@ annotations:
 
 #### 3. 서브도메인 기반 라우팅 추가
 **전제 조건**:
-1. ACM 인증서에 와일드카드 추가 (`*.growbin.app`)
+1. ACM 인증서에 와일드카드 추가 (`*.ecoeco.app`)
 2. Route53에 서브도메인 레코드 추가
 
 **Terraform 수정**: `terraform/acm.tf`
@@ -412,7 +412,7 @@ resource "aws_route53_record" "subdomain_a" {
 # Option 1: 서브도메인 기반 (권장)
 spec:
   rules:
-  - host: argocd.growbin.app
+  - host: argocd.ecoeco.app
     http:
       paths:
       - path: /
@@ -426,7 +426,7 @@ spec:
 # Option 2: Path 기반 (현재)
 spec:
   rules:
-  - host: growbin.app
+  - host: ecoeco.app
     http:
       paths:
       - path: /argocd
@@ -440,7 +440,7 @@ spec:
 # Option 3: 혼용 (최대 유연성)
 spec:
   rules:
-  - host: argocd.growbin.app  # 서브도메인
+  - host: argocd.ecoeco.app  # 서브도메인
     http:
       paths:
       - path: /
@@ -450,7 +450,7 @@ spec:
             name: argocd-server
             port:
               number: 443
-  - host: growbin.app  # 메인 도메인 (fallback)
+  - host: ecoeco.app  # 메인 도메인 (fallback)
     http:
       paths:
       - path: /argocd

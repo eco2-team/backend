@@ -40,16 +40,15 @@ MAJOR.MINOR.PATCH
 
 | 버전 | 날짜 | 마일스톤 | 상태 |
 |------|------|----------|------|
-| v0.1.0 | 2025-11-01 | 인프라 프로비저닝 | ✅ 완료 |
-| v0.2.0 | 2025-11-03 | Kubernetes 플랫폼 구축 | ✅ 완료 |
-| v0.3.0 | 2025-11-04 | 인프라 자동화 & 모니터링 | ✅ 완료 |
-| v0.4.0 | 2025-11-05 | GitOps 인프라 구축 | ✅ 완료 |
-| v0.4.1 | 2025-11-06 | GitOps 파이프라인 문서화 | ✅ 완료 |
-| v0.5.0 | 2025-11-06 | 13-Node 마이크로서비스 아키텍처 | ✅ 완료 |
-| v0.6.0 | 예정 | Worker Local SQLite WAL | 🔄 진행 중 |
-| v0.7.0 | 예정 | 모니터링 & 알림 강화 | ⏳ 계획 중 |
-| v0.8.0 | 예정 | 고급 배포 전략 (Canary) | ⏳ 계획 중 |
-| v0.9.0 | 예정 | 성능 최적화 & 보안 강화 | ⏳ 계획 중 |
+| v0.1.0 | 2025-11-01 | 인프라 프로비저닝 (Terraform) | ✅ 완료 |
+| v0.2.0 | 2025-11-02 | Kubernetes 플랫폼 구축 (Ansible) | ✅ 완료 |
+| v0.3.0 | 2025-11-03 | 인프라 자동화 & 모니터링 | ✅ 완료 |
+| v0.4.0 | 2025-11-04 | GitOps 인프라 구축 (ArgoCD) | ✅ 완료 |
+| v0.5.0 | 2025-11-05 | 13-Node Microservices Architecture | ✅ 완료 |
+| v0.6.0 | 2025-11-07 | Worker Local SQLite WAL + 완전 자동화 | ✅ 완료 |
+| v0.7.0 | 예정 | AI 모델 통합 & E2E 테스트 | ⏳ 계획 중 |
+| v0.8.0 | 예정 | 성능 최적화 & 보안 강화 | ⏳ 계획 중 |
+| v0.9.0 | 예정 | 프로덕션 사전 검증 | ⏳ 계획 중 |
 
 ### v1.0.0 - 첫 프로덕션 릴리스
 
@@ -153,96 +152,147 @@ git push origin v0.4.2
 
 ## 📝 버전별 체크리스트
 
-### v0.5.0 체크리스트 (13-Node Microservices)
+### v0.6.0 체크리스트 (Worker Local SQLite WAL + 완전 자동화) ✅ 완료
 
-**인프라:**
+**13-Node Microservices Architecture:**
 - [x] 13-Node 클러스터 구성
-  - [x] 1 Master Node (k8s-master)
-  - [x] 6 API Nodes (도메인별 분리)
-  - [x] 2 Worker Nodes (Storage/AI)
-  - [x] 4 Infrastructure Nodes (RabbitMQ, PostgreSQL, Redis, Monitoring)
-- [x] Terraform 자동화
-  - [x] VPC, EC2, S3, CloudFront, ACM
-  - [x] 13개 노드 정의
-- [x] Ansible 자동화
-  - [x] Kubernetes 클러스터 설정
-  - [x] 노드 라벨링
-  - [x] Calico CNI 설치
+  - [x] Master: 1 (t3a.large)
+  - [x] API: 6 (t3a.medium) - Waste, Auth, User, Location, Recycle, Chat
+  - [x] Worker: 2 (t3a.large) - Storage, AI
+  - [x] Infrastructure: 4 (t3a.medium) - RabbitMQ, PostgreSQL, Redis, Monitoring
+- [x] Terraform 13-Node 프로비저닝
+- [x] Ansible 13-Node 자동 설치
+- [x] Node Labels 자동 설정
+- [x] Provider ID 자동 주입
 
-**배포:**
-- [x] ArgoCD GitOps 설정
-  - [x] Application 정의
-  - [x] ApplicationSet (API/Worker)
-- [x] Helm Charts 구성
-  - [x] API 서비스 템플릿 (6개)
-  - [x] Worker 서비스 템플릿 (2개)
-  - [x] values-13nodes.yaml
-- [x] GitHub Actions CI/CD
-  - [x] Lint & Test
-  - [x] Docker Build & Push (GHCR)
-  - [x] 자동 배포 트리거
+**Worker Local SQLite WAL:**
+- [x] WAL Manager 구현 (Robin 패턴)
+- [x] Storage Worker 구현
+- [x] AI Worker 구현
+- [x] PostgreSQL 동기화 로직
+- [x] Worker Dockerfile 작성
+- [x] Kubernetes PV/PVC 설정
+- [x] Worker 배포 매니페스트
 
-**애플리케이션:**
-- [x] FastAPI 서비스 스켈레톤 (6개)
-  - [x] waste-api
-  - [x] auth-api
-  - [x] userinfo-api
-  - [x] location-api
-  - [x] recycle-info-api
-  - [x] chat-llm-api
-- [x] Health Check 엔드포인트
-  - [x] Liveness Probe
-  - [x] Readiness Probe
-- [x] Python 포맷팅 설정
-  - [x] pyproject.toml, .flake8, .pylintrc
-  - [x] Black, isort, pycodestyle
+**CloudFront CDN:**
+- [x] S3 Bucket 생성
+- [x] CloudFront Distribution 구성
+- [x] ACM Certificate (us-east-1)
+- [x] Route53 레코드 설정
+- [x] Cache Invalidation 스크립트
+
+**모니터링 스택:**
+- [x] Prometheus 배포 (30일 retention)
+- [x] Grafana 배포
+- [x] Node Exporter (13개 노드)
+- [x] ServiceMonitor (API 6개 + Worker 2개)
+- [x] Prometheus Rules
+- [x] Grafana Dashboard (13-Node)
+
+**스크립트 자동화:**
+- [x] auto-rebuild.sh (완전 자동 재구축)
+- [x] destroy-with-cleanup.sh (완전 정리)
+  - [x] CloudFront 정리
+  - [x] Route53 레코드 정리
+  - [x] S3 Bucket 정리
+  - [x] ACM Certificate 정리 (us-east-1)
+  - [x] IAM Policy 강제 정리
+- [x] build-workers.sh (Worker 이미지 빌드)
+- [x] deploy-monitoring.sh (모니터링 배포)
+- [x] request-vcpu-increase.sh (vCPU 한도 증가)
+- [x] invalidate-cdn-cache.sh (CDN 캐시 무효화)
+
+**문서화:**
+- [x] TROUBLESHOOTING.md 작성
+- [x] README.md 업데이트 (13-Node + WAL)
+- [x] AUTO_REBUILD_GUIDE.md
+- [x] MONITORING_SETUP.md
+- [x] WORKER_WAL_IMPLEMENTATION.md
+- [x] VERSION_GUIDE.md 업데이트
+
+### v0.5.0 체크리스트 (13-Node Microservices Architecture) ✅ 완료
+
+**13-Node 클러스터 구성:**
+- [x] Master 노드 정의
+- [x] API 노드 6개 정의 (도메인별 분리)
+- [x] Worker 노드 2개 정의
+- [x] Infrastructure 노드 4개 정의
+
+**Terraform:**
+- [x] 13-Node EC2 인스턴스 프로비저닝
+- [x] VPC, Subnets, Security Groups
+- [x] IAM Roles & Policies
+- [x] S3 Bucket 생성
+- [x] CloudFront Distribution
+
+**Ansible:**
+- [x] Kubernetes 자동 설치 (kubeadm)
+- [x] Node Labels 자동 설정
+- [x] Provider ID 설정
+- [x] CNI 플러그인 설치 (Calico)
+
+**Helm Charts:**
+- [x] values-13nodes.yaml 작성
+- [x] API 서비스 템플릿 (6개)
+- [x] Worker 서비스 템플릿 (2개)
+
+**ArgoCD:**
+- [x] Application 매니페스트 (8개)
+- [x] 자동 Sync 설정
 
 **문서:**
 - [x] 13-Node 아키텍처 문서
-- [x] WAL + Domain 통합 설계
-- [x] Database 아키텍처 분석
-- [x] Worker Layer 상세 설계
-- [x] 배포 가이드
-- [x] 문서 재정립 (33개 삭제, 11개 이동)
+- [x] Helm 배포 가이드
+- [x] ArgoCD 설정 가이드
 
-### v0.6.0 체크리스트 (Worker Local SQLite WAL)
+### v0.7.0 체크리스트 (AI 모델 통합 & E2E 테스트) ⏳ 계획 중
 
-**Worker WAL 구현:**
-- [ ] app/wal.py (WAL 매니저)
-  - [ ] SQLite 데이터베이스 초기화
-  - [ ] WAL 모드 활성화
-  - [ ] Task 기록/조회/삭제 API
-- [ ] workers/*.py (WAL 적용)
-  - [ ] image-uploader
-  - [ ] gpt5-analyzer
-  - [ ] rule-retriever
-  - [ ] response-generator
-  - [ ] task-scheduler
-- [ ] 장애 복구 로직
-  - [ ] Worker 재시작 시 미완료 작업 재개
-  - [ ] Exponential Backoff 재시도
-  - [ ] Dead Letter Queue (DLQ)
-- [ ] 모니터링
-  - [ ] WAL 크기 메트릭
-  - [ ] 복구 성공률 메트릭
-  - [ ] Prometheus 통합
+**AI 모델 통합:**
+- [ ] GPT-5 Vision API 통합
+- [ ] GPT-4o mini API 통합
+- [ ] 이미지 전처리 파이프라인
+- [ ] AI 응답 캐싱 (Redis)
 
-**Kubernetes 설정:**
-- [ ] PersistentVolume (Worker Local Disk)
-- [ ] PersistentVolumeClaim (WAL Storage)
-- [ ] initContainer (WAL 복구)
-- [ ] volumeMount (Worker Pods)
+**PostgreSQL 스키마:**
+- [ ] task_results 테이블 최종 검증
+- [ ] task_history 테이블 인덱싱
+- [ ] 데이터 마이그레이션 스크립트
 
-**테스트:**
-- [ ] 단위 테스트 (WAL 매니저)
-- [ ] 통합 테스트 (Worker + WAL)
-- [ ] 장애 복구 시나리오 테스트
-- [ ] 성능 테스트 (WAL 오버헤드)
+**E2E 테스트:**
+- [ ] 이미지 업로드 → S3 → CloudFront 테스트
+- [ ] Waste API → RabbitMQ → Worker 테스트
+- [ ] Worker → PostgreSQL 동기화 테스트
+- [ ] AI Vision 분석 테스트
 
-**문서:**
-- [ ] WAL 구현 가이드
-- [ ] 장애 복구 절차
-- [ ] 모니터링 대시보드 가이드
+**성능 테스트:**
+- [ ] 로드 테스트 (1,000 RPS)
+- [ ] 스트레스 테스트
+- [ ] Worker 동시 처리 테스트
+
+### v1.0.0 체크리스트 (프로덕션 릴리스) ⏳ 계획 중
+
+- [ ] FastAPI 마이크로서비스 5개 배포
+  - [ ] auth-service
+  - [ ] users-service
+  - [ ] waste-service
+  - [ ] recycling-service
+  - [ ] locations-service
+- [ ] Celery Workers 구성
+  - [ ] AI Workers
+  - [ ] Batch Workers
+  - [ ] API Workers
+- [ ] GitHub Actions CI/CD 워크플로우
+  - [ ] ci-build-auth.yml
+  - [ ] ci-build-users.yml
+  - [ ] ci-build-waste.yml
+  - [ ] ci-build-recycling.yml
+  - [ ] ci-build-locations.yml
+- [ ] ArgoCD Application 매니페스트
+  - [ ] 5개 서비스 Application
+  - [ ] 자동 Sync 설정
+- [ ] 서비스 간 통신 테스트
+- [ ] 헬스체크 구성
+- [ ] 문서 업데이트
 
 ### v1.0.0 체크리스트 (프로덕션 릴리스)
 
@@ -388,7 +438,7 @@ git log v0.4.0..v0.4.1 --oneline
 
 ---
 
-**문서 버전**: v0.4.1  
-**최종 업데이트**: 2025-11-06  
+**문서 버전**: v0.6.0  
+**최종 업데이트**: 2025-11-07  
 **작성자**: Backend Team
 

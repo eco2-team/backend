@@ -219,7 +219,7 @@ KUBELET_KUBEADM_ARGS="--container-runtime-endpoint=unix:///var/run/containerd/co
 - ✅ ALB 자동 생성
 - ✅ Target 자동 등록 (Provider ID 정상)
 - ✅ Route53 DNS → ALB
-- ✅ `https://growbin.app` 정상 작동
+- ✅ `https://ecoeco.app` 정상 작동
 
 ---
 
@@ -248,7 +248,7 @@ kubectl get svc -A | grep -E "NodePort|LoadBalancer"
 
 ### Route53 확인
 ```bash
-nslookup growbin.app 8.8.8.8
+nslookup ecoeco.app 8.8.8.8
 
 # 예상 결과: ALB의 여러 IP 주소
 ```
