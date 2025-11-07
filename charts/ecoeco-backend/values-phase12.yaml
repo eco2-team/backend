@@ -288,7 +288,7 @@ ingress:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: '443'
   hosts:
-    - host: growbin.app
+    - host: api.growbin.app
       paths:
         - path: /auth
           pathType: Prefix

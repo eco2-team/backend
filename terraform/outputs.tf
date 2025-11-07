@@ -270,15 +270,17 @@ output "dns_records" {
   value = var.domain_name != "" ? {
     apex_domain = "https://${var.domain_name}"
     www_url     = "https://www.${var.domain_name}"
-    # Path-based routing (단일 도메인 + 경로 구분)
-    auth_url    = "https://${var.domain_name}/auth"
-    my_url      = "https://${var.domain_name}/my"
-    scan_url    = "https://${var.domain_name}/scan"
-    character_url = "https://${var.domain_name}/character"
-    location_url = "https://${var.domain_name}/location"
-    argocd_url  = "https://${var.domain_name}/argocd"
-    grafana_url = "https://${var.domain_name}/grafana"
-    # CDN (서브도메인)
+    # API 서브도메인
+    api_base    = "https://api.${var.domain_name}"
+    auth_url    = "https://api.${var.domain_name}/auth"
+    my_url      = "https://api.${var.domain_name}/my"
+    scan_url    = "https://api.${var.domain_name}/scan"
+    character_url = "https://api.${var.domain_name}/character"
+    location_url = "https://api.${var.domain_name}/location"
+    # 관리 도구 서브도메인
+    argocd_url  = "https://argocd.${var.domain_name}"
+    grafana_url = "https://grafana.${var.domain_name}"
+    # CDN 서브도메인
     cdn_url     = "https://images.${var.domain_name}"
     nameservers = try(data.aws_route53_zone.main[0].name_servers, [])
   } : null
