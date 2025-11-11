@@ -1,11 +1,10 @@
-name: Deploy API Services
+name: Deploy API Services (GitOps Complete)
 
 on:
   push:
     branches: [main, develop]
     paths:
       - 'services/**'
-      - 'charts/**'
   pull_request:
     branches: [main, develop]
     paths:
@@ -14,99 +13,107 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: sesacthon
+  HELM_VALUES_PATH: charts/ecoeco-backend/values.yaml
 
 jobs:
   # 변경된 서비스 감지
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      waste: ${{ steps.changes.outputs.waste }}
       auth: ${{ steps.changes.outputs.auth }}
-      userinfo: ${{ steps.changes.outputs.userinfo }}
+      my: ${{ steps.changes.outputs.my }}
+      scan: ${{ steps.changes.outputs.scan }}
+      character: ${{ steps.changes.outputs.character }}
       location: ${{ steps.changes.outputs.location }}
-      recycle-info: ${{ steps.changes.outputs.recycle-info }}
-      chat-llm: ${{ steps.changes.outputs.chat-llm }}
+      info: ${{ steps.changes.outputs.info }}
+      chat: ${{ steps.changes.outputs.chat }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v2
         id: changes
         with:
           filters: |
-            waste:
-              - 'services/waste-api/**'
             auth:
-              - 'services/auth-api/**'
-            userinfo:
-              - 'services/userinfo-api/**'
+              - 'services/auth/**'
+            my:
+              - 'services/my/**'
+            scan:
+              - 'services/scan/**'
+            character:
+              - 'services/character/**'
             location:
-              - 'services/location-api/**'
-            recycle-info:
-              - 'services/recycle-info-api/**'
-            chat-llm:
-              - 'services/chat-llm-api/**'
+              - 'services/location/**'
+            info:
+              - 'services/info/**'
+            chat:
+              - 'services/chat/**'
 
-  # Waste API 빌드 & 배포
-  build-waste:
+  # Matrix 전략으로 모든 도메인 빌드
+  build-and-deploy:
     needs: detect-changes
-    if: needs.detect-changes.outputs.waste == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
+    strategy:
+      matrix:
+        service: [auth, my, scan, character, location, info, chat]
+    # 변경된 서비스만 빌드
+    if: |
+      (matrix.service == 'auth' && needs.detect-changes.outputs.auth == 'true') ||
+      (matrix.service == 'my' && needs.detect-changes.outputs.my == 'true') ||
+      (matrix.service == 'scan' && needs.detect-changes.outputs.scan == 'true') ||
+      (matrix.service == 'character' && needs.detect-changes.outputs.character == 'true') ||
+      (matrix.service == 'location' && needs.detect-changes.outputs.location == 'true') ||
+      (matrix.service == 'info' && needs.detect-changes.outputs.info == 'true') ||
+      (matrix.service == 'chat' && needs.detect-changes.outputs.chat == 'true')
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/waste-api
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,format=short
+          python-version: '3.11'
+          cache: 'pip'
       
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./services/waste-api
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      
-      - name: Update Helm values
-        if: github.ref == 'refs/heads/main'
+      - name: Lint & Test
         run: |
-          NEW_TAG="${{ github.sha }}"
-          sed -i "s|tag: .*|tag: ${NEW_TAG}|" charts/growbin-backend/values.yaml
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add charts/growbin-backend/values.yaml
-          git commit -m "chore: Update waste-api image to ${NEW_TAG}"
-          git push
-
-  # Auth API 빌드 & 배포
-  build-auth:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.auth == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
+          cd services/${{ matrix.service }}
+          
+          # 의존성 설치
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+          pip install pytest pytest-cov pycodestyle black isort flake8
+          
+          echo "::group::PEP 8 검사"
+          pycodestyle . --max-line-length=100 --statistics || echo "⚠️ PEP 8 경고"
+          echo "::endgroup::"
+          
+          echo "::group::Black 포맷 검사"
+          black --check . || echo "⚠️ Black 경고"
+          echo "::endgroup::"
+          
+          echo "::group::isort Import 정렬 검사"
+          isort --check-only . || echo "⚠️ isort 경고"
+          echo "::endgroup::"
+          
+          echo "::group::Flake8 린트"
+          flake8 . --statistics || echo "⚠️ Flake8 경고"
+          echo "::endgroup::"
+          
+          echo "::group::pytest 테스트"
+          if [ -d tests/ ]; then
+            pytest tests/ -v --cov=. --cov-report=term || echo "⚠️ 테스트 경고"
+          else
+            echo "ℹ️ 테스트 디렉토리 없음"
+          fi
+          echo "::endgroup::"
+        continue-on-error: true
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -122,194 +129,70 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/auth-api
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
             type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
       
-      - name: Build and push
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./services/auth-api
+          context: ./services/${{ matrix.service }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
       
-      - name: Update Helm values
-        if: github.ref == 'refs/heads/main'
+      - name: Update Helm values (GitOps Trigger)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          NEW_TAG="${{ github.sha }}"
-          sed -i "s|tag: .*  # auth-api|tag: ${NEW_TAG}  # auth-api|" charts/growbin-backend/values.yaml
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add charts/growbin-backend/values.yaml
-          git commit -m "chore: Update auth-api image to ${NEW_TAG}"
-          git push
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔄 GitOps: Helm Values 업데이트 중..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "서비스: ${{ matrix.service }}"
+          echo "이미지 태그: sha-${SHORT_SHA}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # Helm values 파일 업데이트
+          sed -i "s|tag: .*  # ${{ matrix.service }}-auto|tag: sha-${SHORT_SHA}  # ${{ matrix.service }}-auto|" \
+            ${{ env.HELM_VALUES_PATH }}
+          
+          # 변경사항 확인
+          if git diff --quiet ${{ env.HELM_VALUES_PATH }}; then
+            echo "ℹ️ 변경사항 없음"
+            exit 0
+          fi
+          
+          # Git 설정
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Commit & Push
+          git add ${{ env.HELM_VALUES_PATH }}
+          git commit -m "chore(gitops): Update ${{ matrix.service }} image to sha-${SHORT_SHA}
 
-  # Userinfo API 빌드 & 배포
-  build-userinfo:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.userinfo == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/userinfo-api
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,format=short
-      
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./services/userinfo-api
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+Automated image tag update by GitHub Actions
+- Service: ${{ matrix.service }}
+- Image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:sha-${SHORT_SHA}}
+- Triggered by: ${{ github.event.head_commit.message }}
 
-  # Location API 빌드 & 배포
-  build-location:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.location == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/location-api
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,format=short
-      
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./services/location-api
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # Recycle Info API 빌드 & 배포
-  build-recycle-info:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.recycle-info == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/recycle-info-api
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,format=short
-      
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./services/recycle-info-api
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # Chat LLM API 빌드 & 배포
-  build-chat-llm:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.chat-llm == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/chat-llm-api
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,format=short
-      
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./services/chat-llm-api
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
+This will trigger ArgoCD to sync and deploy to Kubernetes."
+          
+          # Push with retry
+          for i in {1..3}; do
+            if git push; then
+              echo "✅ Helm values 업데이트 완료"
+              exit 0
+            fi
+            echo "⚠️ Push 실패, 재시도 ($i/3)..."
+            git pull --rebase
+            sleep 2
+          done
+          
+          echo "❌ Helm values 업데이트 실패"
+          exit 1
