@@ -58,3 +58,8 @@ tfplan
 .env
 .env.local
 
+# Kubernetes
+kubeconfig.tmp
+kubeconfig*.tmp
+*.kubeconfig
+
