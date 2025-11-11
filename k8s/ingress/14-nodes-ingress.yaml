@@ -1,0 +1,367 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 14-Node 클러스터 통합 Ingress
+# ALB 기반 단일 진입점 (API, Atlantis, Monitoring)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 1. API Ingress (api.growbin.app)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: api
+  labels:
+    app: ecoeco-api
+    component: ingress
+  annotations:
+    # ALB 기본 설정
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance  # Calico CNI 사용 시 instance 필수
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # Health Check
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
+    
+    # SSL Certificate (ACM)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    
+    # Tags
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=api,Architecture=14-nodes
+    
+    # 그룹 설정 (단일 ALB로 통합)
+    alb.ingress.kubernetes.io/group.name: ecoeco-main
+    alb.ingress.kubernetes.io/group.order: '10'
+spec:
+  ingressClassName: alb
+  rules:
+    - host: api.growbin.app
+      http:
+        paths:
+          # Phase 1: Core APIs
+          - path: /api/v1/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-api
+                port:
+                  number: 8000
+          
+          - path: /api/v1/my
+            pathType: Prefix
+            backend:
+              service:
+                name: my-api
+                port:
+                  number: 8000
+          
+          - path: /api/v1/scan
+            pathType: Prefix
+            backend:
+              service:
+                name: scan-api
+                port:
+                  number: 8000
+          
+          # Phase 2: Extended APIs
+          - path: /api/v1/character
+            pathType: Prefix
+            backend:
+              service:
+                name: character-api
+                port:
+                  number: 8000
+          
+          - path: /api/v1/location
+            pathType: Prefix
+            backend:
+              service:
+                name: location-api
+                port:
+                  number: 8000
+          
+          # Phase 3: Advanced APIs
+          - path: /api/v1/info
+            pathType: Prefix
+            backend:
+              service:
+                name: info-api
+                port:
+                  number: 8000
+          
+          - path: /api/v1/chat
+            pathType: Prefix
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          
+          # Health Check (ALB)
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: auth-api  # 아무 API나 사용 (모두 /health 있음)
+                port:
+                  number: 8000
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 2. Atlantis Ingress (atlantis.growbin.app)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: atlantis-ingress
+  namespace: atlantis
+  labels:
+    app: atlantis
+    component: gitops
+  annotations:
+    # ALB 기본 설정
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance  # Calico CNI 사용 시 instance 필수
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # Backend Protocol (명시적 설정)
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    
+    # Health Check
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    
+    # SSL Certificate (ACM)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    
+    # Tags
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=atlantis,Architecture=14-nodes
+    
+    # 그룹 설정 (단일 ALB로 통합)
+    alb.ingress.kubernetes.io/group.name: ecoeco-main
+    alb.ingress.kubernetes.io/group.order: '20'
+    
+    # GitHub Webhook 타임아웃 증가
+    alb.ingress.kubernetes.io/backend-protocol-timeout: '300'  # 5분
+spec:
+  ingressClassName: alb
+  rules:
+    - host: atlantis.growbin.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: atlantis
+                port:
+                  number: 80
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 3. Grafana Ingress (grafana.growbin.app)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-ingress
+  namespace: monitoring
+  labels:
+    app: grafana
+    component: monitoring
+  annotations:
+    # ALB 기본 설정
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance  # Calico CNI 사용 시 instance 필수
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # Backend Protocol (명시적 설정)
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    
+    # Health Check
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    
+    # SSL Certificate (ACM)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    
+    # Tags
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=grafana,Architecture=14-nodes
+    
+    # 그룹 설정 (단일 ALB로 통합)
+    alb.ingress.kubernetes.io/group.name: ecoeco-main
+    alb.ingress.kubernetes.io/group.order: '30'
+    
+    # Backend Protocol (명시적 설정)
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+spec:
+  ingressClassName: alb
+  rules:
+    - host: grafana.growbin.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus-grafana
+                port:
+                  number: 80
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 4. ArgoCD Ingress (argocd.growbin.app)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-ingress
+  namespace: argocd
+  labels:
+    app: argocd
+    component: gitops
+  annotations:
+    # ALB 기본 설정
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance  # Calico CNI 사용 시 instance 필수
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # Backend Protocol (중요: ArgoCD는 HTTP만 지원)
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    
+    # Health Check
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
+    
+    # SSL Certificate (ACM)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    
+    # Tags
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=argocd,Architecture=14-nodes
+    
+    # 그룹 설정 (단일 ALB로 통합)
+    alb.ingress.kubernetes.io/group.name: ecoeco-main
+    alb.ingress.kubernetes.io/group.order: '20'
+spec:
+  ingressClassName: alb
+  rules:
+    - host: argocd.growbin.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80  # HTTP 포트 (ArgoCD는 insecure 모드)
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 5. Prometheus Ingress (prometheus.growbin.app) - 선택사항
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prometheus-ingress
+  namespace: monitoring
+  labels:
+    app: prometheus
+    component: monitoring
+  annotations:
+    # ALB 기본 설정
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance  # Calico CNI 사용 시 instance 필수
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # Health Check
+    alb.ingress.kubernetes.io/healthcheck-path: /-/healthy
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    
+    # SSL Certificate (ACM)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    
+    # Tags
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=prometheus,Architecture=14-nodes
+    
+    # 그룹 설정 (단일 ALB로 통합)
+    alb.ingress.kubernetes.io/group.name: ecoeco-main
+    alb.ingress.kubernetes.io/group.order: '40'
+    
+    # Basic Auth (보안 - 선택사항)
+    # nginx.ingress.kubernetes.io/auth-type: basic
+    # nginx.ingress.kubernetes.io/auth-secret: prometheus-basic-auth
+    # nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required'
+spec:
+  ingressClassName: alb
+  rules:
+    - host: prometheus.growbin.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Ingress 요약 (14-Node Architecture)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# 단일 ALB (ecoeco-main group):
+#   1. api.growbin.app → API Services (7개)
+#      - /api/v1/auth → auth-api
+#      - /api/v1/my → my-api
+#      - /api/v1/scan → scan-api
+#      - /api/v1/character → character-api
+#      - /api/v1/location → location-api
+#      - /api/v1/info → info-api
+#      - /api/v1/chat → chat-api
+#
+#   2. atlantis.growbin.app → Atlantis (GitOps)
+#      - / → atlantis:80
+#
+#   3. argocd.growbin.app → ArgoCD (GitOps)
+#      - / → argocd-server:80 (HTTP, insecure 모드)
+#
+#   4. grafana.growbin.app → Grafana (Monitoring)
+#      - / → prometheus-grafana:80
+#
+#   5. prometheus.growbin.app → Prometheus (Monitoring)
+#      - / → prometheus:9090
+#
+# 특징:
+#   - 단일 ALB로 통합 (비용 절감)
+#   - 도메인별 라우팅
+#   - HTTPS 리다이렉트
+#   - Health Check 자동
+#   - ACM Certificate 적용
+#
+# 배포:
+#   kubectl apply -f k8s/ingress/14-nodes-ingress.yaml
+#
+# Route53 설정:
+#   api.growbin.app → ALB (Alias)
+#   atlantis.growbin.app → ALB (Alias)
+#   argocd.growbin.app → ALB (Alias)
+#   grafana.growbin.app → ALB (Alias)
+#   prometheus.growbin.app → ALB (Alias)
+

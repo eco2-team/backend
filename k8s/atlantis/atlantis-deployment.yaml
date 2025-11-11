@@ -27,7 +27,7 @@ stringData:
   aws-secret-access-key: "REPLACE_WITH_YOUR_AWS_SECRET_ACCESS_KEY"
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Atlantis ConfigMap
+# Atlantis ConfigMap (환경 변수)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: v1
 kind: ConfigMap
@@ -36,6 +36,104 @@ metadata:
   namespace: atlantis
 data:
   AWS_REGION: "ap-northeast-2"
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Atlantis Repo Config (atlantis.yaml 파일)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atlantis-repo-config
+  namespace: atlantis
+data:
+  atlantis.yaml: |
+    version: 3
+    automerge: true
+    delete_source_branch_on_merge: true
+    parallel_plan: true
+    parallel_apply: false
+    
+    projects:
+      - name: infrastructure
+        dir: terraform
+        workspace: production
+        terraform_version: v1.5.0
+        workflow: infrastructure-workflow
+        apply_requirements:
+          - approved
+          - mergeable
+        autoplan:
+          enabled: true
+          when_modified:
+            - "*.tf"
+            - "*.tfvars"
+            - "terraform.tfvars"
+            - "**/*.tf"
+        allowed_overrides:
+          - apply_requirements
+          - workflow
+        allow_custom_workflows: true
+    
+    workflows:
+      infrastructure-workflow:
+        plan:
+          steps:
+            - env:
+                name: SETUP_ENV
+                command: 'echo "Setting up environment..."'
+            - init
+            - run: terraform validate
+            - plan:
+                extra_args:
+                  - -lock-timeout=5m
+                  - -var-file=terraform.tfvars
+            - run: |
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo "✅ Terraform Plan Complete"
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        
+        apply:
+          steps:
+            - env:
+                name: SETUP_ENV
+                command: 'echo "Setting up environment..."'
+            - init
+            - apply:
+                extra_args:
+                  - -lock-timeout=5m
+                  - -var-file=terraform.tfvars
+            - run: |
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo "📊 Exporting Terraform Outputs (Phase 3)..."
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                
+                terraform output -json > /tmp/tf-outputs.json
+                terraform output -raw ansible_inventory > /tmp/ansible-inventory.ini
+                
+                if command -v kubectl &> /dev/null; then
+                    kubectl get namespace argocd &>/dev/null || kubectl create namespace argocd
+                    
+                    kubectl create configmap terraform-outputs \
+                      --from-file=tf-outputs.json=/tmp/tf-outputs.json \
+                      --from-file=ansible-inventory.ini=/tmp/ansible-inventory.ini \
+                      --namespace=argocd \
+                      --dry-run=client -o yaml | kubectl apply -f -
+                    
+                    echo "✅ Terraform Outputs saved to ConfigMap (namespace: argocd)"
+                    kubectl get configmap terraform-outputs -n argocd
+                    echo "🔄 ArgoCD PreSync Hook이 이 ConfigMap을 읽어서 Ansible을 실행합니다"
+                else
+                    echo "⚠️  kubectl not found, skipping ConfigMap creation"
+                fi
+            - run: |
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo "🔗 Triggering Post-Apply Actions..."
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo "Terraform Apply Complete!"
+    
+    hide_prev_plan_comments: true
+    silence_whitelist_errors: false
+    silence_vcs_status_no_plans: false
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Atlantis StatefulSet (데이터 영속성 필요)
@@ -63,6 +161,31 @@ spec:
         component: gitops
     spec:
       serviceAccountName: atlantis
+      
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # Phase 3: Init Container - kubectl 설치
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      initContainers:
+        - name: install-kubectl
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # 디렉토리 생성
+              mkdir -p /shared/usr/local/bin
+              
+              # kubectl 바이너리 복사
+              cp /opt/bitnami/kubectl/bin/kubectl /shared/usr/local/bin/kubectl
+              chmod +x /shared/usr/local/bin/kubectl
+              
+              # 버전 확인
+              /shared/usr/local/bin/kubectl version --client
+              
+              echo "✅ kubectl installed to /shared/usr/local/bin/kubectl"
+          volumeMounts:
+            - name: kubectl
+              mountPath: /shared
       
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       # SecurityContext (PersistentVolume 권한 문제 해결)
@@ -98,7 +221,9 @@ spec:
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           # Atlantis 실행 인자
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          command: ["atlantis"]
+          # command는 제거 (이미지의 기본 ENTRYPOINT 사용)
+          # /usr/local/bin이 kubectl 볼륨으로 마운트되어 atlantis 실행 파일이 가려짐
+          # 따라서 이미지의 기본 ENTRYPOINT를 사용해야 함
           args:
             - server
             - --atlantis-url=https://atlantis.growbin.app  # 외부 접속 URL (HTTPS)
@@ -148,19 +273,14 @@ spec:
             - name: ATLANTIS_DATA_DIR
               value: /atlantis-data
             
-            - name: ATLANTIS_REPO_CONFIG_JSON
-              value: |
-                {
-                  "repos": [
-                    {
-                      "id": "github.com/SeSACTHON/backend",
-                      "apply_requirements": ["approved"],
-                      "allowed_overrides": ["workflow"],
-                      "allow_custom_workflows": true,
-                      "workflow": "infrastructure-workflow"
-                    }
-                  ]
-                }
+            # Phase 3: PATH에 kubectl 경로 추가 (/shared/bin에 kubectl이 있음)
+            - name: PATH
+              value: "/usr/local/bin:/usr/local/sbin:/shared/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            
+            # Atlantis 설정 파일 경로 (ConfigMap에서 마운트)
+            - name: ATLANTIS_REPO_CONFIG
+              value: /etc/atlantis/atlantis.yaml
+          
           
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           # 포트
@@ -206,6 +326,29 @@ spec:
           volumeMounts:
             - name: atlantis-data
               mountPath: /atlantis-data
+            # Phase 3: kubectl 바이너리 (Init Container에서 설치)
+            # /shared/usr/local/bin을 /shared/bin에 마운트하여 PATH에 포함
+            # /usr/local/bin을 마운트하면 atlantis 실행 파일이 가려지므로 다른 경로 사용
+            - name: kubectl
+              mountPath: /shared/bin
+              subPath: usr/local/bin
+              readOnly: true
+            # Atlantis 설정 파일 (ConfigMap)
+            - name: atlantis-config-file
+              mountPath: /etc/atlantis
+              readOnly: true
+      
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # Phase 3: Volumes
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      volumes:
+        # kubectl 바이너리 (Init Container에서 설치)
+        - name: kubectl
+          emptyDir: {}
+        # Atlantis 설정 파일 (atlantis.yaml)
+        - name: atlantis-config-file
+          configMap:
+            name: atlantis-repo-config
   
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   # PersistentVolumeClaim
@@ -248,9 +391,45 @@ kind: ServiceAccount
 metadata:
   name: atlantis
   namespace: atlantis
+  labels:
+    app: atlantis
   annotations:
     # IRSA (IAM Role for Service Account) - 선택사항
     # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/atlantis-role
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Phase 3: RBAC - ConfigMap 생성 권한 (ArgoCD 연계)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: atlantis-configmap-creator
+  labels:
+    app: atlantis
+rules:
+  # ConfigMap 생성/업데이트 권한 (argocd namespace)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "update", "patch", "get", "list"]
+  # Namespace 확인 권한
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: atlantis-configmap-creator
+  labels:
+    app: atlantis
+subjects:
+  - kind: ServiceAccount
+    name: atlantis
+    namespace: atlantis
+roleRef:
+  kind: ClusterRole
+  name: atlantis-configmap-creator
+  apiGroup: rbac.authorization.k8s.io
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Atlantis Ingress (선택사항 - ALB Controller 사용 시)

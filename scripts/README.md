@@ -60,15 +60,55 @@ scripts/
 
 | 스크립트 | 설명 | 사용법 |
 |---------|------|--------|
+| **`check-aws-resources.sh`** | **AWS 리소스 종합 진단 (14개 항목)** | `bash diagnostics/check-aws-resources.sh` |
 | **`diagnose-postgresql.sh`** | PostgreSQL 종합 진단 (8단계) | `bash diagnostics/diagnose-postgresql.sh <MASTER_IP> ubuntu` |
 | **`diagnose-redis.sh`** | Redis 종합 진단 (8단계) | `bash diagnostics/diagnose-redis.sh <MASTER_IP> ubuntu` |
 | `check-cluster-health.sh` | 클러스터 전체 상태 확인 | `bash diagnostics/check-cluster-health.sh` |
 | `check-etcd-health.sh` | etcd 상태 확인 | `bash diagnostics/check-etcd-health.sh` |
 | `check-monitoring-status.sh` | 모니터링 상태 확인 | `bash diagnostics/check-monitoring-status.sh` |
-| `diagnose-pods-remote.sh` | 원격 Pod 진단 | `bash diagnostics/diagnose-pods-remote.sh <MASTER_IP>` |
+| `check-network-security.sh` | 네트워크 보안 확인 | `bash diagnostics/check-network-security.sh` |
 | `remote-health-check.sh` | 원격 헬스 체크 | `bash diagnostics/remote-health-check.sh <MASTER_IP>` |
-| `run-diagnosis-on-master.sh` | Master 노드 진단 실행 | `bash diagnostics/run-diagnosis-on-master.sh <MASTER_IP>` |
 | `verify-cluster-status.sh` | 클러스터 상태 검증 | `bash diagnostics/verify-cluster-status.sh` |
+
+### AWS 리소스 종합 진단 (`check-aws-resources.sh`)
+
+**14개 항목 전체 점검**:
+1. ✅ Terraform State
+2. ✅ VPC
+3. ✅ EC2 인스턴스
+4. ✅ CloudFront Distribution
+5. ✅ ACM Certificate (us-east-1)
+6. ✅ ACM Certificate (리전)
+7. ✅ Load Balancer
+8. ✅ Target Groups
+9. ✅ NAT Gateway
+10. ✅ S3 Bucket
+11. ✅ EBS 볼륨
+12. ✅ Elastic IP
+13. ✅ Security Groups
+14. ✅ ENI (Network Interface)
+
+**특징**:
+- 🎨 색상 코드로 상태 구분 (정상/경고/오류)
+- 💰 리소스별 예상 월간 비용 계산
+- 📊 종합 요약 및 권장 조치
+- 🔍 삭제 후 잔여 리소스 확인
+
+**사용 예시**:
+```bash
+bash scripts/diagnostics/check-aws-resources.sh
+```
+
+**출력 예시**:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 종합 요약
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ 모든 리소스가 삭제되었습니다!
+
+💰 월 예상 비용: $0
+```
 
 ### PostgreSQL 진단 (`diagnose-postgresql.sh`)
 
@@ -166,9 +206,57 @@ bash scripts/diagnostics/diagnose-redis.sh 52.79.238.50 ubuntu
 
 | 스크립트 | 설명 | 사용법 |
 |---------|------|--------|
+| **`force-destroy-all.sh`** | **AWS 리소스 강제 전체 삭제** | `bash utilities/force-destroy-all.sh` |
 | `connect-ssh.sh` | SSH 연결 | `bash utilities/connect-ssh.sh <NODE_IP>` |
 | `detect-changes.sh` | 변경 사항 감지 | `bash utilities/detect-changes.sh` |
 | `get-instances.sh` | EC2 인스턴스 정보 조회 | `bash utilities/get-instances.sh` |
+| `invalidate-cdn-cache.sh` | CloudFront 캐시 무효화 | `bash utilities/invalidate-cdn-cache.sh` |
+| `manual-cleanup-cloudfront-acm.sh` | CloudFront/ACM 수동 정리 | `bash utilities/manual-cleanup-cloudfront-acm.sh` |
+| `request-vcpu-increase.sh` | vCPU 한도 증가 요청 | `bash utilities/request-vcpu-increase.sh` |
+
+### 강제 리소스 삭제 (`force-destroy-all.sh`)
+
+**16단계 순차 삭제** (v2 개선):
+1. ✅ CloudFront Distribution (배포 대기 + **삭제 확인 포함**)
+2. ✅ ACM Certificate (us-east-1) + **사용 현황 출력**
+3. ✅ Route53 레코드
+4. ✅ S3 Bucket (버전 객체 포함)
+5. ✅ Load Balancer
+6. ✅ Target Groups
+7. ✅ NAT Gateway (5분 대기)
+8. ✅ Elastic IP
+9. ✅ VPC Endpoints
+10. ✅ ENI
+11. ✅ Security Groups (순환 참조 해결)
+12. ✅ **Subnets (Terraform 놓친 경우 재삭제)**
+13. ✅ Route Tables
+14. ✅ Internet Gateway
+15. ✅ **VPC (상세 진단 포함)**
+16. ✅ Terraform Destroy
+
+**v2 개선사항** (2025-11-08):
+- 🔍 **CloudFront 감지 개선**: 복잡한 JMESPath 대신 `jq` 사용
+- ✅ **CloudFront 삭제 확인**: 삭제 완료까지 대기 (최대 10분)
+- 🔍 **ACM 사용 현황 출력**: 어떤 리소스가 Certificate 사용 중인지 표시
+- 🗑️ **Subnets 재삭제**: VPC 삭제 전 Terraform이 놓친 Subnets 재확인
+- 📊 **VPC 진단 강화**: 삭제 실패 시 남은 리소스 상세 출력
+
+**특징**:
+- 🔄 올바른 의존성 순서로 삭제
+- ⏳ 각 단계별 완료 대기 (NAT Gateway 5분, CloudFront 10분)
+- 🔧 Security Group 순환 참조 자동 해결
+- 🎨 진행 상황 색상 표시
+- 💡 실패 시 진단 정보 제공
+- 🐛 **버그 수정**: CloudFront 감지 실패 문제 해결
+
+**사용 예시**:
+```bash
+# 확인 프롬프트와 함께 실행
+bash scripts/utilities/force-destroy-all.sh
+
+# 자동 모드 (확인 없이 실행)
+AUTO_MODE=true bash scripts/utilities/force-destroy-all.sh
+```
 
 ---
 
@@ -179,6 +267,12 @@ bash scripts/diagnostics/diagnose-redis.sh 52.79.238.50 ubuntu
 #### 🆕 **첫 클러스터 구축**
 ```bash
 bash scripts/cluster/build-cluster.sh
+```
+
+#### 🔍 **AWS 리소스 확인**
+```bash
+# 전체 리소스 상태 확인
+bash scripts/diagnostics/check-aws-resources.sh
 ```
 
 #### 🔍 **PostgreSQL 문제 발생 시**
@@ -215,12 +309,29 @@ bash scripts/deployment/deploy-fastapi-test.sh <MASTER_IP> ubuntu
 
 #### 🗑️ **완전 정리**
 ```bash
+# 1. 리소스 확인
+bash scripts/diagnostics/check-aws-resources.sh
+
+# 2. 강제 삭제
+bash scripts/utilities/force-destroy-all.sh
+
+# 또는 Terraform 포함 삭제
 bash scripts/maintenance/destroy-with-cleanup.sh
 ```
 
 ---
 
 ## 🎯 빠른 참조
+
+### AWS 리소스 종합 진단
+```bash
+bash scripts/diagnostics/check-aws-resources.sh
+```
+
+### AWS 리소스 강제 삭제
+```bash
+bash scripts/utilities/force-destroy-all.sh
+```
 
 ### PostgreSQL 진단
 ```bash
@@ -258,5 +369,5 @@ bash scripts/deployment/deploy-fastapi-test.sh 52.79.238.50 ubuntu
 
 ---
 
-**마지막 업데이트**: 2025-11-04
+**마지막 업데이트**: 2025-11-08
 

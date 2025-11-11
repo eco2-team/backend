@@ -83,3 +83,6 @@ echo "⚠️  주의: EC2 Instance Connect 키는 60초 후 만료됩니다!"
 echo "   즉시 SSH 또는 Ansible을 실행하세요."
 echo ""
 
+
+
+

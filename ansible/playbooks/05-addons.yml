@@ -16,6 +16,19 @@
   register: metrics_install
   changed_when: "'created' in metrics_install.stdout or 'configured' in metrics_install.stdout"
 
+- name: Metrics Server TLS 검증 비활성화 (kubelet 인증서 IP SAN 이슈 해결)
+  command: >
+    kubectl patch deployment metrics-server -n kube-system
+    --type='json'
+    -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]'
+  when: metrics_install.changed
+  ignore_errors: yes
+
+- name: Metrics Server Pod 재시작 대기
+  command: kubectl rollout status deployment/metrics-server -n kube-system --timeout=60s
+  when: metrics_install.changed
+  ignore_errors: yes
+
 - name: 설치된 Add-ons 확인
   command: kubectl get pods -A
   register: all_pods
