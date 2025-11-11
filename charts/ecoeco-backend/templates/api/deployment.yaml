@@ -1,5 +1,5 @@
 {{- range $name, $config := .Values.api }}
-{{- if and $config.enabled (ne $name "common") (ne $name "namespace") (ne $name "ingress") }}
+{{- if and (ne $name "common") (ne $name "namespace") (ne $name "ingress") (hasKey $config "enabled") $config.enabled }}
 {{- $fullName := printf "%s-api-%s" $.Release.Name $name }}
 ---
 apiVersion: apps/v1
