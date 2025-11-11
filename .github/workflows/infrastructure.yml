@@ -1,0 +1,478 @@
+name: Infrastructure as Code - Phase 1
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 트리거: Terraform/Ansible 변경 시 자동 실행
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'terraform/**'
+      - 'ansible/**'
+      - '.github/workflows/infrastructure.yml'
+  
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'terraform/**'
+      - 'ansible/**'
+
+  # 수동 실행 옵션
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 환경 변수
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+env:
+  AWS_REGION: ap-northeast-2
+  TF_VERSION: 1.5.0
+  WORKING_DIR: terraform
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Jobs
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+jobs:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Job 1: Terraform Plan (PR 또는 Push 시)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  terraform-plan:
+    name: 📋 Terraform Plan
+    runs-on: ubuntu-latest
+    
+    # PR 또는 workflow_dispatch(plan)일 때만 실행
+    if: |
+      github.event_name == 'pull_request' || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan')
+    
+    permissions:
+      contents: read
+      pull-requests: write  # PR에 코멘트 작성 권한
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: 🔑 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: 🎨 Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.WORKING_DIR }}
+        continue-on-error: true
+      
+      - name: 🚀 Terraform Init
+        id: init
+        run: terraform init
+        working-directory: ${{ env.WORKING_DIR }}
+      
+      - name: ✅ Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+        working-directory: ${{ env.WORKING_DIR }}
+      
+      - name: 📋 Terraform Plan
+        id: plan
+        run: |
+          terraform plan -no-color -out=tfplan | tee plan_output.txt
+          echo "exitcode=$?" >> $GITHUB_OUTPUT
+        working-directory: ${{ env.WORKING_DIR }}
+        continue-on-error: true
+      
+      - name: 💬 Comment PR with Plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/plan_output.txt', 'utf8');
+            const truncatedPlan = plan.length > 65000 ? plan.substring(0, 65000) + '\n...(truncated)' : plan;
+            
+            const output = `### 📋 Terraform Plan Results
+            
+            #### Format Check 🎨
+            \`${{ steps.fmt.outcome }}\`
+            
+            #### Initialization ⚙️
+            \`${{ steps.init.outcome }}\`
+            
+            #### Validation ✅
+            \`${{ steps.validate.outcome }}\`
+            
+            #### Plan 📊
+            \`${{ steps.plan.outcome }}\`
+            
+            <details>
+            <summary>Show Plan</summary>
+            
+            \`\`\`terraform
+            ${truncatedPlan}
+            \`\`\`
+            
+            </details>
+            
+            **Pushed by:** @${{ github.actor }}
+            **Action:** \`${{ github.event_name }}\`
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+      
+      - name: 📤 Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: ${{ env.WORKING_DIR }}/tfplan
+          retention-days: 5
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Job 2: Terraform Apply (Main/Develop Branch Push 시)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  terraform-apply:
+    name: 🚀 Terraform Apply
+    runs-on: ubuntu-latest
+    
+    # Main/Develop 브랜치에 Push되거나 workflow_dispatch(apply)일 때만 실행
+    if: |
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+    
+    outputs:
+      terraform_outputs: ${{ steps.outputs.outputs }}
+      ansible_inventory: ${{ steps.outputs.inventory }}
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false  # Output을 정확히 가져오기 위해
+      
+      - name: 🔑 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: 🚀 Terraform Init
+        run: terraform init
+        working-directory: ${{ env.WORKING_DIR }}
+      
+      - name: 🎯 Terraform Apply
+        id: apply
+        run: |
+          terraform apply -auto-approve -no-color | tee apply_output.txt
+        working-directory: ${{ env.WORKING_DIR }}
+      
+      - name: 📊 Export Terraform Outputs
+        id: outputs
+        run: |
+          # JSON 형식으로 모든 outputs 저장
+          terraform output -json > /tmp/tf-outputs.json
+          
+          # Ansible Inventory 추출
+          terraform output -raw ansible_inventory > /tmp/ansible-inventory.ini
+          
+          # GitHub Outputs에 저장 (다음 Job에서 사용)
+          echo "outputs<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/tf-outputs.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "inventory<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/ansible-inventory.ini >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        working-directory: ${{ env.WORKING_DIR }}
+      
+      - name: 📤 Upload Terraform Outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs
+          path: |
+            /tmp/tf-outputs.json
+            /tmp/ansible-inventory.ini
+          retention-days: 30
+      
+      - name: 💾 Save Outputs to S3 (Optional)
+        run: |
+          # S3 버킷이 있다면 저장 (선택사항)
+          if aws s3 ls s3://sesacthon-terraform-state 2>/dev/null; then
+            aws s3 cp /tmp/tf-outputs.json \
+              s3://sesacthon-terraform-state/outputs/$(date +%Y%m%d-%H%M%S).json
+            
+            aws s3 cp /tmp/tf-outputs.json \
+              s3://sesacthon-terraform-state/outputs/latest.json
+          fi
+        continue-on-error: true
+      
+      - name: ✅ Terraform Apply Summary
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Terraform Apply Complete"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "📊 Cluster Info:"
+          terraform output -json cluster_info | jq '.'
+          echo ""
+          echo "🔗 Next Step: Ansible Bootstrap will run automatically"
+        working-directory: ${{ env.WORKING_DIR }}
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Job 3: Ansible Bootstrap (Terraform Apply 후 자동 실행)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ansible-bootstrap:
+    name: ⚙️ Ansible Bootstrap
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 📥 Download Terraform Outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-outputs
+          path: /tmp
+      
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: 📦 Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+          ansible --version
+      
+      - name: 🔑 Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/k8s-cluster-key.pem
+          chmod 600 ~/.ssh/k8s-cluster-key.pem
+          
+          # SSH Config 설정
+          cat >> ~/.ssh/config <<EOF
+          Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ServerAliveInterval 60
+            ServerAliveCountMax 3
+          EOF
+      
+      - name: 📝 Create Ansible Inventory
+        run: |
+          # Terraform Output에서 생성된 인벤토리 사용
+          cp /tmp/ansible-inventory.ini ansible/inventory/hosts.ini
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📋 Ansible Inventory:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          cat ansible/inventory/hosts.ini
+      
+      - name: 🔍 Test SSH Connectivity
+        run: |
+          cd ansible
+          ansible all -i inventory/hosts.ini -m ping --timeout=30
+      
+      - name: ⚙️ Run Ansible Playbook (site.yml)
+        run: |
+          cd ansible
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🚀 Starting Ansible Bootstrap"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          ansible-playbook site.yml \
+            -i inventory/hosts.ini \
+            --timeout=300 \
+            -v
+      
+      - name: 🏷️ Label Kubernetes Nodes
+        run: |
+          cd ansible
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🏷️ Labeling Kubernetes Nodes"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          ansible-playbook playbooks/label-nodes.yml \
+            -i inventory/hosts.ini \
+            -v
+      
+      - name: ✅ Ansible Bootstrap Summary
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Ansible Bootstrap Complete"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "🔗 Next Step: ArgoCD Application Sync"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Job 4: ArgoCD Sync (Ansible 완료 후 자동 실행)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  argocd-sync:
+    name: 🔄 ArgoCD Sync
+    runs-on: ubuntu-latest
+    needs: ansible-bootstrap
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 📥 Download Terraform Outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-outputs
+          path: /tmp
+      
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.28.0'
+      
+      - name: 🔧 Setup ArgoCD CLI
+        run: |
+          curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x /usr/local/bin/argocd
+          argocd version --client
+      
+      - name: 🔑 Get Master Node IP
+        id: master
+        run: |
+          MASTER_IP=$(cat /tmp/tf-outputs.json | jq -r '.master_public_ip.value')
+          echo "master_ip=$MASTER_IP" >> $GITHUB_OUTPUT
+      
+      - name: 🔑 Setup Kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          
+          # SSH Key 설정
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/k8s-cluster-key.pem
+          chmod 600 ~/.ssh/k8s-cluster-key.pem
+          
+          # Master 노드에서 kubeconfig 가져오기
+          scp -o StrictHostKeyChecking=no \
+            -i ~/.ssh/k8s-cluster-key.pem \
+            ubuntu@${{ steps.master.outputs.master_ip }}:/home/ubuntu/.kube/config \
+            ~/.kube/config
+          
+          # Context 확인
+          kubectl config current-context
+          kubectl get nodes
+      
+      - name: 🔄 ArgoCD Login
+        run: |
+          # ArgoCD 접속 정보 가져오기
+          ARGOCD_SERVER=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          
+          # 초기 비밀번호 가져오기
+          ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+          
+          # Login
+          argocd login $ARGOCD_SERVER \
+            --username admin \
+            --password $ARGOCD_PASSWORD \
+            --insecure
+      
+      - name: 📝 Create/Update ArgoCD Application
+        run: |
+          # Application이 없으면 생성
+          if ! argocd app get sesacthon-infrastructure 2>/dev/null; then
+            kubectl apply -f argocd/application-14nodes.yaml
+          fi
+      
+      - name: 🔄 Sync ArgoCD Application
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔄 Syncing ArgoCD Application"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          argocd app sync sesacthon-infrastructure \
+            --prune \
+            --force \
+            --timeout 600
+          
+          argocd app wait sesacthon-infrastructure \
+            --health \
+            --timeout 600
+      
+      - name: 📊 ArgoCD Application Status
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 ArgoCD Application Status"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          argocd app get sesacthon-infrastructure
+          
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Deployment Complete!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Job 5: Deployment Summary (최종 요약)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  deployment-summary:
+    name: 📊 Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [terraform-apply, ansible-bootstrap, argocd-sync]
+    if: always()
+    
+    steps:
+      - name: 📊 Generate Summary
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> $GITHUB_STEP_SUMMARY
+          echo "# 🚀 Infrastructure Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Job Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Terraform Apply | ${{ needs.terraform-apply.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Ansible Bootstrap | ${{ needs.ansible-bootstrap.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| ArgoCD Sync | ${{ needs.argocd-sync.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎯 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Check cluster status: \`kubectl get nodes\`" >> $GITHUB_STEP_SUMMARY
+          echo "2. Check pods: \`kubectl get pods --all-namespaces\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Access ArgoCD: \`https://argocd.sesacthon.com\`" >> $GITHUB_STEP_SUMMARY
+          echo "4. Access Grafana: \`https://grafana.sesacthon.com\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> $GITHUB_STEP_SUMMARY
+
