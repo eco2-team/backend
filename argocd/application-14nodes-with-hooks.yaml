@@ -1,0 +1,353 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecoeco-infrastructure-14nodes
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ecoeco-infrastructure
+    app.kubernetes.io/part-of: ecoeco-platform
+    architecture: 14-nodes
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Source: Git Repository
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: main
+    path: charts/ecoeco-backend
+    helm:
+      valueFiles:
+        - values-14nodes.yaml
+      
+      parameters:
+        - name: global.image.tag
+          value: "latest"
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Destination: Kubernetes Cluster
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: api
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Sync Policy
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+    
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Ignore Differences
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # HPA가 관리
+  
+  revisionHistoryLimit: 10
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PreSync Hook: Ansible Bootstrap
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ansible-bootstrap
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/hook: PreSync  # Sync 전 실행
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation  # 이전 Job 삭제
+    argocd.argoproj.io/sync-wave: "-1"  # 가장 먼저 실행
+spec:
+  ttlSecondsAfterFinished: 300  # 5분 후 자동 삭제
+  backoffLimit: 3  # 3회 재시도
+  
+  template:
+    metadata:
+      labels:
+        app: ansible-bootstrap
+    spec:
+      restartPolicy: Never
+      serviceAccountName: argocd-application-controller
+      
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # Init Container: Terraform Outputs 확인
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      initContainers:
+        - name: wait-for-terraform-outputs
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "⏳ Waiting for Terraform Outputs ConfigMap..."
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              # ConfigMap이 생성될 때까지 대기 (최대 5분)
+              for i in {1..60}; do
+                if kubectl get configmap terraform-outputs -n argocd &>/dev/null; then
+                  echo "✅ Terraform Outputs ConfigMap found"
+                  
+                  # 인벤토리 파일 존재 확인
+                  if kubectl get configmap terraform-outputs -n argocd -o jsonpath='{.data.ansible-inventory\.ini}' &>/dev/null; then
+                    echo "✅ Ansible Inventory exists in ConfigMap"
+                    exit 0
+                  fi
+                fi
+                
+                echo "⏳ Waiting... ($i/60)"
+                sleep 5
+              done
+              
+              echo "❌ Timeout: Terraform Outputs not found"
+              echo "   Please run Atlantis first to create infrastructure"
+              exit 1
+      
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # Main Container: Ansible Playbook 실행
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      containers:
+        - name: ansible
+          image: cytopia/ansible:2.15-tools
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "🚀 Starting Ansible Bootstrap"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              # Git Clone (Phase 3: 최신 코드 가져오기)
+              echo "📥 Cloning repository..."
+              git clone --depth 1 --branch main https://github.com/SeSACTHON/backend /workspace
+              cd /workspace/ansible
+              
+              # Ansible Inventory 생성 (ConfigMap에서)
+              echo "📝 Creating Ansible Inventory from ConfigMap..."
+              kubectl get configmap terraform-outputs -n argocd \
+                -o jsonpath='{.data.ansible-inventory\.ini}' > inventory/hosts.ini
+              
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "📋 Ansible Inventory:"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              cat inventory/hosts.ini
+              
+              # SSH Key 설정
+              mkdir -p ~/.ssh
+              chmod 700 ~/.ssh
+              cp /ssh-key/ssh-privatekey ~/.ssh/k8s-cluster-key.pem
+              chmod 600 ~/.ssh/k8s-cluster-key.pem
+              
+              # SSH Config
+              cat > ~/.ssh/config <<EOF
+              Host *
+                StrictHostKeyChecking no
+                UserKnownHostsFile /dev/null
+                ServerAliveInterval 60
+                ServerAliveCountMax 3
+              EOF
+              chmod 600 ~/.ssh/config
+              
+              # SSH 연결 테스트
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "🔍 Testing SSH connectivity..."
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              ansible all -i inventory/hosts.ini -m ping --timeout=30 || {
+                echo "❌ SSH connectivity test failed"
+                echo "   Please check:"
+                echo "   1. EC2 instances are running"
+                echo "   2. Security Group allows SSH (port 22)"
+                echo "   3. SSH key is correct"
+                exit 1
+              }
+              
+              # Ansible Playbook 실행
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "⚙️ Running Ansible site.yml..."
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              ansible-playbook site.yml \
+                -i inventory/hosts.ini \
+                --timeout=300 \
+                -v
+              
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "✅ Ansible Bootstrap Complete"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          volumeMounts:
+            - name: ssh-key
+              mountPath: /ssh-key
+              readOnly: true
+          
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      
+      volumes:
+        - name: ssh-key
+          secret:
+            secretName: k8s-cluster-ssh-key
+            defaultMode: 0600
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PostSync Hook: Node Labeling
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: label-nodes
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/hook: PostSync  # Sync 후 실행
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "10"  # 마지막에 실행
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  
+  template:
+    metadata:
+      labels:
+        app: label-nodes
+    spec:
+      restartPolicy: Never
+      serviceAccountName: argocd-application-controller
+      
+      containers:
+        - name: kubectl
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "🏷️ Labeling Kubernetes Nodes"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              # 모든 노드가 Ready 상태인지 확인
+              echo "⏳ Waiting for all nodes to be Ready..."
+              kubectl wait --for=condition=Ready nodes --all --timeout=300s
+              
+              # API 노드 라벨링 (Phase 1-3)
+              echo "🔖 Labeling API Nodes..."
+              
+              for node in k8s-api-auth k8s-api-my k8s-api-scan k8s-api-character k8s-api-location k8s-api-info k8s-api-chat; do
+                if kubectl get node "$node" &>/dev/null; then
+                  domain=$(echo "$node" | sed 's/k8s-api-//')
+                  echo "  - $node (domain=$domain)"
+                  
+                  kubectl label node "$node" \
+                    workload=api \
+                    domain="$domain" \
+                    tier=api \
+                    node-role.kubernetes.io/api="$domain" \
+                    --overwrite || echo "    ⚠️  Failed to label $node"
+                fi
+              done
+              
+              # Worker 노드 라벨링 (Phase 4)
+              echo "🔖 Labeling Worker Nodes..."
+              
+              if kubectl get node k8s-worker-storage &>/dev/null; then
+                echo "  - k8s-worker-storage"
+                kubectl label node k8s-worker-storage \
+                  workload=worker-storage \
+                  worker-type=io-bound \
+                  pool-type=eventlet \
+                  domain=scan \
+                  tier=worker \
+                  node-role.kubernetes.io/worker=storage \
+                  --overwrite
+              fi
+              
+              if kubectl get node k8s-worker-ai &>/dev/null; then
+                echo "  - k8s-worker-ai"
+                kubectl label node k8s-worker-ai \
+                  workload=worker-ai \
+                  worker-type=network-bound \
+                  pool-type=prefork \
+                  domain=scan,chat \
+                  tier=worker \
+                  node-role.kubernetes.io/worker=ai \
+                  --overwrite
+              fi
+              
+              # Infrastructure 노드 라벨링
+              echo "🔖 Labeling Infrastructure Nodes..."
+              
+              for node in k8s-postgresql k8s-redis k8s-rabbitmq k8s-monitoring; do
+                if kubectl get node "$node" &>/dev/null; then
+                  workload=$(echo "$node" | sed 's/k8s-//')
+                  echo "  - $node (workload=$workload)"
+                  
+                  kubectl label node "$node" \
+                    workload="$workload" \
+                    tier=infrastructure \
+                    node-role.kubernetes.io/infrastructure="$workload" \
+                    --overwrite || echo "    ⚠️  Failed to label $node"
+                  
+                  # Infrastructure 노드에 Taint 추가
+                  kubectl taint node "$node" \
+                    node-role.kubernetes.io/infrastructure=true:NoSchedule \
+                    --overwrite || echo "    ⚠️  Failed to taint $node"
+                fi
+              done
+              
+              # 결과 확인
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "📊 Node Labels Summary:"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              kubectl get nodes --show-labels | grep -E "workload=|domain="
+              
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "✅ Node Labeling Complete"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSH Key Secret (사전 생성 필요)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# kubectl create secret generic k8s-cluster-ssh-key \
+#   --from-file=ssh-privatekey=~/.ssh/k8s-cluster-key.pem \
+#   --namespace=argocd
+

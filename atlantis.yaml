@@ -1,0 +1,182 @@
+# Atlantis 설정 파일 (프로젝트 루트)
+version: 3
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 자동 병합 설정
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+automerge: true  # Apply 성공 시 자동 Merge (선택사항)
+delete_source_branch_on_merge: true  # Merge 후 브랜치 삭제
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 병렬 실행 설정
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+parallel_plan: true  # 여러 프로젝트 동시 Plan
+parallel_apply: false  # Apply는 순차 실행 (안전성)
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 프로젝트 정의
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+projects:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 프로젝트 1: 인프라 (Terraform)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: infrastructure
+    dir: terraform
+    workspace: production
+    terraform_version: v1.5.0
+    
+    # Workflow 커스터마이징
+    workflow: infrastructure-workflow
+    
+    # Apply 승인 요구사항
+    apply_requirements:
+      - approved  # PR 승인 필수
+      - mergeable  # Conflict 없어야 함
+    
+    # 자동 Plan 트리거
+    autoplan:
+      enabled: true
+      when_modified:
+        - "*.tf"
+        - "*.tfvars"
+        - "terraform.tfvars"
+        - "**/*.tf"
+    
+    # 허용된 Override
+    allowed_overrides:
+      - apply_requirements
+      - workflow
+    
+    allow_custom_workflows: true
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 커스텀 Workflow 정의
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+workflows:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Infrastructure Workflow
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  infrastructure-workflow:
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Plan Stage
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    plan:
+      steps:
+        # 1. 환경 변수 설정
+        - env:
+            name: SETUP_ENV
+            command: 'echo "Setting up environment..."'
+        
+        # 2. Terraform Init
+        - init
+        
+        # 3. Terraform Validate
+        - run: terraform validate
+        
+        # 4. Terraform Plan
+        - plan:
+            extra_args:
+              - -lock-timeout=5m
+              - -var-file=terraform.tfvars
+        
+        # 5. Plan 결과 저장
+        - run: |
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "✅ Terraform Plan Complete"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Apply Stage
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    apply:
+      steps:
+        # 1. 환경 변수 설정
+        - env:
+            name: SETUP_ENV
+            command: 'echo "Setting up environment..."'
+        
+        # 2. Terraform Init
+        - init
+        
+        # 3. Terraform Apply
+        - apply:
+            extra_args:
+              - -lock-timeout=5m
+              - -var-file=terraform.tfvars
+        
+        # 4. Terraform Outputs 저장 (ConfigMap) - Phase 3: ArgoCD 연계
+        - run: |
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📊 Exporting Terraform Outputs (Phase 3)..."
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            
+            # JSON 형식으로 저장
+            terraform output -json > /tmp/tf-outputs.json
+            
+            # Ansible Inventory 저장
+            terraform output -raw ansible_inventory > /tmp/ansible-inventory.ini
+            
+            # kubectl이 있다면 ConfigMap에 저장 (ArgoCD가 읽을 수 있도록)
+            if command -v kubectl &> /dev/null; then
+                # argocd namespace 확인/생성
+                kubectl get namespace argocd &>/dev/null || kubectl create namespace argocd
+                
+                # ConfigMap 생성/업데이트 (argocd namespace)
+                kubectl create configmap terraform-outputs \
+                  --from-file=tf-outputs.json=/tmp/tf-outputs.json \
+                  --from-file=ansible-inventory.ini=/tmp/ansible-inventory.ini \
+                  --namespace=argocd \
+                  --dry-run=client -o yaml | kubectl apply -f -
+                
+                echo "✅ Terraform Outputs saved to ConfigMap (namespace: argocd)"
+                echo "   - ConfigMap: terraform-outputs"
+                echo "   - Namespace: argocd"
+                echo "   - Files: tf-outputs.json, ansible-inventory.ini"
+                
+                # ConfigMap 확인
+                kubectl get configmap terraform-outputs -n argocd
+                
+                echo ""
+                echo "🔄 ArgoCD PreSync Hook이 이 ConfigMap을 읽어서 Ansible을 실행합니다"
+            else
+                echo "⚠️  kubectl not found, skipping ConfigMap creation"
+                echo "   Please run manually:"
+                echo "   kubectl create configmap terraform-outputs \\"
+                echo "     --from-file=tf-outputs.json=/tmp/tf-outputs.json \\"
+                echo "     --from-file=ansible-inventory.ini=/tmp/ansible-inventory.ini \\"
+                echo "     --namespace=argocd"
+            fi
+        
+        # 5. Trigger Ansible (선택사항 - GitHub Actions로 위임 가능)
+        - run: |
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "🔗 Triggering Post-Apply Actions..."
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Terraform Apply Complete!"
+            echo "Next: Run Ansible Bootstrap manually or via GitHub Actions"
+            echo ""
+            echo "Quick Start:"
+            echo "  cd ansible"
+            echo "  cp /tmp/ansible-inventory.ini inventory/hosts.ini"
+            echo "  ansible-playbook site.yml"
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 허용된 Repository 목록
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 주의: 이 설정은 atlantis-deployment.yaml의 --repo-allowlist로 관리됨
+# allowed_regexp_prefixes:
+#   - github.com/SeSACTHON/
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PR 요구사항
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+policy_check:
+  enabled: false  # Conftest/OPA Policy Check (선택사항)
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Atlantis 코멘트 설정
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+hide_prev_plan_comments: true  # 이전 Plan 코멘트 숨김
+silence_whitelist_errors: false  # Allowlist 오류 표시
+silence_vcs_status_no_plans: false  # Plan 없을 때 상태 표시
+

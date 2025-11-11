@@ -1,4 +1,4 @@
-# 📚 ♻️ Growbin Backend - 문서
+# 📚 SeSACTHON Backend 문서 인덱스
 
 > **AI 기반 쓰레기 분류 및 재활용 코칭 서비스**  
 > **13-Node Kubernetes 클러스터 + Worker Local SQLite WAL**  
@@ -20,7 +20,8 @@
 ### ⚡ 자동 재구축 (권장)
 
 ```bash
-cd /Users/mango/workspace/SeSACTHON/backend
+# 1. AWS 인증 확인
+aws sts get-caller-identity
 
 # 환경 변수 설정
 export GITHUB_TOKEN="<your-github-token>"
