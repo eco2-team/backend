@@ -1,0 +1,714 @@
+# Ecoeco Backend - 14-Node Architecture Helm Values
+# Phase 1-4 전체 활성화 (7 APIs + 2 Workers + 4 Infrastructure)
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Global 설정
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+global:
+  image:
+    registry: ghcr.io
+    repository: sesacthon/ecoeco-backend
+    tag: latest
+    pullPolicy: Always
+  
+  domain: growbin.app
+  
+  env:
+    - name: ENVIRONMENT
+      value: "production"
+    - name: LOG_LEVEL
+      value: "info"
+    - name: CLUSTER_PHASE
+      value: "phase4-14nodes"
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Namespace 설정
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+namespaces:
+  api: api
+  workers: workers
+  data: data
+  messaging: messaging
+  monitoring: monitoring
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 외부 서비스 연결 (14-Node 전용)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+externalServices:
+  postgresql:
+    host: k8s-postgresql  # 전용 노드
+    port: 5432
+    database: ecoeco
+    nodeSelector:
+      workload: postgresql
+  
+  redis:
+    host: k8s-redis  # 전용 노드
+    port: 6379
+    # DB 할당 (JWT Blacklist vs Cache-Aside)
+    databases:
+      auth: 0        # JWT Blacklist
+      cache: 1       # Cache-Aside (scan, character, location, info, chat)
+    nodeSelector:
+      workload: redis
+  
+  rabbitmq:
+    host: k8s-rabbitmq  # Phase 4 전용 노드
+    port: 5672
+    managementPort: 15672
+    nodeSelector:
+      workload: rabbitmq
+  
+  monitoring:
+    prometheus:
+      host: k8s-monitoring  # Phase 4 전용 노드
+      port: 9090
+    grafana:
+      host: k8s-monitoring
+      port: 3000
+    nodeSelector:
+      workload: monitoring
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# API Services (7개 - Phase 1-3)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+api:
+  namespace: api
+  
+  # 공통 설정
+  common:
+    serviceAccount: api-sa
+    imagePullSecrets: []
+    
+    # Prometheus Annotations (자동 발견)
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8000"
+      prometheus.io/path: "/metrics"
+  
+  # Ingress 설정 (ALB)
+  ingress:
+    enabled: true
+    className: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: instance
+      alb.ingress.kubernetes.io/healthcheck-path: /health
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: '443'
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT:certificate/CERT_ID
+    host: api.growbin.app
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Phase 1: Core APIs (3개)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  # API-1: Auth (인증/인가) - JWT Blacklist
+  auth:
+    enabled: true
+    replicas: 2
+    port: 8000
+    path: /api/v1/auth
+    
+    nodeName: k8s-api-auth  # 정확한 노드 지정
+    nodeSelector:
+      workload: api
+      domain: auth
+      phase: "1"
+    
+    labels:
+      app.kubernetes.io/name: auth-api
+      app.kubernetes.io/component: api
+      domain: auth
+      tier: api
+      phase: "1"
+    
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 5
+      targetCPU: 70
+      targetMemory: 80
+    
+    redis:
+      database: 0  # JWT Blacklist 전용
+  
+  # API-2: My (마이페이지)
+  my:
+    enabled: true
+    replicas: 2
+    port: 8000
+    path: /api/v1/my
+    
+    nodeName: k8s-api-my  # 정확한 노드 지정
+    nodeSelector:
+      workload: api
+      domain: my
+      phase: "1"
+    
+    labels:
+      app.kubernetes.io/name: my-api
+      app.kubernetes.io/component: api
+      domain: my
+      tier: api
+      phase: "1"
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      targetCPU: 70
+  
+  # API-3: Scan (쓰레기 분류 - 메인)
+  scan:
+    enabled: true
+    replicas: 3
+    port: 8000
+    path: /api/v1/scan
+    
+    nodeName: k8s-api-scan  # 정확한 노드 지정
+    nodeSelector:
+      workload: api
+      domain: scan
+      phase: "1"
+    
+    labels:
+      app.kubernetes.io/name: scan-api
+      app.kubernetes.io/component: api
+      domain: scan
+      tier: api
+      phase: "1"
+      high-traffic: "true"  # 트래픽 많음
+    
+    resources:
+      requests:
+        cpu: 300m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+      targetCPU: 60
+      targetMemory: 75
+      # Custom Metrics (RPS)
+      customMetrics:
+        - type: Pods
+          pods:
+            metric:
+              name: http_requests_per_second
+            target:
+              type: AverageValue
+              averageValue: "100"
+    
+    redis:
+      database: 1  # Cache-Aside
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Phase 2: Extended APIs (2개)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  # API-4: Character (캐릭터)
+  character:
+    enabled: true
+    replicas: 2
+    port: 8000
+    path: /api/v1/character
+    
+    nodeName: k8s-api-character  # 정확한 노드 지정
+    nodeSelector:
+      workload: api
+      domain: character
+      phase: "2"
+    
+    labels:
+      app.kubernetes.io/name: character-api
+      app.kubernetes.io/component: api
+      domain: character
+      tier: api
+      phase: "2"
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      targetCPU: 70
+    
+    redis:
+      database: 1  # Cache-Aside
+  
+  # API-5: Location (위치 기반)
+  location:
+    enabled: true
+    replicas: 2
+    port: 8000
+    path: /api/v1/location
+    
+    nodeName: k8s-api-location  # 정확한 노드 지정
+    nodeSelector:
+      workload: api
+      domain: location
+      phase: "2"
+    
+    labels:
+      app.kubernetes.io/name: location-api
+      app.kubernetes.io/component: api
+      domain: location
+      tier: api
+      phase: "2"
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      targetCPU: 70
+    
+    redis:
+      database: 1  # Cache-Aside
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Phase 3: Advanced APIs (2개)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  # API-6: Info (재활용 정보)
+  info:
+    enabled: true
+    replicas: 2
+    port: 8000
+    path: /api/v1/info
+    
+    nodeName: k8s-api-info  # 정확한 노드 지정
+    nodeSelector:
+      workload: api
+      domain: info
+      phase: "3"
+    
+    labels:
+      app.kubernetes.io/name: info-api
+      app.kubernetes.io/component: api
+      domain: info
+      tier: api
+      phase: "3"
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      targetCPU: 70
+    
+    redis:
+      database: 1  # Cache-Aside
+  
+  # API-7: Chat (AI 챗봇 - WebSocket Streaming)
+  chat:
+    enabled: true
+    replicas: 2
+    port: 8000
+    path: /api/v1/chat
+    
+    nodeName: k8s-api-chat  # 정확한 노드 지정
+    nodeSelector:
+      workload: api
+      domain: chat
+      phase: "3"
+    
+    labels:
+      app.kubernetes.io/name: chat-api
+      app.kubernetes.io/component: api
+      domain: chat
+      tier: api
+      phase: "3"
+      streaming: "true"  # WebSocket 지원
+    
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 800m
+        memory: 1Gi
+    
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPU: 65
+      targetMemory: 75
+    
+    redis:
+      database: 1  # Cache-Aside
+    
+    # WebSocket 설정
+    websocket:
+      enabled: true
+      timeout: 300  # 5분
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Worker Services (2개 - Phase 4)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+workers:
+  namespace: workers
+  
+  # 공통 설정
+  common:
+    serviceAccount: worker-sa
+    imagePullSecrets: []
+    
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9091"
+      prometheus.io/path: "/metrics"
+  
+  # Worker-1: Storage (I/O Bound - Eventlet)
+  storage:
+    enabled: true
+    replicas: 3
+    
+    nodeSelector:
+      workload: worker-storage
+      worker-type: io-bound
+      pool-type: eventlet
+      phase: "4"
+    
+    labels:
+      app.kubernetes.io/name: storage-worker
+      app.kubernetes.io/component: worker
+      worker-type: io-bound
+      domain: scan
+      tier: worker
+      phase: "4"
+    
+    resources:
+      requests:
+        cpu: 300m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    
+    # Celery 설정
+    celery:
+      concurrency: 50  # Eventlet
+      poolType: eventlet
+      queues:
+        - image-upload      # S3 업로드
+        - storage-write     # DB 저장
+        - task-schedule     # 스케줄링
+    
+    # SQLite WAL 설정
+    wal:
+      enabled: true
+      path: /var/lib/celery/wal
+      syncInterval: 5  # 5초마다 PostgreSQL 동기화
+    
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+      # Queue Length 기반 스케일링
+      customMetrics:
+        - type: External
+          external:
+            metric:
+              name: rabbitmq_queue_messages_ready
+              selector:
+                matchLabels:
+                  queue: image-upload
+            target:
+              type: AverageValue
+              averageValue: "100"
+  
+  # Worker-2: AI (Network Bound - Prefork)
+  ai:
+    enabled: true
+    replicas: 2
+    
+    nodeSelector:
+      workload: worker-ai
+      worker-type: network-bound
+      pool-type: prefork
+      phase: "4"
+    
+    labels:
+      app.kubernetes.io/name: ai-worker
+      app.kubernetes.io/component: worker
+      worker-type: network-bound
+      domain: scan,chat
+      tier: worker
+      phase: "4"
+    
+    resources:
+      requests:
+        cpu: 400m
+        memory: 512Mi
+      limits:
+        cpu: 1200m
+        memory: 1Gi
+    
+    # Celery 설정
+    celery:
+      concurrency: 4  # Prefork (CPU-bound)
+      poolType: prefork
+      queues:
+        - gpt5-analyze      # GPT-5 분석
+        - response-gen      # 응답 생성
+        - rule-retrieve     # 규칙 조회
+    
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPU: 70
+      customMetrics:
+        - type: External
+          external:
+            metric:
+              name: rabbitmq_queue_messages_ready
+              selector:
+                matchLabels:
+                  queue: gpt5-analyze
+            target:
+              type: AverageValue
+              averageValue: "50"
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Monitoring (Phase 4)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+monitoring:
+  enabled: true
+  namespace: monitoring
+  
+  nodeSelector:
+    workload: monitoring
+    phase: "4"
+  
+  # Node Taint Toleration
+  tolerations:
+    - key: node-role.kubernetes.io/infrastructure
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+  
+  # Prometheus
+  prometheus:
+    enabled: true
+    retention: 30d
+    storageSize: 50Gi
+    
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+    
+    # ServiceMonitor 자동 발견
+    serviceMonitorSelector:
+      matchLabels:
+        tier: api
+      matchLabels:
+        tier: worker
+    
+    # 알림 규칙
+    alerting:
+      enabled: true
+      rules:
+        - name: api-high-latency
+          expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+          for: 5m
+          severity: warning
+        
+        - name: worker-queue-backlog
+          expr: rabbitmq_queue_messages_ready > 1000
+          for: 10m
+          severity: warning
+  
+  # Grafana
+  grafana:
+    enabled: true
+    adminPassword: changeme  # Sealed Secret으로 관리
+    
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    
+    # 대시보드 자동 프로비저닝
+    dashboards:
+      - name: 14-node-overview
+        path: /etc/grafana/dashboards/14-node-overview.json
+      - name: api-services
+        path: /etc/grafana/dashboards/api-services.json
+      - name: worker-services
+        path: /etc/grafana/dashboards/worker-services.json
+      - name: infrastructure
+        path: /etc/grafana/dashboards/infrastructure.json
+    
+    # 데이터소스
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus:9090
+        isDefault: true
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# RabbitMQ (Phase 4)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+rabbitmq:
+  enabled: true
+  namespace: messaging
+  
+  nodeSelector:
+    workload: rabbitmq
+    phase: "4"
+  
+  tolerations:
+    - key: node-role.kubernetes.io/infrastructure
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+  
+  resources:
+    requests:
+      cpu: 300m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  
+  # Queue 설정
+  queues:
+    # Storage Worker
+    - name: image-upload
+      durable: true
+      autoDelete: false
+      maxLength: 10000
+    - name: storage-write
+      durable: true
+      autoDelete: false
+    - name: task-schedule
+      durable: true
+      autoDelete: false
+    
+    # AI Worker
+    - name: gpt5-analyze
+      durable: true
+      autoDelete: false
+      maxLength: 5000
+    - name: response-gen
+      durable: true
+      autoDelete: false
+    - name: rule-retrieve
+      durable: true
+      autoDelete: false
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Secrets (External Secrets Operator로 관리)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+secrets:
+  externalSecretsEnabled: true
+  
+  postgresql:
+    secretName: postgresql-credentials
+    keys:
+      username: DB_USERNAME
+      password: DB_PASSWORD
+  
+  redis:
+    secretName: redis-credentials
+    keys:
+      password: REDIS_PASSWORD
+  
+  rabbitmq:
+    secretName: rabbitmq-credentials
+    keys:
+      username: RABBITMQ_USERNAME
+      password: RABBITMQ_PASSWORD
+  
+  openai:
+    secretName: openai-credentials
+    keys:
+      apiKey: OPENAI_API_KEY
+  
+  jwt:
+    secretName: jwt-credentials
+    keys:
+      secretKey: JWT_SECRET_KEY
+  
+  kakao:
+    secretName: kakao-credentials
+    keys:
+      apiKey: KAKAO_API_KEY
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 14-Node Architecture Summary
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 총 14개 노드:
+#   - Master: 1개 (Control Plane)
+#   - API: 7개 (auth, my, scan, character, location, info, chat)
+#   - Workers: 2개 (storage-io, ai-network)
+#   - Infrastructure: 4개 (postgresql, redis, rabbitmq, monitoring)
+#
+# vCPU: 28개 (Quota: 32개)
+# RAM: 33GB
+# 월 비용: ~$245
+#
+# Redis 전략:
+#   - DB 0: JWT Blacklist (Auth 전용)
+#   - DB 1: Cache-Aside (Scan, Character, Location, Info, Chat)
+#
+# Worker 전략:
+#   - Storage: Eventlet (I/O Bound, Concurrency 50)
+#   - AI: Prefork (Network Bound, Concurrency 4)
+#
+# Monitoring:
+#   - Prometheus: ServiceMonitor 자동 발견
+#   - Grafana: 4개 대시보드 자동 프로비저닝
+
