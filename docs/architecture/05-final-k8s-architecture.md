@@ -156,13 +156,13 @@ graph TB
             A5[location-node<br/>t3.micro<br/>2 vCPU, 1GB]
             A6[info-node<br/>t3.micro<br/>2 vCPU, 1GB]
             A7[chat-node<br/>t3.small<br/>2 vCPU, 2GB]
-        end
-        
+    end
+    
         subgraph "Workers (2)"
             W1[storage-node<br/>t3.small<br/>2 vCPU, 2GB]
             W2[ai-node<br/>t3.small<br/>2 vCPU, 2GB]
-        end
-        
+    end
+    
         subgraph "Infrastructure (4)"
             I1[postgresql-node<br/>t3.small<br/>2 vCPU, 2GB]
             I2[redis-node<br/>t3.micro<br/>2 vCPU, 1GB]
@@ -503,8 +503,7 @@ sequenceDiagram
             App->>Scan: GET /scan/status/{job_id}
             Scan->>Redis: 진행률 조회
             Redis-->>App: progress: 60%
-        end
-        
+    end    
         App->>Scan: GET /scan/status/{job_id}
         Scan->>Redis: 최종 결과 조회
         Redis-->>App: 분석 완료!
