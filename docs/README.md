@@ -1,4 +1,4 @@
-# 📚 ♻️ 이코에코(Eco²) Backend - 문서
+# 📚 ♻️ Growbin Backend - 문서
 
 > **AI 기반 쓰레기 분류 및 재활용 코칭 서비스**  
 > **13-Node Kubernetes 클러스터 + Worker Local SQLite WAL**  
@@ -70,7 +70,7 @@ ansible-playbook -i inventory/hosts.ini site.yml
 ```mermaid
 graph TB
     subgraph Internet["🌐 Internet"]
-        User[User/Browser]
+        User[User/Client]
         Route53["`**Route53**
         api.growbin.app
         images.growbin.app`"]
@@ -141,10 +141,29 @@ graph TB
                 t3a.medium (2 vCPU, 4GB)
                 Prometheus + Grafana`"]
             end
+            
+            subgraph Infra["Infrastructure Layer (4 Nodes)"]
+                RMQ["`**k8s-rabbitmq**
+                t3.small, 2GB
+                Message Queue`"]
+                PG["`**k8s-postgresql**
+                t3.medium, 4GB
+                Central DB`"]
+                Redis["`**k8s-redis**
+                t3.small, 2GB
+                Cache`"]
+                Mon["`**k8s-monitoring**
+                t3.large, 8GB
+                Prometheus+Grafana`"]
+            end
+            
+            S3["`**S3 Bucket**
+            이미지 저장소`"]
         end
     end
     
     User --> Route53
+    Route53 --> CloudFront
     Route53 --> ALB
     Route53 --> CF
     CF --> S3
