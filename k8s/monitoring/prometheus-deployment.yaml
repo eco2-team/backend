@@ -4,7 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus
-  namespace: default
+  namespace: monitoring
   labels:
     app: prometheus
     component: monitoring
@@ -21,7 +21,11 @@ spec:
     spec:
       serviceAccountName: prometheus
       nodeSelector:
-        node-role: infra
+        workload: monitoring
+      tolerations:
+        - key: "node-role.kubernetes.io/infrastructure"
+          operator: "Exists"
+          effect: "NoSchedule"
       containers:
         - name: prometheus
           image: prom/prometheus:v2.45.0
@@ -66,8 +70,8 @@ spec:
           configMap:
             name: prometheus-config
         - name: prometheus-storage
-          persistentVolumeClaim:
-            claimName: prometheus-storage
+          emptyDir:
+            sizeLimit: 50Gi
         - name: prometheus-rules
           configMap:
             name: prometheus-rules
@@ -77,7 +81,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus
-  namespace: default
+  namespace: monitoring
   labels:
     app: prometheus
     component: monitoring
@@ -96,7 +100,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: prometheus-storage
-  namespace: default
+  namespace: monitoring
 spec:
   accessModes:
     - ReadWriteOnce
@@ -110,7 +114,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: prometheus
-  namespace: default
+  namespace: monitoring
 ---
 # Prometheus ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
@@ -150,14 +154,14 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: prometheus
-    namespace: default
+    namespace: monitoring
 ---
 # Prometheus ConfigMap
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-config
-  namespace: default
+  namespace: monitoring
 data:
   prometheus.yml: |
     global:
@@ -290,7 +294,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-rules
-  namespace: default
+  namespace: monitoring
 data:
   alerts.yaml: |
     # 이 파일은 prometheus-rules.yaml에서 관리됩니다

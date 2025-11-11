@@ -1,39 +1,34 @@
-# 13-Node 클러스터 자동 재구축 가이드
+# 14-Node 클러스터 자동 재구축 가이드
 
 ## 📊 개요
 
-`auto-rebuild.sh`는 13-Node Kubernetes 클러스터를 완전히 자동으로 재구축하고, v0.6.0 기능(모니터링 + WAL Workers)까지 배포하는 통합 스크립트입니다.
+`auto-rebuild.sh`는 14-Node Kubernetes 클러스터를 완전히 자동으로 재구축하고, GitOps 환경까지 배포하는 통합 스크립트입니다.
 
 ## 🎯 실행 순서
 
 ### 전체 프로세스 (자동)
 
 1. **Terraform Destroy** - 기존 인프라 삭제
-2. **Terraform Apply** - 13-Node 인프라 구축
+2. **Terraform Apply** - 14-Node 인프라 구축
 3. **Ansible Playbook** - Kubernetes 설치
-4. **Monitoring Stack** - Prometheus/Grafana 배포 (원격)
-5. **Worker Images** - 이미지 빌드 & GHCR 푸시 (로컬)
-6. **Worker Deployment** - WAL Workers 배포 (원격)
+4. **Monitoring Stack** - Prometheus/Grafana 배포
+5. **ArgoCD** - GitOps CD 도구 배포
+6. **Atlantis** - Terraform PR Automation 배포
 
 ### 예상 소요 시간
-- **전체**: 50-70분
+- **전체**: 40-60분
   - Terraform destroy: 5-10분
   - Terraform apply: 10-15분
   - Ansible playbook: 15-20분
   - Monitoring 배포: 5분
-  - Worker 빌드: 10분
-  - Worker 배포: 5분
+  - ArgoCD 배포: 3분
+  - Atlantis 배포: 2분
 
 ## 🚀 사용 방법
 
 ### 1. 사전 준비
 
 ```bash
-# 필수 환경 변수 설정
-export GITHUB_TOKEN=<your-github-token>
-export GITHUB_USERNAME=<your-github-username>
-export VERSION=v0.6.0  # 선택사항 (기본값: v0.6.0)
-
 # AWS 자격증명 확인
 aws sts get-caller-identity
 
@@ -63,51 +58,44 @@ cd /Users/mango/workspace/SeSACTHON/backend
 - 에러 발생 시에도 가능한 한 계속 진행
 - `AUTO_MODE=true` 환경 변수 설정됨
 
-**GitHub 인증 없이 실행**:
-```bash
-# Worker 빌드를 건너뛰고 실행
-unset GITHUB_TOKEN
-unset GITHUB_USERNAME
-./scripts/cluster/auto-rebuild.sh
-```
-
 ## 📦 배포되는 구성
 
-### 13-Node 클러스터
+### 14-Node 클러스터
 
 | 노드 유형 | 개수 | 인스턴스 타입 | 역할 |
 |----------|------|--------------|------|
-| Master | 1 | t3a.large | Kubernetes Control Plane |
-| API | 6 | t3a.medium | API Services (6개) |
-| Worker | 2 | t3a.large | Celery Workers (2개) |
-| Infrastructure | 4 | t3a.medium | RabbitMQ, PostgreSQL, Redis, Prometheus |
+| Master | 1 | t3.large | Kubernetes Control Plane + ArgoCD + Atlantis |
+| API | 7 | t3.micro~t3.small | API Services (auth, my, scan, character, location, info, chat) |
+| Worker | 2 | t3.small | Storage Worker, AI Worker |
+| Infrastructure | 4 | t3.micro~t3.small | PostgreSQL, Redis, RabbitMQ, Monitoring |
+
+**총 비용**: ~$218/월
 
 ### 모니터링 스택
 
 - **Prometheus**
-  - ServiceMonitor (API 6개 + Worker 2개)
-  - Alert Rules (20개)
+  - ServiceMonitor (API 7개 + Worker 2개)
+  - Alert Rules
   - 30일 메트릭 보관 (50GB PVC)
 
 - **Grafana**
-  - 13-Node 전용 대시보드 (12개 Panel)
+  - 14-Node 전용 대시보드
   - 관리자 인증 (Secret)
 
 - **Node Exporter**
-  - DaemonSet (13개 노드 모니터링)
+  - DaemonSet (14개 노드 모니터링)
 
-### Worker Services
+### GitOps 도구
 
-- **Storage Worker**
-  - S3 업로드 작업
-  - Local SQLite WAL
-  - PostgreSQL 비동기 동기화
-  - 10GB PVC
+- **ArgoCD**
+  - Helm Chart 기반 배포
+  - Auto-Sync 활성화 (3분마다)
+  - 애플리케이션 상태 모니터링
 
-- **AI Worker**
-  - AI 추론 작업 (준비)
-  - Local SQLite WAL
-  - 10GB PVC
+- **Atlantis**
+  - Terraform PR 기반 인프라 변경
+  - Plan/Apply 자동화
+  - GitHub Webhook 연동
 
 ## 🔍 단계별 상세
 
@@ -128,19 +116,20 @@ terraform destroy -auto-approve
 - 리소스 개수 확인
 - 상태 출력
 
-### Step 2: Terraform Apply (13-Node)
+### Step 2: Terraform Apply (14-Node)
 
 ```bash
-# 13-Node 인프라 구축
+# 14-Node 인프라 구축
 terraform apply -auto-approve
 
 # 생성되는 리소스:
-# - 13 EC2 Instances
+# - 14 EC2 Instances
 # - VPC, Subnets, Security Groups
 # - S3 Bucket (images)
 # - CloudFront Distribution
 # - Route53 Records
 # - ACM Certificates
+# - IAM Roles & Policies
 
 # 대기 시간: 90초 (SSM Agent 등록)
 ```
@@ -151,7 +140,7 @@ terraform apply -auto-approve
 # Inventory 자동 생성
 terraform output -raw ansible_inventory > ansible/inventory/hosts.ini
 
-# Kubernetes 설치 (13 nodes)
+# Kubernetes 설치 (14 nodes)
 ansible-playbook -i inventory/hosts.ini site.yml \
     -e "vpc_id=$VPC_ID" \
     -e "acm_certificate_arn=$ACM_ARN"
@@ -167,7 +156,7 @@ ansible-playbook -i inventory/hosts.ini site.yml \
 # 대기 시간: 60초 (클러스터 초기화)
 ```
 
-### Step 4: Monitoring Stack 배포 (원격)
+### Step 4: Monitoring Stack 배포
 
 ```bash
 # Master 노드로 파일 복사
@@ -183,36 +172,28 @@ ssh ubuntu@$MASTER_IP
   kubectl apply -f ~/monitoring/grafana-deployment.yaml
 ```
 
-### Step 5: Worker 이미지 빌드 (로컬)
+### Step 5: ArgoCD 배포
 
 ```bash
-# GHCR 로그인
-echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USERNAME --password-stdin
+# ArgoCD 설치
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-# 이미지 빌드 및 푸시
-export VERSION=v0.6.0
-./scripts/build-workers.sh
+# Ingress 설정
+kubectl apply -f k8s/argocd/ingress.yaml
 
-# 빌드되는 이미지:
-# - ghcr.io/$GITHUB_USERNAME/ecoeco-storage-worker:v0.6.0
-# - ghcr.io/$GITHUB_USERNAME/ecoeco-ai-worker:v0.6.0
+# 초기 비밀번호 확인
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 ```
 
-**건너뛰는 경우**:
-- `GITHUB_TOKEN` 또는 `GITHUB_USERNAME`이 없으면 자동으로 건너뜀
-- 수동으로 나중에 실행 가능
-
-### Step 6: Worker 배포 (원격)
+### Step 6: Atlantis 배포
 
 ```bash
-# Master 노드로 파일 복사
-scp -r k8s/workers ubuntu@$MASTER_IP:~/
+# Atlantis 배포
+kubectl apply -f k8s/atlantis/
 
-# 원격 실행 (SSH)
-ssh ubuntu@$MASTER_IP
-  kubectl apply -f ~/workers/worker-wal-deployments.yaml
-  kubectl get pods -l component=worker
-  kubectl get pvc -l component=wal
+# Webhook Secret 확인
+kubectl get secret atlantis-webhook -o jsonpath="{.data.secret}" | base64 -d
 ```
 
 ## 📊 배포 확인
@@ -223,40 +204,50 @@ ssh ubuntu@$MASTER_IP
 # Master 노드 접속
 ssh ubuntu@$(cd terraform && terraform output -raw master_public_ip)
 
-# 노드 확인 (13개)
+# 노드 확인 (14개)
 kubectl get nodes -o wide
 
 # Pod 확인
 kubectl get pods -A
 ```
 
+### 노드별 역할 확인
+
+```bash
+# 노드 레이블 확인
+kubectl get nodes --show-labels
+
+# 각 노드별 Pod 배치 확인
+kubectl get pods -A -o wide | grep auth-node
+kubectl get pods -A -o wide | grep scan-node
+kubectl get pods -A -o wide | grep postgresql-node
+```
+
 ### 모니터링 확인
 
 ```bash
 # Prometheus 접속
-kubectl port-forward svc/prometheus 9090:9090
+kubectl port-forward -n monitoring svc/prometheus 9090:9090
 # http://localhost:9090
 
 # Grafana 접속
-kubectl port-forward svc/grafana 3000:3000
+kubectl port-forward -n monitoring svc/grafana 3000:3000
 # http://localhost:3000
 
 # Grafana 비밀번호 확인
-kubectl get secret grafana-admin -o jsonpath='{.data.password}' | base64 -d
+kubectl get secret -n monitoring grafana-admin -o jsonpath='{.data.password}' | base64 -d
 ```
 
-### Worker 확인
+### GitOps 도구 확인
 
 ```bash
-# Worker Pod 상태
-kubectl get pods -l component=worker
+# ArgoCD 접속
+kubectl port-forward -n argocd svc/argocd-server 8080:443
+# https://localhost:8080
 
-# WAL PVC 확인
-kubectl get pvc -l component=wal
-
-# Worker 로그
-kubectl logs -l app.kubernetes.io/name=storage-worker --tail=100
-kubectl logs -l app.kubernetes.io/name=ai-worker --tail=100
+# Atlantis 상태 확인
+kubectl get pods -n atlantis
+kubectl logs -n atlantis deployment/atlantis
 ```
 
 ## 🐛 트러블슈팅
@@ -308,52 +299,52 @@ aws ssm start-session --target <instance-id>
 **해결**:
 ```bash
 # PVC 상태 확인
-kubectl get pvc
+kubectl get pvc -n monitoring
 
 # StorageClass 확인
 kubectl get storageclass
 
 # Pod 상세 정보
-kubectl describe pod <pod-name>
+kubectl describe pod -n monitoring <pod-name>
 
 # EBS CSI Driver 확인
 kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-ebs-csi-driver
 ```
 
-### 4. Worker 이미지 빌드 실패
+### 4. ArgoCD 접속 실패
 
-**증상**: Docker 빌드 에러
+**증상**: ArgoCD UI 접속 불가
 
-**원인**: Dockerfile 문제 또는 의존성 누락
+**원인**: Ingress 설정 문제 또는 ALB Controller 미작동
 
 **해결**:
 ```bash
-# 로그 확인
-docker build -f workers/Dockerfile.storage -t test .
+# ArgoCD Pod 상태 확인
+kubectl get pods -n argocd
 
-# 개별 빌드 테스트
-cd workers
-docker build -f Dockerfile.storage -t storage-worker-test .
-docker build -f Dockerfile.ai -t ai-worker-test .
+# Ingress 상태 확인
+kubectl get ingress -n argocd
+
+# ALB Controller 로그 확인
+kubectl logs -n kube-system deployment/aws-load-balancer-controller
 ```
 
-### 5. Worker Pod 시작 실패
+### 5. Atlantis Webhook 실패
 
-**증상**: CrashLoopBackOff
+**증상**: GitHub PR에서 Atlantis 반응 없음
 
-**원인**: 환경 변수 누락 또는 WAL 디렉토리 권한
+**원인**: Webhook Secret 불일치 또는 네트워크 문제
 
 **해결**:
 ```bash
-# Pod 로그 확인
-kubectl logs <worker-pod-name>
+# Atlantis 로그 확인
+kubectl logs -n atlantis deployment/atlantis
 
-# 환경 변수 확인
-kubectl get pod <worker-pod-name> -o yaml | grep -A 20 env:
+# Webhook Secret 재확인
+kubectl get secret -n atlantis atlantis-webhook -o jsonpath="{.data.secret}" | base64 -d
 
-# Secret 확인
-kubectl get secret postgresql-secret -o yaml
-kubectl get secret aws-credentials -o yaml
+# GitHub Webhook 설정 확인
+# Settings → Webhooks → Recent Deliveries
 ```
 
 ## 💡 베스트 프랙티스
@@ -369,7 +360,7 @@ kubectl get secret aws-credentials -o yaml
    - 환경 변수 설정 확인
 
 3. **리소스 확인**
-   - AWS 할당량 확인 (EC2 인스턴스, Elastic IP)
+   - AWS 할당량 확인 (EC2 인스턴스 32개, Elastic IP)
    - 도메인 설정 확인
 
 ### 실행 중
@@ -385,31 +376,18 @@ kubectl get secret aws-credentials -o yaml
 ### 실행 후
 
 1. **검증**
-   - 13개 노드 모두 Ready 상태
+   - 14개 노드 모두 Ready 상태
    - 모든 Pod Running 상태
    - 모니터링 대시보드 정상 작동
+   - ArgoCD/Atlantis 접속 가능
 
 2. **보안**
    - Grafana admin 비밀번호 변경
+   - ArgoCD admin 비밀번호 변경
    - Security Group 규칙 검토
+   - Atlantis Webhook Secret 확인
 
 ## 📝 수동 실행 옵션
-
-### Worker 빌드만 별도 실행
-
-```bash
-export GITHUB_TOKEN=<token>
-export GITHUB_USERNAME=<username>
-export VERSION=v0.6.0
-./scripts/build-workers.sh
-```
-
-### Worker 배포만 별도 실행
-
-```bash
-# Master 노드에서
-kubectl apply -f k8s/workers/worker-wal-deployments.yaml
-```
 
 ### 모니터링만 별도 실행
 
@@ -418,31 +396,72 @@ kubectl apply -f k8s/workers/worker-wal-deployments.yaml
 ./scripts/deploy-monitoring.sh
 ```
 
+### ArgoCD만 별도 실행
+
+```bash
+# ArgoCD 설치
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Application 등록
+kubectl apply -f argocd/application-14nodes.yaml
+```
+
+### Atlantis만 별도 실행
+
+```bash
+# Atlantis 배포
+kubectl apply -f k8s/atlantis/
+
+# GitHub Webhook 설정 (수동)
+# Repository Settings → Webhooks → Add webhook
+```
+
 ## 🎯 다음 단계
 
 배포 완료 후:
 
 1. **도메인 확인**
    ```
-   https://ecoeco.app
-   https://api.ecoeco.app
+   https://growbin.app
+   https://api.growbin.app
+   https://argocd.growbin.app
+   https://atlantis.growbin.app
+   https://grafana.growbin.app
    ```
 
-2. **ArgoCD 배포** (GitOps)
+2. **ArgoCD Application 등록**
    ```bash
-   kubectl apply -f argocd/
+   kubectl apply -f argocd/application-14nodes.yaml
    ```
 
-3. **애플리케이션 배포** (Helm)
+3. **Helm Chart 배포** (ArgoCD가 자동으로 처리)
    ```bash
-   kubectl apply -f charts/ecoeco-backend/
+   # Git에 푸시하면 ArgoCD가 자동 배포
+   git add charts/ecoeco-backend/values-14nodes.yaml
+   git commit -m "feat: Update 14-node configuration"
+   git push origin develop
+   ```
+
+4. **Atlantis PR 테스트**
+   ```bash
+   # terraform/*.tf 파일 수정 후 PR 생성
+   # PR 코멘트에 "atlantis plan" 입력
+   # 결과 확인 후 "atlantis apply" 입력
    ```
 
 ## 🔗 관련 문서
 
-- [Terraform 13-Node 설정](../../terraform/README.md)
+- [Terraform 14-Node 설정](../../terraform/README.md)
 - [Ansible Playbook 가이드](../../ansible/README.md)
-- [모니터링 설정 가이드](../../docs/deployment/MONITORING_SETUP.md)
-- [WAL 구현 가이드](../../docs/guides/WORKER_WAL_IMPLEMENTATION.md)
-- [v0.6.0 완료 가이드](../../docs/development/V0.6.0_COMPLETION_GUIDE.md)
+- [모니터링 설정 가이드](MONITORING_SETUP.md)
+- [ArgoCD 가이드](../guides/ARGOCD_GUIDE.md)
+- [Atlantis 설정 가이드](ATLANTIS_SETUP.md)
+- [GitOps 아키텍처](GITOPS_ARCHITECTURE.md)
+- [v0.7.0 완료 가이드](../development/03-V0.7.0_COMPLETION_GUIDE.md)
 
+---
+
+**문서 버전**: v0.7.0  
+**최종 업데이트**: 2025-11-11  
+**아키텍처**: 14-Node Microservices with Full GitOps

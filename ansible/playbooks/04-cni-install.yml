@@ -145,18 +145,20 @@
   when: calico_check.rc != 0
   changed_when: false
 
-- name: 모든 Worker가 클러스터에 등록될 때까지 대기
+- name: 모든 Worker가 클러스터에 등록될 때까지 대기 (Phase 1&2)
   shell: |
-    EXPECTED_WORKERS=12  # 6 API + 2 Worker + 4 Infra (RabbitMQ, PostgreSQL, Redis, Monitoring)
+    # Phase 1&2: 7 Worker 노드 (5 API + 2 Infra)
+    # Phase 3&4: 12 Worker 노드 (7 API + 2 Worker + 3 Infra) - 추후 확장
+    EXPECTED_WORKERS=7  # Phase 1&2: 5 API (auth, my, scan, character, location) + 2 Infra (PostgreSQL, Redis)
     
     for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
-      # 전체 Worker 노드 수 (Role이 없는 노드)
+      # 전체 Worker 노드 수 (Master 제외)
       WORKER_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | grep -v "control-plane" | wc -l)
       
-      echo "Worker 등록 상태: $WORKER_COUNT/$EXPECTED_WORKERS (attempt $i/30)"
+      echo "Worker 등록 상태: $WORKER_COUNT/$EXPECTED_WORKERS (Phase 1&2, attempt $i/30)"
       
       if [ "$WORKER_COUNT" -ge "$EXPECTED_WORKERS" ]; then
-        echo "✅ 모든 Worker 등록됨!"
+        echo "✅ 모든 Worker 등록됨! (Phase 1&2)"
         kubectl get nodes
         exit 0
       fi
@@ -164,7 +166,9 @@
       sleep 10
     done
     
-    echo "❌ Timeout: Worker 노드가 등록되지 않음"
+    echo "❌ Timeout: Worker 노드가 $EXPECTED_WORKERS개 등록되지 않음 (현재: $WORKER_COUNT)"
+    echo ""
+    echo "현재 등록된 노드:"
     kubectl get nodes
     exit 1
   register: workers_joined
@@ -173,7 +177,7 @@
 
 - name: 모든 노드가 Ready 상태가 될 때까지 대기 (안정화 고려)
   shell: |
-    EXPECTED_TOTAL_NODES=13  # 1 Master + 12 Workers (6 API + 2 Worker + 4 Infra)
+    EXPECTED_TOTAL_NODES=14  # 1 Master + 13 Workers (7 API + 2 Worker + 4 Infra)
     
     echo "노드 안정화 대기 중 (Pod 재시작 허용)..."
     

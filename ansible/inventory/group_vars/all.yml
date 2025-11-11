@@ -26,12 +26,15 @@ argocd_namespace: "argocd"
 # AWS (ALB Controller용)
 aws_region: "ap-northeast-2"
 cluster_name: "sesacthon"
-vpc_id: "{{ lookup('pipe', 'cd ../../terraform && terraform output -raw vpc_id') }}"
-acm_certificate_arn: "{{ lookup('pipe', 'cd ../../terraform && terraform output -raw acm_certificate_arn') }}"
+# vpc_id와 acm_certificate_arn은 deploy.sh에서 extra-vars로 전달됨
+# 기본값은 lookup으로 시도하되, 실패 시 extra-vars 사용
+vpc_id: "{{ vpc_id | default(lookup('pipe', 'cd ../../terraform && terraform output -raw vpc_id', errors='ignore') | default('', true), true) }}"
+acm_certificate_arn: "{{ acm_certificate_arn | default(lookup('pipe', 'cd ../../terraform && terraform output -raw acm_certificate_arn', errors='ignore') | default('', true), true) }}"
 domain_name: "ecoeco.app"
 
 # PostgreSQL
-postgres_namespace: "default"
+postgres_namespace: "db"
+redis_namespace: "db"
 postgres_database: "sesacthon"
 postgres_username: "admin"
 postgres_password: "{{ lookup('env', 'POSTGRES_PASSWORD') | default('changeme', true) }}"

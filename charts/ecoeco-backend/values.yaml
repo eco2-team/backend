@@ -9,7 +9,7 @@ global:
     tag: latest
     pullPolicy: Always
   
-  domain: ecoeco.app
+  domain: growbin.app
   
   # 환경 변수
   env:

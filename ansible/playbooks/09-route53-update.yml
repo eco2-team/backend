@@ -172,6 +172,32 @@
   delegate_to: localhost
   changed_when: "'PENDING' in grafana_record_update.stdout"
 
+- name: "Route53 A 레코드 업데이트 (atlantis.growbin.app)"
+  shell: |
+    aws route53 change-resource-record-sets \
+      --hosted-zone-id {{ hosted_zone_id_result.stdout }} \
+      --change-batch '{
+        "Changes": [{
+          "Action": "UPSERT",
+          "ResourceRecordSet": {
+            "Name": "atlantis.{{ domain_name }}",
+            "Type": "A",
+            "AliasTarget": {
+              "HostedZoneId": "{{ alb_zone_id_result.stdout }}",
+              "DNSName": "{{ alb_dns_result.stdout }}",
+              "EvaluateTargetHealth": true
+            }
+          }
+        }]
+      }'
+  register: atlantis_record_update
+  when: 
+    - alb_dns_result.stdout != ""
+    - domain_name != ""
+    - hosted_zone_id_result.stdout != ""
+  delegate_to: localhost
+  changed_when: "'PENDING' in atlantis_record_update.stdout"
+
 - name: "Route53 업데이트 완료 정보 출력"
   debug:
     msg:
@@ -188,6 +214,7 @@
       - "  ✅ api.{{ domain_name }} → ALB"
       - "  ✅ argocd.{{ domain_name }} → ALB"
       - "  ✅ grafana.{{ domain_name }} → ALB"
+      - "  ✅ atlantis.{{ domain_name }} → ALB"
       - ""
       - "⏳ DNS 전파 대기 (1-5분):"
       - "  dig {{ domain_name }}"

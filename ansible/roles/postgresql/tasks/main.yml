@@ -42,8 +42,20 @@
             app: postgres
             tier: database
         spec:
-          nodeSelector:
-            workload: database  # PostgreSQL 노드에 배포
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                    - k8s-postgresql
+          tolerations:
+          - key: node-role.kubernetes.io/infrastructure
+            operator: Equal
+            value: "true"
+            effect: NoSchedule
           containers:
           - name: postgres
             image: postgres:{{ postgres_version }}-alpine

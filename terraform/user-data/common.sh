@@ -20,14 +20,29 @@ apt-get install -y \
     htop \
     net-tools
 
-# SSM Agent 설치 및 시작 (Session Manager용)
+# SSM Agent 설치 (Session Manager용)
 # Ubuntu 22.04는 기본 포함되어 있지만 명시적으로 설치
 snap install amazon-ssm-agent --classic
+
+# Region 설정 (Snap 환경)
+# Snap은 /etc/amazon/ssm/ 접근 불가 → /var/snap 사용
+mkdir -p /var/snap/amazon-ssm-agent/common
+cat > /var/snap/amazon-ssm-agent/common/amazon-ssm-agent.json << 'JSON'
+{
+  "Region": "ap-northeast-2"
+}
+JSON
+
+# SSM Agent 시작
 systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
 systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service
 
 # SSM Agent 상태 확인
 systemctl status snap.amazon-ssm-agent.amazon-ssm-agent.service || true
+
+# 등록 대기 (Region 설정 반영)
+echo "⏳ SSM Agent 등록 대기 중... (10초)"
+sleep 10
 
 # 스왑 비활성화 (Kubernetes 요구사항)
 swapoff -a

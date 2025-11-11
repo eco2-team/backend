@@ -1,12 +1,60 @@
 # Ingress 리소스 생성 (ALB 자동 생성)
-# Namespace별 Ingress 생성 (Cross-namespace 불가)
+# 14-Node Architecture용 통합 Ingress (k8s/ingress/14-nodes-ingress.yaml)
 ---
-- name: "ArgoCD Ingress 생성 (/argocd)"
+- name: "필요한 Namespace 생성"
   shell: |
-    # ArgoCD Service를 NodePort로 변경 (ALB target-type: instance 필수)
-    kubectl patch svc argocd-server -n argocd -p '{"spec":{"type":"NodePort"}}'
-    
-    kubectl apply -f - <<EOF
+    kubectl create namespace api --dry-run=client -o yaml | kubectl apply -f -
+  register: api_namespace
+  changed_when: "'created' in api_namespace.stdout"
+
+- name: "14-nodes Ingress 파일 확인"
+  stat:
+    path: "{{ playbook_dir }}/../../k8s/ingress/14-nodes-ingress.yaml"
+  register: ingress_file
+  delegate_to: localhost
+  become: false
+
+- name: "14-nodes Ingress 적용 (파일이 있는 경우)"
+  shell: |
+    # ACM 인증서 ARN을 동적으로 치환
+    sed "s|arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID|{{ acm_certificate_arn }}|g" \
+      {{ playbook_dir }}/../../k8s/ingress/14-nodes-ingress.yaml | \
+      kubectl apply -f -
+  register: ingress_apply
+  when: ingress_file.stat.exists and acm_certificate_arn is defined and acm_certificate_arn != ""
+  delegate_to: localhost
+  become: false
+
+- name: "14-nodes Ingress 적용 (ACM 인증서 없을 경우 - 경고)"
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../../k8s/ingress/14-nodes-ingress.yaml
+  register: ingress_apply_no_cert
+  when: ingress_file.stat.exists and (acm_certificate_arn is not defined or acm_certificate_arn == "")
+  delegate_to: localhost
+  become: false
+
+- name: "기존 방식 Ingress 생성 (파일이 없는 경우 - Fallback)"
+  when: not ingress_file.stat.exists
+  block:
+    - name: "ArgoCD ConfigMap 설정 (insecure 모드 - ALB에서 HTTPS 종료)"
+      shell: |
+        kubectl patch configmap -n argocd argocd-cmd-params-cm --type merge -p '{"data":{"server.insecure":"true"}}' 2>/dev/null || \
+        kubectl create configmap -n argocd argocd-cmd-params-cm --from-literal=server.insecure=true --dry-run=client -o yaml | kubectl apply -f -
+      register: argocd_configmap
+      when: domain_name != "" and domain_name is defined
+
+    - name: "ArgoCD Server 재시작 (ConfigMap 변경 적용)"
+      shell: |
+        kubectl rollout restart deployment -n argocd argocd-server
+        kubectl rollout status deployment -n argocd argocd-server --timeout=120s
+      when: argocd_configmap is defined and argocd_configmap.changed
+
+    - name: "ArgoCD Ingress 생성 (/argocd)"
+      shell: |
+        # ArgoCD Service를 NodePort로 변경 (ALB target-type: instance 필수)
+        kubectl patch svc argocd-server -n argocd -p '{"spec":{"type":"NodePort"}}'
+        
+        kubectl apply -f - <<EOF
     apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
@@ -18,10 +66,11 @@
         alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
         alb.ingress.kubernetes.io/ssl-redirect: '443'
         alb.ingress.kubernetes.io/certificate-arn: {{ acm_certificate_arn }}
-        alb.ingress.kubernetes.io/group.name: ecoeco-alb
-        alb.ingress.kubernetes.io/group.order: '10'
-        alb.ingress.kubernetes.io/backend-protocol: HTTPS
-        alb.ingress.kubernetes.io/healthcheck-path: /argocd/health
+        alb.ingress.kubernetes.io/group.name: ecoeco-main
+        alb.ingress.kubernetes.io/group.order: '20'
+        alb.ingress.kubernetes.io/backend-protocol: HTTP
+        alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+        alb.ingress.kubernetes.io/healthcheck-path: /healthz
         alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
         alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
         alb.ingress.kubernetes.io/healthy-threshold-count: '2'
@@ -29,26 +78,26 @@
     spec:
       ingressClassName: alb
       rules:
-      - host: {{ domain_name }}
+      - host: argocd.{{ domain_name }}
         http:
           paths:
-          - path: /argocd
+          - path: /
             pathType: Prefix
             backend:
               service:
                 name: argocd-server
                 port:
-                  number: 443
-    EOF
-  register: argocd_ingress
-  when: domain_name != "" and domain_name is defined
+                  number: 80
+      EOF
+      register: argocd_ingress
+      when: domain_name != "" and domain_name is defined
 
-- name: "Monitoring Ingress 생성 (/grafana)"
-  shell: |
-    # Grafana Service를 NodePort로 변경 (ALB target-type: instance 필수)
-    kubectl patch svc prometheus-grafana -n monitoring -p '{"spec":{"type":"NodePort"}}'
-    
-    kubectl apply -f - <<EOF
+    - name: "Monitoring Ingress 생성 (/grafana)"
+      shell: |
+        # Grafana Service를 NodePort로 변경 (ALB target-type: instance 필수)
+        kubectl patch svc prometheus-grafana -n monitoring -p '{"spec":{"type":"NodePort"}}'
+        
+        kubectl apply -f - <<EOF
     apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
@@ -60,10 +109,10 @@
         alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
         alb.ingress.kubernetes.io/ssl-redirect: '443'
         alb.ingress.kubernetes.io/certificate-arn: {{ acm_certificate_arn }}
-        alb.ingress.kubernetes.io/group.name: ecoeco-alb
-        alb.ingress.kubernetes.io/group.order: '20'
+        alb.ingress.kubernetes.io/group.name: ecoeco-main
+        alb.ingress.kubernetes.io/group.order: '30'
         alb.ingress.kubernetes.io/backend-protocol: HTTP
-        alb.ingress.kubernetes.io/healthcheck-path: /grafana/health
+        alb.ingress.kubernetes.io/healthcheck-path: /api/health
         alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
         alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
         alb.ingress.kubernetes.io/healthy-threshold-count: '2'
@@ -71,23 +120,23 @@
     spec:
       ingressClassName: alb
       rules:
-      - host: {{ domain_name }}
+      - host: grafana.{{ domain_name }}
         http:
           paths:
-          - path: /grafana
+          - path: /
             pathType: Prefix
             backend:
               service:
                 name: prometheus-grafana
                 port:
                   number: 80
-    EOF
-  register: grafana_ingress
-  when: domain_name != "" and domain_name is defined
+      EOF
+      register: grafana_ingress
+      when: domain_name != "" and domain_name is defined
 
-- name: "Default Backend Deployment 생성"
-  shell: |
-    kubectl apply -f - <<EOF
+    - name: "Default Backend Deployment 생성"
+      shell: |
+        kubectl apply -f - <<EOF
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -121,13 +170,13 @@
       ports:
       - port: 80
         targetPort: 8080
-    EOF
-  register: default_backend
-  when: domain_name != "" and domain_name is defined
+      EOF
+      register: default_backend
+      when: domain_name != "" and domain_name is defined
 
-- name: "API Services Ingress 생성 (default namespace)"
-  shell: |
-    kubectl apply -f - <<EOF
+    - name: "API Services Ingress 생성 (default namespace)"
+      shell: |
+        kubectl apply -f - <<EOF
     apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
@@ -139,10 +188,10 @@
         alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
         alb.ingress.kubernetes.io/ssl-redirect: '443'
         alb.ingress.kubernetes.io/certificate-arn: {{ acm_certificate_arn }}
-        alb.ingress.kubernetes.io/group.name: ecoeco-alb
-        alb.ingress.kubernetes.io/group.order: '30'
+        alb.ingress.kubernetes.io/group.name: ecoeco-main
+        alb.ingress.kubernetes.io/group.order: '10'
         alb.ingress.kubernetes.io/backend-protocol: HTTP
-        alb.ingress.kubernetes.io/healthcheck-path: /api/health
+        alb.ingress.kubernetes.io/healthcheck-path: /health
         alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
         alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
         alb.ingress.kubernetes.io/healthy-threshold-count: '2'
@@ -151,29 +200,79 @@
     spec:
       ingressClassName: alb
       rules:
-      - host: {{ domain_name }}
+      - host: api.{{ domain_name }}
         http:
           paths:
-          # 아직 서비스가 없으므로 default-backend로
-          - path: /api/v1
+          # Phase 1: Core APIs
+          - path: /api/v1/auth
             pathType: Prefix
             backend:
               service:
-                name: default-backend
+                name: auth-api
                 port:
-                  number: 80
+                  number: 8000
           
-          # Root path
-          - path: /
+          - path: /api/v1/my
             pathType: Prefix
             backend:
               service:
-                name: default-backend
+                name: my-api
                 port:
-                  number: 80
-    EOF
-  register: api_ingress
-  when: domain_name != "" and domain_name is defined
+                  number: 8000
+          
+          - path: /api/v1/scan
+            pathType: Prefix
+            backend:
+              service:
+                name: scan-api
+                port:
+                  number: 8000
+          
+          # Phase 2: Extended APIs
+          - path: /api/v1/character
+            pathType: Prefix
+            backend:
+              service:
+                name: character-api
+                port:
+                  number: 8000
+          
+          - path: /api/v1/location
+            pathType: Prefix
+            backend:
+              service:
+                name: location-api
+                port:
+                  number: 8000
+          
+          # Phase 3: Advanced APIs
+          - path: /api/v1/info
+            pathType: Prefix
+            backend:
+              service:
+                name: info-api
+                port:
+                  number: 8000
+          
+          - path: /api/v1/chat
+            pathType: Prefix
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          
+          # Health Check
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: auth-api
+                port:
+                  number: 8000
+      EOF
+      register: api_ingress
+      when: domain_name != "" and domain_name is defined
 
 - name: Ingress 리소스 확인
   command: kubectl get ingress -A

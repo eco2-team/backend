@@ -1,3 +1,12 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Master Node Outputs
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+output "master_instance_id" {
+  description = "Master 노드 Instance ID"
+  value       = module.master.instance_id
+}
+
 output "master_public_ip" {
   description = "Master 노드 Public IP (Elastic IP)"
   value       = aws_eip.master.public_ip
@@ -8,17 +17,17 @@ output "master_private_ip" {
   value       = module.master.private_ip
 }
 
-# API Nodes (6 nodes)
-output "api_waste_public_ip" {
-  description = "Waste API Public IP"
-  value       = module.api_waste.public_ip
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# API Nodes Outputs (Phase 1&2: 5 nodes)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# API-1: Auth
+output "api_auth_instance_id" {
+  description = "Auth API Instance ID"
+  value       = module.api_auth.instance_id
 }
 
-output "api_waste_private_ip" {
-  description = "Waste API Private IP"
-  value       = module.api_waste.private_ip
-}
-
+# API-1: Auth
 output "api_auth_public_ip" {
   description = "Auth API Public IP"
   value       = module.api_auth.public_ip
@@ -29,16 +38,83 @@ output "api_auth_private_ip" {
   value       = module.api_auth.private_ip
 }
 
-output "api_userinfo_public_ip" {
-  description = "Userinfo API Public IP"
-  value       = module.api_userinfo.public_ip
+# API-2: My
+output "api_my_instance_id" {
+  description = "My API Instance ID"
+  value       = module.api_my.instance_id
 }
 
-output "api_userinfo_private_ip" {
-  description = "Userinfo API Private IP"
-  value       = module.api_userinfo.private_ip
+output "api_my_public_ip" {
+  description = "My API Public IP"
+  value       = module.api_my.public_ip
 }
 
+output "api_my_private_ip" {
+  description = "My API Private IP"
+  value       = module.api_my.private_ip
+}
+
+# API-3: Scan
+output "api_scan_instance_id" {
+  description = "Scan API Instance ID"
+  value       = module.api_scan.instance_id
+}
+
+output "api_scan_public_ip" {
+  description = "Scan API Public IP"
+  value       = module.api_scan.public_ip
+}
+
+output "api_scan_private_ip" {
+  description = "Scan API Private IP"
+  value       = module.api_scan.private_ip
+}
+
+# API-4: Character
+output "api_character_instance_id" {
+  description = "Character API Instance ID"
+  value       = module.api_character.instance_id
+}
+
+output "api_character_public_ip" {
+  description = "Character API Public IP"
+  value       = module.api_character.public_ip
+}
+
+output "api_character_private_ip" {
+  description = "Character API Private IP"
+  value       = module.api_character.private_ip
+}
+
+# API-5: Location
+output "api_location_instance_id" {
+  description = "Location API Instance ID"
+  value       = module.api_location.instance_id
+}
+
+# API-3: Scan
+output "api_scan_public_ip" {
+  description = "Scan API Public IP"
+  value       = module.api_scan.public_ip
+}
+
+output "api_scan_private_ip" {
+  description = "Scan API Private IP"
+  value       = module.api_scan.private_ip
+}
+
+# API-4: Character
+output "api_character_public_ip" {
+  description = "Character API Public IP"
+  value       = module.api_character.public_ip
+}
+
+output "api_character_private_ip" {
+  description = "Character API Private IP"
+  value       = module.api_character.private_ip
+}
+
+# API-5: Location
 output "api_location_public_ip" {
   description = "Location API Public IP"
   value       = module.api_location.public_ip
@@ -49,35 +125,64 @@ output "api_location_private_ip" {
   value       = module.api_location.private_ip
 }
 
-output "api_recycle_info_public_ip" {
-  description = "Recycle Info API Public IP"
-  value       = module.api_recycle_info.public_ip
+# Phase 3: Extended APIs (2025-11-08 활성화)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# API-6: Info
+output "api_info_instance_id" {
+  description = "Info API Instance ID"
+  value       = module.api_info.instance_id
 }
 
-output "api_recycle_info_private_ip" {
-  description = "Recycle Info API Private IP"
-  value       = module.api_recycle_info.private_ip
+output "api_info_public_ip" {
+  description = "Info API Public IP"
+  value       = module.api_info.public_ip
 }
 
-output "api_chat_llm_public_ip" {
-  description = "Chat LLM API Public IP"
-  value       = module.api_chat_llm.public_ip
+output "api_info_private_ip" {
+  description = "Info API Private IP"
+  value       = module.api_info.private_ip
 }
 
-output "api_chat_llm_private_ip" {
-  description = "Chat LLM API Private IP"
-  value       = module.api_chat_llm.private_ip
+# API-7: Chat
+output "api_chat_instance_id" {
+  description = "Chat API Instance ID"
+  value       = module.api_chat.instance_id
 }
 
-# Worker Nodes (2 nodes)
+output "api_chat_public_ip" {
+  description = "Chat API Public IP"
+  value       = module.api_chat.public_ip
+}
+
+output "api_chat_private_ip" {
+  description = "Chat API Private IP"
+  value       = module.api_chat.private_ip
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Worker Nodes Outputs (Phase 4: 2025-11-08 활성화)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Worker-1: Storage
+output "worker_storage_instance_id" {
+  description = "Worker Storage Instance ID"
+  value       = module.worker_storage.instance_id
+}
+
 output "worker_storage_public_ip" {
   description = "Worker Storage Public IP"
   value       = module.worker_storage.public_ip
 }
 
-output "worker_storage_private_ip" {
-  description = "Worker Storage Private IP"
-  value       = module.worker_storage.private_ip
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Worker Nodes Outputs (Phase 4: 주석 처리)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Worker-2: AI
+output "worker_ai_instance_id" {
+  description = "Worker AI Instance ID"
+  value       = module.worker_ai.instance_id
 }
 
 output "worker_ai_public_ip" {
@@ -85,22 +190,26 @@ output "worker_ai_public_ip" {
   value       = module.worker_ai.public_ip
 }
 
-output "worker_ai_private_ip" {
-  description = "Worker AI Private IP"
-  value       = module.worker_ai.private_ip
+# output "worker_storage_private_ip" {
+#   description = "Worker Storage Private IP"
+#   value       = module.worker_storage.private_ip
+# }
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Infrastructure Nodes Outputs (Phase 1&2: PostgreSQL, Redis / Phase 4: RabbitMQ, Monitoring)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# PostgreSQL (Phase 1)
+output "postgresql_instance_id" {
+  description = "PostgreSQL 노드 Instance ID"
+  value       = module.postgresql.instance_id
 }
 
-# Infrastructure Nodes (4 nodes)
-output "rabbitmq_public_ip" {
-  description = "RabbitMQ 노드 Public IP"
-  value       = module.rabbitmq.public_ip
-}
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Infrastructure Nodes Outputs (Phase 1&2: PostgreSQL, Redis / Phase 4: RabbitMQ, Monitoring)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-output "rabbitmq_private_ip" {
-  description = "RabbitMQ 노드 Private IP"
-  value       = module.rabbitmq.private_ip
-}
-
+# PostgreSQL (Phase 1)
 output "postgresql_public_ip" {
   description = "PostgreSQL 노드 Public IP"
   value       = module.postgresql.public_ip
@@ -109,6 +218,12 @@ output "postgresql_public_ip" {
 output "postgresql_private_ip" {
   description = "PostgreSQL 노드 Private IP"
   value       = module.postgresql.private_ip
+}
+
+# Redis (Phase 1)
+output "redis_instance_id" {
+  description = "Redis 노드 Instance ID"
+  value       = module.redis.instance_id
 }
 
 output "redis_public_ip" {
@@ -121,135 +236,190 @@ output "redis_private_ip" {
   value       = module.redis.private_ip
 }
 
+# RabbitMQ (Phase 4: 2025-11-08 활성화)
+output "rabbitmq_instance_id" {
+  description = "RabbitMQ Instance ID"
+  value       = module.rabbitmq.instance_id
+}
+
+output "rabbitmq_public_ip" {
+  description = "RabbitMQ 노드 Public IP"
+  value       = module.rabbitmq.public_ip
+}
+
+output "rabbitmq_private_ip" {
+  description = "RabbitMQ 노드 Private IP"
+  value       = module.rabbitmq.private_ip
+}
+
+# Monitoring (Phase 4: 2025-11-08 활성화)
+output "monitoring_instance_id" {
+  description = "Monitoring Instance ID"
+  value       = module.monitoring.instance_id
+}
+
 output "monitoring_public_ip" {
   description = "Monitoring 노드 Public IP"
   value       = module.monitoring.public_ip
 }
 
-output "monitoring_private_ip" {
-  description = "Monitoring 노드 Private IP"
-  value       = module.monitoring.private_ip
-}
+# output "rabbitmq_private_ip" {
+#   description = "RabbitMQ 노드 Private IP"
+#   value       = module.rabbitmq.private_ip
+# }
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Ansible Inventory
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 output "ansible_inventory" {
-  description = "Ansible Inventory 내용"
+  description = "Ansible Inventory 내용 (14-Node Architecture)"
   value = templatefile("${path.module}/templates/hosts.tpl", {
-    master_public_ip            = aws_eip.master.public_ip
-    master_private_ip           = module.master.private_ip
-    api_waste_public_ip         = module.api_waste.public_ip
-    api_waste_private_ip        = module.api_waste.private_ip
-    api_auth_public_ip          = module.api_auth.public_ip
-    api_auth_private_ip         = module.api_auth.private_ip
-    api_userinfo_public_ip      = module.api_userinfo.public_ip
-    api_userinfo_private_ip     = module.api_userinfo.private_ip
-    api_location_public_ip      = module.api_location.public_ip
-    api_location_private_ip     = module.api_location.private_ip
-    api_recycle_info_public_ip  = module.api_recycle_info.public_ip
-    api_recycle_info_private_ip = module.api_recycle_info.private_ip
-    api_chat_llm_public_ip      = module.api_chat_llm.public_ip
-    api_chat_llm_private_ip     = module.api_chat_llm.private_ip
-    worker_storage_public_ip    = module.worker_storage.public_ip
-    worker_storage_private_ip   = module.worker_storage.private_ip
-    worker_ai_public_ip         = module.worker_ai.public_ip
-    worker_ai_private_ip        = module.worker_ai.private_ip
-    rabbitmq_public_ip          = module.rabbitmq.public_ip
-    rabbitmq_private_ip         = module.rabbitmq.private_ip
-    postgresql_public_ip        = module.postgresql.public_ip
-    postgresql_private_ip       = module.postgresql.private_ip
-    redis_public_ip             = module.redis.public_ip
-    redis_private_ip            = module.redis.private_ip
-    monitoring_public_ip        = module.monitoring.public_ip
-    monitoring_private_ip       = module.monitoring.private_ip
+    master_public_ip           = aws_eip.master.public_ip
+    master_private_ip          = module.master.private_ip
+    api_auth_public_ip         = module.api_auth.public_ip
+    api_auth_private_ip        = module.api_auth.private_ip
+    api_my_public_ip           = module.api_my.public_ip
+    api_my_private_ip          = module.api_my.private_ip
+    api_scan_public_ip         = module.api_scan.public_ip
+    api_scan_private_ip        = module.api_scan.private_ip
+    api_character_public_ip    = module.api_character.public_ip
+    api_character_private_ip   = module.api_character.private_ip
+    api_location_public_ip     = module.api_location.public_ip
+    api_location_private_ip    = module.api_location.private_ip
+    api_info_public_ip         = module.api_info.public_ip
+    api_info_private_ip        = module.api_info.private_ip
+    api_chat_public_ip         = module.api_chat.public_ip
+    api_chat_private_ip        = module.api_chat.private_ip
+    worker_storage_public_ip   = module.worker_storage.public_ip
+    worker_storage_private_ip  = module.worker_storage.private_ip
+    worker_ai_public_ip        = module.worker_ai.public_ip
+    worker_ai_private_ip       = module.worker_ai.private_ip
+    postgresql_public_ip       = module.postgresql.public_ip
+    postgresql_private_ip      = module.postgresql.private_ip
+    redis_public_ip            = module.redis.public_ip
+    redis_private_ip           = module.redis.private_ip
+    rabbitmq_public_ip         = module.rabbitmq.public_ip
+    rabbitmq_private_ip        = module.rabbitmq.private_ip
+    monitoring_public_ip       = module.monitoring.public_ip
+    monitoring_private_ip      = module.monitoring.private_ip
   })
 }
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # SSH Commands
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 output "ssh_commands" {
-  description = "SSH 접속 명령어"
+  description = "SSH 접속 명령어 (14-Node Architecture)"
   value = {
-    master           = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${aws_eip.master.public_ip}"
-    api_waste        = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_waste.public_ip}"
-    api_auth         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_auth.public_ip}"
-    api_userinfo     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_userinfo.public_ip}"
-    api_location     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_location.public_ip}"
-    api_recycle_info = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_recycle_info.public_ip}"
-    api_chat_llm     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_chat_llm.public_ip}"
-    worker_storage   = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_storage.public_ip}"
-    worker_ai        = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_ai.public_ip}"
-    rabbitmq         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.rabbitmq.public_ip}"
-    postgresql       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.postgresql.public_ip}"
-    redis            = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis.public_ip}"
-    monitoring       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.monitoring.public_ip}"
+    master         = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${aws_eip.master.public_ip}"
+    api_auth       = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.api_auth.public_ip}"
+    api_my         = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.api_my.public_ip}"
+    api_scan       = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.api_scan.public_ip}"
+    api_character  = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.api_character.public_ip}"
+    api_location   = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.api_location.public_ip}"
+    api_info       = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.api_info.public_ip}"
+    api_chat       = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.api_chat.public_ip}"
+    worker_storage = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.worker_storage.public_ip}"
+    worker_ai      = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.worker_ai.public_ip}"
+    postgresql     = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.postgresql.public_ip}"
+    redis          = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.redis.public_ip}"
+    rabbitmq       = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.rabbitmq.public_ip}"
+    monitoring     = "ssh -i ~/.ssh/k8s-cluster-key.pem ubuntu@${module.monitoring.public_ip}"
   }
 }
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Cluster Info
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 output "cluster_info" {
-  description = "클러스터 정보 요약"
+  description = "클러스터 정보 요약 (14-Node Architecture)"
   value = {
-    vpc_id          = module.vpc.vpc_id
-    master_ip       = aws_eip.master.public_ip
+    vpc_id     = module.vpc.vpc_id
+    master_ip  = aws_eip.master.public_ip
+    phase      = "Phase 1-4 Complete - 14-Node Full Production Architecture"
     api_ips = [
-      module.api_waste.public_ip,
       module.api_auth.public_ip,
-      module.api_userinfo.public_ip,
+      module.api_my.public_ip,
+      module.api_scan.public_ip,
+      module.api_character.public_ip,
       module.api_location.public_ip,
-      module.api_recycle_info.public_ip,
-      module.api_chat_llm.public_ip
+      module.api_info.public_ip,
+      module.api_chat.public_ip
     ]
     worker_ips = [
       module.worker_storage.public_ip,
       module.worker_ai.public_ip
     ]
     infra_ips = [
-      module.rabbitmq.public_ip,
       module.postgresql.public_ip,
       module.redis.public_ip,
+      module.rabbitmq.public_ip,
       module.monitoring.public_ip
     ]
-    total_nodes        = 13
-    total_vcpu         = 15  # 최적화: 2+1*6+1*2+2+1+2
-    total_memory_gb    = 38  # 8+2*2+1*4+2*2+4+2+4
-    estimated_cost_usd = 238  # 최적화: t3.large*1 + t3.medium*3 + t3.small*6 + t3.micro*4
+    # 14-Node Architecture
+    total_nodes        = 14  # Master + 7 APIs + 2 Workers + 4 Infra
+    total_vcpu         = 32  # 2(master) + 7(APIs) + 4(workers) + 10(infra) + 4(monitoring)
+    total_memory_gb    = 38  # 8(master) + 9(APIs) + 4(workers) + 8(infra) + 4(monitoring) + 4(psql) + 2(redis) + 1(rabbitmq)
+    estimated_cost_usd = 245  # Monthly: t3.large*1 + t3.medium*2 + t3.small*5 + t3.micro*4
   }
 }
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Node Roles
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 output "node_roles" {
-  description = "노드별 역할"
+  description = "노드별 역할 (14-Node Architecture)"
   value = {
-    master           = "Control Plane (t3.large, 8GB)"
-    api_waste        = "Waste Analysis API (t3.small, 2GB)"
-    api_auth         = "Authentication API (t3.micro, 1GB)"
-    api_userinfo     = "User Information API (t3.micro, 1GB)"
-    api_location     = "Location & Map API (t3.micro, 1GB)"
-    api_recycle_info = "Recycle Information API (t3.micro, 1GB)"
-    api_chat_llm     = "Chat LLM API (t3.small, 2GB)"
-    worker_storage   = "Storage Worker - I/O Bound (t3.small, 2GB)"
-    worker_ai        = "AI Worker - Network Bound (t3.small, 2GB)"
-    rabbitmq         = "RabbitMQ (t3.small, 2GB)"
-    postgresql       = "PostgreSQL - 도메인별 DB (t3.medium, 4GB)"
-    redis            = "Redis Cache (t3.small, 2GB)"
-    monitoring       = "Prometheus + Grafana (t3.medium, 4GB)"
+    master         = "Control Plane (t3.large, 8GB) - Phase 1"
+    api_auth       = "Authentication API (t3.micro, 1GB) - Phase 1"
+    api_my         = "My Page API (t3.micro, 1GB) - Phase 1"
+    api_scan       = "Waste Scan API (t3.small, 2GB) - Phase 2"
+    api_character  = "Character & Mission API (t3.micro, 1GB) - Phase 2"
+    api_location   = "Location & Map API (t3.micro, 1GB) - Phase 2"
+    api_info       = "Recycle Information API (t3.micro, 1GB) - Phase 3"
+    api_chat       = "Chat LLM API (t3.small, 2GB) - Phase 3"
+    worker_storage = "Storage Worker - I/O Bound (t3.small, 2GB) - Phase 4"
+    worker_ai      = "AI Worker - Network Bound (t3.small, 2GB) - Phase 4"
+    postgresql     = "PostgreSQL - 7 Domain Schemas (t3.medium, 4GB) - Phase 1"
+    redis          = "Redis Cache + JWT BlackList (t3.small, 2GB) - Phase 1"
+    rabbitmq       = "RabbitMQ Message Queue (t3.small, 2GB) - Phase 4"
+    monitoring     = "Prometheus + Grafana (t3.medium, 4GB) - Phase 4"
   }
 }
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # DNS Records
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 output "dns_records" {
   description = "생성된 DNS 레코드 (domain_name 설정 시)"
   value = var.domain_name != "" ? {
     apex_domain = "https://${var.domain_name}"
     www_url     = "https://www.${var.domain_name}"
-    api_url     = "https://api.${var.domain_name}"
+    # API 서브도메인
+    api_base    = "https://api.${var.domain_name}"
+    auth_url    = "https://api.${var.domain_name}/auth"
+    my_url      = "https://api.${var.domain_name}/my"
+    scan_url    = "https://api.${var.domain_name}/scan"
+    character_url = "https://api.${var.domain_name}/character"
+    location_url = "https://api.${var.domain_name}/location"
+    # 관리 도구 서브도메인
     argocd_url  = "https://argocd.${var.domain_name}"
     grafana_url = "https://grafana.${var.domain_name}"
-    wildcard    = var.create_wildcard_record ? "https://*.${var.domain_name}" : "disabled"
+    # CDN 서브도메인
+    cdn_url     = "https://images.${var.domain_name}"
     nameservers = try(data.aws_route53_zone.main[0].name_servers, [])
   } : null
 }
 
-# S3 Bucket Info
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# S3 & CloudFront
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 output "s3_bucket_info" {
   description = "S3 이미지 버킷 정보"
   value = {
@@ -259,7 +429,23 @@ output "s3_bucket_info" {
   }
 }
 
-# ALB Controller 및 Ansible에서 필요한 Output
+output "cloudfront_info" {
+  description = "CloudFront CDN 정보"
+  value = var.enable_cloudfront ? {
+    distribution_id     = aws_cloudfront_distribution.images[0].id
+    distribution_domain = aws_cloudfront_distribution.images[0].domain_name
+    cdn_url            = "https://${aws_cloudfront_distribution.images[0].domain_name}"
+  } : {
+    distribution_id     = "CloudFront disabled"
+    distribution_domain = "CloudFront disabled"
+    cdn_url            = "CloudFront disabled - Use S3 direct URL"
+  }
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Other Required Outputs
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 output "vpc_id" {
   description = "VPC ID"
   value       = module.vpc.vpc_id

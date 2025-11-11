@@ -1,4 +1,4 @@
-# 📚 ♻️ 이코에코(Eco²) Backend - 문서
+# 📚 SeSACTHON Backend 문서 인덱스
 
 > **AI 기반 쓰레기 분류 및 재활용 코칭 서비스**  
 > **13-Node Kubernetes 클러스터 + Worker Local SQLite WAL**  
@@ -20,7 +20,8 @@
 ### ⚡ 자동 재구축 (권장)
 
 ```bash
-cd /Users/mango/workspace/SeSACTHON/backend
+# 1. AWS 인증 확인
+aws sts get-caller-identity
 
 # 환경 변수 설정
 export GITHUB_TOKEN="<your-github-token>"
@@ -70,14 +71,15 @@ ansible-playbook -i inventory/hosts.ini site.yml
 ```mermaid
 graph TB
     subgraph Internet["🌐 Internet"]
-        User[User/Browser]
+        User[User/Client]
         Route53["`**Route53**
-        eco²app`"]
+        api.growbin.app
+        images.growbin.app`"]
     end
     
     subgraph AWS["☁️ AWS Cloud (ap-northeast-2)"]
         ACM["`**ACM**
-        *.eco²app`"]
+        *.growbin.app`"]
         CF["`**CloudFront**
         S3 Image CDN`"]
         ALB["`**Application LB**
@@ -140,10 +142,29 @@ graph TB
                 t3a.medium (2 vCPU, 4GB)
                 Prometheus + Grafana`"]
             end
+            
+            subgraph Infra["Infrastructure Layer (4 Nodes)"]
+                RMQ["`**k8s-rabbitmq**
+                t3.small, 2GB
+                Message Queue`"]
+                PG["`**k8s-postgresql**
+                t3.medium, 4GB
+                Central DB`"]
+                Redis["`**k8s-redis**
+                t3.small, 2GB
+                Cache`"]
+                Mon["`**k8s-monitoring**
+                t3.large, 8GB
+                Prometheus+Grafana`"]
+            end
+            
+            S3["`**S3 Bucket**
+            이미지 저장소`"]
         end
     end
     
     User --> Route53
+    Route53 --> CloudFront
     Route53 --> ALB
     Route53 --> CF
     CF --> S3
@@ -533,13 +554,13 @@ kubectl get ingress -A
 
 ```bash
 # Waste API Health Check
-curl https://api.eco²app/waste/health
+curl https://api.growbin.app/waste/health
 
 # Auth API Health Check
-curl https://api.eco²app/auth/health
+curl https://api.growbin.app/auth/health
 
 # User API Health Check
-curl https://api.eco²app/user/health
+curl https://api.growbin.app/user/health
 ```
 
 ---

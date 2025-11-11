@@ -77,7 +77,7 @@ module "security_groups" {
 
 # SSH Key Pair
 resource "aws_key_pair" "k8s" {
-  key_name   = "k8s-cluster-key"
+  key_name   = "sesacthon"
   public_key = file(var.public_key_path)
   
   tags = {
@@ -109,41 +109,21 @@ module "master" {
   }
 }
 
-# EC2 Instances - API Nodes (6 nodes)
-# API-1: Waste Analysis (High Traffic)
-module "api_waste" {
-  source = "./modules/ec2"
-  
-  instance_name         = "k8s-api-waste"
-  instance_type         = "t3.small"  # 2GB
-  ami_id                = data.aws_ami.ubuntu.id
-  subnet_id             = module.vpc.public_subnet_ids[0]
-  security_group_ids    = [module.security_groups.worker_sg_id]
-  key_name              = aws_key_pair.k8s.key_name
-  iam_instance_profile  = aws_iam_instance_profile.k8s.name
-  
-  root_volume_size = 30
-  root_volume_type = "gp3"
-  
-  user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-api-waste"
-  })
-  
-  tags = {
-    Role     = "worker"
-    Workload = "api-waste"
-    Domain   = "waste"
-  }
-}
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# API Nodes (7개 노드)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# API-2: Authentication & Authorization
+# Phase 1&2: MVP + Core APIs (배포 활성화)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# API-1: Authentication & Authorization (필수)
 module "api_auth" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-api-auth"
   instance_type         = "t3.micro"  # 1GB
   ami_id                = data.aws_ami.ubuntu.id
-  subnet_id             = module.vpc.public_subnet_ids[1]
+  subnet_id             = module.vpc.public_subnet_ids[0]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
@@ -159,17 +139,18 @@ module "api_auth" {
     Role     = "worker"
     Workload = "api-auth"
     Domain   = "auth"
+    Phase    = "1"
   }
 }
 
-# API-3: User Information
-module "api_userinfo" {
+# API-2: My Page (필수)
+module "api_my" {
   source = "./modules/ec2"
   
-  instance_name         = "k8s-api-userinfo"
+  instance_name         = "k8s-api-my"
   instance_type         = "t3.micro"  # 1GB
   ami_id                = data.aws_ami.ubuntu.id
-  subnet_id             = module.vpc.public_subnet_ids[2]
+  subnet_id             = module.vpc.public_subnet_ids[1]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
@@ -178,24 +159,79 @@ module "api_userinfo" {
   root_volume_type = "gp3"
   
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-api-userinfo"
+    hostname = "k8s-api-my"
   })
   
   tags = {
     Role     = "worker"
-    Workload = "api-userinfo"
-    Domain   = "userinfo"
+    Workload = "api-my"
+    Domain   = "my"
+    Phase    = "1"
   }
 }
 
-# API-4: Location & Map
+# API-3: Waste Scan (핵심 기능)
+module "api_scan" {
+  source = "./modules/ec2"
+  
+  instance_name         = "k8s-api-scan"
+  instance_type         = "t3.small"  # 2GB
+  ami_id                = data.aws_ami.ubuntu.id
+  subnet_id             = module.vpc.public_subnet_ids[2]
+  security_group_ids    = [module.security_groups.worker_sg_id]
+  key_name              = aws_key_pair.k8s.key_name
+  iam_instance_profile  = aws_iam_instance_profile.k8s.name
+  
+  root_volume_size = 30
+  root_volume_type = "gp3"
+  
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname = "k8s-api-scan"
+  })
+  
+  tags = {
+    Role     = "worker"
+    Workload = "api-scan"
+    Domain   = "scan"
+    Phase    = "2"
+  }
+}
+
+# API-4: Character & Mission (핵심 기능)
+module "api_character" {
+  source = "./modules/ec2"
+  
+  instance_name         = "k8s-api-character"
+  instance_type         = "t3.micro"  # 1GB
+  ami_id                = data.aws_ami.ubuntu.id
+  subnet_id             = module.vpc.public_subnet_ids[0]
+  security_group_ids    = [module.security_groups.worker_sg_id]
+  key_name              = aws_key_pair.k8s.key_name
+  iam_instance_profile  = aws_iam_instance_profile.k8s.name
+  
+  root_volume_size = 20
+  root_volume_type = "gp3"
+  
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname = "k8s-api-character"
+  })
+  
+  tags = {
+    Role     = "worker"
+    Workload = "api-character"
+    Domain   = "character"
+    Phase    = "2"
+  }
+}
+
+# API-5: Location & Map (핵심 기능)
 module "api_location" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-api-location"
   instance_type         = "t3.micro"  # 1GB
   ami_id                = data.aws_ami.ubuntu.id
-  subnet_id             = module.vpc.public_subnet_ids[0]
+  subnet_id             = module.vpc.public_subnet_ids[1]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
@@ -211,17 +247,21 @@ module "api_location" {
     Role     = "worker"
     Workload = "api-location"
     Domain   = "location"
+    Phase    = "2"
   }
 }
 
-# API-5: Recycle Information
-module "api_recycle_info" {
+# Phase 3: Extended APIs (vCPU 32개로 증가 완료 - 2025-11-08 활성화)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# API-6: Recycle Information
+module "api_info" {
   source = "./modules/ec2"
   
-  instance_name         = "k8s-api-recycle-info"
+  instance_name         = "k8s-api-info"
   instance_type         = "t3.micro"  # 1GB
   ami_id                = data.aws_ami.ubuntu.id
-  subnet_id             = module.vpc.public_subnet_ids[1]
+  subnet_id             = module.vpc.public_subnet_ids[2]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
@@ -230,24 +270,25 @@ module "api_recycle_info" {
   root_volume_type = "gp3"
   
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-api-recycle-info"
+    hostname = "k8s-api-info"
   })
   
   tags = {
     Role     = "worker"
-    Workload = "api-recycle-info"
-    Domain   = "recycle-info"
+    Workload = "api-info"
+    Domain   = "info"
+    Phase    = "3"
   }
 }
 
-# API-6: Chat LLM
-module "api_chat_llm" {
+# API-7: Chat LLM
+module "api_chat" {
   source = "./modules/ec2"
   
-  instance_name         = "k8s-api-chat-llm"
+  instance_name         = "k8s-api-chat"
   instance_type         = "t3.small"  # 2GB
   ami_id                = data.aws_ami.ubuntu.id
-  subnet_id             = module.vpc.public_subnet_ids[2]
+  subnet_id             = module.vpc.public_subnet_ids[0]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
@@ -256,17 +297,24 @@ module "api_chat_llm" {
   root_volume_type = "gp3"
   
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-api-chat-llm"
+    hostname = "k8s-api-chat"
   })
   
   tags = {
     Role     = "worker"
-    Workload = "api-chat-llm"
-    Domain   = "chat-llm"
+    Workload = "api-chat"
+    Domain   = "chat"
+    Phase    = "3"
   }
 }
 
-# Worker Nodes (2 nodes)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Worker Nodes (2개 노드)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Phase 4: Workers (vCPU 32개로 증가 완료 - 2025-11-08 활성화)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 # Worker-1: Storage & I/O Operations
 module "worker_storage" {
   source = "./modules/ec2"
@@ -274,7 +322,7 @@ module "worker_storage" {
   instance_name         = "k8s-worker-storage"
   instance_type         = "t3.small"  # 2GB (I/O Bound - Eventlet Pool)
   ami_id                = data.aws_ami.ubuntu.id
-  subnet_id             = module.vpc.public_subnet_ids[0]
+  subnet_id             = module.vpc.public_subnet_ids[2]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
@@ -290,6 +338,8 @@ module "worker_storage" {
     Role     = "worker"
     Workload = "worker-storage"
     Type     = "io-bound"
+    Domain   = "scan"
+    Phase    = "4"
   }
 }
 
@@ -300,7 +350,7 @@ module "worker_ai" {
   instance_name         = "k8s-worker-ai"
   instance_type         = "t3.small"  # 2GB (Network Bound - Prefork Pool)
   ami_id                = data.aws_ami.ubuntu.id
-  subnet_id             = module.vpc.public_subnet_ids[1]
+  subnet_id             = module.vpc.public_subnet_ids[0]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
@@ -316,8 +366,17 @@ module "worker_ai" {
     Role     = "worker"
     Workload = "worker-ai"
     Type     = "network-bound"
+    Domain   = "scan,chat"
+    Phase    = "4"
   }
 }
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Infrastructure Nodes (4개 노드)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Phase 4: RabbitMQ (vCPU 32개로 증가 완료 - 2025-11-08 활성화)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # EC2 Instances - RabbitMQ (Message Queue)
 module "rabbitmq" {
@@ -326,7 +385,7 @@ module "rabbitmq" {
   instance_name         = "k8s-rabbitmq"
   instance_type         = "t3.small"  # 2GB (RabbitMQ only)
   ami_id                = data.aws_ami.ubuntu.id
-  subnet_id             = module.vpc.public_subnet_ids[0]  # Same AZ as Master
+  subnet_id             = module.vpc.public_subnet_ids[1]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
@@ -341,22 +400,26 @@ module "rabbitmq" {
   tags = {
     Role     = "worker"
     Workload = "message-queue"
+    Phase    = "4"
   }
 }
+
+# Phase 1&2: Core Infrastructure (배포 활성화)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # EC2 Instances - PostgreSQL (Database - 도메인별 DB 분리)
 module "postgresql" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-postgresql"
-  instance_type         = "t3.medium"  # 4GB (도메인별 DB: auth, waste, chat, location, analytics)
+  instance_type         = "t3.medium"  # 4GB (도메인별 DB: auth, my, scan, character, location, info, chat)
   ami_id                = data.aws_ami.ubuntu.id
-  subnet_id             = module.vpc.public_subnet_ids[1]  # Different AZ
+  subnet_id             = module.vpc.public_subnet_ids[0]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
   
-  root_volume_size = 80  # PostgreSQL data (5 domains)
+  root_volume_size = 80  # PostgreSQL data (7 domains)
   root_volume_type = "gp3"
   
   user_data = templatefile("${path.module}/user-data/common.sh", {
@@ -364,8 +427,9 @@ module "postgresql" {
   })
   
   tags = {
-    Role     = "worker"
+    Role  = "worker"
     Workload = "database"
+    Phase = "1"
   }
 }
 
@@ -376,7 +440,7 @@ module "redis" {
   instance_name         = "k8s-redis"
   instance_type         = "t3.small"  # 2GB (Redis only)
   ami_id                = data.aws_ami.ubuntu.id
-  subnet_id             = module.vpc.public_subnet_ids[2]  # Different AZ
+  subnet_id             = module.vpc.public_subnet_ids[1]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
@@ -391,17 +455,19 @@ module "redis" {
   tags = {
     Role     = "worker"
     Workload = "cache"
+    Phase    = "1"
   }
 }
 
 # EC2 Instances - Monitoring (Prometheus + Grafana)
+# Phase 4: Monitoring (vCPU 32개로 증가 완료 - 2025-11-08 활성화)
 module "monitoring" {
   source = "./modules/ec2"
   
   instance_name         = "k8s-monitoring"
-  instance_type         = "t3.medium"  # 4GB (Prometheus + Grafana) - Optimized for 13-node cluster
+  instance_type         = "t3.medium"  # 4GB (Prometheus + Grafana) - Optimized for 14-node cluster
   ami_id                = data.aws_ami.ubuntu.id
-  subnet_id             = module.vpc.public_subnet_ids[1]  # Same AZ as Worker-1
+  subnet_id             = module.vpc.public_subnet_ids[1]
   security_group_ids    = [module.security_groups.worker_sg_id]
   key_name              = aws_key_pair.k8s.key_name
   iam_instance_profile  = aws_iam_instance_profile.k8s.name
@@ -416,6 +482,7 @@ module "monitoring" {
   tags = {
     Role     = "worker"
     Workload = "monitoring"
+    Phase    = "4"
   }
 }
 

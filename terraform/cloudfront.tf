@@ -1,13 +1,18 @@
 # CloudFront CDN for S3 Images
 # CDN + S3 기반 이미지 처리 아키텍처
+# 
+# ⚠️  주의: CloudFront 생성/삭제는 각각 10-15분 소요
+# 개발 환경에서는 enable_cloudfront = false 권장 (배포 시간 85% 단축)
 
 # CloudFront Origin Access Identity (OAI)
 resource "aws_cloudfront_origin_access_identity" "images" {
+  count   = var.enable_cloudfront ? 1 : 0
   comment = "OAI for ${var.environment}-${var.cluster_name} S3 images bucket"
 }
 
 # CloudFront Distribution
 resource "aws_cloudfront_distribution" "images" {
+  count               = var.enable_cloudfront ? 1 : 0
   enabled             = true
   is_ipv6_enabled     = true
   comment             = "CDN for waste analysis images - ${var.environment}"
@@ -20,7 +25,7 @@ resource "aws_cloudfront_distribution" "images" {
     
     # OAI (Origin Access Identity) - S3 보안 연결
     s3_origin_config {
-      origin_access_identity = aws_cloudfront_origin_access_identity.images.cloudfront_access_identity_path
+      origin_access_identity = aws_cloudfront_origin_access_identity.images[0].cloudfront_access_identity_path
     }
   }
   
@@ -51,13 +56,13 @@ resource "aws_cloudfront_distribution" "images" {
   # SSL Certificate (CloudFront는 us-east-1 인증서 필요)
   viewer_certificate {
     cloudfront_default_certificate = false
-    acm_certificate_arn            = aws_acm_certificate.cdn.arn
+    acm_certificate_arn            = aws_acm_certificate.cdn[0].arn
     ssl_support_method             = "sni-only"
     minimum_protocol_version       = "TLSv1.2_2021"
   }
   
   # Custom Domain
-  aliases = ["images.${var.domain_name}"]
+  aliases = ["images.${trimsuffix(data.aws_route53_zone.main[0].name, ".")}"]
   
   # Geo Restrictions (없음)
   restrictions {
@@ -86,6 +91,7 @@ resource "aws_cloudfront_distribution" "images" {
 
 # S3 Bucket Policy (CloudFront OAI만 액세스 허용)
 resource "aws_s3_bucket_policy" "images_cdn" {
+  count  = var.enable_cloudfront ? 1 : 0
   bucket = aws_s3_bucket.images.id
   
   policy = jsonencode({
@@ -95,7 +101,7 @@ resource "aws_s3_bucket_policy" "images_cdn" {
         Sid    = "AllowCloudFrontOAI"
         Effect = "Allow"
         Principal = {
-          AWS = aws_cloudfront_origin_access_identity.images.iam_arn
+          AWS = aws_cloudfront_origin_access_identity.images[0].iam_arn
         }
         Action   = "s3:GetObject"
         Resource = "${aws_s3_bucket.images.arn}/*"
@@ -107,8 +113,9 @@ resource "aws_s3_bucket_policy" "images_cdn" {
 # ACM Certificate for CloudFront (us-east-1 필수!)
 # CloudFront는 global 서비스이므로 us-east-1 리전의 인증서만 사용 가능
 resource "aws_acm_certificate" "cdn" {
+  count             = var.enable_cloudfront ? 1 : 0
   provider          = aws.us_east_1
-  domain_name       = "images.${var.domain_name}"
+  domain_name       = "images.${trimsuffix(data.aws_route53_zone.main[0].name, ".")}"
   validation_method = "DNS"
   
   lifecycle {
@@ -116,7 +123,7 @@ resource "aws_acm_certificate" "cdn" {
   }
   
   tags = {
-    Name        = "images.${var.domain_name}"
+    Name        = "images.${trimsuffix(data.aws_route53_zone.main[0].name, ".")}"
     Purpose     = "CloudFront CDN SSL"
     Environment = var.environment
   }
@@ -124,38 +131,40 @@ resource "aws_acm_certificate" "cdn" {
 
 # ACM Certificate Validation
 resource "aws_acm_certificate_validation" "cdn" {
+  count                   = var.enable_cloudfront ? 1 : 0
   provider                = aws.us_east_1
-  certificate_arn         = aws_acm_certificate.cdn.arn
+  certificate_arn         = aws_acm_certificate.cdn[0].arn
   validation_record_fqdns = [for record in aws_route53_record.cdn_cert_validation : record.fqdn]
 }
 
 # Route53 Record for ACM Validation
 resource "aws_route53_record" "cdn_cert_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.cdn.domain_validation_options : dvo.domain_name => {
+  for_each = var.enable_cloudfront ? {
+    for dvo in aws_acm_certificate.cdn[0].domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
       type   = dvo.resource_record_type
     }
-  }
+  } : {}
   
   allow_overwrite = true
   name            = each.value.name
   records         = [each.value.record]
   ttl             = 60
   type            = each.value.type
-  zone_id         = data.aws_route53_zone.main.zone_id
+  zone_id         = data.aws_route53_zone.main[0].zone_id
 }
 
 # Route53 Record for CDN
 resource "aws_route53_record" "cdn" {
-  zone_id = data.aws_route53_zone.main.zone_id
-  name    = "images.${var.domain_name}"
+  count   = var.enable_cloudfront ? 1 : 0
+  zone_id = data.aws_route53_zone.main[0].zone_id
+  name    = "images.${trimsuffix(data.aws_route53_zone.main[0].name, ".")}"
   type    = "A"
   
   alias {
-    name                   = aws_cloudfront_distribution.images.domain_name
-    zone_id                = aws_cloudfront_distribution.images.hosted_zone_id
+    name                   = aws_cloudfront_distribution.images[0].domain_name
+    zone_id                = aws_cloudfront_distribution.images[0].hosted_zone_id
     evaluate_target_health = false
   }
 }
@@ -163,21 +172,21 @@ resource "aws_route53_record" "cdn" {
 # Outputs
 output "cloudfront_distribution_id" {
   description = "CloudFront Distribution ID"
-  value       = aws_cloudfront_distribution.images.id
+  value       = var.enable_cloudfront ? aws_cloudfront_distribution.images[0].id : "CloudFront disabled"
 }
 
 output "cloudfront_domain_name" {
   description = "CloudFront Domain Name"
-  value       = aws_cloudfront_distribution.images.domain_name
+  value       = var.enable_cloudfront ? aws_cloudfront_distribution.images[0].domain_name : "CloudFront disabled"
 }
 
 output "cdn_url" {
   description = "CDN URL for images"
-  value       = "https://images.${var.domain_name}"
+  value       = var.enable_cloudfront ? "https://images.${trimsuffix(data.aws_route53_zone.main[0].name, ".")}" : "CloudFront disabled - Use S3 direct URL"
 }
 
 output "cdn_oai_iam_arn" {
   description = "CloudFront Origin Access Identity IAM ARN"
-  value       = aws_cloudfront_origin_access_identity.images.iam_arn
+  value       = var.enable_cloudfront ? aws_cloudfront_origin_access_identity.images[0].iam_arn : "CloudFront disabled"
 }
 
