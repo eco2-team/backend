@@ -13,7 +13,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: sesacthon
-  HELM_VALUES_PATH: charts/ecoeco-backend/values.yaml
+  HELM_VALUES_PATH: charts/ecoeco-backend/values-14nodes.yaml
 
 jobs:
   # 변경된 서비스 감지
@@ -156,15 +156,21 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "서비스: ${{ matrix.service }}"
           echo "이미지 태그: sha-${SHORT_SHA}"
+          echo "파일: ${{ env.HELM_VALUES_PATH }}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           
           # Helm values 파일 업데이트
-          sed -i "s|tag: .*  # ${{ matrix.service }}-auto|tag: sha-${SHORT_SHA}  # ${{ matrix.service }}-auto|" \
+          # api.${{ matrix.service }}.image.tag 필드를 찾아서 업데이트
+          sed -i "/^  ${{ matrix.service }}:/,/^  [a-z]/ s|tag: .*  # auto|tag: sha-${SHORT_SHA}  # auto|" \
             ${{ env.HELM_VALUES_PATH }}
           
           # 변경사항 확인
+          echo ""
+          echo "📝 변경된 내용:"
+          git diff ${{ env.HELM_VALUES_PATH }} || echo "변경사항 없음"
+          
           if git diff --quiet ${{ env.HELM_VALUES_PATH }}; then
-            echo "ℹ️ 변경사항 없음"
+            echo "ℹ️ 변경사항 없음 - 이미 최신 상태"
             exit 0
           fi
           
