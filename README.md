@@ -157,58 +157,6 @@ argocd app list
 
 ---
 
-## 📚 문서 구조
-
-```mermaid
-graph TD
-    D[docs/]
-    
-    D --> A[architecture/<br/>아키텍처 설계]
-    D --> DE[deployment/<br/>배포 가이드]
-    D --> I[infrastructure/<br/>인프라 설정]
-    D --> G[guides/<br/>운영 가이드]
-    D --> T[troubleshooting/<br/>트러블슈팅]
-    D --> DEV[development/<br/>개발 가이드]
-    D --> AR[archive/<br/>히스토리 보관]
-    
-    A --> A1[01-README.md<br/>아키텍처 개요]
-    A --> A2[05-final-k8s-architecture.md]
-    A --> A3[12-why-self-managed-k8s.md]
-    A --> A4[13-nodes-architecture.md]
-    A --> A5[redis-jwt-blacklist-design.md]
-    
-    DE --> DE1[README.md<br/>배포 개요]
-    DE --> DE2[AUTO_REBUILD_GUIDE.md<br/>자동 배포]
-    DE --> DE3[gitops-automation-design.md]
-    DE --> DE4[14-node-completion-summary.md]
-    
-    I --> I1[01-README.md<br/>인프라 개요]
-    I --> I2[04-IaC_QUICK_START.md]
-    I --> I3[k8s-label-annotation-system.md]
-    
-    G --> G1[ARGOCD_GUIDE.md]
-    G --> G2[HELM_STATUS_GUIDE.md]
-    G --> G3[session-manager-guide.md]
-    
-    T --> T1[README.md]
-    T --> T2[ANSIBLE_SSH_TIMEOUT.md]
-    T --> T3[CLOUDFRONT_ACM_CERTIFICATE_STUCK.md]
-    
-    DEV --> DEV1[01-README.md]
-    DEV --> DEV2[04-git-workflow.md]
-    
-    AR --> AR1[13NODES_COMPLETE_SUMMARY.md]
-    
-    style D fill:#ffd93d
-    style A fill:#ff6b6b
-    style DE fill:#4ecdc4
-    style I fill:#95e1d3
-    style G fill:#f38181
-    style T fill:#fcbad3
-    style DEV fill:#aa96da
-    style AR fill:#ffffd2
-```
-
 ### 주요 문서 빠른 링크
 
 | 분류 | 문서 | 설명 |
