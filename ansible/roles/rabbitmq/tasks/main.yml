@@ -55,23 +55,13 @@
 
 - name: RabbitMQ 기본 사용자 Secret 생성
   shell: |
-    cat <<EOF | kubectl apply -f -
-    apiVersion: v1
-    kind: Secret
-    metadata:
-      name: rabbitmq-default-user
-      namespace: {{ rabbitmq_namespace }}
-      labels:
-        app.kubernetes.io/name: rabbitmq
-        app.kubernetes.io/component: server
-    type: Opaque
-    stringData:
-      username: {{ rabbitmq_username }}
-      password: {{ rabbitmq_password }}
-      default_user.conf: |
-        default_user = {{ rabbitmq_username }}
-        default_pass = {{ rabbitmq_password }}
-    EOF
+    kubectl create secret generic rabbitmq-default-user \
+      -n {{ rabbitmq_namespace }} \
+      --from-literal=username={{ rabbitmq_username }} \
+      --from-literal=password={{ rabbitmq_password }} \
+      --from-literal=default_user.conf="default_user = {{ rabbitmq_username }}
+default_pass = {{ rabbitmq_password }}" \
+      --dry-run=client -o yaml | kubectl apply -f -
   register: secret_create
   changed_when: "'created' in secret_create.stdout or 'configured' in secret_create.stdout"
   when: "'not_found' in rabbitmq_cluster_check.stdout"
@@ -104,14 +94,19 @@
               memory: 2Gi
           affinity:
             nodeAffinity:
-              # RabbitMQ 전용 노드에만 배치
+              # RabbitMQ 전용 노드에만 배치 (정확히 k8s-rabbitmq 노드)
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms:
                 - matchExpressions:
-                  - key: workload
+                  - key: kubernetes.io/hostname
                     operator: In
                     values:
-                    - message-queue
+                    - k8s-rabbitmq
+          tolerations:
+          - key: node-role.kubernetes.io/infrastructure
+            operator: Equal
+            value: "true"
+            effect: NoSchedule
           service:
             type: ClusterIP
           rabbitmq:

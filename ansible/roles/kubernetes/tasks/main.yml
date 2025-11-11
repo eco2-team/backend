@@ -12,6 +12,27 @@
     state: present
     filename: kubernetes
 
+- name: 기존 Kubernetes 패키지 확인
+  shell: dpkg -l | grep -E 'kubelet|kubeadm|kubectl' | awk '{print $2,$3}'
+  register: existing_k8s_packages
+  failed_when: false
+  changed_when: false
+
+- name: 기존 패키지 버전 출력
+  debug:
+    msg: "{{ existing_k8s_packages.stdout_lines }}"
+  when: existing_k8s_packages.stdout != ""
+
+- name: 기존 Kubernetes 패키지 제거 (버전 불일치 시)
+  apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: absent
+    purge: yes
+  when: existing_k8s_packages.stdout != ""
+
 - name: Kubernetes 패키지 설치
   apt:
     name:
@@ -20,6 +41,7 @@
       - kubectl={{ kubernetes_version }}
     state: present
     update_cache: yes
+    allow_downgrade: yes
 
 - name: Kubernetes 패키지 hold (자동 업그레이드 방지)
   dpkg_selections:
