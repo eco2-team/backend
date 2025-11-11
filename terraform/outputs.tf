@@ -92,29 +92,6 @@ output "api_location_instance_id" {
   value       = module.api_location.instance_id
 }
 
-# API-3: Scan
-output "api_scan_public_ip" {
-  description = "Scan API Public IP"
-  value       = module.api_scan.public_ip
-}
-
-output "api_scan_private_ip" {
-  description = "Scan API Private IP"
-  value       = module.api_scan.private_ip
-}
-
-# API-4: Character
-output "api_character_public_ip" {
-  description = "Character API Public IP"
-  value       = module.api_character.public_ip
-}
-
-output "api_character_private_ip" {
-  description = "Character API Private IP"
-  value       = module.api_character.private_ip
-}
-
-# API-5: Location
 output "api_location_public_ip" {
   description = "Location API Public IP"
   value       = module.api_location.public_ip
