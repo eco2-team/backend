@@ -1,0 +1,372 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ApplicationSet for 14-Node Architecture
+# Phase 1-3: 7 API Services
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ecoeco-api-services-14nodes
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ecoeco-api
+    app.kubernetes.io/part-of: ecoeco-platform
+    architecture: 14-nodes
+spec:
+  generators:
+    - list:
+        elements:
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          # Phase 1: Core APIs
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          - domain: auth
+            namespace: api
+            replicas: "2"
+            phase: "1"
+            nodeSelector: "domain=auth"
+            description: "인증/인가 (JWT Blacklist)"
+          
+          - domain: my
+            namespace: api
+            replicas: "2"
+            phase: "1"
+            nodeSelector: "domain=my"
+            description: "마이페이지"
+          
+          - domain: scan
+            namespace: api
+            replicas: "3"
+            phase: "1"
+            nodeSelector: "domain=scan"
+            description: "쓰레기 분류 (고트래픽)"
+          
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          # Phase 2: Extended APIs
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          - domain: character
+            namespace: api
+            replicas: "2"
+            phase: "2"
+            nodeSelector: "domain=character"
+            description: "캐릭터"
+          
+          - domain: location
+            namespace: api
+            replicas: "2"
+            phase: "2"
+            nodeSelector: "domain=location"
+            description: "위치 기반"
+          
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          # Phase 3: Advanced APIs
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          - domain: info
+            namespace: api
+            replicas: "2"
+            phase: "3"
+            nodeSelector: "domain=info"
+            description: "재활용 정보"
+          
+          - domain: chat
+            namespace: api
+            replicas: "2"
+            phase: "3"
+            nodeSelector: "domain=chat"
+            description: "AI 챗봇 (WebSocket)"
+  
+  template:
+    metadata:
+      name: 'ecoeco-api-{{domain}}'
+      labels:
+        app: 'ecoeco-api-{{domain}}'
+        domain: '{{domain}}'
+        phase: '{{phase}}'
+        tier: api
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{phase}}'  # Phase 순서로 배포
+        description: '{{description}}'
+    
+    spec:
+      project: default
+      
+      source:
+        repoURL: https://github.com/SeSACTHON/backend
+        targetRevision: main
+        path: charts/ecoeco-backend
+        helm:
+          valueFiles:
+            - values-14nodes.yaml  # 14-Node 전용 Values
+          
+          parameters:
+            # 해당 API만 활성화
+            - name: "api.{{domain}}.enabled"
+              value: "true"
+            - name: "api.{{domain}}.replicas"
+              value: "{{replicas}}"
+            - name: "api.{{domain}}.nodeSelector.domain"
+              value: "{{domain}}"
+            - name: "api.{{domain}}.labels.phase"
+              value: "{{phase}}"
+      
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+        
+        retry:
+          limit: 3
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 1m
+      
+      revisionHistoryLimit: 5
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ApplicationSet for Workers (Phase 4)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ecoeco-worker-services-14nodes
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ecoeco-worker
+    app.kubernetes.io/part-of: ecoeco-platform
+    architecture: 14-nodes
+spec:
+  generators:
+    - list:
+        elements:
+          # Worker-1: Storage (I/O Bound - Eventlet)
+          - name: storage
+            namespace: workers
+            replicas: "3"
+            phase: "4"
+            workerType: io-bound
+            poolType: eventlet
+            nodeSelector: "workload=worker-storage"
+            description: "Storage & I/O Worker (Eventlet)"
+          
+          # Worker-2: AI (Network Bound - Prefork)
+          - name: ai
+            namespace: workers
+            replicas: "2"
+            phase: "4"
+            workerType: network-bound
+            poolType: prefork
+            nodeSelector: "workload=worker-ai"
+            description: "AI & Network Worker (Prefork)"
+  
+  template:
+    metadata:
+      name: 'ecoeco-worker-{{name}}'
+      labels:
+        app: 'ecoeco-worker-{{name}}'
+        worker-type: '{{workerType}}'
+        pool-type: '{{poolType}}'
+        phase: '{{phase}}'
+        tier: worker
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{phase}}'
+        description: '{{description}}'
+    
+    spec:
+      project: default
+      
+      source:
+        repoURL: https://github.com/SeSACTHON/backend
+        targetRevision: main
+        path: charts/ecoeco-backend
+        helm:
+          valueFiles:
+            - values-14nodes.yaml
+          
+          parameters:
+            - name: "workers.{{name}}.enabled"
+              value: "true"
+            - name: "workers.{{name}}.replicas"
+              value: "{{replicas}}"
+            - name: "workers.{{name}}.nodeSelector.workload"
+              value: "worker-{{name}}"
+            - name: "workers.{{name}}.labels.worker-type"
+              value: "{{workerType}}"
+            - name: "workers.{{name}}.celery.poolType"
+              value: "{{poolType}}"
+      
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+        
+        retry:
+          limit: 3
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 1m
+      
+      revisionHistoryLimit: 5
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Application for Infrastructure Services (Phase 4)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecoeco-infrastructure-14nodes
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ecoeco-infrastructure
+    app.kubernetes.io/part-of: ecoeco-platform
+    architecture: 14-nodes
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"  # 가장 먼저 배포
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: main
+    path: charts/ecoeco-backend
+    helm:
+      valueFiles:
+        - values-14nodes.yaml
+      
+      parameters:
+        # RabbitMQ 활성화
+        - name: rabbitmq.enabled
+          value: "true"
+        # Monitoring 활성화
+        - name: monitoring.enabled
+          value: "true"
+        - name: monitoring.prometheus.enabled
+          value: "true"
+        - name: monitoring.grafana.enabled
+          value: "true"
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: messaging  # RabbitMQ, Monitoring
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+    
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m
+  
+  revisionHistoryLimit: 5
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Application for Monitoring Configuration (ServiceMonitors, Rules)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecoeco-monitoring-config-14nodes
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ecoeco-monitoring-config
+    app.kubernetes.io/part-of: ecoeco-platform
+    architecture: 14-nodes
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"  # 마지막에 배포
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: main
+    path: k8s/monitoring
+    directory:
+      recurse: false
+      include: |
+        servicemonitors-14nodes.yaml
+        prometheus-rules-14nodes.yaml
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    
+    syncOptions:
+      - CreateNamespace=true
+  
+  revisionHistoryLimit: 5
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ApplicationSet Summary (14-Node Architecture)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# 총 4개 ApplicationSet/Application:
+#   1. ecoeco-api-services-14nodes (ApplicationSet)
+#      - 7 API Services (auth, my, scan, character, location, info, chat)
+#      - Phase 1-3 순서로 배포
+#   
+#   2. ecoeco-worker-services-14nodes (ApplicationSet)
+#      - 2 Worker Services (storage, ai)
+#      - Phase 4 배포
+#   
+#   3. ecoeco-infrastructure-14nodes (Application)
+#      - RabbitMQ, Monitoring (Prometheus, Grafana)
+#      - Phase 0 (가장 먼저)
+#   
+#   4. ecoeco-monitoring-config-14nodes (Application)
+#      - ServiceMonitors, Prometheus Rules
+#      - Phase 10 (마지막)
+#
+# Sync Wave 순서:
+#   Wave 0: Infrastructure (RabbitMQ, Monitoring)
+#   Wave 1: Phase 1 APIs (auth, my, scan)
+#   Wave 2: Phase 2 APIs (character, location)
+#   Wave 3: Phase 3 APIs (info, chat)
+#   Wave 4: Workers (storage, ai)
+#   Wave 10: Monitoring Config (ServiceMonitors, Rules)
+#
+# 자동화:
+#   - ArgoCD가 domain label 기반으로 자동 생성
+#   - NodeSelector 자동 적용
+#   - Phase 순서 보장
+#   - Helm Values 14-nodes 전용
+
