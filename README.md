@@ -49,8 +49,8 @@ Worker 서비스: 2개 (storage, ai)
 ## 🏗️ 아키텍처
 
 ### 전체 애플리케이션 아키텍처
+<img width="1087" height="713" alt="application-architecture" src="https://github.com/user-attachments/assets/03cfed48-7ec6-46a7-838f-5422fb9dab7e" />
 
-![Application Architecture](docs/images/application-architecture.png)
 
 **주요 구성 요소**:
 - **AWS Services**: Route53, ALB, S3, RDS, CloudFront
