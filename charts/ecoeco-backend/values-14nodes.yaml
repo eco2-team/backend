@@ -32,6 +32,10 @@ externalServices:
     host: rabbitmq.db.svc.cluster.local
     port: 5672
     managementPort: 15672
+  
+  s3:
+    bucket: sesacthon-images
+    region: ap-northeast-2
 
 #############################################
 # API Services (7개 도메인별 전용 노드)
