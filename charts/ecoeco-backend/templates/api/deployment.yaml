@@ -21,7 +21,17 @@ spec:
         component: api
         domain: {{ $name }}
     spec:
-      {{- if $config.nodeSelector }}
+      {{- if $config.nodeName }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - {{ $config.nodeName }}
+      {{- else if $config.nodeSelector }}
       nodeSelector:
         {{- toYaml $config.nodeSelector | nindent 8 }}
       {{- end }}

@@ -24,7 +24,17 @@ spec:
         domain: my
         phase: "1"
     spec:
-      {{- if .Values.api.my.nodeSelector }}
+      {{- if .Values.api.my.nodeName }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - {{ .Values.api.my.nodeName }}
+      {{- else if .Values.api.my.nodeSelector }}
       nodeSelector:
         {{- toYaml .Values.api.my.nodeSelector | nindent 8 }}
       {{- end }}
