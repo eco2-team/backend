@@ -571,5 +571,5 @@ Documentation:
 ---
 
 **Last Updated**: 2025-11-11  
-**Version**: v0.7.0 (14-Node Production Architecture + Full GitOps)
+**Version**: v0.7.0 (14-Nodes Production Architecture + Full GitOps)
 
