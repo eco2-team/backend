@@ -38,8 +38,8 @@ spec:
       {{- end }}
       containers:
         - name: {{ $fullName }}
-          image: "{{ $.Values.global.imageRegistry }}/{{ $config.image.repository }}:{{ $config.image.tag }}"
-          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          image: "{{ $config.image.repository }}:{{ $config.image.tag }}"
+          imagePullPolicy: {{ $.Values.global.image.pullPolicy }}
           ports:
             - name: http
               containerPort: {{ $config.port }}
