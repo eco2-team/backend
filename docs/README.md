@@ -1,5 +1,7 @@
 # 📚 SeSACTHON Backend 문서 인덱스
 
+## 이코에코(Eco²) 
+
 > **Self-Managed Kubernetes 기반 14-Node 마이크로서비스 플랫폼**  
 > **Terraform + Ansible + ArgoCD + Atlantis GitOps 자동화**
 
@@ -32,6 +34,18 @@ aws service-quotas get-service-quota \
 
 # 3. 완전 자동 배포 (40-60분)
 ./scripts/cluster/auto-rebuild.sh
+```
+
+### 📋 단계별 배포
+
+```bash
+# 1. 기존 인프라 완전 삭제 (10-15분)
+./scripts/maintenance/destroy-with-cleanup.sh
+
+# 2. Terraform 인프라 구축 (15-20분)
+cd terraform
+terraform init -migrate-state -upgrade
+terraform apply -auto-approve
 
 # 4. 상태 확인
 kubectl get nodes -o wide
@@ -43,7 +57,6 @@ argocd app list
 ## 📂 문서 디렉토리
 
 ### 🏗️ [architecture/](architecture/) - 아키텍처 설계 (21개)
-
 시스템 설계 및 기술적 의사결정을 문서화합니다.
 
 | 문서 | 설명 | 상태 |
@@ -133,7 +146,8 @@ Terraform, Ansible, Kubernetes 설정을 다룹니다.
 ## 🏗️ 아키텍처 개요 (14-Node)
 
 ### 클러스터 구성
-
+# jq (JSON 처리)
+jq --version       # >= 1.6
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ 14-Node Production Architecture                            │
