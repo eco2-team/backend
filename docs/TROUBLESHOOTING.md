@@ -14,9 +14,13 @@
 - [8. ArgoCD 리디렉션 루프 문제](#8-argocd-리디렉션-루프-문제)
 - [9. Prometheus 메모리 부족 문제](#9-prometheus-메모리-부족-문제)
 - [10. Atlantis Pod CrashLoopBackOff 문제](#10-atlantis-pod-crashloopbackoff-문제)
-- [11. 베스트 프랙티스](#11-베스트-프랙티스)
-- [12. 참고 문서](#12-참고-문서)
-- [13. 지원](#13-지원)
+- [11. Atlantis Pod에서 kubectl을 찾을 수 없는 문제](#11-atlantis-pod에서-kubectl을-찾을-수-없는-문제)
+- [12. Atlantis Deployment 파일을 찾을 수 없는 문제](#12-atlantis-deployment-파일을-찾을-수-없는-문제)
+- [13. Atlantis 실행 파일을 찾을 수 없는 문제](#13-atlantis-실행-파일을-찾을-수-없는-문제)
+- [14. Atlantis ConfigMap YAML 파싱 에러](#14-atlantis-configmap-yaml-파싱-에러)
+- [15. 베스트 프랙티스](#15-베스트-프랙티스)
+- [16. 참고 문서](#16-참고-문서)
+- [17. 지원](#17-지원)
 
 ---
 
@@ -1201,9 +1205,159 @@ Atlantis Pod가 `CrashLoopBackOff` 상태로 계속 재시작됨.
 
 ---
 
-## 11. 베스트 프랙티스
+## 11. Atlantis Pod에서 kubectl을 찾을 수 없는 문제
 
-### 10.1. 재구축 전 체크리스트
+### 문제
+Atlantis Pod에서 kubectl을 실행할 때 `executable file not found in $PATH` 에러 발생.
+
+### 원인
+Init Container에서 kubectl을 설치했지만, Main Container에서 올바른 경로로 마운트되지 않음.
+
+### 해결
+1. Init Container에서 `/shared/usr/local/bin/kubectl`에 복사
+2. Main Container에서 `/shared/usr/local/bin`을 `/usr/local/bin`에 subPath로 마운트
+3. PATH 환경 변수에 `/usr/local/bin` 추가
+
+**자세한 내용:** [ATLANTIS_KUBECTL_NOT_FOUND.md](./troubleshooting/ATLANTIS_KUBECTL_NOT_FOUND.md)
+
+---
+
+## 12. Atlantis Deployment 파일을 찾을 수 없는 문제
+
+### 문제
+Master 노드에서 `kubectl apply -f k8s/atlantis/atlantis-deployment.yaml` 실행 시 파일을 찾을 수 없음.
+
+### 원인
+Master 노드에는 Git 저장소가 없음. Atlantis는 Ansible을 통해 배포되며, 파일은 로컬 개발 환경에만 존재.
+
+### 해결
+로컬에서 Ansible을 실행하여 재배포:
+```bash
+ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/09-atlantis.yml
+```
+
+**자세한 내용:** [ATLANTIS_DEPLOYMENT_FILE_NOT_FOUND.md](./troubleshooting/ATLANTIS_DEPLOYMENT_FILE_NOT_FOUND.md)
+
+---
+
+## 13. Atlantis 실행 파일을 찾을 수 없는 문제
+
+### 문제
+Atlantis Pod가 시작되지 않고 다음 에러 발생:
+```
+exec: "atlantis": executable file not found in $PATH: unknown
+```
+
+### 원인
+`command: ["atlantis"]`로 지정했지만, 컨테이너 내부에서 `atlantis` 실행 파일을 찾을 수 없음. Atlantis 이미지는 이미 ENTRYPOINT가 설정되어 있어서 `command`를 지정할 필요가 없음.
+
+### 해결
+`command`를 제거하고 이미지의 기본 ENTRYPOINT를 사용:
+```yaml
+# 수정 전
+command: ["atlantis"]
+args:
+  - server
+  # ...
+
+# 수정 후
+# command는 제거 (이미지의 기본 ENTRYPOINT 사용)
+args:
+  - server
+  # ...
+```
+
+**자세한 내용:** [ATLANTIS_EXECUTABLE_NOT_FOUND.md](./troubleshooting/ATLANTIS_EXECUTABLE_NOT_FOUND.md)
+
+---
+
+## 14. Atlantis ConfigMap YAML 파싱 에러
+
+### 14.1. 증상
+```
+Error: initializing server: parsing /etc/atlantis/atlantis.yaml file: yaml: unmarshal errors:
+  line 1: field version not found in type raw.GlobalCfg
+  line 2: field automerge not found in type raw.GlobalCfg
+  line 3: field delete_source_branch_on_merge not found in type raw.GlobalCfg
+  line 4: field parallel_plan not found in type raw.GlobalCfg
+  line 5: field parallel_apply not found in type raw.GlobalCfg
+  line 7: field projects not found in type raw.GlobalCfg
+```
+
+Atlantis Pod가 `CrashLoopBackOff` 상태
+
+### 14.2. 원인
+**Atlantis Config 파일의 두 가지 타입 혼동**
+
+1. **Repo-level Config** (`.atlantis.yaml` in repository)
+   - `version`, `automerge`, `projects`, `workflows` 등을 직접 정의
+   
+2. **Server-side Repo Config** (`ATLANTIS_REPO_CONFIG` 환경변수)
+   - `repos`와 `workflows` 두 섹션으로 구성
+
+현재는 **Repo-level Config 형식**을 **Server-side Config**로 사용하려고 해서 파싱 에러 발생
+
+### 14.3. 해결 방법
+
+#### Master 노드에서 실행:
+```bash
+# 기존 ConfigMap 삭제
+kubectl delete configmap atlantis-repo-config -n atlantis
+
+# 올바른 형식으로 재생성
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atlantis-repo-config
+  namespace: atlantis
+data:
+  atlantis.yaml: |
+    # Repositories Configuration
+    repos:
+    - id: github.com/SeSACTHON/*
+      workflow: infrastructure-workflow
+      allowed_overrides:
+        - workflow
+        - apply_requirements
+      allow_custom_workflows: true
+      delete_source_branch_on_merge: true
+    
+    # Workflows Configuration
+    workflows:
+      infrastructure-workflow:
+        plan:
+          steps:
+            - run: echo "🔍 Terraform Plan 시작..."
+            - init
+            - plan
+        apply:
+          steps:
+            - run: echo "🚀 Terraform Apply 시작..."
+            - apply
+            - run: echo "✅ Terraform Apply 완료"
+EOF
+
+# Pod 재시작
+kubectl delete pod atlantis-0 -n atlantis
+```
+
+#### 또는 자동 스크립트:
+```bash
+./scripts/utilities/fix-atlantis-config.sh
+```
+
+### 14.4. 적용된 수정사항
+- `ansible/playbooks/09-atlantis.yml`: Server-side Repo Config 생성 Task 추가
+- `scripts/utilities/fix-atlantis-config.sh`: ConfigMap 수정 스크립트 생성
+
+**자세한 내용:** [ATLANTIS_CONFIG_YAML_PARSE_ERROR.md](./troubleshooting/ATLANTIS_CONFIG_YAML_PARSE_ERROR.md)
+
+---
+
+## 15. 베스트 프랙티스
+
+### 15.1. 재구축 전 체크리스트
 
 ```bash
 # 1. vCPU 한도 확인
@@ -1228,7 +1382,7 @@ export VERSION="v0.6.0"
 
 ---
 
-### 8.2. 디버깅 명령어 모음
+### 15.2. 디버깅 명령어 모음
 
 ```bash
 # Terraform 상태 확인
@@ -1255,7 +1409,7 @@ journalctl -u kubelet -f                 # Worker 노드에서
 
 ---
 
-### 8.3. 문제 발생 시 대응 순서
+### 15.3. 문제 발생 시 대응 순서
 
 1. **에러 메시지 확인**: 정확한 에러 내용 파악
 2. **이 문서 검색**: 유사한 문제 해결 방법 확인
@@ -1266,7 +1420,7 @@ journalctl -u kubelet -f                 # Worker 노드에서
 
 ---
 
-## 12. 참고 문서
+## 16. 참고 문서
 
 - [AWS Service Quotas Documentation](https://docs.aws.amazon.com/servicequotas/)
 - [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
@@ -1275,7 +1429,7 @@ journalctl -u kubelet -f                 # Worker 노드에서
 
 ---
 
-## 13. 지원
+## 17. 지원
 
 문제가 해결되지 않으면:
 - GitHub Issues: https://github.com/mangowhoiscloud/backend/issues
