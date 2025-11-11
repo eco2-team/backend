@@ -24,7 +24,17 @@ spec:
         domain: auth
         phase: "1"
     spec:
-      {{- if .Values.api.auth.nodeSelector }}
+      {{- if .Values.api.auth.nodeName }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - {{ .Values.api.auth.nodeName }}
+      {{- else if .Values.api.auth.nodeSelector }}
       nodeSelector:
         {{- toYaml .Values.api.auth.nodeSelector | nindent 8 }}
       {{- end }}

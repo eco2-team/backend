@@ -24,7 +24,17 @@ spec:
         domain: scan
         phase: "2"
     spec:
-      {{- if .Values.api.scan.nodeSelector }}
+      {{- if .Values.api.scan.nodeName }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - {{ .Values.api.scan.nodeName }}
+      {{- else if .Values.api.scan.nodeSelector }}
       nodeSelector:
         {{- toYaml .Values.api.scan.nodeSelector | nindent 8 }}
       {{- end }}

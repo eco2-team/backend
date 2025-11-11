@@ -24,7 +24,17 @@ spec:
         domain: location
         phase: "2"
     spec:
-      {{- if .Values.api.location.nodeSelector }}
+      {{- if .Values.api.location.nodeName }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - {{ .Values.api.location.nodeName }}
+      {{- else if .Values.api.location.nodeSelector }}
       nodeSelector:
         {{- toYaml .Values.api.location.nodeSelector | nindent 8 }}
       {{- end }}

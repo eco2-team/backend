@@ -24,7 +24,17 @@ spec:
         domain: chat
         phase: "3"
     spec:
-      {{- if .Values.api.chat.nodeSelector }}
+      {{- if .Values.api.chat.nodeName }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - {{ .Values.api.chat.nodeName }}
+      {{- else if .Values.api.chat.nodeSelector }}
       nodeSelector:
         {{- toYaml .Values.api.chat.nodeSelector | nindent 8 }}
       {{- end }}
