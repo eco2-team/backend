@@ -95,6 +95,7 @@ spec:
             failureThreshold: 3
           resources:
             {{- toYaml $config.resources | nindent 12 }}
+{{- if $config.service }}
 ---
 apiVersion: v1
 kind: Service
@@ -112,6 +113,7 @@ spec:
       name: http
   selector:
     app: {{ $fullName }}
+{{- end }}
 {{- end }}
 {{- end }}
 
