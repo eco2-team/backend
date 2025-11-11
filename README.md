@@ -366,10 +366,10 @@ resources:
 ```mermaid
 graph LR
     subgraph "backend/"
-        T[terraform/<br/>← Atlantis가 관리]
-        A[ansible/<br/>← Ansible이 관리]
-        K[k8s/<br/>← ArgoCD가 관리]
-        S[src/<br/>← GitHub Actions가 빌드]
+        T["terraform/<br/>Atlantis 관리"]
+        A["ansible/<br/>Ansible 관리"]
+        K["k8s/<br/>ArgoCD 관리"]
+        S["src/<br/>GitHub Actions 빌드"]
     end
     
     T --> T1[main.tf]
@@ -386,10 +386,10 @@ graph LR
     S --> S1[auth/]
     S --> S2[scan/]
     
-    style T fill:#b91c1c,color:#fff
-    style A fill:#0e7490,color:#fff
-    style K fill:#166534,color:#fff
-    style S fill:#991b1b,color:#fff
+    style T fill:#b91c1c,color:#fff,stroke:#fff,stroke-width:2px,min-width:150px
+    style A fill:#0e7490,color:#fff,stroke:#fff,stroke-width:2px,min-width:150px
+    style K fill:#166534,color:#fff,stroke:#fff,stroke-width:2px,min-width:150px
+    style S fill:#991b1b,color:#fff,stroke:#fff,stroke-width:2px,min-width:150px
 ```
 
 ### 상세 문서
