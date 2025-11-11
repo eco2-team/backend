@@ -271,28 +271,94 @@ git push origin v0.4.2
 
 ### v1.0.0 체크리스트 (프로덕션 릴리스) ⏳ 계획 중
 
-- [ ] FastAPI 마이크로서비스 5개 배포
-  - [ ] auth-service
-  - [ ] users-service
-  - [ ] waste-service
-  - [ ] recycling-service
-  - [ ] locations-service
-- [ ] Celery Workers 구성
-  - [ ] AI Workers
-  - [ ] Batch Workers
-  - [ ] API Workers
-- [ ] GitHub Actions CI/CD 워크플로우
-  - [ ] ci-build-auth.yml
-  - [ ] ci-build-users.yml
-  - [ ] ci-build-waste.yml
-  - [ ] ci-build-recycling.yml
-  - [ ] ci-build-locations.yml
-- [ ] ArgoCD Application 매니페스트
-  - [ ] 5개 서비스 Application
-  - [ ] 자동 Sync 설정
-- [ ] 서비스 간 통신 테스트
-- [ ] 헬스체크 구성
-- [ ] 문서 업데이트
+**인프라:**
+- [x] 13-Node 클러스터 구성
+  - [x] 1 Master Node (k8s-master)
+  - [x] 6 API Nodes (도메인별 분리)
+  - [x] 2 Worker Nodes (Storage/AI)
+  - [x] 4 Infrastructure Nodes (RabbitMQ, PostgreSQL, Redis, Monitoring)
+- [x] Terraform 자동화
+  - [x] VPC, EC2, S3, CloudFront, ACM
+  - [x] 13개 노드 정의
+- [x] Ansible 자동화
+  - [x] Kubernetes 클러스터 설정
+  - [x] 노드 라벨링
+  - [x] Calico CNI 설치
+
+**배포:**
+- [x] ArgoCD GitOps 설정
+  - [x] Application 정의
+  - [x] ApplicationSet (API/Worker)
+- [x] Helm Charts 구성
+  - [x] API 서비스 템플릿 (6개)
+  - [x] Worker 서비스 템플릿 (2개)
+  - [x] values-13nodes.yaml
+- [x] GitHub Actions CI/CD
+  - [x] Lint & Test
+  - [x] Docker Build & Push (GHCR)
+  - [x] 자동 배포 트리거
+
+**애플리케이션:**
+- [x] FastAPI 서비스 스켈레톤 (6개)
+  - [x] waste-api
+  - [x] auth-api
+  - [x] userinfo-api
+  - [x] location-api
+  - [x] recycle-info-api
+  - [x] chat-llm-api
+- [x] Health Check 엔드포인트
+  - [x] Liveness Probe
+  - [x] Readiness Probe
+- [x] Python 포맷팅 설정
+  - [x] pyproject.toml, .flake8, .pylintrc
+  - [x] Black, isort, pycodestyle
+
+**문서:**
+- [x] 13-Node 아키텍처 문서
+- [x] WAL + Domain 통합 설계
+- [x] Database 아키텍처 분석
+- [x] Worker Layer 상세 설계
+- [x] 배포 가이드
+- [x] 문서 재정립 (33개 삭제, 11개 이동)
+
+### v0.6.0 체크리스트 (Worker Local SQLite WAL)
+
+**Worker WAL 구현:**
+- [ ] app/wal.py (WAL 매니저)
+  - [ ] SQLite 데이터베이스 초기화
+  - [ ] WAL 모드 활성화
+  - [ ] Task 기록/조회/삭제 API
+- [ ] workers/*.py (WAL 적용)
+  - [ ] image-uploader
+  - [ ] gpt5-analyzer
+  - [ ] rule-retriever
+  - [ ] response-generator
+  - [ ] task-scheduler
+- [ ] 장애 복구 로직
+  - [ ] Worker 재시작 시 미완료 작업 재개
+  - [ ] Exponential Backoff 재시도
+  - [ ] Dead Letter Queue (DLQ)
+- [ ] 모니터링
+  - [ ] WAL 크기 메트릭
+  - [ ] 복구 성공률 메트릭
+  - [ ] Prometheus 통합
+
+**Kubernetes 설정:**
+- [ ] PersistentVolume (Worker Local Disk)
+- [ ] PersistentVolumeClaim (WAL Storage)
+- [ ] initContainer (WAL 복구)
+- [ ] volumeMount (Worker Pods)
+
+**테스트:**
+- [ ] 단위 테스트 (WAL 매니저)
+- [ ] 통합 테스트 (Worker + WAL)
+- [ ] 장애 복구 시나리오 테스트
+- [ ] 성능 테스트 (WAL 오버헤드)
+
+**문서:**
+- [ ] WAL 구현 가이드
+- [ ] 장애 복구 절차
+- [ ] 모니터링 대시보드 가이드
 
 ### v1.0.0 체크리스트 (프로덕션 릴리스)
 
