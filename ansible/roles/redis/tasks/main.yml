@@ -2,11 +2,11 @@
 # Token Blacklist + Image Cache + Job Progress + Rate Limiting
 ---
 - name: Redis namespace 생성
-  shell: kubectl create namespace default --dry-run=client -o yaml | kubectl apply -f -
-  changed_when: false
+  shell: kubectl get namespace {{ redis_namespace }} || kubectl create namespace {{ redis_namespace }}
+  register: ns_create
 
 - name: Redis 설치 여부 확인
-  command: kubectl get deployment redis -n default
+  command: kubectl get deployment redis -n {{ redis_namespace }}
   register: redis_check
   failed_when: false
   changed_when: false
@@ -18,7 +18,7 @@
     kind: Deployment
     metadata:
       name: redis
-      namespace: default
+      namespace: {{ redis_namespace }}
       labels:
         app: redis
         tier: persistence
@@ -33,8 +33,20 @@
             app: redis
             tier: persistence
         spec:
-          nodeSelector:
-            workload: cache  # Redis 노드에 배치
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                    - k8s-redis
+          tolerations:
+          - key: node-role.kubernetes.io/infrastructure
+            operator: Equal
+            value: "true"
+            effect: NoSchedule
           containers:
           - name: redis
             image: redis:7-alpine
@@ -85,7 +97,7 @@
     kind: Service
     metadata:
       name: redis
-      namespace: default
+      namespace: {{ redis_namespace }}
       labels:
         app: redis
     spec:
@@ -100,18 +112,18 @@
   when: redis_check.rc != 0
 
 - name: Redis Pod 대기
-  command: kubectl wait --for=condition=ready pod -l app=redis -n default --timeout=180s
+  command: kubectl wait --for=condition=ready pod -l app=redis -n {{ redis_namespace }} --timeout=180s
   when: redis_check.rc != 0
 
 - name: Redis 연결 테스트
   shell: |
-    kubectl exec -n default deployment/redis -- redis-cli ping
+    kubectl exec -n {{ redis_namespace }} deployment/redis -- redis-cli ping
   register: redis_ping
   failed_when: redis_ping.stdout != "PONG"
 
 - name: Redis DB 구성 확인
   shell: |
-    kubectl exec -n default deployment/redis -- redis-cli CONFIG GET databases
+    kubectl exec -n {{ redis_namespace }} deployment/redis -- redis-cli CONFIG GET databases
   register: redis_dbs
 
 - name: Redis 정보 출력
@@ -127,7 +139,7 @@
       - ""
       - "❌ Session Store 없음 (JWT Stateless)"
       - ""
-      - "연결: redis.default:6379"
+      - "연결: redis.{{ redis_namespace }}.svc.cluster.local:6379"
       - "{{ redis_dbs.stdout_lines }}"
 
 

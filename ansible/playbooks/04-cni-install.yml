@@ -177,7 +177,7 @@
 
 - name: 모든 노드가 Ready 상태가 될 때까지 대기 (안정화 고려)
   shell: |
-    EXPECTED_TOTAL_NODES=13  # 1 Master + 12 Workers (6 API + 2 Worker + 4 Infra)
+    EXPECTED_TOTAL_NODES=14  # 1 Master + 13 Workers (7 API + 2 Worker + 4 Infra)
     
     echo "노드 안정화 대기 중 (Pod 재시작 허용)..."
     

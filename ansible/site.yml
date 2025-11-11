@@ -1,5 +1,31 @@
 # Kubernetes 클러스터 전체 설정
 ---
+- name: Wait for SSH connection and cloud-init
+  hosts: k8s_cluster
+  gather_facts: no
+  tasks:
+    - name: Wait for SSH port to be open
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        delay: 5
+        timeout: 300
+        state: started
+      delegate_to: localhost
+      become: no
+    
+    - name: Test SSH connectivity
+      ping:
+      retries: 5
+      delay: 10
+      until: ping_result is succeeded
+      register: ping_result
+    
+    - name: Wait for cloud-init to complete
+      command: cloud-init status --wait
+      changed_when: false
+      ignore_errors: yes
+
 - name: Prerequisites - OS 설정
   hosts: k8s_cluster
   become: yes
@@ -121,6 +147,13 @@
   become_user: "{{ kubectl_user }}"
   roles:
     - postgresql
+
+- name: Atlantis 설치 (Terraform GitOps)
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/09-atlantis.yml
 
 - name: Ingress 리소스 생성 (ALB 자동 생성)
   hosts: masters
