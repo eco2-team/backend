@@ -1,868 +1,326 @@
 # 🏗️ IaC 구성 (Terraform + Ansible)
 
-> **목적**: 4-Node 클러스터 자동 배포  
+> **목적**: 14-Node 클러스터 자동 배포 (Self-Managed Kubernetes)  
 > **도구**: Terraform (AWS 인프라) + Ansible (Kubernetes 설정)  
-> **날짜**: 2025-10-31  
-> **상태**: ✅ 프로덕션 완료 (75개 커밋)
+> **업데이트**: 2025-11-12  
+> **상태**: ✅ 프로덕션 완료 (14-Node Architecture)
 
-**자동 배포**: `./scripts/auto-rebuild.sh` (40-50분)
-
-## 📋 목차
-
-1. [IaC 전략](#iac-전략)
-2. [Terraform 구성](#terraform-구성)
-3. [Ansible 구성](#ansible-구성)
-4. [배포 프로세스](#배포-프로세스)
-5. [구현 계획](#구현-계획)
+**자동 배포**: `./scripts/cluster/auto-rebuild.sh` (40-60분)
 
 ---
 
 ## 🎯 IaC 전략
 
-### Terraform vs Ansible 역할 분리
+### Terraform vs Ansible 역할 분리 (14-Node Architecture)
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1a1a1a', 'primaryTextColor':'#fff', 'primaryBorderColor':'#444', 'lineColor':'#888', 'secondaryColor':'#2d2d2d', 'tertiaryColor':'#1a1a1a'}}}%%
 graph TB
-    subgraph Terraform["Terraform (인프라 프로비저닝)"]
-        TF1[AWS 리소스<br/>EC2, VPC, SG<br/>EBS, Elastic IP]
-        TF2[상태 관리<br/>terraform.tfstate<br/>S3 Backend]
+    subgraph Terraform["🏗️ Terraform (Layer 0: Infrastructure)"]
+        TF1["AWS 리소스 생성<br/>14 EC2 Instances"]
+        TF2["VPC + Subnets<br/>Public/Private"]
+        TF3["Security Groups<br/>Master/Worker/ALB"]
+        TF4["Route53 + ACM<br/>*.growbin.app"]
+        TF5["CloudFront + S3<br/>CDN"]
+        TF6["IAM Roles<br/>ALB Controller, EBS CSI"]
+        TF7["State 관리<br/>S3 Backend"]
     end
     
-    subgraph Ansible["Ansible (설정 관리)"]
-        AN1[OS 설정<br/>패키지 설치<br/>커널 설정]
-        AN2[K8s 설치<br/>kubeadm init/join<br/>CNI 플러그인]
-        AN3[Add-ons<br/>ArgoCD, RabbitMQ<br/>Monitoring]
+    subgraph Ansible["⚙️ Ansible (Layer 1: Cluster Configuration)"]
+        AN1["OS 설정<br/>containerd, 커널 튜닝"]
+        AN2["Kubernetes 설치<br/>kubeadm, kubelet, kubectl"]
+        AN3["Master Init<br/>kubeadm init"]
+        AN4["Worker Join<br/>13개 노드 Join"]
+        AN5["CNI 설치<br/>Calico Network Policy"]
+        AN6["Node 관리<br/>Labels + Taints"]
+        AN7["Add-ons 배포<br/>ArgoCD, Cert-Manager, ALB Controller"]
+        AN8["Monitoring<br/>Prometheus + Grafana"]
     end
     
     TF1 --> TF2
-    TF2 -->|인스턴스 정보| AN1
+    TF2 --> TF3
+    TF3 --> TF4
+    TF4 --> TF5
+    TF5 --> TF6
+    TF6 --> TF7
+    
+    TF7 -->|Ansible Inventory<br/>14개 노드 IP| AN1
     AN1 --> AN2
     AN2 --> AN3
+    AN3 --> AN4
+    AN4 --> AN5
+    AN5 --> AN6
+    AN6 --> AN7
+    AN7 --> AN8
     
-    style TF1 fill:#e6d5ff,stroke:#8844ff,stroke-width:3px,color:#000
-    style TF2 fill:#e6d5ff,stroke:#8844ff,stroke-width:2px,color:#000
-    style AN1 fill:#ffd1d1,stroke:#dc3545,stroke-width:3px,color:#000
-    style AN2 fill:#ffd1d1,stroke:#dc3545,stroke-width:3px,color:#000
-    style AN3 fill:#ffd1d1,stroke:#dc3545,stroke-width:3px,color:#000
+    style Terraform fill:#78350f,stroke:#fff,stroke-width:3px,color:#fff
+    style Ansible fill:#166534,stroke:#fff,stroke-width:3px,color:#fff
+    
+    style TF1 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style TF2 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style TF3 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style TF4 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style TF5 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style TF6 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style TF7 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    
+    style AN1 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style AN2 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style AN3 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style AN4 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style AN5 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style AN6 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style AN7 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style AN8 fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
 ```
 
 ### 책임 분리
 
 | 도구 | 역할 | 관리 대상 | 상태 관리 |
 |------|------|----------|----------|
-| **Terraform** | 인프라 프로비저닝 | EC2, VPC, SG, EBS, EIP | tfstate (S3) |
-| **Ansible** | 설정 관리 | OS 설정, K8s 설치, Add-ons | Idempotent Playbook |
+| **Terraform** | 인프라 프로비저닝 | EC2 (14개), VPC, SG, EBS, ALB, Route53, CloudFront, S3 | tfstate (S3) |
+| **Ansible** | 설정 관리 | OS 설정, K8s 설치 (kubeadm), CNI (Calico), Node Labels, Add-ons | Idempotent Playbook |
+
+### 상세 역할 구분
+
+#### Terraform의 책임 (Layer 0: Infrastructure)
+
+**✅ 관리 대상**:
+- VPC, Subnet (Public/Private), Internet Gateway, Route Tables
+- Security Groups (Master, Worker, ALB, Database 등)
+- EC2 Instances (14개):
+  - Master Node: 1개 (t3.large, 2 vCPU, 8GB)
+  - API Nodes: 7개 (auth, my, scan, character, location, info, chat)
+  - Worker Nodes: 2개 (storage, ai)
+  - Infra Nodes: 4개 (postgresql, redis, rabbitmq, monitoring)
+- IAM Roles & Policies (ALB Controller, EBS CSI Driver)
+- Route53 DNS Records (*.growbin.app)
+- ACM Certificate (SSL/TLS)
+- CloudFront Distribution (CDN)
+- S3 Buckets (이미지 저장소, Terraform State)
+
+**❌ 관리하지 않는 것**:
+- Kubernetes 클러스터 초기화 (kubeadm init/join)
+- CNI 플러그인 설치 (Calico)
+- Node 레이블링 및 Taints
+- Kubernetes 애드온 (ArgoCD, Cert-Manager, Monitoring)
+- 애플리케이션 배포 (Deployment, Service, ConfigMap)
+
+#### Ansible의 책임 (Layer 1: Cluster Configuration)
+
+**✅ 관리 대상**:
+- OS 초기 설정 (패키지, 커널 튜닝, Swap 비활성화, 방화벽)
+- Container Runtime 설치 (containerd)
+- Kubernetes 설치 (kubeadm, kubelet, kubectl)
+- 클러스터 초기화 (kubeadm init/join)
+- CNI 설치 (Calico Network Policy)
+- Node 관리 (Labels, Taints, Provider ID)
+- Kubernetes 인프라 컴포넌트:
+  - Cert-Manager, AWS Load Balancer Controller, EBS CSI Driver
+  - Metrics Server, Ingress 리소스
+  - Prometheus & Grafana, Atlantis, ArgoCD
+
+**❌ 관리하지 않는 것**:
+- AWS 인프라 생성/삭제 (EC2, VPC 등)
+- 애플리케이션 빌드/테스트 (GitHub Actions)
+- Microservices 배포 (ArgoCD + Kustomize)
 
 ---
 
 ## 🔧 Terraform 구성
 
-### 프로젝트 구조
-
-```
-terraform/
-├── main.tf                    # 메인 설정
-├── variables.tf               # 변수 정의
-├── outputs.tf                 # 출력 (IP 주소 등)
-├── terraform.tfvars          # 변수 값
-├── backend.tf                # State Backend (S3)
-│
-├── modules/
-│   ├── vpc/                  # VPC, 서브넷
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   │
-│   ├── security-groups/      # 보안 그룹
-│   │   ├── main.tf
-│   │   └── variables.tf
-│   │
-│   ├── ec2/                  # EC2 인스턴스
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   │
-│   └── ebs/                  # EBS 볼륨
-│       ├── main.tf
-│       └── variables.tf
-│
-└── environments/
-    ├── dev/
-    │   └── terraform.tfvars
-    └── prod/
-        └── terraform.tfvars
-```
-
-### main.tf 개요
-
-```hcl
-# terraform/main.tf
-terraform {
-  required_version = ">= 1.0"
-  
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-  
-  backend "s3" {
-    bucket = "sesacthon-terraform-state"
-    key    = "k8s-cluster/terraform.tfstate"
-    region = "ap-northeast-2"
-  }
-}
-
-provider "aws" {
-  region = var.aws_region
-  
-  default_tags {
-    tags = {
-      Project     = "SeSACTHON"
-      ManagedBy   = "Terraform"
-      Environment = var.environment
-    }
-  }
-}
-
-# VPC
-module "vpc" {
-  source = "./modules/vpc"
-  
-  vpc_cidr = var.vpc_cidr
-  environment = var.environment
-}
-
-# Security Groups
-module "security_groups" {
-  source = "./modules/security-groups"
-  
-  vpc_id = module.vpc.vpc_id
-  allowed_ssh_cidr = var.allowed_ssh_cidr
-}
-
-# EC2 Instances
-module "master" {
-  source = "./modules/ec2"
-  
-  instance_type = "t3.medium"
-  instance_name = "k8s-master"
-  subnet_id = module.vpc.public_subnet_ids[0]
-  security_group_ids = [
-    module.security_groups.master_sg_id
-  ]
-  
-  user_data = templatefile("${path.module}/user-data/master.sh", {
-    hostname = "k8s-master"
-  })
-}
-
-module "worker_1" {
-  source = "./modules/ec2"
-  
-  instance_type = "t3.medium"
-  instance_name = "k8s-worker-1"
-  subnet_id = module.vpc.public_subnet_ids[1]
-  security_group_ids = [
-    module.security_groups.worker_sg_id
-  ]
-  
-  tags = {
-    Workload = "cpu"
-  }
-}
-
-module "worker_2" {
-  source = "./modules/ec2"
-  
-  instance_type = "t3.small"
-  instance_name = "k8s-worker-2"
-  subnet_id = module.vpc.public_subnet_ids[2]
-  security_group_ids = [
-    module.security_groups.worker_sg_id
-  ]
-  
-  tags = {
-    Workload = "network"
-  }
-}
-```
-
-### 관리 대상 리소스
+### 관리 대상 리소스 (14-Node Architecture)
 
 ```
 Terraform으로 생성:
-├─ VPC & Subnets (3개 AZ)
-├─ Internet Gateway
+├─ VPC & Subnets (Public/Private)
+├─ Internet Gateway + NAT Gateway
 ├─ Route Tables
-├─ Security Groups (Master, Worker)
-├─ EC2 Instances (Master ×1, Worker ×2)
-├─ EBS Volumes (각 30GB)
-├─ Elastic IPs (Master용)
-└─ Key Pair (SSH 접근)
-
-총 리소스: 약 20개
-실행 시간: 5분
-```
-
----
-
-## 🤖 Ansible 구성
-
-### 프로젝트 구조
-
-```
-ansible/
-├── ansible.cfg               # Ansible 설정
-├── inventory/
-│   ├── hosts.ini            # 인벤토리 (Terraform 출력)
-│   └── group_vars/
-│       ├── all.yml          # 공통 변수
-│       ├── masters.yml      # Master 변수
-│       └── workers.yml      # Worker 변수
+├─ Security Groups (Master, Worker, ALB, Database)
 │
-├── playbooks/
-│   ├── 00-prerequisites.yml # OS 설정, Docker 설치
-│   ├── 01-k8s-install.yml   # kubeadm, kubelet, kubectl
-│   ├── 02-master-init.yml   # kubeadm init
-│   ├── 03-worker-join.yml   # kubeadm join
-│   ├── 04-cni-install.yml   # Flannel CNI
-│   ├── 05-addons.yml        # Ingress, Cert-manager
-│   ├── 06-argocd.yml        # ArgoCD 설치
-│   ├── 07-rabbitmq.yml      # RabbitMQ 설치
-│   └── 08-monitoring.yml    # Prometheus + Grafana
+├─ EC2 Instances (14개)
+│  ├─ Master Node × 1 (t3.large, 2 vCPU, 8GB)
+│  ├─ API Nodes × 7: auth, my, scan, character, location, info, chat
+│  ├─ Worker Nodes × 2: storage, ai
+│  └─ Infra Nodes × 4: postgresql, redis, rabbitmq, monitoring
 │
-├── roles/
-│   ├── common/              # 공통 설정
-│   ├── docker/              # Docker 설치
-│   ├── kubernetes/          # K8s 설치
-│   ├── argocd/              # ArgoCD
-│   └── rabbitmq/            # RabbitMQ
-│
-└── site.yml                 # 마스터 플레이북
+├─ EBS Volumes (각 30GB GP3, 암호화)
+├─ IAM Roles (ALB Controller, EBS CSI Driver)
+├─ Route53 Records (*.growbin.app, argocd, atlantis, grafana)
+├─ ACM Certificate (*.growbin.app)
+├─ CloudFront Distribution (CDN)
+├─ S3 Buckets (이미지 저장소, Terraform State)
+└─ SSH Key Pair (sesacthon.pem)
+
+총 리소스: 약 60개
+실행 시간: 15-20분
+총 비용: 시간당 약 $1.20 (월 $864)
 ```
 
-### inventory/hosts.ini
-
-```ini
-# ansible/inventory/hosts.ini
-[all:vars]
-ansible_user=ubuntu
-ansible_ssh_private_key_file=~/.ssh/sesacthon.pem
-ansible_python_interpreter=/usr/bin/python3
-
-[masters]
-k8s-master ansible_host=<MASTER_PUBLIC_IP> private_ip=<MASTER_PRIVATE_IP>
-
-[workers]
-k8s-worker-1 ansible_host=<WORKER1_PUBLIC_IP> private_ip=<WORKER1_PRIVATE_IP> workload=cpu instance_type=t3.medium
-k8s-worker-2 ansible_host=<WORKER2_PUBLIC_IP> private_ip=<WORKER2_PRIVATE_IP> workload=network instance_type=t3.small
-
-[k8s_cluster:children]
-masters
-workers
-```
-
-### site.yml (마스터 플레이북)
-
-```yaml
-# ansible/site.yml
----
-- name: Kubernetes Cluster Setup
-  hosts: all
-  become: yes
-  gather_facts: yes
-  
-  roles:
-    - common
-    - docker
-    - kubernetes
-
-- name: Initialize Master
-  hosts: masters
-  become: yes
-  
-  tasks:
-    - name: kubeadm init
-      command: >
-        kubeadm init
-        --pod-network-cidr=10.244.0.0/16
-        --apiserver-advertise-address={{ private_ip }}
-        --node-name={{ inventory_hostname }}
-      register: kubeadm_init
-      when: not kubeadm_init_done | default(false)
-    
-    - name: Save join command
-      copy:
-        content: "{{ kubeadm_init.stdout_lines | select('search', 'kubeadm join') | list }}"
-        dest: /tmp/kubeadm_join_command.sh
-    
-    - name: Setup kubeconfig
-      shell: |
-        mkdir -p $HOME/.kube
-        cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-        chown $(id -u):$(id -g) $HOME/.kube/config
-
-- name: Install CNI
-  hosts: masters
-  become: yes
-  
-  tasks:
-    - name: Apply Flannel
-      command: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
-
-- name: Join Workers
-  hosts: workers
-  become: yes
-  
-  tasks:
-    - name: Copy join command
-      copy:
-        src: /tmp/kubeadm_join_command.sh
-        dest: /tmp/join.sh
-        mode: '0755'
-    
-    - name: Join cluster
-      command: /tmp/join.sh
-
-- name: Label Workers
-  hosts: masters
-  
-  tasks:
-    - name: Label worker-1
-      command: kubectl label nodes k8s-worker-1 workload=cpu instance-type=t3.medium
-    
-    - name: Label worker-2
-      command: kubectl label nodes k8s-worker-2 workload=network instance-type=t3.small
-
-- name: Install ArgoCD
-  hosts: masters
-  
-  tasks:
-    - name: Create ArgoCD namespace
-      command: kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-    
-    - name: Install ArgoCD
-      command: kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-
-- name: Install RabbitMQ
-  hosts: masters
-  
-  tasks:
-    - name: Add Bitnami Helm repo
-      command: helm repo add bitnami https://charts.bitnami.com/bitnami
-    
-    - name: Install RabbitMQ
-      command: >
-        helm install rabbitmq bitnami/rabbitmq
-        --namespace messaging
-        --create-namespace
-        --set auth.username=admin
-        --set auth.password=changeme
-        --set persistence.enabled=true
-        --set persistence.size=10Gi
-```
-
----
-
-## 🔄 배포 프로세스
-
-### 전체 흐름
-
-```mermaid
-flowchart TD
-    A[로컬 PC] --> B[Terraform Plan]
-    B --> C{리뷰}
-    C -->|승인| D[Terraform Apply]
-    C -->|거부| A
-    
-    D --> E[EC2 인스턴스 생성<br/>5분]
-    
-    E --> F[Terraform Output<br/>IP 주소 추출]
-    F --> G[Ansible Inventory<br/>자동 생성]
-    
-    G --> H[Ansible Playbook<br/>00-prerequisites]
-    H --> I[Ansible Playbook<br/>01-k8s-install]
-    I --> J[Ansible Playbook<br/>02-master-init]
-    J --> K[Ansible Playbook<br/>03-worker-join]
-    K --> L[Ansible Playbook<br/>04-06 Add-ons]
-    
-    L --> M[클러스터 준비 완료<br/>30분]
-    M --> N[ArgoCD Applications<br/>kubectl apply]
-    N --> O[서비스 배포 완료]
-    
-    style D fill:#e6d5ff,stroke:#8844ff,stroke-width:3px,color:#000
-    style E fill:#e6d5ff,stroke:#8844ff,stroke-width:2px,color:#000
-    style H fill:#ffd1d1,stroke:#dc3545,stroke-width:3px,color:#000
-    style I fill:#ffd1d1,stroke:#dc3545,stroke-width:3px,color:#000
-    style J fill:#ffd1d1,stroke:#dc3545,stroke-width:3px,color:#000
-    style K fill:#ffd1d1,stroke:#dc3545,stroke-width:3px,color:#000
-    style L fill:#ffd1d1,stroke:#dc3545,stroke-width:3px,color:#000
-    style M fill:#d1f2eb,stroke:#28a745,stroke-width:4px,color:#000
-    style O fill:#d1f2eb,stroke:#28a745,stroke-width:4px,color:#000
-```
-
----
-
-## 📦 Terraform 상세 설계
-
-### 생성할 리소스
-
-```hcl
-# terraform/main.tf
-
-# 1. VPC
-resource "aws_vpc" "k8s_vpc" {
-  cidr_block = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support = true
-  
-  tags = {
-    Name = "k8s-vpc"
-    "kubernetes.io/cluster/sesacthon" = "shared"
-  }
-}
-
-# 2. 서브넷 (3개)
-resource "aws_subnet" "public" {
-  count = 3
-  
-  vpc_id = aws_vpc.k8s_vpc.id
-  cidr_block = "10.0.${count.index + 1}.0/24"
-  availability_zone = data.aws_availability_zones.available.names[count.index]
-  map_public_ip_on_launch = true
-  
-  tags = {
-    Name = "k8s-public-subnet-${count.index + 1}"
-  }
-}
-
-# 3. 보안 그룹 - Master
-resource "aws_security_group" "master" {
-  name = "k8s-master-sg"
-  vpc_id = aws_vpc.k8s_vpc.id
-  
-  # SSH
-  ingress {
-    from_port = 22
-    to_port = 22
-    protocol = "tcp"
-    cidr_blocks = [var.allowed_ssh_cidr]
-    description = "SSH from admin"
-  }
-  
-  # Kubernetes API
-  ingress {
-    from_port = 6443
-    to_port = 6443
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Kubernetes API"
-  }
-  
-  # HTTP/HTTPS
-  ingress {
-    from_port = 80
-    to_port = 80
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  
-  ingress {
-    from_port = 443
-    to_port = 443
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  
-  # etcd
-  ingress {
-    from_port = 2379
-    to_port = 2380
-    protocol = "tcp"
-    self = true
-    description = "etcd"
-  }
-  
-  # Kubelet
-  ingress {
-    from_port = 10250
-    to_port = 10252
-    protocol = "tcp"
-    security_groups = [aws_security_group.worker.id]
-  }
-  
-  # Egress all
-  egress {
-    from_port = 0
-    to_port = 0
-    protocol = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# 4. 보안 그룹 - Worker
-resource "aws_security_group" "worker" {
-  name = "k8s-worker-sg"
-  vpc_id = aws_vpc.k8s_vpc.id
-  
-  # SSH
-  ingress {
-    from_port = 22
-    to_port = 22
-    protocol = "tcp"
-    cidr_blocks = [var.allowed_ssh_cidr]
-  }
-  
-  # Kubelet
-  ingress {
-    from_port = 10250
-    to_port = 10250
-    protocol = "tcp"
-    security_groups = [aws_security_group.master.id]
-  }
-  
-  # NodePort
-  ingress {
-    from_port = 30000
-    to_port = 32767
-    protocol = "tcp"
-    security_groups = [aws_security_group.master.id]
-  }
-  
-  # Worker 간 통신
-  ingress {
-    from_port = 0
-    to_port = 0
-    protocol = "-1"
-    self = true
-  }
-  
-  egress {
-    from_port = 0
-    to_port = 0
-    protocol = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# 5. EC2 Instances
-resource "aws_instance" "master" {
-  ami = data.aws_ami.ubuntu.id
-  instance_type = "t3.medium"
-  subnet_id = aws_subnet.public[0].id
-  vpc_security_group_ids = [aws_security_group.master.id]
-  key_name = aws_key_pair.k8s.key_name
-  
-  root_block_device {
-    volume_size = 30
-    volume_type = "gp3"
-    encrypted = true
-  }
-  
-  user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-master"
-  })
-  
-  tags = {
-    Name = "k8s-master"
-    Role = "master"
-  }
-}
-
-resource "aws_instance" "worker" {
-  count = 2
-  
-  ami = data.aws_ami.ubuntu.id
-  instance_type = count.index == 0 ? "t3.medium" : "t3.small"
-  subnet_id = aws_subnet.public[count.index + 1].id
-  vpc_security_group_ids = [aws_security_group.worker.id]
-  key_name = aws_key_pair.k8s.key_name
-  
-  root_block_device {
-    volume_size = 30
-    volume_type = "gp3"
-    encrypted = true
-  }
-  
-  user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-worker-${count.index + 1}"
-  })
-  
-  tags = {
-    Name = "k8s-worker-${count.index + 1}"
-    Role = "worker"
-    Workload = count.index == 0 ? "cpu" : "network"
-  }
-}
-
-# 6. Elastic IP (Master)
-resource "aws_eip" "master" {
-  instance = aws_instance.master.id
-  domain = "vpc"
-  
-  tags = {
-    Name = "k8s-master-eip"
-  }
-}
-```
-
-### variables.tf
-
-```hcl
-# terraform/variables.tf
-variable "aws_region" {
-  description = "AWS 리전"
-  type = string
-  default = "ap-northeast-2"
-}
-
-variable "environment" {
-  description = "환경 (dev, prod)"
-  type = string
-  default = "prod"
-}
-
-variable "vpc_cidr" {
-  description = "VPC CIDR 블록"
-  type = string
-  default = "10.0.0.0/16"
-}
-
-variable "allowed_ssh_cidr" {
-  description = "SSH 접근 허용 CIDR"
-  type = string
-  default = "0.0.0.0/0"  # 프로덕션에서는 특정 IP로 제한
-}
-
-variable "cluster_name" {
-  description = "K8s 클러스터 이름"
-  type = string
-  default = "sesacthon"
-}
-```
-
-### outputs.tf
-
-```hcl
-# terraform/outputs.tf
-output "master_public_ip" {
-  description = "Master 노드 Public IP"
-  value = aws_eip.master.public_ip
-}
-
-output "master_private_ip" {
-  description = "Master 노드 Private IP"
-  value = aws_instance.master.private_ip
-}
-
-output "worker_public_ips" {
-  description = "Worker 노드 Public IPs"
-  value = aws_instance.worker[*].public_ip
-}
-
-output "worker_private_ips" {
-  description = "Worker 노드 Private IPs"
-  value = aws_instance.worker[*].private_ip
-}
-
-output "ansible_inventory" {
-  description = "Ansible Inventory 자동 생성"
-  value = templatefile("${path.module}/templates/hosts.tpl", {
-    master_public_ip = aws_eip.master.public_ip
-    master_private_ip = aws_instance.master.private_ip
-    worker_1_public_ip = aws_instance.worker[0].public_ip
-    worker_1_private_ip = aws_instance.worker[0].private_ip
-    worker_2_public_ip = aws_instance.worker[1].public_ip
-    worker_2_private_ip = aws_instance.worker[1].private_ip
-  })
-}
-```
-
----
-
-## 🤖 Ansible 상세 설계
-
-### Playbook 예시
-
-```yaml
-# ansible/playbooks/02-master-init.yml
----
-- name: Initialize Kubernetes Master
-  hosts: masters
-  become: yes
-  
-  vars:
-    pod_network_cidr: "10.244.0.0/16"
-  
-  tasks:
-    - name: Check if cluster is initialized
-      stat:
-        path: /etc/kubernetes/admin.conf
-      register: kubeadm_init_stat
-    
-    - name: kubeadm init
-      command: >
-        kubeadm init
-        --pod-network-cidr={{ pod_network_cidr }}
-        --apiserver-advertise-address={{ private_ip }}
-        --node-name={{ inventory_hostname }}
-      register: kubeadm_init_output
-      when: not kubeadm_init_stat.stat.exists
-    
-    - name: Create .kube directory
-      file:
-        path: /home/ubuntu/.kube
-        state: directory
-        owner: ubuntu
-        group: ubuntu
-        mode: '0755'
-    
-    - name: Copy kubeconfig
-      copy:
-        src: /etc/kubernetes/admin.conf
-        dest: /home/ubuntu/.kube/config
-        owner: ubuntu
-        group: ubuntu
-        mode: '0644'
-        remote_src: yes
-    
-    - name: Extract join command
-      shell: |
-        kubeadm token create --print-join-command
-      register: join_command
-      when: not kubeadm_init_stat.stat.exists
-    
-    - name: Save join command
-      local_action:
-        module: copy
-        content: "{{ join_command.stdout }}"
-        dest: "/tmp/kubeadm_join_command.sh"
-      when: join_command is defined
-
-# ansible/playbooks/06-argocd.yml
----
-- name: Install ArgoCD
-  hosts: masters
-  become: yes
-  become_user: ubuntu
-  
-  tasks:
-    - name: Create ArgoCD namespace
-      kubernetes.core.k8s:
-        name: argocd
-        api_version: v1
-        kind: Namespace
-        state: present
-    
-    - name: Install ArgoCD
-      kubernetes.core.k8s:
-        state: present
-        src: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-    
-    - name: Wait for ArgoCD pods
-      kubernetes.core.k8s_info:
-        kind: Pod
-        namespace: argocd
-        label_selectors:
-          - app.kubernetes.io/name=argocd-server
-      register: argocd_pods
-      until: argocd_pods.resources[0].status.phase == "Running"
-      retries: 30
-      delay: 10
-
-# ansible/playbooks/07-rabbitmq.yml
----
-- name: Install RabbitMQ
-  hosts: masters
-  become: yes
-  become_user: ubuntu
-  
-  tasks:
-    - name: Add Bitnami Helm repo
-      kubernetes.core.helm_repository:
-        name: bitnami
-        repo_url: https://charts.bitnami.com/bitnami
-    
-    - name: Create messaging namespace
-      kubernetes.core.k8s:
-        name: messaging
-        api_version: v1
-        kind: Namespace
-        state: present
-    
-    - name: Install RabbitMQ via Helm
-      kubernetes.core.helm:
-        name: rabbitmq
-        chart_ref: bitnami/rabbitmq
-        release_namespace: messaging
-        values:
-          auth:
-            username: admin
-            password: "{{ rabbitmq_password }}"
-          persistence:
-            enabled: true
-            size: 10Gi
-          resources:
-            requests:
-              cpu: 200m
-              memory: 256Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
-          nodeSelector:
-            kubernetes.io/hostname: k8s-master
-```
-
----
-
-## 🚀 실행 명령어
-
-### Terraform
+### 실행 명령어
 
 ```bash
 # 1. 초기화
 cd terraform
 terraform init
 
-# 2. 계획 확인
+# 2. 계획 확인 (14-Node 생성 확인)
 terraform plan -out=tfplan
 
-# 3. 적용
+# 3. 적용 (약 15-20분 소요)
 terraform apply tfplan
 
-# 4. 출력 확인
-terraform output
-
-# 5. Ansible Inventory 자동 생성
+# 4. Ansible Inventory 자동 생성
 terraform output -raw ansible_inventory > ../ansible/inventory/hosts.ini
 ```
 
-### Ansible
+---
+
+## 🤖 Ansible 구성
+
+### Ansible Inventory (14-Node)
+
+```ini
+# ansible/inventory/hosts.ini
+[all:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/sesacthon.pem
+
+[masters]
+k8s-master ansible_host=<IP> private_ip=<PRIVATE_IP>
+
+[api_nodes]
+auth-api ansible_host=<IP> domain=auth phase=1 tier=api
+my-api ansible_host=<IP> domain=my phase=1 tier=api
+scan-api ansible_host=<IP> domain=scan phase=1 tier=api
+character-api ansible_host=<IP> domain=character phase=2 tier=api
+location-api ansible_host=<IP> domain=location phase=2 tier=api
+info-api ansible_host=<IP> domain=info phase=3 tier=api
+chat-api ansible_host=<IP> domain=chat phase=3 tier=api
+
+[workers]
+storage-worker ansible_host=<IP> domain=storage tier=worker
+ai-worker ansible_host=<IP> domain=ai tier=worker
+
+[infra_nodes]
+postgres-node ansible_host=<IP> domain=postgresql tier=infra
+redis-node ansible_host=<IP> domain=redis tier=infra
+rabbitmq-node ansible_host=<IP> domain=rabbitmq tier=infra
+monitoring-node ansible_host=<IP> domain=monitoring tier=infra
+
+[k8s_cluster:children]
+masters
+api_nodes
+workers
+infra_nodes
+```
+
+### Ansible Playbook 단계
+
+```yaml
+# ansible/site.yml
+1. OS 설정 (00-prerequisites.yml)
+2. Kubernetes 설치 (01-k8s-install.yml)
+3. Master 초기화 (02-master-init.yml)
+4. Worker Join (03-worker-join.yml) - 13개 노드
+5. Provider ID 주입 (03-1-set-provider-id.yml)
+6. CNI 설치 (04-cni-install.yml) - Calico
+7. Add-ons (05-addons.yml)
+8. Node 라벨링 (label-nodes.yml) - domain, phase, tier
+9. Cert-Manager (06-cert-manager-issuer.yml)
+10. ALB Controller (07-alb-controller.yml)
+11. Monitoring (10-monitoring.yml) - Prometheus + Grafana
+12. Atlantis (16-atlantis.yml)
+13. ArgoCD (17-argocd.yml)
+```
+
+### 실행 명령어
 
 ```bash
-# 1. Ping 테스트
+# 1. EC2 부팅 대기
+sleep 120
+
+# 2. Ping 테스트 (14개 노드)
 cd ansible
 ansible all -i inventory/hosts.ini -m ping
 
-# 2. 전체 플레이북 실행
+# 3. 전체 플레이북 실행 (약 30-40분)
 ansible-playbook -i inventory/hosts.ini site.yml
 
-# 또는 단계별 실행
-ansible-playbook -i inventory/hosts.ini playbooks/00-prerequisites.yml
-ansible-playbook -i inventory/hosts.ini playbooks/01-k8s-install.yml
-ansible-playbook -i inventory/hosts.ini playbooks/02-master-init.yml
-ansible-playbook -i inventory/hosts.ini playbooks/03-worker-join.yml
-ansible-playbook -i inventory/hosts.ini playbooks/04-cni-install.yml
-ansible-playbook -i inventory/hosts.ini playbooks/05-addons.yml
-ansible-playbook -i inventory/hosts.ini playbooks/06-argocd.yml
-ansible-playbook -i inventory/hosts.ini playbooks/07-rabbitmq.yml
-ansible-playbook -i inventory/hosts.ini playbooks/08-monitoring.yml
-
-# 3. 클러스터 확인
-ssh ubuntu@$(terraform output -raw master_public_ip)
+# 4. 클러스터 상태 확인
+ssh ubuntu@$(cd ../terraform && terraform output -raw master_public_ip)
 kubectl get nodes
+# 14개 노드 모두 Ready 상태 확인
+```
+
+---
+
+## 🔄 배포 프로세스
+
+### 전체 흐름 (14-Node)
+
+```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1a1a1a', 'primaryTextColor':'#fff', 'primaryBorderColor':'#444', 'lineColor':'#888', 'secondaryColor':'#2d2d2d', 'tertiaryColor':'#1a1a1a'}}}%%
+flowchart TD
+    A["🧑‍💻 로컬 PC<br/>Terraform/Ansible 코드"] --> B["📋 Terraform Plan<br/>리소스 검토"]
+    B --> C{"✅ 리뷰 통과?"}
+    C -->|승인| D["🚀 Terraform Apply<br/>14개 EC2 생성"]
+    C -->|거부| A
+    
+    D --> E["☁️ AWS 리소스 생성<br/>15-20분"]
+    E --> F["📤 Terraform Output<br/>14개 노드 IP"]
+    F --> G["📝 Ansible Inventory<br/>자동 생성"]
+    
+    G --> H["⏳ EC2 부팅 대기<br/>2분"]
+    H --> I["🔧 Ansible<br/>OS 설정 + K8s 설치"]
+    I --> J["☸️ Cluster 구성<br/>Master Init + Worker Join"]
+    J --> K["🕸️ CNI + Labels<br/>Calico + Node 관리"]
+    K --> L["🔌 Add-ons<br/>ArgoCD, Monitoring 등"]
+    
+    L --> M["✅ 클러스터 준비 완료<br/>40-60분"]
+    M --> N["🚀 ArgoCD<br/>ApplicationSet 배포"]
+    N --> O["🎉 서비스 배포 완료<br/>7 APIs + 2 Workers"]
+    
+    style D fill:#78350f,stroke:#fff,stroke-width:3px,color:#fff
+    style I fill:#166534,stroke:#fff,stroke-width:2px,color:#fff
+    style J fill:#166534,stroke:#fff,stroke-width:2px,color:#fff
+    style K fill:#166534,stroke:#fff,stroke-width:2px,color:#fff
+    style L fill:#166534,stroke:#fff,stroke-width:2px,color:#fff
+    style M fill:#0e7490,stroke:#fff,stroke-width:4px,color:#fff
+    style O fill:#0e7490,stroke:#fff,stroke-width:4px,color:#fff
+```
+
+---
+
+## 🚀 자동 배포 (원 커맨드)
+
+```bash
+# 모든 단계를 한 번에 실행 (40-60분)
+./scripts/cluster/auto-rebuild.sh
+
+# 이 스크립트는 다음을 자동 수행:
+# 1. Terraform destroy (선택)
+# 2. Terraform apply (14-Node 생성, 15-20분)
+# 3. Ansible site.yml (클러스터 구성, 25-40분)
+# 4. ArgoCD ApplicationSet 배포
+# 5. 상태 검증 (14개 노드, Applications)
+```
+
+---
+
+## 📊 리소스 요약
+
+```
+14-Node Kubernetes Cluster
+├─ Master Node: 1개 (t3.large, 2 vCPU, 8GB RAM)
+├─ API Nodes: 7개 (auth, my, scan, character, location, info, chat)
+├─ Worker Nodes: 2개 (storage, ai)
+└─ Infra Nodes: 4개 (postgresql, redis, rabbitmq, monitoring)
+
+총 vCPU: 30개
+총 Memory: 22GB
+월 예상 비용: ~$864 (시간당 $1.20)
+배포 소요 시간: 40-60분
 ```
 
 ---
@@ -870,40 +328,24 @@ kubectl get nodes
 ## 💡 IaC의 이점
 
 ### 1. 재현 가능성
-
-```
-한 번 작성하면:
-✅ 동일한 환경을 언제든 재생성
-✅ dev, staging, prod 환경 일관성
-✅ 재해 복구 시 빠른 복구 (1시간)
-```
+- ✅ 동일한 환경을 언제든 재생성
+- ✅ dev, staging, prod 환경 일관성
+- ✅ 재해 복구 시 빠른 복구 (1시간 이내)
 
 ### 2. 버전 관리
-
-```
-terraform/ 폴더 전체를 Git에:
-✅ 인프라 변경 이력 추적
-✅ 특정 시점으로 롤백
-✅ 코드 리뷰 (인프라도!)
-```
+- ✅ Git으로 인프라 변경 이력 추적
+- ✅ 특정 시점으로 롤백 가능
+- ✅ PR을 통한 인프라 코드 리뷰
 
 ### 3. 협업
-
-```
-팀원들이:
-✅ Terraform 코드만 보면 인프라 이해
-✅ PR로 인프라 변경 제안
-✅ 자동화된 테스트 (terraform plan)
-```
+- ✅ 코드만 보면 인프라 구조 이해 가능
+- ✅ 자동화된 테스트 (terraform plan)
+- ✅ 팀원 간 일관된 환경
 
 ### 4. 비용 관리
-
-```
-terraform destroy:
-✅ 개발 완료 후 인프라 삭제 (비용 절감)
-✅ 필요할 때만 terraform apply
-✅ 비용 예측 (terraform plan)
-```
+- ✅ terraform destroy로 즉시 삭제
+- ✅ 필요할 때만 terraform apply
+- ✅ 비용 예측 가능 (terraform plan)
 
 ---
 
@@ -913,36 +355,27 @@ terraform destroy:
 
 ```bash
 # S3 Backend 사용 (필수!)
-# terraform/backend.tf
 terraform {
   backend "s3" {
     bucket = "sesacthon-terraform-state"
     key = "k8s-cluster/terraform.tfstate"
     region = "ap-northeast-2"
-    
-    # State Lock (DynamoDB)
-    dynamodb_table = "terraform-lock"
+    dynamodb_table = "terraform-lock"  # State Lock
     encrypt = true
   }
 }
 
-# State는 절대 Git에 커밋 금지!
-# .gitignore에 추가:
+# .gitignore에 추가 (State 파일 커밋 금지)
 terraform.tfstate
 terraform.tfstate.backup
 .terraform/
 ```
 
-### Sensitive 정보
+### Sensitive 정보 보호
 
 ```bash
-# 민감 정보는 변수로
-# terraform.tfvars (Git 무시)
-rabbitmq_password = "super-secret-password"
-db_password = "another-secret"
-
-# 또는 환경변수
-export TF_VAR_rabbitmq_password="secret"
+# 환경 변수 사용
+export TF_VAR_db_password="secret"
 
 # Ansible Vault 사용
 ansible-vault encrypt group_vars/all.yml
@@ -951,102 +384,46 @@ ansible-playbook site.yml --ask-vault-pass
 
 ---
 
-## 📋 구현 체크리스트
-
-### Terraform
-
-- [ ] VPC 모듈 작성
-- [ ] 보안 그룹 모듈
-- [ ] EC2 모듈
-- [ ] S3 Backend 설정
-- [ ] variables.tf 정의
-- [ ] outputs.tf 정의
-- [ ] user-data 스크립트
-
-### Ansible
-
-- [ ] inventory 템플릿
-- [ ] common role (OS 설정)
-- [ ] docker role (Docker 설치)
-- [ ] kubernetes role (kubeadm 설치)
-- [ ] master-init playbook
-- [ ] worker-join playbook
-- [ ] argocd playbook
-- [ ] rabbitmq playbook
-- [ ] monitoring playbook
-
----
-
-## 🎯 최종 구조
-
-```
-backend/
-├── terraform/               # 인프라 코드
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   ├── modules/
-│   └── environments/
-│
-├── ansible/                 # 설정 코드
-│   ├── ansible.cfg
-│   ├── inventory/
-│   ├── playbooks/
-│   ├── roles/
-│   └── site.yml
-│
-├── docs/
-│   └── architecture/
-│       └── iac-terraform-ansible.md  # 이 문서
-│
-└── scripts/
-    ├── provision.sh         # 전체 자동화 스크립트
-    └── destroy.sh           # 인프라 삭제
-```
-
----
-
-## 🚀 One-command 배포
-
-```bash
-# scripts/provision.sh
-#!/bin/bash
-set -e
-
-echo "🚀 K8s 클러스터 프로비저닝 시작..."
-
-# 1. Terraform
-cd terraform
-terraform init
-terraform apply -auto-approve
-terraform output -raw ansible_inventory > ../ansible/inventory/hosts.ini
-
-# 2. Ansible (2분 대기 후)
-sleep 120  # EC2 완전히 부팅 대기
-cd ../ansible
-ansible-playbook -i inventory/hosts.ini site.yml
-
-# 3. ArgoCD Applications
-sleep 60
-ssh ubuntu@$(cd ../terraform && terraform output -raw master_public_ip) \
-  "kubectl apply -f /tmp/argocd-applications.yaml"
-
-echo "✅ 클러스터 프로비저닝 완료!"
-echo "Master IP: $(cd terraform && terraform output -raw master_public_ip)"
-echo "ArgoCD: https://argocd.yourdomain.com"
-```
-
----
-
 ## 📚 참고 자료
 
+### 관련 문서
+- [GitOps Pipeline Diagram](../architecture/GITOPS_PIPELINE_DIAGRAM.md) - Mermaid 다이어그램
+- [GitOps Architecture](../deployment/GITOPS_ARCHITECTURE.md) - 도구별 역할 구분
+- [Service Architecture](../architecture/03-SERVICE_ARCHITECTURE.md) - 14-Node 상세 아키텍처
+- [Auto Rebuild Guide](../deployment/AUTO_REBUILD_GUIDE.md) - 자동 배포 가이드
+
+### 공식 문서
 - [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- [Ansible Kubernetes Module](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/index.html)
-- [Terraform Best Practices](https://www.terraform-best-practices.com/)
+- [Ansible Best Practices](https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html)
+- [Kubeadm Installation](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/)
+- [Calico CNI Documentation](https://docs.tigera.io/calico/latest/about/)
 
 ---
 
 **작성일**: 2025-10-30  
-**상태**: 🔄 검토 대기  
-**예상 구축 시간**: Terraform (5분) + Ansible (30분) = 35분
+**최종 업데이트**: 2025-11-12  
+**상태**: ✅ 프로덕션 완료 (14-Node Architecture)  
+**예상 구축 시간**: 40-60분 (Terraform 15-20분 + Ansible 25-40분)
 
+---
+
+## 🔑 핵심 요약
+
+### Terraform과 Ansible의 명확한 역할 분리
+- **Terraform (Layer 0)**: AWS 인프라 생성/삭제 (EC2, VPC, IAM 등)
+- **Ansible (Layer 1)**: Kubernetes 클러스터 설정 (kubeadm, CNI, Labels 등)
+
+### 14-Node 마이크로서비스 아키텍처
+- Master 1개 + API 7개 + Worker 2개 + Infra 4개
+- 도메인별 전용 노드 격리 (Taints & Tolerations)
+- Phase별 배포 순서 제어 (Wave 1-3)
+
+### GitOps 완전 자동화
+```bash
+./scripts/cluster/auto-rebuild.sh  # 원 커맨드 배포
+```
+
+### 비용 효율성
+- 월 예상 비용: ~$864
+- terraform destroy로 즉시 삭제 가능
+- 개발 완료 후 비용 절감
