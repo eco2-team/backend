@@ -33,7 +33,7 @@
 API 서비스: 7개 (auth, my, scan, character, location, info, chat)
 Worker 서비스: 2개 (storage, ai)
 인프라: PostgreSQL, Redis, RabbitMQ, Monitoring
-배포 방식: GitOps (Terraform + Ansible + ArgoCD + Atlantis)
+배포 방식: GitOps (Terraform + Ansible + Kustomize + ArgoCD + Atlantis)
 ```
 
 ### 왜 Self-Managed Kubernetes?
@@ -131,7 +131,7 @@ graph TD
     style G fill:#0c4a6e,color:#fff
 ```
 
-→ 자세한 내용: [docs/architecture/05-final-k8s-architecture.md](docs/architecture/05-final-k8s-architecture.md)
+→ 자세한 내용: [docs/architecture/03-SERVICE_ARCHITECTURE.md](docs/architecture/03-SERVICE_ARCHITECTURE.md)
 
 ---
 
@@ -183,14 +183,14 @@ ansible-playbook playbooks/label-nodes.yml
 # 예상 소요 시간: 15-20분
 ```
 
-### 4️⃣ 애플리케이션 배포 (ArgoCD)
+### 4️⃣ 애플리케이션 배포 (ArgoCD + Kustomize)
 
 ```bash
-# ArgoCD ApplicationSet 배포
-kubectl apply -f argocd/applications/ecoeco-14nodes-appset.yaml
+# ArgoCD ApplicationSet 배포 (Kustomize 기반)
+kubectl apply -f argocd/applications/ecoeco-appset-kustomize.yaml
 
 # 상태 확인
-argocd app list
+kubectl get applications -n argocd
 
 # 예상 소요 시간: 5-10분
 ```
@@ -213,10 +213,9 @@ argocd app list
 | 분류 | 문서 | 설명 |
 |------|------|------|
 | **시작하기** | [IaC Quick Start](docs/infrastructure/04-IaC_QUICK_START.md) | Terraform + Ansible 빠른 시작 |
-| **아키텍처** | [14-Node Architecture](docs/deployment/14-node-completion-summary.md) | 14-Node 아키텍처 완성 문서 |
+| **아키텍처** | [Service Architecture](docs/architecture/03-SERVICE_ARCHITECTURE.md) | 14-Node 아키텍처 상세 문서 |
 | **배포** | [Auto Rebuild Guide](docs/deployment/AUTO_REBUILD_GUIDE.md) | 자동 배포 스크립트 가이드 |
-| **GitOps** | [GitOps Architecture](docs/deployment/GITOPS_ARCHITECTURE.md) | GitOps 전체 구성 상세 설명 |
-| **GitOps** | [GitOps Quick Reference](docs/deployment/GITOPS_QUICK_REFERENCE.md) | GitOps 빠른 참조 가이드 |
+| **GitOps** | [Kustomize Pipeline](docs/deployment/GITOPS_PIPELINE_KUSTOMIZE.md) | Kustomize 기반 GitOps 파이프라인 |
 | **GitOps** | [ArgoCD Access](docs/deployment/ARGOCD_ACCESS.md) | ArgoCD 접속 정보 및 사용법 |
 | **모니터링** | [Monitoring Setup](docs/deployment/MONITORING_SETUP.md) | Prometheus + Grafana 설정 |
 | **트러블슈팅** | [Troubleshooting Index](docs/troubleshooting/README.md) | 주요 이슈 해결 방법 |
@@ -233,22 +232,22 @@ argocd app list
 
 ```mermaid
 graph TB
-    subgraph Layer3["Layer 3: Application Code - Developer"]
+    subgraph Layer3["Layer 3: Developer"]
         L3A["🎯 애플리케이션 개발"]
         L3B["🔧 GitHub Actions CI"]
     end
     
     Layer3 -->|Build & Push| Layer2
     
-    subgraph Layer2["Layer 2: Kubernetes Resources - ArgoCD"]
+    subgraph Layer2["Layer 2: ArgoCD + Kustomize"]
         L2A["🚀 K8s 리소스 배포"]
         L2B["⏱️ Auto-Sync 3분마다"]
-        L2C["📁 k8s/*.yaml"]
+        L2C["📁 k8s/base/ + overlays/"]
     end
     
     Layer2 -->|kubectl apply| Layer1
     
-    subgraph Layer1["Layer 1: Kubernetes Cluster - Ansible"]
+    subgraph Layer1["Layer 1: KAnsible"]
         L1A["⚙️ 클러스터 설정"]
         L1B["🔨 Ansible 수동 실행"]
         L1C["📁 ansible/playbooks/*.yml"]
@@ -256,7 +255,7 @@ graph TB
     
     Layer1 -->|SSH & kubeadm| Layer0
     
-    subgraph Layer0["Layer 0: AWS Infrastructure - Atlantis"]
+    subgraph Layer0["Layer 0: Atlantis"]
         L0A["☁️ 인프라 생성"]
         L0B["🏗️ Atlantis + Terraform"]
         L0C["📁 terraform/*.tf"]
@@ -315,17 +314,20 @@ ansible-playbook -i ansible/inventory/hosts.ini \
 # 4. CNI 업그레이드 완료 ✅
 ```
 
-#### 시나리오 3: Auth API 버전 업데이트
+#### 시나리오 3: Auth API 새 기능 배포
 
 ```bash
-# 1. src/auth/*.ts 코드 수정
-# 2. Git Push
-# 3. GitHub Actions 자동 실행:
-#    - 테스트
-#    - Docker 이미지 빌드 (v1.2.3)
-#    - 이미지 푸시
-#    - k8s/auth/auth-deployment.yaml 이미지 태그 업데이트
-# 4. ArgoCD 자동 감지 및 배포 (3분 이내) ✅
+# 1. k8s/overlays/auth/deployment-patch.yaml 수정
+# 새로운 환경변수 추가
+env:
+  - name: FEATURE_FLAG_NEW_LOGIN
+    value: "true"
+
+# 2. Git Push (develop 또는 main)
+git push origin main
+
+# 3. ArgoCD 자동 감지 및 배포 (3분 이내)
+# 4. auth-api Pod가 Rolling Update로 재배포 ✅
 ```
 
 #### 시나리오 4: PostgreSQL 리소스 증가
@@ -368,8 +370,8 @@ graph LR
     subgraph "backend/"
         T["terraform/<br/>Atlantis 관리"]
         A["ansible/<br/>Ansible 관리"]
-        K["k8s/<br/>ArgoCD 관리"]
-        S["src/<br/>GitHub Actions 빌드"]
+        K["k8s/<br/>ArgoCD + Kustomize"]
+        S["services/<br/>GitHub Actions 빌드"]
     end
     
     T --> T1[main.tf]
@@ -379,9 +381,9 @@ graph LR
     A --> A1[playbooks/]
     A1 --> A2[site.yml]
     
-    K --> K1[auth/]
-    K --> K2[scan/]
-    K --> K3[database/]
+    K --> K1[base/]
+    K --> K2[overlays/auth/]
+    K --> K3[overlays/scan/]
     
     S --> S1[auth/]
     S --> S2[scan/]
@@ -394,9 +396,10 @@ graph LR
 
 ### 상세 문서
 
-- [GitOps Architecture](docs/deployment/GITOPS_ARCHITECTURE.md) - 전체 구성 상세 설명
-- [GitOps Quick Reference](docs/deployment/GITOPS_QUICK_REFERENCE.md) - 빠른 참조 가이드
+- [Kustomize GitOps Pipeline](docs/deployment/GITOPS_PIPELINE_KUSTOMIZE.md) - Kustomize 기반 파이프라인 상세 설명
+- [GitOps Tooling Decision](docs/architecture/08-GITOPS_TOOLING_DECISION.md) - Helm에서 Kustomize로 전환한 이유
 - [ArgoCD Access](docs/deployment/ARGOCD_ACCESS.md) - ArgoCD 접속 및 사용법
+- [Cluster Validation Report](docs/validation/CLUSTER_VALIDATION_REPORT.md) - 클러스터 검증 보고서
 
 ---
 
@@ -416,6 +419,7 @@ Ansible (Configuration):
 ArgoCD (CD):
   - Kubernetes 리소스 자동 배포
   - ApplicationSet으로 멀티 서비스 관리
+  - Kustomize 기반 manifest 관리
   - Auto-Sync (3분마다)
 ```
 
@@ -514,8 +518,8 @@ Alerting:
 | 도구 | 역할 | 통합 |
 |------|------|------|
 | **GitHub Actions** | CI Pipeline | PR 기반 Workflow |
-| **ArgoCD** | Kubernetes CD | GitOps |
-| **Helm** | Package Manager | Chart 관리 |
+| **ArgoCD** | Kubernetes CD | GitOps + Kustomize |
+| **Kustomize** | Manifest 관리 | Base + Overlays |
 | **GHCR** | Container Registry | GitHub 통합 |
 
 ### Monitoring
@@ -559,11 +563,12 @@ Kubernetes:
 
 GitOps (완성):
   ✅ Terraform + Atlantis 통합 (https://atlantis.growbin.app)
-  ✅ ArgoCD + ApplicationSet (https://argocd.growbin.app)
+  ✅ ArgoCD + ApplicationSet + Kustomize (https://argocd.growbin.app)
   ✅ 4-Layer GitOps 아키텍처 완성
-  ✅ GitHub Actions (Lint/Test + Helm values 자동 업데이트)
-  ✅ Helm Charts (values-14nodes.yaml)
+  ✅ GitHub Actions (CI/CD)
+  ✅ Kustomize Base + 7개 API Overlays
   ✅ 완전 자동 배포 파이프라인 구축
+  ✅ Node Taints & Pod Tolerations (API별 전용 노드 격리)
 
 Monitoring:
   ✅ Prometheus + Grafana (https://grafana.growbin.app)
@@ -620,6 +625,6 @@ Documentation:
 
 ---
 
-**Last Updated**: 2025-11-11  
-**Version**: v0.7.0 (14-Nodes Production Architecture + Full GitOps)
+**Last Updated**: 2025-11-12  
+**Version**: v0.7.1 (14-Nodes + Kustomize GitOps)
 
