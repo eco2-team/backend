@@ -247,7 +247,7 @@ graph TB
     
     Layer2 -->|kubectl apply| Layer1
     
-    subgraph Layer1["Layer 1: KAnsible"]
+    subgraph Layer1["Layer 1: Ansible"]
         L1A["⚙️ 클러스터 설정"]
         L1B["🔨 Ansible 수동 실행"]
         L1C["📁 ansible/playbooks/*.yml"]
@@ -357,8 +357,6 @@ resources:
 | 항목 | 내용 |
 |------|------|
 | **URL** | https://argocd.growbin.app |
-| **Username** | admin |
-| **Password** | TLybIfgEpRr7rC8G |
 | **Role** | K8s 애플리케이션 배포 |
 
 > **보안**: 초기 비밀번호는 접속 후 즉시 변경하세요!
