@@ -8,6 +8,11 @@ spec:
     spec:
       nodeSelector:
         domain: auth
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: auth
+        effect: NoSchedule
       containers:
       - name: app
         env:
