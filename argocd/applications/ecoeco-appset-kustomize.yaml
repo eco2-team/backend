@@ -1,0 +1,132 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Kustomize-based ApplicationSet for 14-Node Architecture
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ecoeco-api-services-kustomize
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ecoeco-api
+    app.kubernetes.io/part-of: ecoeco-platform
+    architecture: 14-nodes-kustomize
+spec:
+  generators:
+    - list:
+        elements:
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          # Phase 1: Core APIs
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          - domain: auth
+            namespace: api
+            phase: "1"
+            description: "인증/인가 (JWT Blacklist)"
+          
+          - domain: my
+            namespace: api
+            phase: "1"
+            description: "마이페이지"
+          
+          - domain: scan
+            namespace: api
+            phase: "1"
+            description: "쓰레기 분류 (고트래픽)"
+          
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          # Phase 2: Extended APIs
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          - domain: character
+            namespace: api
+            phase: "2"
+            description: "캐릭터"
+          
+          - domain: location
+            namespace: api
+            phase: "2"
+            description: "위치 기반"
+          
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          # Phase 3: Advanced APIs
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          - domain: info
+            namespace: api
+            phase: "3"
+            description: "재활용 정보"
+          
+          - domain: chat
+            namespace: api
+            phase: "3"
+            description: "AI 챗봇 (WebSocket)"
+  
+  template:
+    metadata:
+      name: 'ecoeco-api-{{domain}}'
+      labels:
+        app: 'ecoeco-api-{{domain}}'
+        domain: '{{domain}}'
+        phase: '{{phase}}'
+        tier: api
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{phase}}'
+        description: '{{description}}'
+    
+    spec:
+      project: default
+      
+      source:
+        repoURL: https://github.com/SeSACTHON/backend
+        targetRevision: main
+        path: k8s/overlays/{{domain}}
+      
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+        
+        retry:
+          limit: 3
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 1m
+      
+      revisionHistoryLimit: 5
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ApplicationSet Summary (Kustomize-based)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# 총 7개 API Applications (Kustomize overlays):
+#   - auth, my, scan (Phase 1)
+#   - character, location (Phase 2)
+#   - info, chat (Phase 3)
+#
+# 각 Application:
+#   - k8s/overlays/{domain}/kustomization.yaml 기반
+#   - k8s/base/ 공통 manifests 상속
+#   - 독립적인 배포 및 롤백
+#
+# Sync Wave 순서:
+#   Wave 1: Phase 1 APIs (auth, my, scan)
+#   Wave 2: Phase 2 APIs (character, location)
+#   Wave 3: Phase 3 APIs (info, chat)
+#
+# 장점:
+#   ✅ 순수 YAML (템플릿 없음)
+#   ✅ Git diff 명확
+#   ✅ 디버깅 용이 (kubectl kustomize)
+#   ✅ MSA 원칙 준수
+#
+
