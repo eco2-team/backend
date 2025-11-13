@@ -310,7 +310,7 @@ print_header "5️⃣ Kubernetes 클러스터 확인"
 
 # kubeconfig 복사 (Master 노드에서)
 log "kubeconfig 복사 중..."
-ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@"$MASTER_IP" \
+ssh -o StrictHostKeyChecking=no -i ~/.ssh/sesacthon.pem ubuntu@"$MASTER_IP" \
     "sudo cat /etc/kubernetes/admin.conf" > "$PROJECT_ROOT/kubeconfig.tmp" 2>/dev/null
 
 # Server IP 교체
@@ -350,7 +350,7 @@ if [ -z "$KUBECONFIG" ] || [ ! -f "$KUBECONFIG" ]; then
     
     # Master 노드에서 Ingress 생성
     log "Master 노드에서 Ingress 생성 중..."
-    ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@"$MASTER_IP" << 'INGRESS_EOF'
+    ssh -o StrictHostKeyChecking=no -i ~/.ssh/sesacthon.pem ubuntu@"$MASTER_IP" << 'INGRESS_EOF'
         # 필요한 Namespace 생성
         kubectl create namespace api --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null || true
         

@@ -1,0 +1,15 @@
+# Infrastructure Kustomize - 모든 기반 리소스
+# 배포 순서: Wave 0 (가장 먼저)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespaces
+  - networkpolicies
+  - monitoring
+
+commonLabels:
+  app.kubernetes.io/managed-by: argocd
+  app.kubernetes.io/part-of: ecoeco-backend
+  app.kubernetes.io/component: infrastructure
+

@@ -158,13 +158,16 @@ else
 fi
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 3️⃣ AWS 의존성 리소스 사전 정리
+# 3️⃣ AWS 의존성 리소스 사전 정리 (VPC 점유 리소스)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 print_header "3️⃣ AWS 의존성 리소스 사전 정리"
 
 if [ -n "$VPC_ID" ]; then
-    # Load Balancer 확인 및 삭제
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 3-1. Load Balancers (ALB/NLB)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
     log "Load Balancer 확인 중..."
     ALB_ARNS=$(aws elbv2 describe-load-balancers \
         --region "$AWS_REGION" \
@@ -174,6 +177,8 @@ if [ -n "$VPC_ID" ]; then
     if [ -n "$ALB_ARNS" ]; then
         log_warn "Load Balancer 발견 (삭제 중...)"
         for alb_arn in $ALB_ARNS; do
+            ALB_NAME=$(aws elbv2 describe-load-balancers --load-balancer-arns "$alb_arn" --region "$AWS_REGION" --query 'LoadBalancers[0].LoadBalancerName' --output text)
+            log_info "삭제: $ALB_NAME"
             aws elbv2 delete-load-balancer --load-balancer-arn "$alb_arn" --region "$AWS_REGION" 2>/dev/null || true
         done
         log "ALB 삭제 대기 중... (60초)"
@@ -182,7 +187,10 @@ if [ -n "$VPC_ID" ]; then
         log "✅ Load Balancer 없음"
     fi
     
-    # Target Groups 삭제
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 3-2. Target Groups
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
     log "Target Groups 확인 중..."
     TG_ARNS=$(aws elbv2 describe-target-groups \
         --region "$AWS_REGION" \
@@ -197,6 +205,86 @@ if [ -n "$VPC_ID" ]; then
         log "✅ Target Groups 삭제 완료"
     else
         log "✅ Target Groups 없음"
+    fi
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 3-3. NAT Gateways (VPC 삭제 지연의 주요 원인)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    log "NAT Gateways 확인 중..."
+    NAT_IDS=$(aws ec2 describe-nat-gateways \
+        --region "$AWS_REGION" \
+        --filter "Name=vpc-id,Values=$VPC_ID" "Name=state,Values=available,pending" \
+        --query "NatGateways[].NatGatewayId" \
+        --output text 2>/dev/null || echo "")
+    
+    if [ -n "$NAT_IDS" ]; then
+        log_warn "NAT Gateway 발견 (삭제 중...)"
+        for nat_id in $NAT_IDS; do
+            log_info "삭제: $nat_id"
+            aws ec2 delete-nat-gateway --nat-gateway-id "$nat_id" --region "$AWS_REGION" 2>/dev/null || true
+        done
+        log "NAT Gateway 삭제 대기 중... (120초)"
+        sleep 120
+        log "✅ NAT Gateways 삭제 완료"
+    else
+        log "✅ NAT Gateways 없음"
+    fi
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 3-4. Network Interfaces (ENI)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    log "Network Interfaces 확인 중..."
+    ENI_IDS=$(aws ec2 describe-network-interfaces \
+        --region "$AWS_REGION" \
+        --filters "Name=vpc-id,Values=$VPC_ID" \
+        --query "NetworkInterfaces[?Status!='in-use'].NetworkInterfaceId" \
+        --output text 2>/dev/null || echo "")
+    
+    if [ -n "$ENI_IDS" ]; then
+        log_warn "Network Interface 발견 (삭제 중...)"
+        for eni_id in $ENI_IDS; do
+            aws ec2 delete-network-interface --network-interface-id "$eni_id" --region "$AWS_REGION" 2>/dev/null || true
+        done
+        log "✅ Network Interfaces 삭제 완료"
+    else
+        log "✅ Network Interfaces 없음 (미사용)"
+    fi
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 3-5. Security Groups (ALB Controller가 생성한 것들)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    log "Security Groups 확인 중..."
+    SG_IDS=$(aws ec2 describe-security-groups \
+        --region "$AWS_REGION" \
+        --filters "Name=vpc-id,Values=$VPC_ID" \
+        --query "SecurityGroups[?GroupName!='default'].GroupId" \
+        --output text 2>/dev/null || echo "")
+    
+    if [ -n "$SG_IDS" ]; then
+        log_warn "Security Groups 발견 (규칙 삭제 및 제거 중...)"
+        for sg_id in $SG_IDS; do
+            SG_NAME=$(aws ec2 describe-security-groups --group-ids "$sg_id" --region "$AWS_REGION" --query 'SecurityGroups[0].GroupName' --output text 2>/dev/null || echo "")
+            log_info "처리 중: $SG_NAME ($sg_id)"
+            
+            # Ingress 규칙 삭제
+            aws ec2 revoke-security-group-ingress --group-id "$sg_id" \
+                --ip-permissions "$(aws ec2 describe-security-groups --group-ids "$sg_id" --region "$AWS_REGION" --query 'SecurityGroups[0].IpPermissions' --output json)" \
+                --region "$AWS_REGION" 2>/dev/null || true
+            
+            # Egress 규칙 삭제
+            aws ec2 revoke-security-group-egress --group-id "$sg_id" \
+                --ip-permissions "$(aws ec2 describe-security-groups --group-ids "$sg_id" --region "$AWS_REGION" --query 'SecurityGroups[0].IpPermissionsEgress' --output json)" \
+                --region "$AWS_REGION" 2>/dev/null || true
+            
+            # Security Group 삭제
+            aws ec2 delete-security-group --group-id "$sg_id" --region "$AWS_REGION" 2>/dev/null || true
+        done
+        log "✅ Security Groups 삭제 완료"
+    else
+        log "✅ Security Groups 없음 (default 제외)"
     fi
 fi
 

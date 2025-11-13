@@ -175,37 +175,46 @@ terraform apply -auto-approve
 ```bash
 cd ansible
 
-# Bootstrap (Docker, Kubernetes 설치)
-ansible-playbook playbooks/site.yml
-
-# 노드 라벨링
-ansible-playbook playbooks/label-nodes.yml
+# 전체 클러스터 구성 (Kubeadm, CNI, Add-ons, ArgoCD, Atlantis)
+ansible-playbook site.yml
 
 # 예상 소요 시간: 15-20분
 ```
 
-### 4️⃣ 애플리케이션 배포 (ArgoCD + Kustomize)
+### 4️⃣ GitOps 배포 (ArgoCD App of Apps)
 
 ```bash
-# ArgoCD ApplicationSet 배포 (Kustomize 기반)
-kubectl apply -f argocd/applications/ecoeco-appset-kustomize.yaml
+# Root Application 배포 (모든 인프라 + 애플리케이션 자동 배포)
+kubectl apply -f argocd/root-app.yaml
 
-# 상태 확인
-kubectl get applications -n argocd
+# 배포 상태 모니터링
+./scripts/utilities/argocd-quick-status.sh
+
+# ArgoCD 대시보드 접속
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+# https://localhost:8080
 
 # 예상 소요 시간: 5-10분
 ```
 
-### 5️⃣ 전체 자동화 (추천)
+### 5️⃣ GitHub Actions 자동화 (신규 클러스터 부트스트랩)
 
 ```bash
-# 모든 단계를 한 번에 실행
-./scripts/cluster/auto-rebuild.sh
+# GitHub Actions에서 수동 실행
+# .github/workflows/infrastructure-bootstrap.yml
+# → Run workflow 버튼 클릭
+
+# 전체 프로세스 자동 실행:
+# 1. Terraform apply (인프라 생성)
+# 2. Ansible playbook (클러스터 구성)
+# 3. ArgoCD root-app 배포 (애플리케이션 배포)
 
 # 예상 소요 시간: 40-60분
 ```
 
-→ 자세한 내용: [docs/deployment/AUTO_REBUILD_GUIDE.md](docs/deployment/AUTO_REBUILD_GUIDE.md)
+→ 자세한 내용: 
+- [Infrastructure Deployment Guide](docs/deployment/INFRASTRUCTURE_DEPLOYMENT.md)
+- [ArgoCD Monitoring Guide](docs/deployment/ARGOCD_MONITORING_GUIDE.md)
 
 ---
 
@@ -213,24 +222,42 @@ kubectl get applications -n argocd
 
 | 분류 | 문서 | 설명 |
 |------|------|------|
-| **시작하기** | [IaC Quick Start](docs/infrastructure/04-IaC_QUICK_START.md) | Terraform + Ansible 빠른 시작 |
-| **아키텍처** | [Service Architecture](docs/architecture/03-SERVICE_ARCHITECTURE.md) | 14-Node 아키텍처 상세 문서 |
-| **아키텍처** | [Namespace Strategy](docs/architecture/09-NAMESPACE_STRATEGY_ANALYSIS.md) | 네임스페이스 전략 분석 (v0.7.2) |
-| **배포** | [Auto Rebuild Guide](docs/deployment/AUTO_REBUILD_GUIDE.md) | 자동 배포 스크립트 가이드 |
-| **배포** | [Namespace Consistency Checklist](docs/deployment/NAMESPACE_CONSISTENCY_CHECKLIST.md) | 네임스페이스 일관성 점검 |
-| **GitOps** | [Kustomize Pipeline](docs/development/GITOPS_PIPELINE_KUSTOMIZE.md) | Kustomize 기반 GitOps 파이프라인 |
-| **GitOps** | [ArgoCD Access](docs/deployment/ARGOCD_ACCESS.md) | ArgoCD 접속 정보 및 사용법 |
-| **GitOps** | [Tooling Decision](docs/architecture/08-GITOPS_TOOLING_DECISION.md) | Helm → Kustomize 전환 이유 |
-| **모니터링** | [Monitoring Setup](docs/deployment/MONITORING_SETUP.md) | Prometheus + Grafana 설정 |
-| **트러블슈팅** | [Troubleshooting Index](docs/troubleshooting/README.md) | 주요 이슈 해결 방법 |
+| **🚀 시작하기** | [Infrastructure Deployment](docs/deployment/INFRASTRUCTURE_DEPLOYMENT.md) | 전체 배포 가이드 (v0.7.3) |
+| **🏗️ 아키텍처** | [GitOps Best Practices](docs/architecture/GITOPS_BEST_PRACTICES.md) | GitOps 아키텍처 설계 원칙 |
+| **🏗️ 아키텍처** | [Kustomize App of Apps](docs/architecture/KUSTOMIZE_APP_OF_APPS.md) | App of Apps 패턴 구현 |
+| **🏗️ 아키텍처** | [Namespace Strategy](docs/architecture/09-NAMESPACE_STRATEGY_ANALYSIS.md) | 네임스페이스 전략 분석 |
+| **📦 배포** | [ArgoCD Monitoring Guide](docs/deployment/ARGOCD_MONITORING_GUIDE.md) | ArgoCD로 GitOps 모니터링 |
+| **📦 배포** | [ArgoCD Access](docs/deployment/ARGOCD_ACCESS.md) | ArgoCD 접속 정보 및 사용법 |
+| **🔧 GitOps** | [Kustomize Pipeline](docs/development/GITOPS_PIPELINE_KUSTOMIZE.md) | Kustomize 기반 GitOps 파이프라인 |
+| **🔧 GitOps** | [Tooling Decision](docs/architecture/08-GITOPS_TOOLING_DECISION.md) | Helm → Kustomize 전환 이유 |
+| **📊 모니터링** | [Monitoring Setup](docs/deployment/MONITORING_SETUP.md) | Prometheus + Grafana 설정 |
+| **🔍 트러블슈팅** | [Troubleshooting Index](docs/troubleshooting/README.md) | 주요 이슈 해결 방법 |
 
 ---
 
-## 🔄 GitOps 아키텍처
+## 🔄 GitOps 아키텍처 2.0
 
-### 개요
+### 개요 (v0.7.3)
 
-이 프로젝트는 **완전한 GitOps 워크플로우**를 구현하여 인프라, 클러스터 설정, 애플리케이션 배포를 모두 Git을 통해 관리합니다.
+이 프로젝트는 **App of Apps 패턴 기반 GitOps 2.0 아키텍처**를 구현하여 인프라, 클러스터 설정, 애플리케이션 배포를 완전히 자동화합니다.
+
+#### 주요 개선사항
+
+```yaml
+v0.7.3 새로운 기능:
+  ✅ ArgoCD App of Apps 패턴 도입
+  ✅ Kustomize 기반 인프라 관리 (k8s/infrastructure/)
+  ✅ Atlantis 복구 (Terraform GitOps)
+  ✅ GitHub Actions Bootstrap 워크플로우
+  ✅ ArgoCD 실시간 모니터링 도구
+  ✅ 완전 자동화된 배포 파이프라인
+
+GitOps 흐름:
+  1. Terraform (Atlantis) → AWS 리소스
+  2. Ansible → Kubernetes 클러스터 + ArgoCD + Atlantis
+  3. ArgoCD Root App → 인프라 + 애플리케이션 자동 배포
+  4. GitHub Actions → CI/CD 통합
+```
 
 ---
 
@@ -664,9 +691,13 @@ Kubernetes:
   ✅ Label & Annotation 시스템 (도메인별 분리)
   ✅ 14-Node 클러스터 성공적 배포
 
-GitOps (완성):
+GitOps (v0.7.3 완성):
   ✅ Terraform + Atlantis 통합 (https://atlantis.growbin.app)
-  ✅ ArgoCD + ApplicationSet + Kustomize (https://argocd.growbin.app)
+  ✅ ArgoCD + App of Apps + Kustomize (https://argocd.growbin.app)
+  ✅ ArgoCD Root App 패턴 구현
+  ✅ k8s/infrastructure/ Kustomize 구조화
+  ✅ GitHub Actions Bootstrap 워크플로우
+  ✅ ArgoCD 실시간 모니터링 도구
   ✅ 4-Layer GitOps 아키텍처 완성
   ✅ GitHub Actions (CI/CD)
   ✅ Kustomize Base + 7개 API Overlays
@@ -683,11 +714,13 @@ Monitoring:
   ✅ 14-Node 대시보드
 
 Documentation:
-  ✅ 아키텍처 문서 (30개)
-  ✅ 배포 가이드 (22개)
+  ✅ 아키텍처 문서 (32개 - GitOps 2.0 추가)
+  ✅ 배포 가이드 (24개 - ArgoCD 모니터링 추가)
   ✅ 트러블슈팅 가이드 (20개)
   ✅ GitOps 설계 문서 완성
   ✅ 문서 정리 (Archive 제거)
+  ✅ App of Apps 패턴 가이드
+  ✅ ArgoCD 모니터링 가이드
 ```
 
 ### 🚧 진행 중 / 계획
@@ -731,6 +764,6 @@ Documentation:
 
 ---
 
-**Last Updated**: 2025-11-13  
-**Version**: v0.7.2 (Domain-based Namespace + Ingress Refactoring)
+**Last Updated**: 2025-11-14  
+**Version**: v0.7.3 (GitOps Architecture 2.0 - App of Apps + Atlantis Restoration)
 
