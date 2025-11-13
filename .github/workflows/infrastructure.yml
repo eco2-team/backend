@@ -278,10 +278,6 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/k8s-cluster-key.pem
           chmod 600 ~/.ssh/k8s-cluster-key.pem
           
-          # SSH Agent 시작
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/k8s-cluster-key.pem
-          
           # SSH Config 설정
           cat >> ~/.ssh/config <<EOF
           Host *
@@ -386,10 +382,6 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/k8s-cluster-key.pem
           chmod 600 ~/.ssh/k8s-cluster-key.pem
-          
-          # SSH Agent 시작
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/k8s-cluster-key.pem
           
           # Master 노드에서 kubeconfig 가져오기
           scp -o StrictHostKeyChecking=no \
