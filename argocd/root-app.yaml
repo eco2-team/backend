@@ -1,0 +1,49 @@
+# ArgoCD Root Application (App of Apps)
+# 모든 하위 Application을 관리하는 최상위 Application
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-app
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: root-app
+    app.kubernetes.io/part-of: ecoeco-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"  # 가장 먼저 실행
+spec:
+  project: default
+  
+  # Source: argocd/apps 디렉토리의 모든 Application 정의
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: argocd/apps  # 하위 Applications가 정의된 디렉토리
+  
+  # Destination: ArgoCD 네임스페이스
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  
+  # Sync Policy: 자동 동기화
+  syncPolicy:
+    automated:
+      prune: true      # 삭제된 리소스 자동 제거
+      selfHeal: true   # Drift 감지 시 자동 복구
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  # Revision History
+  revisionHistoryLimit: 10
+

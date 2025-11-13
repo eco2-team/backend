@@ -1,0 +1,422 @@
+# 도메인별 네트워크 정책
+# 14-Node Microservices Architecture
+# 
+# 목적:
+# 1. 도메인 간 격리 (Zero Trust)
+# 2. Data 계층 접근 제어
+# 3. 외부 트래픽 제한
+#
+# 참고: docs/architecture/09-NAMESPACE_STRATEGY_ANALYSIS.md
+
+---
+# auth 네임스페이스 - Data 계층 접근 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: auth-api-policy
+  namespace: auth
+spec:
+  podSelector:
+    matchLabels:
+      domain: auth
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    # ALB에서 들어오는 트래픽
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8000
+  
+  egress:
+    # PostgreSQL 접근 (data 네임스페이스)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+        - podSelector:
+            matchLabels:
+              app: postgresql
+      ports:
+        - protocol: TCP
+          port: 5432
+    
+    # Redis 접근 (data 네임스페이스)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# my 네임스페이스
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-api-policy
+  namespace: my
+spec:
+  podSelector:
+    matchLabels:
+      domain: my
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8000
+  
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# scan 네임스페이스 - S3/RabbitMQ 접근 추가
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: scan-api-policy
+  namespace: scan
+spec:
+  podSelector:
+    matchLabels:
+      domain: scan
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8000
+  
+  egress:
+    # PostgreSQL
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+      ports:
+        - protocol: TCP
+          port: 5432
+    
+    # RabbitMQ (메시지 큐)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+        - podSelector:
+            matchLabels:
+              app: rabbitmq
+      ports:
+        - protocol: TCP
+          port: 5672
+    
+    # S3 접근 (HTTPS)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+    
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# character 네임스페이스
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: character-api-policy
+  namespace: character
+spec:
+  podSelector:
+    matchLabels:
+      domain: character
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8000
+  
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# location 네임스페이스
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: location-api-policy
+  namespace: location
+spec:
+  podSelector:
+    matchLabels:
+      domain: location
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8000
+  
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# info 네임스페이스
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: info-api-policy
+  namespace: info
+spec:
+  podSelector:
+    matchLabels:
+      domain: info
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8000
+  
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# chat 네임스페이스 - WebSocket 지원
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: chat-api-policy
+  namespace: chat
+spec:
+  podSelector:
+    matchLabels:
+      domain: chat
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8000
+  
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+      ports:
+        - protocol: TCP
+          port: 6379
+    # OpenAI API 접근
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# data 네임스페이스 - 모든 API에서 접근 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: data-layer-policy
+  namespace: data
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  
+  ingress:
+    # auth, my, scan, character, location, info, chat에서 접근 허용
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              tier: business-logic
+      ports:
+        - protocol: TCP
+          port: 5432  # PostgreSQL
+        - protocol: TCP
+          port: 6379  # Redis
+        - protocol: TCP
+          port: 5672  # RabbitMQ
+
+---
+# monitoring 네임스페이스 - 모든 네임스페이스 메트릭 수집
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitoring-policy
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    # Grafana 대시보드 접근
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 3000
+  
+  egress:
+    # 모든 네임스페이스 메트릭 수집
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8000  # API metrics
+        - protocol: TCP
+          port: 9100  # Node exporter
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
