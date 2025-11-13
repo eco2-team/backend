@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TERRAFORM_DIR="${PROJECT_ROOT}/terraform"
-SSH_KEY="${HOME}/.ssh/id_rsa"
+SSH_KEY="${HOME}/.ssh/sesacthon.pem"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🔐 Atlantis Secret 생성 (원격 클러스터)"

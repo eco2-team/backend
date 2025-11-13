@@ -1,7 +1,7 @@
 [all:vars]
 ansible_connection=ssh
 ansible_user=ubuntu
-ansible_ssh_private_key_file=~/.ssh/id_rsa
+ansible_ssh_private_key_file=~/.ssh/sesacthon.pem
 ansible_ssh_common_args=-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
 ansible_python_interpreter=/usr/bin/python3
 
