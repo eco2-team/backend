@@ -1,4 +1,0 @@
-{{- if false }}
-# Ingress template disabled - using api.ingress in values  
-{{- end }}
-

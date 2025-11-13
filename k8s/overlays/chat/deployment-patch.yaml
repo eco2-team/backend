@@ -19,7 +19,7 @@ spec:
         - name: SERVICE_NAME
           value: "chat-api"
         - name: REDIS_HOST
-          value: "redis.db.svc.cluster.local"
+          value: "redis.data.svc.cluster.local"
         - name: RABBITMQ_HOST
-          value: "rabbitmq.db.svc.cluster.local"
+          value: "rabbitmq.messaging.svc.cluster.local"
 

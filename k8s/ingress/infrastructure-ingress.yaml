@@ -1,0 +1,245 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 인프라 서비스 Ingress (Atlantis, Grafana, ArgoCD, Prometheus)
+# ALB Group을 통한 단일 ALB 공유 (API와 동일한 ALB)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 1. Atlantis Ingress (atlantis.growbin.app)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: atlantis-ingress
+  namespace: atlantis
+  labels:
+    app: atlantis
+    component: gitops
+    tier: infrastructure
+    layer: "0"
+  annotations:
+    # ALB 기본 설정
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # Backend Protocol
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    
+    # Health Check
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    
+    # SSL Certificate (ACM)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    
+    # ALB Group (API와 동일한 ALB 사용)
+    alb.ingress.kubernetes.io/group.name: ecoeco-main
+    alb.ingress.kubernetes.io/group.order: '20'
+    
+    # GitHub Webhook 타임아웃 증가
+    alb.ingress.kubernetes.io/backend-protocol-timeout: '300'
+    
+    # Tags
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=atlantis,Architecture=14-nodes
+spec:
+  ingressClassName: alb
+  rules:
+    - host: atlantis.growbin.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: atlantis
+                port:
+                  number: 80
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 2. ArgoCD Ingress (argocd.growbin.app)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-ingress
+  namespace: argocd
+  labels:
+    app: argocd
+    component: gitops
+    tier: infrastructure
+    layer: "0"
+  annotations:
+    # ALB 기본 설정
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # Backend Protocol (ArgoCD는 HTTP만 지원)
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    
+    # Health Check
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
+    
+    # SSL Certificate (ACM)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    
+    # ALB Group (API와 동일한 ALB 사용)
+    alb.ingress.kubernetes.io/group.name: ecoeco-main
+    alb.ingress.kubernetes.io/group.order: '21'
+    
+    # Tags
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=argocd,Architecture=14-nodes
+spec:
+  ingressClassName: alb
+  rules:
+    - host: argocd.growbin.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 3. Grafana Ingress (grafana.growbin.app)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-ingress
+  namespace: monitoring
+  labels:
+    app: grafana
+    component: monitoring
+    tier: observability
+    layer: "0"
+  annotations:
+    # ALB 기본 설정
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # Backend Protocol
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    
+    # Health Check
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    
+    # SSL Certificate (ACM)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    
+    # ALB Group (API와 동일한 ALB 사용)
+    alb.ingress.kubernetes.io/group.name: ecoeco-main
+    alb.ingress.kubernetes.io/group.order: '30'
+    
+    # Tags
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=grafana,Architecture=14-nodes
+spec:
+  ingressClassName: alb
+  rules:
+    - host: grafana.growbin.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus-grafana
+                port:
+                  number: 80
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 4. Prometheus Ingress (prometheus.growbin.app) - 선택사항
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prometheus-ingress
+  namespace: monitoring
+  labels:
+    app: prometheus
+    component: monitoring
+    tier: observability
+    layer: "0"
+  annotations:
+    # ALB 기본 설정
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # Health Check
+    alb.ingress.kubernetes.io/healthcheck-path: /-/healthy
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    
+    # SSL Certificate (ACM)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    
+    # ALB Group (API와 동일한 ALB 사용)
+    alb.ingress.kubernetes.io/group.name: ecoeco-main
+    alb.ingress.kubernetes.io/group.order: '40'
+    
+    # Tags
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=prometheus,Architecture=14-nodes
+spec:
+  ingressClassName: alb
+  rules:
+    - host: prometheus.growbin.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 설명
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# 인프라 서비스 Ingress:
+#   - Atlantis: Terraform GitOps 자동화
+#   - ArgoCD: Kubernetes GitOps CD
+#   - Grafana: Monitoring 대시보드
+#   - Prometheus: Metrics 수집 (선택사항)
+#
+# ALB 통합:
+#   - API Ingress와 동일한 ALB Group (ecoeco-main) 사용
+#   - 단일 ALB로 모든 서비스 라우팅
+#   - 비용 절감 + 네임스페이스 격리 유지
+#
+# 라우팅 우선순위:
+#   - group.order: 20 (Atlantis)
+#   - group.order: 21 (ArgoCD)
+#   - group.order: 30 (Grafana)
+#   - group.order: 40 (Prometheus)
+#
+# 배포 방법:
+#   kubectl apply -f k8s/ingress/infrastructure-ingress.yaml
+#
+# 검증 방법:
+#   kubectl get ingress -n atlantis
+#   kubectl get ingress -n argocd
+#   kubectl get ingress -n monitoring
+#
+

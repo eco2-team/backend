@@ -19,9 +19,9 @@ spec:
         - name: SERVICE_NAME
           value: "location-api"
         - name: REDIS_HOST
-          value: "redis.db.svc.cluster.local"
+          value: "redis.data.svc.cluster.local"
         - name: POSTGRES_HOST
-          value: "postgresql.db.svc.cluster.local"
+          value: "postgresql.data.svc.cluster.local"
         - name: KAKAO_API_KEY
           valueFrom:
             secretKeyRef:

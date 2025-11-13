@@ -15,9 +15,11 @@
 
 - name: "PostgreSQL 비밀번호 Secret 생성"
   shell: |
-    kubectl create secret generic postgres-secret \
+    kubectl create secret generic postgresql-secret \
       -n {{ postgres_namespace }} \
       --from-literal=postgres-password='{{ postgres_password }}' \
+      --from-literal=username='{{ postgres_username }}' \
+      --from-literal=password='{{ postgres_password }}' \
       --dry-run=client -o yaml | kubectl apply -f -
   when: postgres_check.rc != 0
   register: postgres_secret

@@ -19,6 +19,7 @@
 - [빠른 시작](#-빠른-시작)
 - [문서 구조](#-문서-구조)
 - [GitOps 아키텍처](#-gitops-아키텍처)
+- [네임스페이스 전략](#-네임스페이스-전략)
 - [주요 기능](#-주요-기능)
 - [기술 스택](#-기술-스택)
 
@@ -214,9 +215,12 @@ kubectl get applications -n argocd
 |------|------|------|
 | **시작하기** | [IaC Quick Start](docs/infrastructure/04-IaC_QUICK_START.md) | Terraform + Ansible 빠른 시작 |
 | **아키텍처** | [Service Architecture](docs/architecture/03-SERVICE_ARCHITECTURE.md) | 14-Node 아키텍처 상세 문서 |
+| **아키텍처** | [Namespace Strategy](docs/architecture/09-NAMESPACE_STRATEGY_ANALYSIS.md) | 네임스페이스 전략 분석 (v0.7.2) |
 | **배포** | [Auto Rebuild Guide](docs/deployment/AUTO_REBUILD_GUIDE.md) | 자동 배포 스크립트 가이드 |
-| **GitOps** | [Kustomize Pipeline](docs/deployment/GITOPS_PIPELINE_KUSTOMIZE.md) | Kustomize 기반 GitOps 파이프라인 |
+| **배포** | [Namespace Consistency Checklist](docs/deployment/NAMESPACE_CONSISTENCY_CHECKLIST.md) | 네임스페이스 일관성 점검 |
+| **GitOps** | [Kustomize Pipeline](docs/development/GITOPS_PIPELINE_KUSTOMIZE.md) | Kustomize 기반 GitOps 파이프라인 |
 | **GitOps** | [ArgoCD Access](docs/deployment/ARGOCD_ACCESS.md) | ArgoCD 접속 정보 및 사용법 |
+| **GitOps** | [Tooling Decision](docs/architecture/08-GITOPS_TOOLING_DECISION.md) | Helm → Kustomize 전환 이유 |
 | **모니터링** | [Monitoring Setup](docs/deployment/MONITORING_SETUP.md) | Prometheus + Grafana 설정 |
 | **트러블슈팅** | [Troubleshooting Index](docs/troubleshooting/README.md) | 주요 이슈 해결 방법 |
 
@@ -227,6 +231,107 @@ kubectl get applications -n argocd
 ### 개요
 
 이 프로젝트는 **완전한 GitOps 워크플로우**를 구현하여 인프라, 클러스터 설정, 애플리케이션 배포를 모두 Git을 통해 관리합니다.
+
+---
+
+## 🏗️ 네임스페이스 전략
+
+### 도메인별 네임스페이스 분리 (v0.7.2)
+
+프로젝트는 **도메인별 네임스페이스 분리 전략**을 채택하여 서비스 간 격리와 보안을 강화했습니다.
+
+```mermaid
+graph TB
+    subgraph "Layer 0: Observability & Infrastructure"
+        MON[monitoring<br/>Prometheus, Grafana]
+        ATL[atlantis<br/>Terraform GitOps]
+    end
+    
+    subgraph "Layer 2: Business Logic"
+        AUTH[auth<br/>JWT 인증]
+        MY[my<br/>사용자 정보]
+        SCAN[scan<br/>AI 분석]
+        CHAR[character<br/>캐릭터]
+        LOC[location<br/>위치]
+        INFO[info<br/>정보]
+        CHAT[chat<br/>챗봇]
+    end
+    
+    subgraph "Layer 3: Integration"
+        MSG[messaging<br/>RabbitMQ]
+    end
+    
+    subgraph "Layer 4: Data"
+        DATA[data<br/>PostgreSQL, Redis]
+    end
+    
+    AUTH --> MSG
+    SCAN --> MSG
+    CHAT --> MSG
+    AUTH --> DATA
+    MY --> DATA
+    SCAN --> DATA
+    
+    style MON fill:#991b1b,color:#fff
+    style ATL fill:#991b1b,color:#fff
+    style AUTH fill:#0e7490,color:#fff
+    style MY fill:#0e7490,color:#fff
+    style SCAN fill:#0e7490,color:#fff
+    style CHAR fill:#0e7490,color:#fff
+    style LOC fill:#0e7490,color:#fff
+    style INFO fill:#0e7490,color:#fff
+    style CHAT fill:#0e7490,color:#fff
+    style MSG fill:#166534,color:#fff
+    style DATA fill:#78350f,color:#fff
+```
+
+### 주요 특징
+
+```yaml
+네임스페이스 구조:
+  Layer 0 (Observability):
+    - monitoring: Prometheus, Grafana
+    - atlantis: Terraform GitOps
+  
+  Layer 2 (Business Logic):
+    - auth, my, scan, character, location, info, chat
+    - 각 도메인별 독립 네임스페이스
+  
+  Layer 3 (Integration):
+    - messaging: RabbitMQ (비동기 작업)
+  
+  Layer 4 (Data):
+    - data: PostgreSQL, Redis
+
+Ingress 구조:
+  - 도메인별 Ingress 분리 (12개)
+  - 단일 ALB (ecoeco-main) 유지
+  - 비용 절감 + 네임스페이스 격리 병행
+
+보안:
+  - NetworkPolicy로 네임스페이스 간 트래픽 제어
+  - 도메인별 RBAC 설정 가능
+  - Secret 격리 (네임스페이스 범위)
+```
+
+### 자동화 도구
+
+```bash
+# 네임스페이스 일관성 점검
+./scripts/check-namespace-consistency.sh
+
+# AWS Credentials Secret 생성
+export AWS_ACCESS_KEY_ID='...'
+export AWS_SECRET_ACCESS_KEY='...'
+./scripts/create-aws-credentials-secret.sh
+```
+
+→ 자세한 내용: 
+- [Namespace Strategy Analysis](docs/architecture/09-NAMESPACE_STRATEGY_ANALYSIS.md)
+- [Namespace Consistency Checklist](docs/deployment/NAMESPACE_CONSISTENCY_CHECKLIST.md)
+- [Telco vs Service Namespace](docs/architecture/10-TELCO_VS_SERVICE_NAMESPACE.md)
+
+---
 
 ### 4-Layer GitOps 구조
 
@@ -569,6 +674,9 @@ GitOps (완성):
   ✅ Kustomize Base + 7개 API Overlays
   ✅ 완전 자동 배포 파이프라인 구축
   ✅ Node Taints & Pod Tolerations (API별 전용 노드 격리)
+  ✅ 도메인별 네임스페이스 분리 (v0.7.2)
+  ✅ Ingress 리팩토링 (12개 Ingress → 단일 ALB)
+  ✅ NetworkPolicy 기반 네임스페이스 격리
 
 Monitoring:
   ✅ Prometheus + Grafana (https://grafana.growbin.app)
@@ -625,6 +733,6 @@ Documentation:
 
 ---
 
-**Last Updated**: 2025-11-12  
-**Version**: v0.7.1 (14-Nodes + Kustomize GitOps)
+**Last Updated**: 2025-11-13  
+**Version**: v0.7.2 (Domain-based Namespace + Ingress Refactoring)
 

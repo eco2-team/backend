@@ -120,6 +120,13 @@
   roles:
     - argocd
 
+- name: 도메인별 네임스페이스 및 NetworkPolicy 생성
+  hosts: masters
+  become: yes
+  become_user: "{{ kubectl_user }}"
+  tasks:
+    - import_tasks: playbooks/10-namespaces.yml
+
 - name: Monitoring 설치 (Prometheus Operator - ServiceMonitor CRD 제공)
   hosts: masters
   become: yes

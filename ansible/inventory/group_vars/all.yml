@@ -32,9 +32,9 @@ vpc_id: "{{ vpc_id | default(lookup('pipe', 'cd ../../terraform && terraform out
 acm_certificate_arn: "{{ acm_certificate_arn | default(lookup('pipe', 'cd ../../terraform && terraform output -raw acm_certificate_arn', errors='ignore') | default('', true), true) }}"
 domain_name: "ecoeco.app"
 
-# PostgreSQL
-postgres_namespace: "db"
-redis_namespace: "db"
+# PostgreSQL (Tier 4: Data)
+postgres_namespace: "data"
+redis_namespace: "data"
 postgres_database: "sesacthon"
 postgres_username: "admin"
 postgres_password: "{{ lookup('env', 'POSTGRES_PASSWORD') | default('changeme', true) }}"
