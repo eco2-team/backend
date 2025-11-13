@@ -305,7 +305,8 @@ jobs:
       - name: 🔍 Test SSH Connectivity
         run: |
           cd ansible
-          ansible all -i inventory/hosts.ini -m ping --timeout=30
+          ansible all -i inventory/hosts.ini -m ping --timeout=30 \
+            --private-key=~/.ssh/k8s-cluster-key.pem
       
       - name: ⚙️ Run Ansible Playbook (site.yml)
         run: |
@@ -317,6 +318,7 @@ jobs:
           
           ansible-playbook site.yml \
             -i inventory/hosts.ini \
+            --private-key=~/.ssh/k8s-cluster-key.pem \
             --timeout=300 \
             -v
       
@@ -330,6 +332,7 @@ jobs:
           
           ansible-playbook playbooks/label-nodes.yml \
             -i inventory/hosts.ini \
+            --private-key=~/.ssh/k8s-cluster-key.pem \
             -v
       
       - name: ✅ Ansible Bootstrap Summary
