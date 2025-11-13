@@ -110,6 +110,90 @@ else
     echo "✅ OK"
 fi
 
+# 6. Ingress 점검 (추가)
+echo ""
+echo "✅ Layer 3: Ingress 점검"
+echo "---"
+
+echo -n "  domain-based-api-ingress.yaml 파일... "
+if [ ! -f "k8s/ingress/domain-based-api-ingress.yaml" ]; then
+    echo "❌ FAIL: domain-based-api-ingress.yaml 파일이 없음"
+    ((ERRORS++))
+else
+    echo "✅ OK"
+fi
+
+echo -n "  infrastructure-ingress.yaml 파일... "
+if [ ! -f "k8s/ingress/infrastructure-ingress.yaml" ]; then
+    echo "❌ FAIL: infrastructure-ingress.yaml 파일이 없음"
+    ((ERRORS++))
+else
+    echo "✅ OK"
+fi
+
+echo -n "  Ingress 네임스페이스 일치... "
+# auth-ingress가 auth 네임스페이스에 있는지 확인
+if grep -A 5 "name: auth-ingress" k8s/ingress/domain-based-api-ingress.yaml | grep -q "namespace: auth"; then
+    echo "✅ OK"
+else
+    echo "❌ FAIL: auth-ingress가 auth 네임스페이스에 없음"
+    ((ERRORS++))
+fi
+
+echo -n "  ALB Group 일관성... "
+# 모든 Ingress가 ecoeco-main 그룹 사용 확인
+ALB_GROUP_COUNT=$(grep -r "alb.ingress.kubernetes.io/group.name:" k8s/ingress/*.yaml | grep -v "ecoeco-main" | wc -l)
+if [ "$ALB_GROUP_COUNT" -gt 0 ]; then
+    echo "❌ FAIL: ecoeco-main이 아닌 ALB Group 발견"
+    ((ERRORS++))
+else
+    echo "✅ OK"
+fi
+
+# 7. Secret 점검 (추가)
+echo ""
+echo "✅ Layer 4: Secret 일관성 점검"
+echo "---"
+
+echo -n "  PostgreSQL Secret 이름... "
+if grep -q "postgresql-secret" ansible/roles/postgresql/tasks/main.yml; then
+    echo "✅ OK (postgresql-secret)"
+elif grep -q "postgres-secret" ansible/roles/postgresql/tasks/main.yml; then
+    echo "❌ FAIL: 'postgres-secret' 사용 (postgresql-secret이어야 함)"
+    ((ERRORS++))
+else
+    echo "⚠️  WARNING: Secret 생성 태스크를 찾을 수 없음"
+fi
+
+echo -n "  AWS Credentials 스크립트... "
+if [ -f "scripts/create-aws-credentials-secret.sh" ] && [ -x "scripts/create-aws-credentials-secret.sh" ]; then
+    echo "✅ OK"
+else
+    echo "❌ FAIL: create-aws-credentials-secret.sh가 없거나 실행 권한 없음"
+    ((ERRORS++))
+fi
+
+# 8. Ansible Playbook 점검 (추가)
+echo ""
+echo "✅ Layer 4: Ansible Playbook 점검"
+echo "---"
+
+echo -n "  api 네임스페이스 생성 제거... "
+if grep -q "kubectl create namespace api" ansible/playbooks/07-ingress-resources.yml; then
+    echo "❌ FAIL: api 네임스페이스 생성 태스크 발견 (제거해야 함)"
+    ((ERRORS++))
+else
+    echo "✅ OK"
+fi
+
+echo -n "  domain-based Ingress 적용... "
+if grep -q "domain-based-api-ingress.yaml" ansible/playbooks/07-ingress-resources.yml; then
+    echo "✅ OK"
+else
+    echo "❌ FAIL: domain-based-api-ingress.yaml 적용 태스크 없음"
+    ((ERRORS++))
+fi
+
 # 최종 결과
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

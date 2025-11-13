@@ -216,6 +216,82 @@ namespace: '{{namespace}}'  # ✅ 동적 할당
 
 ---
 
+### 3.2 Ingress 리소스 (추가)
+
+**파일**: 
+- `k8s/ingress/domain-based-api-ingress.yaml` (API Services)
+- `k8s/ingress/infrastructure-ingress.yaml` (Atlantis, ArgoCD, Grafana, Prometheus)
+
+**점검 항목**:
+- [ ] 각 API Ingress가 해당 도메인 네임스페이스에 배포되는가?
+  - `auth-ingress` → `auth` 네임스페이스
+  - `my-ingress` → `my` 네임스페이스
+  - `scan-ingress` → `scan` 네임스페이스
+  - ...
+- [ ] Ingress.spec.rules[].backend.service.name이 동일 네임스페이스의 Service를 참조하는가?
+- [ ] 모든 Ingress가 동일한 ALB Group (`ecoeco-main`)을 사용하는가?
+- [ ] ALB Group Order가 올바르게 설정되어 있는가?
+  - Health Check: 9
+  - API Services: 10-16
+  - Infrastructure: 20-40
+
+**점검 명령**:
+```bash
+# 모든 Ingress 조회
+kubectl get ingress -A
+
+# ALB Group 확인
+kubectl get ingress -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.metadata.annotations.alb\.ingress\.kubernetes\.io/group\.name}{"\t"}{.metadata.annotations.alb\.ingress\.kubernetes\.io/group\.order}{"\n"}{end}'
+
+# 특정 Ingress 상세 확인
+kubectl describe ingress auth-ingress -n auth
+```
+
+**예상 출력**:
+```
+auth          auth-ingress          ecoeco-main    10
+my            my-ingress            ecoeco-main    11
+scan          scan-ingress          ecoeco-main    12
+...
+atlantis      atlantis-ingress      ecoeco-main    20
+argocd        argocd-ingress        ecoeco-main    21
+monitoring    grafana-ingress       ecoeco-main    30
+monitoring    prometheus-ingress    ecoeco-main    40
+```
+
+**검증 포인트**:
+```yaml
+# ✅ 올바른 예: Ingress와 Service가 동일 네임스페이스
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-ingress
+  namespace: auth  # ✅ Service와 동일
+spec:
+  rules:
+    - path: /api/v1/auth
+      backend:
+        service:
+          name: auth-api  # auth 네임스페이스의 Service
+```
+
+```yaml
+# ❌ 잘못된 예: Ingress와 Service가 다른 네임스페이스
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: api  # ❌ 문제!
+spec:
+  rules:
+    - path: /api/v1/auth
+      backend:
+        service:
+          name: auth-api  # auth 네임스페이스의 Service (다른 네임스페이스!)
+```
+
+---
+
 ## ✅ Layer 4: Ansible Playbooks
 
 ### 4.1 네임스페이스 변수
@@ -268,12 +344,96 @@ grep -A 5 "네임스페이스 YAML 복사" ansible/playbooks/10-namespaces.yml
 **점검 항목**:
 - [ ] 각 Role에서 `{{ postgres_namespace }}`, `{{ redis_namespace }}`, `{{ rabbitmq_namespace }}` 변수를 올바르게 사용하는가?
 - [ ] 네임스페이스 생성 태스크가 있는가?
+- [ ] Secret 이름이 일관되게 사용되는가?
+  - PostgreSQL: `postgresql-secret` (❌ `postgres-secret` 아님!)
+  - RabbitMQ: `rabbitmq-default-user`
 
 **점검 명령**:
 ```bash
 grep "postgres_namespace" ansible/roles/postgresql/tasks/main.yml
 grep "redis_namespace" ansible/roles/redis/tasks/main.yml
 grep "rabbitmq_namespace" ansible/roles/rabbitmq/tasks/main.yml
+
+# Secret 이름 확인
+grep "kubectl create secret" ansible/roles/postgresql/tasks/main.yml
+```
+
+**예상 출력**:
+```bash
+# PostgreSQL Role
+kubectl create secret generic postgresql-secret \  # ✅ "postgres-secret" 아님!
+  -n {{ postgres_namespace }} \
+  --from-literal=postgres-password='{{ postgres_password }}' \
+  --from-literal=username='{{ postgres_username }}' \
+  --from-literal=password='{{ postgres_password }}'
+```
+
+---
+
+### 4.4 Secret 일관성 (추가)
+
+**Secret 이름 규칙**:
+| 서비스 | Secret 이름 | 네임스페이스 | 생성 위치 |
+|--------|------------|-------------|----------|
+| PostgreSQL | `postgresql-secret` | `data` | `ansible/roles/postgresql/tasks/main.yml` |
+| RabbitMQ | `rabbitmq-default-user` | `messaging` | `ansible/roles/rabbitmq/tasks/main.yml` |
+| Atlantis | `atlantis-secrets` | `atlantis` | `k8s/atlantis/atlantis-deployment.yaml` |
+| AWS Credentials | `aws-credentials` | `workers`, `data`, `scan` | `scripts/create-aws-credentials-secret.sh` |
+
+**점검 항목**:
+- [ ] PostgreSQL Secret이 `data` 네임스페이스에 `postgresql-secret` 이름으로 생성되는가?
+- [ ] RabbitMQ Secret이 `messaging` 네임스페이스에 생성되는가?
+- [ ] AWS Credentials Secret이 필요한 네임스페이스에 모두 생성되었는가?
+- [ ] Worker Deployments가 올바른 Secret 이름을 참조하는가?
+
+**점검 명령**:
+```bash
+# Secret 존재 확인
+kubectl get secrets -n data
+kubectl get secrets -n messaging
+kubectl get secrets -n workers
+kubectl get secrets -n atlantis
+
+# PostgreSQL Secret 확인
+kubectl get secret postgresql-secret -n data -o yaml
+
+# AWS Credentials Secret 확인
+kubectl get secret aws-credentials -n workers -o yaml
+kubectl get secret aws-credentials -n data -o yaml
+kubectl get secret aws-credentials -n scan -o yaml
+```
+
+**Secret 생성 방법**:
+```bash
+# PostgreSQL Secret (Ansible에서 자동 생성)
+# RabbitMQ Secret (Ansible에서 자동 생성)
+
+# AWS Credentials Secret (수동 생성 필요)
+export AWS_ACCESS_KEY_ID='your-access-key'
+export AWS_SECRET_ACCESS_KEY='your-secret-key'
+./scripts/create-aws-credentials-secret.sh
+```
+
+---
+
+### 4.5 Ingress Playbook (추가)
+
+**파일**: `ansible/playbooks/07-ingress-resources.yml`
+
+**점검 항목**:
+- [ ] ~~`api` 네임스페이스 생성 태스크가 제거되었는가?~~ (✅ 제거됨)
+- [ ] `domain-based-api-ingress.yaml` 적용 태스크가 있는가?
+- [ ] `infrastructure-ingress.yaml` 적용 태스크가 있는가?
+- [ ] ACM 인증서 ARN 치환이 올바르게 작동하는가?
+
+**점검 명령**:
+```bash
+# api 네임스페이스 생성 태스크가 없어야 함
+grep -n "kubectl create namespace api" ansible/playbooks/07-ingress-resources.yml
+# ❌ 결과가 나오면 안됨!
+
+# 도메인별 Ingress 적용 태스크 확인
+grep -A 5 "도메인별 API Ingress" ansible/playbooks/07-ingress-resources.yml
 ```
 
 ---
