@@ -274,7 +274,11 @@ jobs:
       
       - name: 🔑 Setup SSH Key
         run: |
+          # SSH 디렉토리 생성 및 권한 설정
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
+          # SSH 키 파일 생성
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/sesacthon.pem
           chmod 600 ~/.ssh/sesacthon.pem
           
@@ -294,18 +298,27 @@ jobs:
           
           # 키 형식 검증
           if ssh-keygen -y -f ~/.ssh/sesacthon.pem > /dev/null 2>&1; then
-            echo "✅ SSH key format is valid (RSA)"
+            echo "✅ SSH key format is valid"
+            # 공개 키 지문 출력 (마지막 16자만)
+            PUBLIC_KEY=$(ssh-keygen -y -f ~/.ssh/sesacthon.pem)
+            echo "✅ Public key fingerprint (last 16 chars): ...${PUBLIC_KEY: -16}"
           else
             echo "❌ ERROR: SSH key format is invalid!"
-            echo "   This might be the root cause of 'no such identity' error"
             exit 1
           fi
           
-          # 공개 키 지문 출력 (마지막 16자만)
-          PUBLIC_KEY=$(ssh-keygen -y -f ~/.ssh/sesacthon.pem)
-          echo "✅ Public key fingerprint (last 16 chars): ...${PUBLIC_KEY: -16}"
-          
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # SSH 에이전트 시작 및 키 추가
+          echo "🔐 Starting SSH Agent"
+          eval "$(ssh-agent -s)"
+          
+          # SSH 에이전트에 키 추가
+          ssh-add ~/.ssh/sesacthon.pem
+          
+          # 추가된 키 확인
+          echo "✅ Keys loaded in SSH agent:"
+          ssh-add -l
           
           # SSH Config 설정
           cat >> ~/.ssh/config <<EOF
@@ -316,7 +329,12 @@ jobs:
             UserKnownHostsFile /dev/null
             ServerAliveInterval 60
             ServerAliveCountMax 3
+            AddKeysToAgent yes
           EOF
+          
+          chmod 600 ~/.ssh/config
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       
       - name: 📝 Create Ansible Inventory
         run: |
@@ -409,11 +427,36 @@ jobs:
       
       - name: 🔑 Setup Kubeconfig
         run: |
+          # SSH 디렉토리 생성 및 권한 설정
           mkdir -p ~/.kube ~/.ssh
+          chmod 700 ~/.ssh
           
-          # SSH Key 설정
+          # SSH 키 파일 생성
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/sesacthon.pem
           chmod 600 ~/.ssh/sesacthon.pem
+          
+          # SSH 에이전트 시작 및 키 추가
+          echo "🔐 Starting SSH Agent"
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/sesacthon.pem
+          
+          # 추가된 키 확인
+          echo "✅ Keys loaded in SSH agent:"
+          ssh-add -l
+          
+          # SSH Config 설정
+          cat >> ~/.ssh/config <<EOF
+          Host *
+            IdentityFile ~/.ssh/sesacthon.pem
+            IdentitiesOnly yes
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ServerAliveInterval 60
+            ServerAliveCountMax 3
+            AddKeysToAgent yes
+          EOF
+          
+          chmod 600 ~/.ssh/config
           
           # Master 노드에서 kubeconfig 가져오기
           scp -o StrictHostKeyChecking=no \
