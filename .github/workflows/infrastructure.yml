@@ -329,11 +329,15 @@ jobs:
           cat ansible/inventory/hosts.ini
       
       - name: 🔍 Test SSH Connectivity
+        env:
+          ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
         run: |
           cd ansible
           ansible all -i inventory/hosts.ini -m ping --timeout=30
       
       - name: ⚙️ Run Ansible Playbook (site.yml)
+        env:
+          ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
         run: |
           cd ansible
           
@@ -347,6 +351,8 @@ jobs:
             -v
       
       - name: 🏷️ Label Kubernetes Nodes
+        env:
+          ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
         run: |
           cd ansible
           
