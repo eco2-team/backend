@@ -66,7 +66,7 @@ spec:
         app: 'ecoeco-api-{{domain}}'
         domain: '{{domain}}'
         phase: '{{phase}}'
-        tier: api
+        tier: business-logic
       annotations:
         argocd.argoproj.io/sync-wave: '{{phase}}'
         description: '{{description}}'
