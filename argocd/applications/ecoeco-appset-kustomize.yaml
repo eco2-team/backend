@@ -16,20 +16,20 @@ spec:
     - list:
         elements:
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          # Phase 1: Core APIs
+          # Phase 1: Core APIs (도메인별 네임스페이스)
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           - domain: auth
-            namespace: api
+            namespace: auth
             phase: "1"
             description: "인증/인가 (JWT Blacklist)"
           
           - domain: my
-            namespace: api
+            namespace: my
             phase: "1"
             description: "마이페이지"
           
           - domain: scan
-            namespace: api
+            namespace: scan
             phase: "1"
             description: "쓰레기 분류 (고트래픽)"
           
@@ -37,12 +37,12 @@ spec:
           # Phase 2: Extended APIs
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           - domain: character
-            namespace: api
+            namespace: character
             phase: "2"
             description: "캐릭터"
           
           - domain: location
-            namespace: api
+            namespace: location
             phase: "2"
             description: "위치 기반"
           
@@ -50,12 +50,12 @@ spec:
           # Phase 3: Advanced APIs
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           - domain: info
-            namespace: api
+            namespace: info
             phase: "3"
             description: "재활용 정보"
           
           - domain: chat
-            namespace: api
+            namespace: chat
             phase: "3"
             description: "AI 챗봇 (WebSocket)"
   
@@ -66,7 +66,7 @@ spec:
         app: 'ecoeco-api-{{domain}}'
         domain: '{{domain}}'
         phase: '{{phase}}'
-        tier: api
+        tier: business-logic
       annotations:
         argocd.argoproj.io/sync-wave: '{{phase}}'
         description: '{{description}}'

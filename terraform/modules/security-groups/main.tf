@@ -2,7 +2,7 @@ resource "aws_security_group" "master" {
   name        = "${var.environment}-k8s-master-sg"
   description = "Security group for Kubernetes Master node"
   vpc_id      = var.vpc_id
-  
+
   # SSH
   ingress {
     description = "SSH from allowed CIDR"
@@ -11,7 +11,7 @@ resource "aws_security_group" "master" {
     protocol    = "tcp"
     cidr_blocks = [var.allowed_ssh_cidr]
   }
-  
+
   # Kubernetes API Server
   ingress {
     description = "Kubernetes API"
@@ -20,7 +20,7 @@ resource "aws_security_group" "master" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
   # HTTP
   ingress {
     description = "HTTP"
@@ -29,7 +29,7 @@ resource "aws_security_group" "master" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
   # HTTPS
   ingress {
     description = "HTTPS"
@@ -38,7 +38,7 @@ resource "aws_security_group" "master" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
   # etcd server client API
   ingress {
     description = "etcd"
@@ -47,7 +47,7 @@ resource "aws_security_group" "master" {
     protocol    = "tcp"
     self        = true
   }
-  
+
   # Kubelet API (self)
   ingress {
     description = "Kubelet API self"
@@ -56,7 +56,7 @@ resource "aws_security_group" "master" {
     protocol    = "tcp"
     self        = true
   }
-  
+
   # kube-scheduler
   ingress {
     description = "kube-scheduler"
@@ -65,7 +65,7 @@ resource "aws_security_group" "master" {
     protocol    = "tcp"
     self        = true
   }
-  
+
   # kube-controller-manager
   ingress {
     description = "kube-controller-manager"
@@ -74,7 +74,7 @@ resource "aws_security_group" "master" {
     protocol    = "tcp"
     self        = true
   }
-  
+
   # NodePort Services (선택)
   ingress {
     description = "NodePort Services"
@@ -83,7 +83,7 @@ resource "aws_security_group" "master" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
   # VXLAN (Calico overlay network - Master self)
   ingress {
     description = "VXLAN for Calico"
@@ -92,7 +92,7 @@ resource "aws_security_group" "master" {
     protocol    = "udp"
     self        = true
   }
-  
+
   # Egress all
   egress {
     description = "Allow all outbound"
@@ -101,7 +101,7 @@ resource "aws_security_group" "master" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
   tags = {
     Name = "${var.environment}-k8s-master-sg"
   }
@@ -111,7 +111,7 @@ resource "aws_security_group" "worker" {
   name        = "${var.environment}-k8s-worker-sg"
   description = "Security group for Kubernetes Worker nodes"
   vpc_id      = var.vpc_id
-  
+
   # SSH
   ingress {
     description = "SSH from allowed CIDR"
@@ -120,10 +120,10 @@ resource "aws_security_group" "worker" {
     protocol    = "tcp"
     cidr_blocks = [var.allowed_ssh_cidr]
   }
-  
+
   # Kubelet API, NodePort
   # Master SG는 별도 rule로 추가 (순환 참조 방지)
-  
+
   # Worker 간 통신 (Pod network)
   ingress {
     description = "Worker to worker communication"
@@ -132,7 +132,7 @@ resource "aws_security_group" "worker" {
     protocol    = "-1"
     self        = true
   }
-  
+
   # VXLAN (Calico overlay network)
   ingress {
     description = "VXLAN for Calico"
@@ -141,7 +141,7 @@ resource "aws_security_group" "worker" {
     protocol    = "udp"
     self        = true
   }
-  
+
   # kube-proxy health check
   ingress {
     description = "kube-proxy health"
@@ -150,9 +150,9 @@ resource "aws_security_group" "worker" {
     protocol    = "tcp"
     self        = true
   }
-  
+
   # Master to Worker (별도 rule로)
-  
+
   # Egress all
   egress {
     description = "Allow all outbound"
@@ -161,7 +161,7 @@ resource "aws_security_group" "worker" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
   tags = {
     Name = "${var.environment}-k8s-worker-sg"
   }

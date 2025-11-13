@@ -6,7 +6,7 @@
 # 기존 Hosted Zone 사용 (도메인이 이미 있는 경우)
 data "aws_route53_zone" "main" {
   count = var.domain_name != "" ? 1 : 0
-  
+
   name         = var.domain_name
   private_zone = false
 }

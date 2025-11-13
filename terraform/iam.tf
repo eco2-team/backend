@@ -8,11 +8,11 @@ resource "aws_iam_role" "k8s_node" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
     }]
   })
 
@@ -29,7 +29,7 @@ resource "aws_iam_role" "k8s_node" {
 resource "aws_iam_policy" "ecr_read" {
   name        = "k8s-ecr-read-policy-${var.environment}"
   description = "Policy for reading from ECR"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -55,7 +55,7 @@ resource "aws_iam_policy" "ecr_read" {
 resource "aws_iam_policy" "s3_access" {
   name        = "k8s-s3-access-policy-${var.environment}"
   description = "Policy for S3 access"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

@@ -278,9 +278,14 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/k8s-cluster-key.pem
           chmod 600 ~/.ssh/k8s-cluster-key.pem
           
+          # SSH Agent 시작
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/k8s-cluster-key.pem
+          
           # SSH Config 설정
           cat >> ~/.ssh/config <<EOF
           Host *
+            IdentityFile ~/.ssh/k8s-cluster-key.pem
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
             ServerAliveInterval 60
@@ -300,7 +305,8 @@ jobs:
       - name: 🔍 Test SSH Connectivity
         run: |
           cd ansible
-          ansible all -i inventory/hosts.ini -m ping --timeout=30
+          ansible all -i inventory/hosts.ini -m ping --timeout=30 \
+            --private-key=~/.ssh/k8s-cluster-key.pem
       
       - name: ⚙️ Run Ansible Playbook (site.yml)
         run: |
@@ -312,6 +318,7 @@ jobs:
           
           ansible-playbook site.yml \
             -i inventory/hosts.ini \
+            --private-key=~/.ssh/k8s-cluster-key.pem \
             --timeout=300 \
             -v
       
@@ -325,6 +332,7 @@ jobs:
           
           ansible-playbook playbooks/label-nodes.yml \
             -i inventory/hosts.ini \
+            --private-key=~/.ssh/k8s-cluster-key.pem \
             -v
       
       - name: ✅ Ansible Bootstrap Summary
@@ -378,6 +386,10 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/k8s-cluster-key.pem
           chmod 600 ~/.ssh/k8s-cluster-key.pem
+          
+          # SSH Agent 시작
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/k8s-cluster-key.pem
           
           # Master 노드에서 kubeconfig 가져오기
           scp -o StrictHostKeyChecking=no \

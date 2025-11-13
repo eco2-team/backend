@@ -19,9 +19,9 @@ spec:
         - name: SERVICE_NAME
           value: "scan-api"
         - name: REDIS_HOST
-          value: "redis.db.svc.cluster.local"
+          value: "redis.data.svc.cluster.local"
         - name: POSTGRES_HOST
-          value: "postgresql.db.svc.cluster.local"
+          value: "postgresql.data.svc.cluster.local"
         - name: S3_BUCKET
           value: "sesacthon-images"
         - name: S3_REGION

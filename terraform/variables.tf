@@ -31,7 +31,7 @@ variable "public_key_path" {
 variable "enable_cloudfront" {
   description = "CloudFront CDN 활성화 여부 (개발 환경에서는 false 권장)"
   type        = bool
-  default     = false  # 기본값: 비활성화 (배포 시간 단축)
+  default     = false # 기본값: 비활성화 (배포 시간 단축)
 }
 
 variable "cluster_name" {

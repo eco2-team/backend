@@ -29,16 +29,16 @@ resource "aws_s3_bucket_lifecycle_configuration" "images" {
     status = "Enabled"
 
     filter {
-      prefix = ""  # 모든 객체에 적용
+      prefix = "" # 모든 객체에 적용
     }
 
     transition {
       days          = 30
-      storage_class = "STANDARD_IA"  # Infrequent Access
+      storage_class = "STANDARD_IA" # Infrequent Access
     }
 
     expiration {
-      days = 90  # 90일 후 자동 삭제
+      days = 90 # 90일 후 자동 삭제
     }
   }
 }
@@ -53,8 +53,8 @@ resource "aws_s3_bucket_cors_configuration" "images" {
     allowed_origins = [
       "https://${var.domain_name}",
       "https://www.${var.domain_name}",
-      "http://localhost:3000",  # 개발용
-      "http://localhost:5173"   # Vite 개발 서버
+      "http://localhost:3000", # 개발용
+      "http://localhost:5173"  # Vite 개발 서버
     ]
     expose_headers  = ["ETag"]
     max_age_seconds = 3000

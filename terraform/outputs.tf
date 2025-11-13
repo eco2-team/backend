@@ -252,34 +252,34 @@ output "monitoring_public_ip" {
 output "ansible_inventory" {
   description = "Ansible Inventory 내용 (14-Node Architecture)"
   value = templatefile("${path.module}/templates/hosts.tpl", {
-    master_public_ip           = aws_eip.master.public_ip
-    master_private_ip          = module.master.private_ip
-    api_auth_public_ip         = module.api_auth.public_ip
-    api_auth_private_ip        = module.api_auth.private_ip
-    api_my_public_ip           = module.api_my.public_ip
-    api_my_private_ip          = module.api_my.private_ip
-    api_scan_public_ip         = module.api_scan.public_ip
-    api_scan_private_ip        = module.api_scan.private_ip
-    api_character_public_ip    = module.api_character.public_ip
-    api_character_private_ip   = module.api_character.private_ip
-    api_location_public_ip     = module.api_location.public_ip
-    api_location_private_ip    = module.api_location.private_ip
-    api_info_public_ip         = module.api_info.public_ip
-    api_info_private_ip        = module.api_info.private_ip
-    api_chat_public_ip         = module.api_chat.public_ip
-    api_chat_private_ip        = module.api_chat.private_ip
-    worker_storage_public_ip   = module.worker_storage.public_ip
-    worker_storage_private_ip  = module.worker_storage.private_ip
-    worker_ai_public_ip        = module.worker_ai.public_ip
-    worker_ai_private_ip       = module.worker_ai.private_ip
-    postgresql_public_ip       = module.postgresql.public_ip
-    postgresql_private_ip      = module.postgresql.private_ip
-    redis_public_ip            = module.redis.public_ip
-    redis_private_ip           = module.redis.private_ip
-    rabbitmq_public_ip         = module.rabbitmq.public_ip
-    rabbitmq_private_ip        = module.rabbitmq.private_ip
-    monitoring_public_ip       = module.monitoring.public_ip
-    monitoring_private_ip      = module.monitoring.private_ip
+    master_public_ip          = aws_eip.master.public_ip
+    master_private_ip         = module.master.private_ip
+    api_auth_public_ip        = module.api_auth.public_ip
+    api_auth_private_ip       = module.api_auth.private_ip
+    api_my_public_ip          = module.api_my.public_ip
+    api_my_private_ip         = module.api_my.private_ip
+    api_scan_public_ip        = module.api_scan.public_ip
+    api_scan_private_ip       = module.api_scan.private_ip
+    api_character_public_ip   = module.api_character.public_ip
+    api_character_private_ip  = module.api_character.private_ip
+    api_location_public_ip    = module.api_location.public_ip
+    api_location_private_ip   = module.api_location.private_ip
+    api_info_public_ip        = module.api_info.public_ip
+    api_info_private_ip       = module.api_info.private_ip
+    api_chat_public_ip        = module.api_chat.public_ip
+    api_chat_private_ip       = module.api_chat.private_ip
+    worker_storage_public_ip  = module.worker_storage.public_ip
+    worker_storage_private_ip = module.worker_storage.private_ip
+    worker_ai_public_ip       = module.worker_ai.public_ip
+    worker_ai_private_ip      = module.worker_ai.private_ip
+    postgresql_public_ip      = module.postgresql.public_ip
+    postgresql_private_ip     = module.postgresql.private_ip
+    redis_public_ip           = module.redis.public_ip
+    redis_private_ip          = module.redis.private_ip
+    rabbitmq_public_ip        = module.rabbitmq.public_ip
+    rabbitmq_private_ip       = module.rabbitmq.private_ip
+    monitoring_public_ip      = module.monitoring.public_ip
+    monitoring_private_ip     = module.monitoring.private_ip
   })
 }
 
@@ -314,9 +314,9 @@ output "ssh_commands" {
 output "cluster_info" {
   description = "클러스터 정보 요약 (14-Node Architecture)"
   value = {
-    vpc_id     = module.vpc.vpc_id
-    master_ip  = aws_eip.master.public_ip
-    phase      = "Phase 1-4 Complete - 14-Node Full Production Architecture"
+    vpc_id    = module.vpc.vpc_id
+    master_ip = aws_eip.master.public_ip
+    phase     = "Phase 1-4 Complete - 14-Node Full Production Architecture"
     api_ips = [
       module.api_auth.public_ip,
       module.api_my.public_ip,
@@ -340,7 +340,7 @@ output "cluster_info" {
     total_nodes        = 14  # Master + 7 APIs + 2 Workers + 4 Infra
     total_vcpu         = 32  # 2(master) + 7(APIs) + 4(workers) + 10(infra) + 4(monitoring)
     total_memory_gb    = 38  # 8(master) + 9(APIs) + 4(workers) + 8(infra) + 4(monitoring) + 4(psql) + 2(redis) + 1(rabbitmq)
-    estimated_cost_usd = 245  # Monthly: t3.large*1 + t3.medium*2 + t3.small*5 + t3.micro*4
+    estimated_cost_usd = 245 # Monthly: t3.large*1 + t3.medium*2 + t3.small*5 + t3.micro*4
   }
 }
 
@@ -378,12 +378,12 @@ output "dns_records" {
     apex_domain = "https://${var.domain_name}"
     www_url     = "https://www.${var.domain_name}"
     # API 서브도메인
-    api_base    = "https://api.${var.domain_name}"
-    auth_url    = "https://api.${var.domain_name}/auth"
-    my_url      = "https://api.${var.domain_name}/my"
-    scan_url    = "https://api.${var.domain_name}/scan"
+    api_base      = "https://api.${var.domain_name}"
+    auth_url      = "https://api.${var.domain_name}/auth"
+    my_url        = "https://api.${var.domain_name}/my"
+    scan_url      = "https://api.${var.domain_name}/scan"
     character_url = "https://api.${var.domain_name}/character"
-    location_url = "https://api.${var.domain_name}/location"
+    location_url  = "https://api.${var.domain_name}/location"
     # 관리 도구 서브도메인
     argocd_url  = "https://argocd.${var.domain_name}"
     grafana_url = "https://grafana.${var.domain_name}"
@@ -411,11 +411,11 @@ output "cloudfront_info" {
   value = var.enable_cloudfront ? {
     distribution_id     = aws_cloudfront_distribution.images[0].id
     distribution_domain = aws_cloudfront_distribution.images[0].domain_name
-    cdn_url            = "https://${aws_cloudfront_distribution.images[0].domain_name}"
-  } : {
+    cdn_url             = "https://${aws_cloudfront_distribution.images[0].domain_name}"
+    } : {
     distribution_id     = "CloudFront disabled"
     distribution_domain = "CloudFront disabled"
-    cdn_url            = "CloudFront disabled - Use S3 direct URL"
+    cdn_url             = "CloudFront disabled - Use S3 direct URL"
   }
 }
 

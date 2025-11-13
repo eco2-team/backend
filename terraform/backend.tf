@@ -6,7 +6,7 @@ terraform {
     bucket = "sesacthon-terraform-state"
     key    = "k8s-cluster/terraform.tfstate"
     region = "ap-northeast-2"
-    
+
     # State Locking (DynamoDB)
     dynamodb_table = "terraform-state-lock"
     encrypt        = true

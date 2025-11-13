@@ -29,14 +29,6 @@ k8s-api-chat ansible_host=${api_chat_public_ip} private_ip=${api_chat_private_ip
 # Worker Nodes (Phase 4: 2025-11-08 활성화)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[api_nodes]
-k8s-api-waste ansible_host=${api_waste_public_ip} private_ip=${api_waste_private_ip} domain=waste instance_type=t3.small
-k8s-api-auth ansible_host=${api_auth_public_ip} private_ip=${api_auth_private_ip} domain=auth instance_type=t3.micro
-k8s-api-userinfo ansible_host=${api_userinfo_public_ip} private_ip=${api_userinfo_private_ip} domain=userinfo instance_type=t3.micro
-k8s-api-location ansible_host=${api_location_public_ip} private_ip=${api_location_private_ip} domain=location instance_type=t3.micro
-k8s-api-recycle-info ansible_host=${api_recycle_info_public_ip} private_ip=${api_recycle_info_private_ip} domain=recycle-info instance_type=t3.micro
-k8s-api-chat-llm ansible_host=${api_chat_llm_public_ip} private_ip=${api_chat_llm_private_ip} domain=chat-llm instance_type=t3.small
-
 [workers]
 k8s-worker-storage ansible_host=${worker_storage_public_ip} private_ip=${worker_storage_private_ip} workload=worker-storage worker_type=io-bound domain=scan instance_type=t3.small phase=4
 k8s-worker-ai ansible_host=${worker_ai_public_ip} private_ip=${worker_ai_private_ip} workload=worker-ai worker_type=network-bound domain=scan,chat instance_type=t3.small phase=4

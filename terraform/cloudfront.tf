@@ -12,23 +12,23 @@ resource "aws_cloudfront_origin_access_identity" "images" {
 
 # CloudFront Distribution
 resource "aws_cloudfront_distribution" "images" {
-  count               = var.enable_cloudfront ? 1 : 0
-  enabled             = true
-  is_ipv6_enabled     = true
-  comment             = "CDN for waste analysis images - ${var.environment}"
-  price_class         = "PriceClass_200"  # 아시아 + 북미 + 유럽
-  
+  count           = var.enable_cloudfront ? 1 : 0
+  enabled         = true
+  is_ipv6_enabled = true
+  comment         = "CDN for waste analysis images - ${var.environment}"
+  price_class     = "PriceClass_200" # 아시아 + 북미 + 유럽
+
   # Origin: S3 Bucket
   origin {
     domain_name = aws_s3_bucket.images.bucket_regional_domain_name
     origin_id   = "S3-${aws_s3_bucket.images.id}"
-    
+
     # OAI (Origin Access Identity) - S3 보안 연결
     s3_origin_config {
       origin_access_identity = aws_cloudfront_origin_access_identity.images[0].cloudfront_access_identity_path
     }
   }
-  
+
   # Default Cache Behavior
   default_cache_behavior {
     target_origin_id       = "S3-${aws_s3_bucket.images.id}"
@@ -36,23 +36,23 @@ resource "aws_cloudfront_distribution" "images" {
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
     cached_methods         = ["GET", "HEAD", "OPTIONS"]
     compress               = true
-    
+
     # Cache Policy: Optimized for Images
     forwarded_values {
       query_string = false
       headers      = ["Origin", "Access-Control-Request-Headers", "Access-Control-Request-Method"]
-      
+
       cookies {
         forward = "none"
       }
     }
-    
+
     # TTL 설정
     min_ttl     = 0
-    default_ttl = 86400    # 24시간
-    max_ttl     = 604800   # 7일 (분석 완료 후 이미지는 장기 캐싱)
+    default_ttl = 86400  # 24시간
+    max_ttl     = 604800 # 7일 (분석 완료 후 이미지는 장기 캐싱)
   }
-  
+
   # SSL Certificate (CloudFront는 us-east-1 인증서 필요)
   viewer_certificate {
     cloudfront_default_certificate = false
@@ -60,28 +60,28 @@ resource "aws_cloudfront_distribution" "images" {
     ssl_support_method             = "sni-only"
     minimum_protocol_version       = "TLSv1.2_2021"
   }
-  
+
   # Custom Domain
   aliases = ["images.${trimsuffix(data.aws_route53_zone.main[0].name, ".")}"]
-  
+
   # Geo Restrictions (없음)
   restrictions {
     geo_restriction {
       restriction_type = "none"
     }
   }
-  
+
   # Custom Error Responses
   custom_error_response {
     error_code            = 404
     error_caching_min_ttl = 10
   }
-  
+
   custom_error_response {
     error_code            = 403
     error_caching_min_ttl = 10
   }
-  
+
   tags = {
     Name        = "${var.environment}-images-cdn"
     Purpose     = "Image delivery optimization"
@@ -93,7 +93,7 @@ resource "aws_cloudfront_distribution" "images" {
 resource "aws_s3_bucket_policy" "images_cdn" {
   count  = var.enable_cloudfront ? 1 : 0
   bucket = aws_s3_bucket.images.id
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -117,11 +117,11 @@ resource "aws_acm_certificate" "cdn" {
   provider          = aws.us_east_1
   domain_name       = "images.${trimsuffix(data.aws_route53_zone.main[0].name, ".")}"
   validation_method = "DNS"
-  
+
   lifecycle {
     create_before_destroy = true
   }
-  
+
   tags = {
     Name        = "images.${trimsuffix(data.aws_route53_zone.main[0].name, ".")}"
     Purpose     = "CloudFront CDN SSL"
@@ -146,7 +146,7 @@ resource "aws_route53_record" "cdn_cert_validation" {
       type   = dvo.resource_record_type
     }
   } : {}
-  
+
   allow_overwrite = true
   name            = each.value.name
   records         = [each.value.record]
@@ -161,7 +161,7 @@ resource "aws_route53_record" "cdn" {
   zone_id = data.aws_route53_zone.main[0].zone_id
   name    = "images.${trimsuffix(data.aws_route53_zone.main[0].name, ".")}"
   type    = "A"
-  
+
   alias {
     name                   = aws_cloudfront_distribution.images[0].domain_name
     zone_id                = aws_cloudfront_distribution.images[0].hosted_zone_id
