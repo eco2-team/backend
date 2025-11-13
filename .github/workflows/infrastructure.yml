@@ -11,6 +11,7 @@ on:
     paths:
       - 'terraform/**'
       - 'ansible/**'
+      - '.github/workflows/**'
   
   pull_request:
     branches:
@@ -19,6 +20,7 @@ on:
     paths:
       - 'terraform/**'
       - 'ansible/**'
+      - '.github/workflows/**'
 
   # 수동 실행 옵션
   workflow_dispatch:
@@ -274,9 +276,51 @@ jobs:
       
       - name: 🔑 Setup SSH Key
         run: |
+          # SSH 디렉토리 생성 및 권한 설정
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/k8s-cluster-key.pem
-          chmod 600 ~/.ssh/k8s-cluster-key.pem
+          chmod 700 ~/.ssh
+          
+          # SSH 키 파일 생성
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/sesacthon.pem
+          chmod 600 ~/.ssh/sesacthon.pem
+          
+          # 🔍 키 검증
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔑 SSH Key Validation"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # 키 파일 크기 확인
+          KEY_SIZE=$(wc -c < ~/.ssh/sesacthon.pem)
+          echo "✅ Key file size: $KEY_SIZE bytes"
+          
+          if [ "$KEY_SIZE" -eq 0 ]; then
+            echo "❌ ERROR: SSH key is empty!"
+            exit 1
+          fi
+          
+          # 키 형식 검증
+          if ssh-keygen -y -f ~/.ssh/sesacthon.pem > /dev/null 2>&1; then
+            echo "✅ SSH key format is valid"
+            # 공개 키 지문 출력 (마지막 16자만)
+            PUBLIC_KEY=$(ssh-keygen -y -f ~/.ssh/sesacthon.pem)
+            echo "✅ Public key fingerprint (last 16 chars): ...${PUBLIC_KEY: -16}"
+          else
+            echo "❌ ERROR: SSH key format is invalid!"
+            exit 1
+          fi
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # SSH 에이전트 시작 및 키 추가
+          echo "🔐 Starting SSH Agent"
+          eval "$(ssh-agent -s)"
+          
+          # SSH 에이전트에 키 추가
+          ssh-add ~/.ssh/sesacthon.pem
+          
+          # 추가된 키 확인
+          echo "✅ Keys loaded in SSH agent:"
+          ssh-add -l
           
           # SSH Agent 시작
           eval "$(ssh-agent -s)"
@@ -285,12 +329,18 @@ jobs:
           # SSH Config 설정
           cat >> ~/.ssh/config <<EOF
           Host *
-            IdentityFile ~/.ssh/k8s-cluster-key.pem
+            IdentityFile ~/.ssh/sesacthon.pem
+            IdentitiesOnly yes
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
             ServerAliveInterval 60
             ServerAliveCountMax 3
+            AddKeysToAgent yes
           EOF
+          
+          chmod 600 ~/.ssh/config
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       
       - name: 📝 Create Ansible Inventory
         run: |
@@ -303,12 +353,15 @@ jobs:
           cat ansible/inventory/hosts.ini
       
       - name: 🔍 Test SSH Connectivity
+        env:
+          ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
         run: |
           cd ansible
-          ansible all -i inventory/hosts.ini -m ping --timeout=30 \
-            --private-key=~/.ssh/k8s-cluster-key.pem
+          ansible all -i inventory/hosts.ini -m ping --timeout=30
       
       - name: ⚙️ Run Ansible Playbook (site.yml)
+        env:
+          ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
         run: |
           cd ansible
           
@@ -318,11 +371,12 @@ jobs:
           
           ansible-playbook site.yml \
             -i inventory/hosts.ini \
-            --private-key=~/.ssh/k8s-cluster-key.pem \
             --timeout=300 \
             -v
       
       - name: 🏷️ Label Kubernetes Nodes
+        env:
+          ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
         run: |
           cd ansible
           
@@ -332,7 +386,6 @@ jobs:
           
           ansible-playbook playbooks/label-nodes.yml \
             -i inventory/hosts.ini \
-            --private-key=~/.ssh/k8s-cluster-key.pem \
             -v
       
       - name: ✅ Ansible Bootstrap Summary
@@ -380,12 +433,36 @@ jobs:
       
       - name: 🔑 Setup Kubeconfig
         run: |
-          mkdir -p ~/.kube
+          # SSH 디렉토리 생성 및 권한 설정
+          mkdir -p ~/.kube ~/.ssh
+          chmod 700 ~/.ssh
           
-          # SSH Key 설정
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/k8s-cluster-key.pem
-          chmod 600 ~/.ssh/k8s-cluster-key.pem
+          # SSH 키 파일 생성
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/sesacthon.pem
+          chmod 600 ~/.ssh/sesacthon.pem
+          
+          # SSH 에이전트 시작 및 키 추가
+          echo "🔐 Starting SSH Agent"
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/sesacthon.pem
+          
+          # 추가된 키 확인
+          echo "✅ Keys loaded in SSH agent:"
+          ssh-add -l
+          
+          # SSH Config 설정
+          cat >> ~/.ssh/config <<EOF
+          Host *
+            IdentityFile ~/.ssh/sesacthon.pem
+            IdentitiesOnly yes
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ServerAliveInterval 60
+            ServerAliveCountMax 3
+            AddKeysToAgent yes
+          EOF
+          
+          chmod 600 ~/.ssh/config
           
           # SSH Agent 시작
           eval "$(ssh-agent -s)"
@@ -393,7 +470,7 @@ jobs:
           
           # Master 노드에서 kubeconfig 가져오기
           scp -o StrictHostKeyChecking=no \
-            -i ~/.ssh/k8s-cluster-key.pem \
+            -i ~/.ssh/sesacthon.pem \
             ubuntu@${{ steps.master.outputs.master_ip }}:/home/ubuntu/.kube/config \
             ~/.kube/config
           

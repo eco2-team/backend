@@ -25,7 +25,7 @@ variable "allowed_ssh_cidr" {
 variable "public_key_path" {
   description = "SSH 공개 키 경로"
   type        = string
-  default     = "~/.ssh/id_rsa.pub"
+  default     = "~/.ssh/sesacthon.pub"
 }
 
 variable "enable_cloudfront" {

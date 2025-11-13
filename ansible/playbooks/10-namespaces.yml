@@ -6,6 +6,7 @@
 - name: 도메인별 네임스페이스 생성
   hosts: masters
   become: yes
+  become_user: "{{ kubectl_user }}"
   gather_facts: no
   
   vars:
