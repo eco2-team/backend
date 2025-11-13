@@ -278,6 +278,35 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/k8s-cluster-key.pem
           chmod 600 ~/.ssh/k8s-cluster-key.pem
           
+          # 🔍 키 검증
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔑 SSH Key Validation"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # 키 파일 크기 확인
+          KEY_SIZE=$(wc -c < ~/.ssh/k8s-cluster-key.pem)
+          echo "✅ Key file size: $KEY_SIZE bytes"
+          
+          if [ "$KEY_SIZE" -eq 0 ]; then
+            echo "❌ ERROR: SSH key is empty!"
+            exit 1
+          fi
+          
+          # 키 형식 검증
+          if ssh-keygen -y -f ~/.ssh/k8s-cluster-key.pem > /dev/null 2>&1; then
+            echo "✅ SSH key format is valid (RSA)"
+          else
+            echo "❌ ERROR: SSH key format is invalid!"
+            echo "   This might be the root cause of 'no such identity' error"
+            exit 1
+          fi
+          
+          # 공개 키 지문 출력 (마지막 16자만)
+          PUBLIC_KEY=$(ssh-keygen -y -f ~/.ssh/k8s-cluster-key.pem)
+          echo "✅ Public key fingerprint (last 16 chars): ...${PUBLIC_KEY: -16}"
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
           # SSH Config 설정
           cat >> ~/.ssh/config <<EOF
           Host *
