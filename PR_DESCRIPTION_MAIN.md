@@ -212,26 +212,93 @@ scripts/utilities/
 
 ```mermaid
 graph TB
-    A[개발자 Git Push] --> B{변경 영역?}
+    subgraph Bootstrap["🚀 Initial Bootstrap (Once)"]
+        direction TB
+        BS1[GitHub Actions Trigger] --> BS2[Terraform Apply]
+        BS2 --> BS3[AWS 인프라 생성<br/>VPC, EC2, 14-Node]
+        BS3 --> BS4[Ansible Bootstrap]
+        BS4 --> BS5[Kubernetes 설치<br/>ArgoCD 설치<br/>Atlantis 설치]
+        BS5 --> BS6[ArgoCD Root App 배포]
+    end
     
-    B -->|terraform/**| C[Atlantis]
-    C --> D[PR 생성 → plan 자동 실행]
-    D --> E[코멘트: atlantis apply]
-    E --> F[AWS 인프라 생성/변경]
+    subgraph GitOps["🔄 Continuous GitOps (운영)"]
+        direction TB
+        A[개발자 Git Push] --> B{변경 영역?}
+        
+        B -->|terraform/**| C[Atlantis]
+        C --> D[PR 생성 → plan 자동 실행]
+        D --> E[코멘트: atlantis apply]
+        E --> F[AWS 인프라 변경]
+        
+        B -->|k8s/** or argocd/**| G[ArgoCD]
+        G --> H[3분마다 Git 폴링]
+        H --> I[변경사항 자동 배포]
+        I --> J[Self-Healing]
+        
+        B -->|services/**| K[GitHub Actions]
+        K --> L[Docker Build & Push]
+        L --> M[Kustomize 이미지 태그 업데이트]
+        M --> G
+    end
     
-    B -->|k8s/** or argocd/**| G[ArgoCD]
-    G --> H[3분마다 Git 폴링]
-    H --> I[변경사항 자동 배포]
-    I --> J[Self-Healing]
+    BS6 --> A
     
-    B -->|services/**| K[GitHub Actions]
-    K --> L[Docker Build & Push]
-    L --> M[Kustomize 이미지 태그 업데이트]
-    M --> G
-    
+    style BS1 fill:#7c3aed,color:#fff
+    style BS4 fill:#ea580c,color:#fff
+    style BS6 fill:#0e7490,color:#fff
     style C fill:#b91c1c,color:#fff
     style G fill:#0e7490,color:#fff
     style K fill:#166534,color:#fff
+```
+
+### 주요 흐름 설명
+
+#### 1️⃣ **Bootstrap Phase (최초 1회)**
+```
+GitHub Actions (infrastructure-bootstrap.yml)
+  ↓
+1. Terraform Apply
+   → AWS 인프라 생성 (VPC, EC2, 14 Nodes)
+   → Output으로 Ansible Inventory 생성
+  ↓
+2. Ansible Bootstrap (site.yml)
+   → Kubernetes 클러스터 설치
+   → ArgoCD 설치
+   → Atlantis 설치 (Terraform GitOps용)
+   → 기타 도구 설치
+  ↓
+3. ArgoCD Root App 배포
+   → infrastructure (Namespaces, NetworkPolicies, Monitoring)
+   → api-services (7개 API)
+   → 전체 애플리케이션 자동 배포 시작
+```
+
+#### 2️⃣ **GitOps Phase (지속적 운영)**
+
+**Terraform 변경:**
+```
+terraform/** 수정 → PR 생성 → Atlantis plan
+→ 검토 → atlantis apply → AWS 리소스 변경
+```
+
+**Kubernetes 리소스 변경:**
+```
+k8s/** or argocd/** 수정 → Git Push
+→ ArgoCD 감지 (3분 이내) → 자동 배포 → Self-Healing
+```
+
+**애플리케이션 배포:**
+```
+services/** 수정 → GitHub Actions
+→ Docker Build & Push → Kustomize 업데이트
+→ ArgoCD 감지 → 자동 배포
+```
+
+**Ansible 변경:**
+```
+ansible/** 수정 → Git Push
+→ 수동으로 Bootstrap 워크플로우 재실행 (ansible-only)
+→ 또는 다음 Bootstrap 시 자동 적용
 ```
 
 ---

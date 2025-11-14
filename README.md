@@ -241,6 +241,49 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 
 이 프로젝트는 **App of Apps 패턴 기반 GitOps 2.0 아키텍처**를 구현하여 인프라, 클러스터 설정, 애플리케이션 배포를 완전히 자동화합니다.
 
+### 전체 배포 흐름
+
+```mermaid
+graph TB
+    subgraph Bootstrap["🚀 Initial Bootstrap (Once)"]
+        direction TB
+        BS1[GitHub Actions Trigger] --> BS2[Terraform Apply]
+        BS2 --> BS3[AWS 인프라 생성<br/>VPC, EC2, 14-Node]
+        BS3 --> BS4[Ansible Bootstrap]
+        BS4 --> BS5[Kubernetes 설치<br/>ArgoCD 설치<br/>Atlantis 설치]
+        BS5 --> BS6[ArgoCD Root App 배포]
+    end
+    
+    subgraph GitOps["🔄 Continuous GitOps (운영)"]
+        direction TB
+        A[개발자 Git Push] --> B{변경 영역?}
+        
+        B -->|terraform/**| C[Atlantis]
+        C --> D[PR 생성 → plan 자동 실행]
+        D --> E[코멘트: atlantis apply]
+        E --> F[AWS 인프라 변경]
+        
+        B -->|k8s/** or argocd/**| G[ArgoCD]
+        G --> H[3분마다 Git 폴링]
+        H --> I[변경사항 자동 배포]
+        I --> J[Self-Healing]
+        
+        B -->|services/**| K[GitHub Actions]
+        K --> L[Docker Build & Push]
+        L --> M[Kustomize 이미지 태그 업데이트]
+        M --> G
+    end
+    
+    BS6 --> A
+    
+    style BS1 fill:#7c3aed,color:#fff
+    style BS4 fill:#ea580c,color:#fff
+    style BS6 fill:#0e7490,color:#fff
+    style C fill:#b91c1c,color:#fff
+    style G fill:#0e7490,color:#fff
+    style K fill:#166534,color:#fff
+```
+
 #### 주요 개선사항
 
 ```yaml
@@ -250,13 +293,17 @@ v0.7.3 새로운 기능:
   ✅ Atlantis 복구 (Terraform GitOps)
   ✅ GitHub Actions Bootstrap 워크플로우
   ✅ ArgoCD 실시간 모니터링 도구
-  ✅ 완전 자동화된 배포 파이프라인
 
-GitOps 흐름:
-  1. Terraform (Atlantis) → AWS 리소스
-  2. Ansible → Kubernetes 클러스터 + ArgoCD + Atlantis
-  3. ArgoCD Root App → 인프라 + 애플리케이션 자동 배포
-  4. GitHub Actions → CI/CD 통합
+Bootstrap Phase (최초 1회):
+  1. Terraform Apply → AWS 인프라 생성
+  2. Ansible Bootstrap → Kubernetes + ArgoCD + Atlantis
+  3. ArgoCD Root App → 전체 애플리케이션 자동 배포
+
+GitOps Phase (지속적 운영):
+  - Terraform 변경 → Atlantis (PR 기반)
+  - Kubernetes 리소스 → ArgoCD (자동 동기화)
+  - 애플리케이션 → GitHub Actions + ArgoCD
+  - Ansible 변경 → Bootstrap 워크플로우 재실행
 ```
 
 ---
@@ -691,7 +738,7 @@ Kubernetes:
   ✅ Label & Annotation 시스템 (도메인별 분리)
   ✅ 14-Node 클러스터 성공적 배포
 
-GitOps (v0.7.3 완성):
+GitOps (v0.7.3):
   ✅ Terraform + Atlantis 통합 (https://atlantis.growbin.app)
   ✅ ArgoCD + App of Apps + Kustomize (https://argocd.growbin.app)
   ✅ ArgoCD Root App 패턴 구현
