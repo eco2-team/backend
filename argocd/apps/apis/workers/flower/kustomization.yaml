@@ -1,0 +1,20 @@
+# Flower Kustomization
+# Celery 모니터링 WebUI
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Placeholder: 향후 Flower Deployment 추가
+  # - deployment.yaml
+  # - service.yaml
+  # - ingress.yaml
+
+commonLabels:
+  app.kubernetes.io/name: flower
+  app.kubernetes.io/part-of: ecoeco-platform
+  app.kubernetes.io/component: worker-ui
+  tier: workers
+
+namespace: workers
+

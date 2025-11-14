@@ -34,3 +34,41 @@
       - "Password: {{ argocd_initial_password.stdout }}"
   when: argocd_initial_password is succeeded
 
+- name: root-app.yaml 복사 (Master 노드로)
+  copy:
+    src: "{{ playbook_dir }}/../../argocd/root-app.yaml"
+    dest: /tmp/root-app.yaml
+    mode: '0644'
+
+- name: ArgoCD Root App 배포
+  command: kubectl apply -f /tmp/root-app.yaml
+  register: root_app_deploy
+  changed_when: "'created' in root_app_deploy.stdout or 'configured' in root_app_deploy.stdout"
+
+- name: ArgoCD Root App 상태 확인
+  debug:
+    msg:
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "✅ ArgoCD Root App 배포 완료 (App of Apps)"
+      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - ""
+      - "📍 배포된 Application:"
+      - "  - root-app (argocd/components/* 관리)"
+      - ""
+      - "🔄 자동 배포 순서:"
+      - "  Wave -1: Foundations (CRDs, Namespaces)"
+      - "  Wave  0: Infrastructure (NetworkPolicies)"
+      - "  Wave 10: Platform (ALB Controller, Cert-Manager)"
+      - "  Wave 20: Monitoring (Prometheus, Grafana)"
+      - "  Wave 25: Data Operators (PostgreSQL, Redis, RabbitMQ)"
+      - "  Wave 30: Data Clusters (PostgreSQL, Redis, RabbitMQ CR)"
+      - "  Wave 50: GitOps Tools (Atlantis)"
+      - "  Wave 60: Applications (API Services + Workers)"
+      - ""
+      - "🌐 ArgoCD WebUI에서 확인:"
+      - "  kubectl port-forward svc/argocd-server -n argocd 8080:443"
+      - "  https://localhost:8080"
+      - ""
+      - "📋 Application 목록 확인:"
+      - "  kubectl get applications -n argocd"
+

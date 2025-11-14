@@ -1,0 +1,68 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Wave 30: Data Clusters (Tier 4)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 목적:
+#   - PostgreSQL (StatefulSet - 향후 Operator CR로 전환)
+#   - Redis (Deployment - 향후 Operator CR로 전환)
+#   - RabbitMQ (RabbitmqCluster CR)
+#
+# 실행 순서: Wave 30
+# 의존성:
+#   - 00-foundations (data, messaging namespace)
+#   - 40-data-operators (RabbitMQ Operator)
+#
+# 참고: 현재 Ansible에서 배포되고 있으나, ArgoCD로 관리로 전환 시
+#       argocd/apps/data/ 및 argocd/apps/mq/의 내용을 여기서 참조
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-clusters
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: data-clusters
+    app.kubernetes.io/part-of: ecoeco-platform
+    app.kubernetes.io/component: data-layer
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"  # Wave 30
+spec:
+  project: default
+  
+  # Source: argocd/apps (data/, mq/)
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: argocd/apps
+    
+    # Directory Recurse로 data/, mq/ 하위 디렉토리 포함
+    directory:
+      recurse: true
+      include: '{data,mq}/**'
+  
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+  
+  # Sync Policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=false          # Namespace는 이미 생성됨
+      - ServerSideApply=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  # Revision History
+  revisionHistoryLimit: 10

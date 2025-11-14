@@ -1,0 +1,184 @@
+# 도메인별 네임스페이스 정의
+# 14-Node Microservices Architecture
+#
+# Tier 구조 (Application Layer 중심):
+#   - Tier 1 (Presentation): API Gateway, Ingress (ALB)
+#   - Tier 2 (Business Logic): 도메인별 API (auth, my, scan, ...)
+#   - Tier 3 (Integration): Message Queue (RabbitMQ - async)
+#   - Tier 4 (Data): Database & Cache (PostgreSQL, Redis)
+#   - Tier 0 (Observability): Monitoring, Logging (별도 계층)
+#   - Kubernetes Control Plane: kube-system (etcd, api-server, scheduler)
+#
+# 참고: docs/architecture/09-NAMESPACE_STRATEGY_ANALYSIS.md
+
+---
+# Tier 2: Business Logic (도메인별 API)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: auth
+  labels:
+    name: auth
+    domain: auth
+    tier: business-logic
+    layer: "2"
+    phase: "1"
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: api-layer
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my
+  labels:
+    name: my
+    domain: my
+    tier: business-logic
+    layer: "2"
+    phase: "1"
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: api-layer
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: scan
+  labels:
+    name: scan
+    domain: scan
+    tier: business-logic
+    layer: "2"
+    phase: "2"
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: api-layer
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: character
+  labels:
+    name: character
+    domain: character
+    tier: business-logic
+    layer: "2"
+    phase: "2"
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: api-layer
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: location
+  labels:
+    name: location
+    domain: location
+    tier: business-logic
+    layer: "2"
+    phase: "2"
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: api-layer
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: info
+  labels:
+    name: info
+    domain: info
+    tier: business-logic
+    layer: "2"
+    phase: "3"
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: api-layer
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chat
+  labels:
+    name: chat
+    domain: chat
+    tier: business-logic
+    layer: "2"
+    phase: "3"
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: api-layer
+
+---
+# Tier 2: Business Logic (비동기 처리 - Celery Workers)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: workers
+  labels:
+    name: workers
+    tier: business-logic
+    layer: "2"
+    component: async-processor
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: worker-layer
+
+---
+# Tier 3: Integration (Message Queue - Async 통신)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: messaging
+  labels:
+    name: messaging
+    tier: integration
+    layer: "3"
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: messaging
+
+---
+# Tier 4: Data (Database & Cache)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data
+  labels:
+    name: data
+    tier: data
+    layer: "4"
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: data-layer
+
+---
+# Tier 0: Observability (Monitoring & Logging - 별도 계층)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+    tier: observability
+    layer: "0"
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: monitoring
+
+---
+# GitOps (Infrastructure Management - 별도 계층)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: atlantis
+  labels:
+    name: atlantis
+    tier: infrastructure
+    layer: "0"
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: gitops
+

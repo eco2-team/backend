@@ -1,26 +1,27 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Infrastructure Kustomization
+# Platform Kustomization
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Wave 0: 기초 인프라 설정
-# - NetworkPolicies (Zero Trust 네트워크 격리)
-# - RBAC (향후 추가)
-# - StorageClasses (향후 추가)
+# Wave 10: 플랫폼 서비스 (Tier 1)
+# - AWS Load Balancer Controller (ALB 자동 생성)
+# - cert-manager (TLS 인증서 관리) - 향후 추가
+# - ingress-nginx (향후 추가)
+#
+# 참고: 현재는 Ansible에서 ALB Controller, Cert-Manager를 설치
+#       향후 ArgoCD로 완전 이관 예정
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  # NetworkPolicies (도메인 격리)
-  - networkpolicies/domain-isolation.yaml
+  # 향후 추가 예정:
+  # - alb-controller/
+  # - cert-manager/
+  # - ingress-nginx/
   
-  # RBAC (향후 추가)
-  # - rbac/atlantis-sa.yaml
-  # - rbac/argocd-admin.yaml
-  
-  # StorageClasses (향후 추가)
-  # - storage/ebs-gp3.yaml
+  # 현재는 Ansible에서 관리
 
 commonLabels:
   app.kubernetes.io/managed-by: argocd
   app.kubernetes.io/part-of: ecoeco-platform
-  app.kubernetes.io/component: infrastructure
+  app.kubernetes.io/component: platform
+

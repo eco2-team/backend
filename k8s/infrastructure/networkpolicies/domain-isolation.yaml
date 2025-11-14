@@ -357,7 +357,89 @@ spec:
           port: 53
 
 ---
-# data 네임스페이스 - 모든 API에서 접근 허용
+# workers 네임스페이스 - RabbitMQ, Data Layer, 외부 API 접근
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: workers-policy
+  namespace: workers
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    # Monitoring에서 메트릭 수집
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9090  # Prometheus metrics
+  
+  egress:
+    # RabbitMQ 접근 (메시지 수신)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: messaging
+      ports:
+        - protocol: TCP
+          port: 5672
+    
+    # PostgreSQL, Redis 접근 (결과 저장)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: data
+      ports:
+        - protocol: TCP
+          port: 5432  # PostgreSQL
+        - protocol: TCP
+          port: 6379  # Redis
+    
+    # S3/OpenAI API 접근 (HTTPS)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+    
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# messaging 네임스페이스 - Tier 2 (API + Workers)에서만 접근
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: messaging-layer-policy
+  namespace: messaging
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  
+  ingress:
+    # Tier 2 (API 7개 + Workers)에서 접근 허용
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              tier: business-logic
+      ports:
+        - protocol: TCP
+          port: 5672  # RabbitMQ
+
+---
+# data 네임스페이스 - Tier 2 (API + Workers)에서만 접근
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -369,7 +451,7 @@ spec:
     - Ingress
   
   ingress:
-    # auth, my, scan, character, location, info, chat에서 접근 허용
+    # Tier 2 (API 7개 + Workers)에서 접근 허용
     - from:
         - namespaceSelector:
             matchLabels:
@@ -380,7 +462,7 @@ spec:
         - protocol: TCP
           port: 6379  # Redis
         - protocol: TCP
-          port: 5672  # RabbitMQ
+          port: 5672  # RabbitMQ (data 네임스페이스에 없지만 일관성 유지)
 
 ---
 # monitoring 네임스페이스 - 모든 네임스페이스 메트릭 수집

@@ -1,26 +1,24 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Infrastructure Kustomization
+# Foundations Kustomization
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Wave 0: 기초 인프라 설정
-# - NetworkPolicies (Zero Trust 네트워크 격리)
-# - RBAC (향후 추가)
-# - StorageClasses (향후 추가)
+# Wave -1: 최우선 실행
+# - CRDs (Prometheus, Cert-Manager, External Secrets, etc.)
+# - Namespaces (Tier 기반 도메인 구조)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  # NetworkPolicies (도메인 격리)
-  - networkpolicies/domain-isolation.yaml
+  # 1. Namespaces 먼저 생성
+  - namespaces/domain-based.yaml
   
-  # RBAC (향후 추가)
-  # - rbac/atlantis-sa.yaml
-  # - rbac/argocd-admin.yaml
-  
-  # StorageClasses (향후 추가)
-  # - storage/ebs-gp3.yaml
+  # 2. CRDs (향후 추가)
+  # - crds/prometheus-operator.yaml
+  # - crds/cert-manager.yaml
+  # - crds/external-secrets.yaml
 
 commonLabels:
   app.kubernetes.io/managed-by: argocd
   app.kubernetes.io/part-of: ecoeco-platform
-  app.kubernetes.io/component: infrastructure
+  app.kubernetes.io/component: foundations
+
