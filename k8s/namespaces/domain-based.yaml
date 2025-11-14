@@ -112,6 +112,21 @@ metadata:
     app.kubernetes.io/component: api-layer
 
 ---
+# Tier 2: Business Logic (비동기 처리 - Celery Workers)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: workers
+  labels:
+    name: workers
+    tier: business-logic
+    layer: "2"
+    component: async-processor
+    app.kubernetes.io/part-of: ecoeco-backend
+    app.kubernetes.io/component: worker-layer
+
+---
 # Tier 3: Integration (Message Queue - Async 통신)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: v1
