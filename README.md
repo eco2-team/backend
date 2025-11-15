@@ -49,7 +49,7 @@ Self-managed Kubernetes를 기반으로 AI 폐기물 분류·지도·챗봇 등 
 Cluster  : kubeadm Self-Managed (14 Nodes)
 GitOps   :
   Layer0 - Atlantis + Terraform (AWS 인프라)
-  Layer1 - Ansible (kubeadm, CNI, Add-ons)
+  Layer1 - Ansible (kubernetes 클러스터 부트스트랩)
   Layer2 - ArgoCD App-of-Apps + Kustomize/Helm
   Layer3 - GitHub Actions + GHCR
 Domains  : auth, my, scan, character, location, info, chat
