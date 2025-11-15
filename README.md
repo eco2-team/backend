@@ -19,8 +19,8 @@ AI 폐기물 분류·지도·챗봇 등 도메인 API와 데이터 계층, GitOp
 | Tier 1 : Presentation | ALB(L7) / Ingress | kube-system에 포함, ALB Controller | master node | IMDS, In-cluster API, DNS, AWS API Egress 허용 |
 | Tier 2 : Business Logic | API Nodes (7개), Celery Workers(2개) | 각 API별 1:1 매칭 | 각 API별 1:1 할당 | Data/Messaging 접근만 허용 |
 | Tier 3 : Integration | RabbitMQ | messaging | Infra node | API Layer에서만 접근 허용 |
-| Tier 4 : Data | data | PostgreSQL, Redis | Data node | API Layer에서만 접근 허용 |
-| Tier 0 : Observability | Prometheus, Grafana, ArgoCD, Atlantis | Monitoring Node | 모든 Layer의 메트릭을 수집 |
+| Tier 4 : Data | data | PostgreSQL, Redis | data | API Layer에서만 접근 허용 |
+| Tier 0 : Observability | Prometheus, Grafana, ArgoCD, Atlantis | 각 피쳐별 1:1 매칭 | Monitoring Node | 모든 Layer의 메트릭을 수집 |
 
 #### 핵심 원칙
 
