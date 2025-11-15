@@ -15,8 +15,7 @@ kind: Kustomization
 resources:
   # 향후 추가 예정:
   # - alb-controller/
-  # - cert-manager/
-  # - ingress-nginx/
+
   
   # 현재는 Ansible에서 관리
 

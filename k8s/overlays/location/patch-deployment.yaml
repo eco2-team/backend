@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/sesacthon/location-api:latest
+          image: ghcr.io/sesacthon/location-api:location-0.7.3-8255d8
           env:
             - name: SERVICE_NAME
               value: location

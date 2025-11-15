@@ -23,7 +23,6 @@ docker_version: "24.0"
 argocd_version: "stable"
 argocd_namespace: "argocd"
 argocd_http_node_port: 30080
-argocd_https_node_port: 30443
 
 # AWS (ALB Controller용)
 aws_region: "ap-northeast-2"

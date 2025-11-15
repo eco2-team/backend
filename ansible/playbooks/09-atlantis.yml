@@ -1,31 +1,48 @@
-# Atlantis 설치 (Terraform GitOps)
-# 14-Node Architecture: Monitoring 노드에 배포
+# Atlantis – Helm/ArgoCD 안내 플로우
 ---
-- name: Atlantis 설치 및 설정
+- name: Atlantis Secret 및 ArgoCD 배포 안내
   hosts: masters
   become: yes
   become_user: "{{ kubectl_user }}"
-  gather_facts: yes
+  gather_facts: false
   tasks:
-    - name: "Atlantis namespace 생성"
+    - name: "Atlantis namespace 준비"
       shell: |
         kubectl create namespace atlantis --dry-run=client -o yaml | kubectl apply -f -
       register: atlantis_namespace
       changed_when: "'created' in atlantis_namespace.stdout"
 
-    - name: "Atlantis Secret 확인"
+    - name: "Atlantis Secret 존재 여부 확인"
       shell: |
         kubectl get secret atlantis-secrets -n atlantis 2>/dev/null || echo "NOT_FOUND"
       register: atlantis_secret_check
       changed_when: false
 
-    - name: "Atlantis Secret 생성 안내 (수동 생성 필요)"
+    - name: "Atlantis Secret 생성 안내"
       debug:
         msg:
           - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          - "⚠️  Atlantis Secret을 수동으로 생성해야 합니다"
-          - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          - "Atlantis Helm Chart(charts/platform/atlantis)는 atlantis-secrets가 필요합니다."
           - ""
+          - "kubectl create secret generic atlantis-secrets -n atlantis \\"
+          - "  --from-literal=github-token='YOUR_GITHUB_TOKEN' \\"
+          - "  --from-literal=github-webhook-secret='YOUR_WEBHOOK_SECRET' \\"
+          - "  --from-literal=aws-access-key-id='YOUR_AWS_ACCESS_KEY_ID' \\"
+          - "  --from-literal=aws-secret-access-key='YOUR_AWS_SECRET_ACCESS_KEY'"
+      when: atlantis_secret_check.stdout == "NOT_FOUND"
+
+    - name: "ArgoCD Application 동기화 안내"
+      debug:
+        msg:
+          - "Atlantis는 ArgoCD Application(gitops-tools)에서 Helm Chart로 관리됩니다."
+          - ""
+          - "동기화 절차:"
+          - "  kubectl apply -f argocd/apps/70-gitops-tools.yaml"
+          - "  argocd app sync gitops-tools"
+          - ""
+          - "Helm Chart 경로: charts/platform/atlantis"
+          - "세부 절차: docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md 참고"
+
           - "필요한 Secret:"
           - "  1. github-token: GitHub Personal Access Token"
           - "     - 권한: repo, admin:repo_hook"
@@ -129,89 +146,6 @@
         EOF
       register: atlantis_repo_config
 
-    - name: "Atlantis Deployment 파일 복사 (Master 노드로)"
-      copy:
-        src: "{{ playbook_dir }}/../../k8s/atlantis/atlantis-deployment.yaml"
-        dest: /tmp/atlantis-deployment.yaml
-        mode: '0644'
-      when: atlantis_secret_check.stdout != "NOT_FOUND"
-
-    - name: "기존 StatefulSet 삭제 (업데이트를 위해)"
-      shell: |
-        kubectl delete statefulset atlantis -n atlantis --ignore-not-found=true
-      register: atlantis_statefulset_delete
-      when: atlantis_secret_check.stdout != "NOT_FOUND"
-      changed_when: "'deleted' in atlantis_statefulset_delete.stdout or 'not found' in atlantis_statefulset_delete.stdout"
-
-    - name: "StatefulSet 삭제 대기"
-      shell: |
-        kubectl wait --for=delete statefulset/atlantis -n atlantis --timeout=60s || true
-      when: atlantis_secret_check.stdout != "NOT_FOUND" and atlantis_statefulset_delete.changed
-      ignore_errors: true
-
-    - name: "Atlantis Deployment 적용"
-      shell: |
-        kubectl apply -f /tmp/atlantis-deployment.yaml
-      register: atlantis_deployment
-      when: atlantis_secret_check.stdout != "NOT_FOUND"
-
-    - name: "Atlantis Pod Ready 대기"
-      shell: |
-        kubectl wait --for=condition=ready pod -l app=atlantis -n atlantis --timeout=300s || true
-        kubectl get pods -n atlantis -l app=atlantis
-        kubectl describe pod -l app=atlantis -n atlantis | tail -20
-      register: atlantis_pod_wait
-      when: atlantis_deployment is defined and atlantis_deployment.changed
-      ignore_errors: true
-      changed_when: false
-
-    - name: "Atlantis Pod 상태 확인"
-      shell: |
-        # Pod 상태 확인 (CrashLoopBackOff도 감지)
-        kubectl get pods -n atlantis -l app=atlantis -o jsonpath='{.items[0].status.containerStatuses[0].state.waiting.reason}{.items[0].status.containerStatuses[0].state.running.startedAt}{.items[0].status.phase}'
-      register: atlantis_pod_status_raw
-      when: atlantis_deployment is defined and atlantis_deployment.changed
-      changed_when: false
-      failed_when: false
-
-    - name: "Atlantis Pod 실제 상태 파싱"
-      set_fact:
-        atlantis_pod_status: "{{ 'CrashLoopBackOff' if 'CrashLoopBackOff' in atlantis_pod_status_raw.stdout else ('Running' if 'Running' in atlantis_pod_status_raw.stdout or atlantis_pod_status_raw.stdout == '' else atlantis_pod_status_raw.stdout) }}"
-      when: atlantis_deployment is defined and atlantis_deployment.changed
-
-    - name: "Atlantis Pod 로그 확인 (에러 시)"
-      shell: |
-        kubectl logs -n atlantis -l app=atlantis --tail=50 || echo "로그를 가져올 수 없습니다"
-      register: atlantis_pod_logs
-      when: atlantis_deployment is defined and atlantis_deployment.changed and atlantis_pod_status != "Running"
-      changed_when: false
-
-    - name: "Atlantis Pod 상태 출력"
-      debug:
-        msg:
-          - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          - "📊 Atlantis Pod 상태: {{ atlantis_pod_status }}"
-          - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          - ""
-          - "{{ atlantis_pod_logs.stdout_lines | default([]) }}"
-      when: atlantis_deployment is defined and atlantis_deployment.changed
-
-    - name: "Atlantis Pod 실패 시 경고"
-      fail:
-        msg:
-          - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          - "❌ Atlantis Pod가 정상적으로 시작되지 않았습니다!"
-          - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          - ""
-          - "현재 상태: {{ atlantis_pod_status }}"
-          - ""
-          - "로그 확인:"
-          - "{{ atlantis_pod_logs.stdout_lines | default(['로그를 가져올 수 없습니다']) }}"
-          - ""
-          - "수동 확인:"
-          - "  kubectl describe pod -n atlantis -l app=atlantis"
-          - "  kubectl logs -n atlantis -l app=atlantis"
-      when: 
         - atlantis_deployment is defined and atlantis_deployment.changed
         - atlantis_pod_status != "Running"
 

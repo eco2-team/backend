@@ -8,4 +8,3 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
 data:
   AWS_REGION: "{{ .Values.aws.region }}"
-

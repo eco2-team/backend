@@ -69,5 +69,7 @@ terraform destroy
 
 ---
 
-**문서**: [IaC 구성 가이드](../docs/architecture/iac-terraform-ansible.md)
+## 📚 참고 문서
+- `docs/infrastructure/03-iac-terraform-ansible.md`
+- `docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md`
 

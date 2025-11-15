@@ -9,4 +9,3 @@ metadata:
 data:
   atlantis.yaml: |
 {{ tpl .Values.repoConfig . | indent 4 }}
-

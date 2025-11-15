@@ -9,7 +9,7 @@
 #   - Tier 0 (Observability): Monitoring, Logging (별도 계층)
 #   - Kubernetes Control Plane: kube-system (etcd, api-server, scheduler)
 #
-# 참고: docs/architecture/09-NAMESPACE_STRATEGY_ANALYSIS.md
+# 참고: docs/TROUBLESHOOTING.md (Namespace 섹션)
 
 ---
 # Tier 2: Business Logic (도메인별 API)

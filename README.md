@@ -1,816 +1,169 @@
-# ♻️이코에코(Eco²) Backend: API & Infrastructure
-![E40B8A37-71A7-4B98-9BD8-6A60741D99DE_4_5005_c](https://github.com/user-attachments/assets/85067a31-500f-4afa-9909-1db6baded385)
+# Eco² Backend
 
-> **Self-Managed Kubernetes 기반 마이크로서비스 플랫폼**  
-> AI 분석 기반 쓰레기 분류 애플리케이션의 백엔드 인프라
-
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
-[![Terraform](https://img.shields.io/badge/Terraform-7B42BC?style=flat&logo=terraform&logoColor=white)](https://www.terraform.io/)
-[![Ansible](https://img.shields.io/badge/Ansible-EE0000?style=flat&logo=ansible&logoColor=white)](https://www.ansible.com/)
-[![ArgoCD](https://img.shields.io/badge/ArgoCD-EF7B4D?style=flat&logo=argo&logoColor=white)](https://argoproj.github.io/cd/)
-[![AWS](https://img.shields.io/badge/AWS-232F3E?style=flat&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/)
+Self-managed Kubernetes 기반으로 Terraform · Ansible · ArgoCD · Atlantis를 결합해 운영하는 14-Node 마이크로서비스 플랫폼입니다.  
+AI 폐기물 분류·지도·챗봇 등 도메인 API와 데이터 계층, GitOps 파이프라인을 하나의 리포지토리에서 관리합니다.
 
 ---
 
-## 📋 목차
-
-- [프로젝트 개요](#-프로젝트-개요)
-- [아키텍처](#-아키텍처)
-- [빠른 시작](#-빠른-시작)
-- [문서 구조](#-문서-구조)
-- [GitOps 아키텍처](#-gitops-아키텍처)
-- [네임스페이스 전략](#-네임스페이스-전략)
-- [주요 기능](#-주요-기능)
-- [기술 스택](#-기술-스택)
-
----
-
-## 🎯 프로젝트 개요
-
-### 핵심 특징
+## Overview
 
 ```yaml
-클러스터 규모: 14 Nodes (Self-Managed Kubernetes)
-API 서비스: 7개 (auth, my, scan, character, location, info, chat)
-Worker 서비스: 2개 (storage, ai)
-인프라: PostgreSQL, Redis, RabbitMQ, Monitoring
-배포 방식: GitOps (Terraform + Ansible + Kustomize + ArgoCD + Atlantis)
+Cluster  : kubeadm Self-Managed (14 Nodes)
+GitOps   :
+  Layer0 - Atlantis + Terraform (AWS 인프라)
+  Layer1 - Ansible (kubeadm, CNI, Add-ons)
+  Layer2 - ArgoCD App-of-Apps + Kustomize/Helm
+  Layer3 - GitHub Actions + GHCR
+Domains  : auth, my, scan, character, location, info, chat
+Data     : PostgreSQL, Redis, RabbitMQ, Monitoring stack
+Ingress  : Route53 + CloudFront + ALB → Calico NetworkPolicy
 ```
 
-### 왜 Self-Managed Kubernetes?
-
-- ✅ **완전한 제어**: CNI, 네트워크 정책, 보안 설정 완전 제어
-- ✅ **비용 절감**: EKS 대비 약 70% 비용 절감 (클러스터 시간당 $0.10)
-- ✅ **학습 가치**: Kubernetes 내부 동작 원리 이해
-- ✅ **확장성**: Phase별 단계적 확장 가능
-
-→ 자세한 내용: [docs/architecture/12-why-self-managed-k8s.md](docs/architecture/12-why-self-managed-k8s.md)
-
----
-
-## 🏗️ 아키텍처
-
-### 전체 애플리케이션 아키텍처
-![E6A73249-BFDB-4CA9-A41B-4AF5A907C6D1](https://github.com/user-attachments/assets/375ac906-4a2c-4aca-bce0-889212e6914a)
-
-
-**주요 구성 요소**:
-- **AWS Services**: Route53, ALB, S3, RDS, CloudFront
-- **Kubernetes Control Plane**: Ingress, API, Scheduler, Controller Manager, etcd
-- **Application Layer**: 7개 도메인별 API (auth, my, scan, character, location, info, chat)
-- **Storage**: Redis (JWT Blacklist, Cache), PostgreSQL (Main DB)
-- **Message Queue**: Celery (비동기 작업), RabbitMQ (메시지 브로커)
-- **Monitoring**: Prometheus, Grafana, Atlantis (GitOps)
-
-### 클러스터 구성 (14-Node)
-
-```mermaid
-graph TB
-    subgraph "14-Node Production Architecture"
-        subgraph "Master Nodes (1)"
-            M[k8s-master<br/>t3.large<br/>2 vCPU, 8GB]
-        end
-        
-        subgraph "API Nodes (7)"
-            A1[auth<br/>t3.micro<br/>2 vCPU, 1GB]
-            A2[my<br/>t3.micro<br/>2 vCPU, 1GB]
-            A3[scan<br/>t3.small<br/>2 vCPU, 2GB]
-            A4[character<br/>t3.micro<br/>2 vCPU, 1GB]
-            A5[location<br/>t3.micro<br/>2 vCPU, 1GB]
-            A6[info<br/>t3.micro<br/>2 vCPU, 1GB]
-            A7[chat<br/>t3.small<br/>2 vCPU, 2GB]
-        end
-        
-        subgraph "Worker Nodes (2)"
-            W1[storage<br/>t3.small<br/>2 vCPU, 2GB]
-            W2[ai<br/>t3.small<br/>2 vCPU, 2GB]
-        end
-        
-        subgraph "Infra Nodes (4)"
-            I1[postgresql<br/>t3.small<br/>2 vCPU, 2GB]
-            I2[redis<br/>t3.micro<br/>2 vCPU, 1GB]
-            I3[rabbitmq<br/>t3.small<br/>2 vCPU, 2GB]
-            I4[monitoring<br/>t3.small<br/>2 vCPU, 2GB]
-        end
-    end
-    
-    Total["📊 Total: 14 nodes, 30 vCPU, 22GB RAM"]
-    
-    style M fill:#b91c1c,color:#fff
-    style A1 fill:#0e7490,color:#fff
-    style A2 fill:#0e7490,color:#fff
-    style A3 fill:#0e7490,color:#fff
-    style A4 fill:#0e7490,color:#fff
-    style A5 fill:#0e7490,color:#fff
-    style A6 fill:#0e7490,color:#fff
-    style A7 fill:#0e7490,color:#fff
-    style W1 fill:#166534,color:#fff
-    style W2 fill:#166534,color:#fff
-    style I1 fill:#991b1b,color:#fff
-    style I2 fill:#991b1b,color:#fff
-    style I3 fill:#991b1b,color:#fff
-    style I4 fill:#991b1b,color:#fff
-    style Total fill:#a16207,color:#fff
-```
-### 네트워크 구조
+### Platform Map
 
 ```mermaid
 graph TD
-    A[🌐 Internet] --> B[☁️ CloudFront CDN]
-    B --> C[⚖️ ALB<br/>Application Load Balancer]
-    C --> D[🔒 Calico CNI<br/>Network Policy]
-    D --> E[🚀 API Pods<br/>NodePort 30000-30007]
-    E --> F[⚙️ Worker Pods<br/>Internal]
-    F --> G[💾 PostgreSQL / Redis / RabbitMQ]
-    
-    style A fill:#1e3a8a,color:#fff
-    style B fill:#0e7490,color:#fff
-    style C fill:#0891b2,color:#fff
-    style D fill:#0284c7,color:#fff
-    style E fill:#0369a1,color:#fff
-    style F fill:#075985,color:#fff
-    style G fill:#0c4a6e,color:#fff
-```
-
-→ 자세한 내용: [docs/architecture/03-SERVICE_ARCHITECTURE.md](docs/architecture/03-SERVICE_ARCHITECTURE.md)
-
----
-
-## 🚀 빠른 시작
-
-### 1️⃣ 사전 요구사항
-
-```yaml
-필수:
-  - AWS 계정 (vCPU 할당량 32개)
-  - Terraform >= 1.5.0
-  - Ansible >= 2.14
-  - kubectl >= 1.27
-  - SSH 키 (~/.ssh/sesacthon.pem)
-
-선택:
-  - ArgoCD CLI
-  - Helm >= 3.12
-```
-
-### 2️⃣ 인프라 프로비저닝 (Terraform)
-
-```bash
-cd terraform
-
-# 초기화
-terraform init
-
-# 계획 확인
-terraform plan
-
-# 14-Node 클러스터 생성
-terraform apply -auto-approve
-
-# 예상 소요 시간: 15-20분
-```
-
-### 3️⃣ Kubernetes 클러스터 구성 (Ansible)
-
-```bash
-cd ansible
-
-# 전체 클러스터 구성 (Kubeadm, CNI, Add-ons, ArgoCD, Atlantis)
-ansible-playbook site.yml
-
-# 예상 소요 시간: 15-20분
-```
-
-### 4️⃣ GitOps 배포 (ArgoCD App of Apps)
-
-```bash
-# Root Application 배포 (모든 인프라 + 애플리케이션 자동 배포)
-kubectl apply -f argocd/root-app.yaml
-
-# 배포 상태 모니터링
-./scripts/utilities/argocd-quick-status.sh
-
-# ArgoCD 대시보드 접속
-kubectl port-forward svc/argocd-server -n argocd 8080:443
-# https://localhost:8080
-
-# 예상 소요 시간: 5-10분
-```
-
-### 5️⃣ GitHub Actions 자동화 (신규 클러스터 부트스트랩)
-
-```bash
-# GitHub Actions에서 수동 실행
-# .github/workflows/infrastructure-bootstrap.yml
-# → Run workflow 버튼 클릭
-
-# 전체 프로세스 자동 실행:
-# 1. Terraform apply (인프라 생성)
-# 2. Ansible playbook (클러스터 구성)
-# 3. ArgoCD root-app 배포 (애플리케이션 배포)
-
-# 예상 소요 시간: 40-60분
-```
-
-→ 자세한 내용: 
-- [Infrastructure Deployment Guide](docs/deployment/INFRASTRUCTURE_DEPLOYMENT.md)
-- [ArgoCD Monitoring Guide](docs/deployment/ARGOCD_MONITORING_GUIDE.md)
-
----
-
-### 주요 문서 빠른 링크
-
-| 분류 | 문서 | 설명 |
-|------|------|------|
-| **🚀 시작하기** | [Infrastructure Deployment](docs/deployment/INFRASTRUCTURE_DEPLOYMENT.md) | 전체 배포 가이드 (v0.7.3) |
-| **🏗️ 아키텍처** | [GitOps Best Practices](docs/architecture/GITOPS_BEST_PRACTICES.md) | GitOps 아키텍처 설계 원칙 |
-| **🏗️ 아키텍처** | [Kustomize App of Apps](docs/architecture/KUSTOMIZE_APP_OF_APPS.md) | App of Apps 패턴 구현 |
-| **🏗️ 아키텍처** | [Namespace Strategy](docs/architecture/09-NAMESPACE_STRATEGY_ANALYSIS.md) | 네임스페이스 전략 분석 |
-| **📦 배포** | [ArgoCD Monitoring Guide](docs/deployment/ARGOCD_MONITORING_GUIDE.md) | ArgoCD로 GitOps 모니터링 |
-| **📦 배포** | [ArgoCD Access](docs/deployment/ARGOCD_ACCESS.md) | ArgoCD 접속 정보 및 사용법 |
-| **🔧 GitOps** | [Kustomize Pipeline](docs/development/GITOPS_PIPELINE_KUSTOMIZE.md) | Kustomize 기반 GitOps 파이프라인 |
-| **🔧 GitOps** | [Tooling Decision](docs/architecture/08-GITOPS_TOOLING_DECISION.md) | Helm → Kustomize 전환 이유 |
-| **📊 모니터링** | [Monitoring Setup](docs/deployment/MONITORING_SETUP.md) | Prometheus + Grafana 설정 |
-| **🔍 트러블슈팅** | [Troubleshooting Index](docs/troubleshooting/README.md) | 주요 이슈 해결 방법 |
-
----
-
-## 🔄 GitOps 아키텍처 2.0
-
-### 개요 (v0.7.3)
-
-이 프로젝트는 **App of Apps 패턴 기반 GitOps 2.0 아키텍처**를 구현하여 인프라, 클러스터 설정, 애플리케이션 배포를 완전히 자동화합니다.
-
-### 전체 배포 흐름
-
-```mermaid
-graph TB
-    subgraph Bootstrap["🚀 Initial Bootstrap (Once)"]
-        direction TB
-        BS1[GitHub Actions Trigger] --> BS2[Terraform Apply]
-        BS2 --> BS3[AWS 인프라 생성<br/>VPC, EC2, 14-Node]
-        BS3 --> BS4[Ansible Bootstrap]
-        BS4 --> BS5[Kubernetes 설치<br/>ArgoCD 설치<br/>Atlantis 설치]
-        BS5 --> BS6[ArgoCD Root App 배포]
-    end
-    
-    subgraph GitOps["🔄 Continuous GitOps (운영)"]
-        direction TB
-        A[개발자 Git Push] --> B{변경 영역?}
-        
-        B -->|terraform/**| C[Atlantis]
-        C --> D[PR 생성 → plan 자동 실행]
-        D --> E[코멘트: atlantis apply]
-        E --> F[AWS 인프라 변경]
-        
-        B -->|k8s/** or argocd/**| G[ArgoCD]
-        G --> H[3분마다 Git 폴링]
-        H --> I[변경사항 자동 배포]
-        I --> J[Self-Healing]
-        
-        B -->|services/**| K[GitHub Actions]
-        K --> L[Docker Build & Push]
-        L --> M[Kustomize 이미지 태그 업데이트]
-        M --> G
-    end
-    
-    BS6 --> A
-    
-    style BS1 fill:#7c3aed,color:#fff
-    style BS4 fill:#ea580c,color:#fff
-    style BS6 fill:#0e7490,color:#fff
-    style C fill:#b91c1c,color:#fff
-    style G fill:#0e7490,color:#fff
-    style K fill:#166534,color:#fff
-```
-
-#### 주요 개선사항
-
-```yaml
-v0.7.3 새로운 기능:
-  ✅ ArgoCD App of Apps 패턴 도입
-  ✅ Kustomize 기반 인프라 관리 (k8s/infrastructure/)
-  ✅ Atlantis 복구 (Terraform GitOps)
-  ✅ GitHub Actions Bootstrap 워크플로우
-  ✅ ArgoCD 실시간 모니터링 도구
-
-Bootstrap Phase (최초 1회):
-  1. Terraform Apply → AWS 인프라 생성
-  2. Ansible Bootstrap → Kubernetes + ArgoCD + Atlantis
-  3. ArgoCD Root App → 전체 애플리케이션 자동 배포
-
-GitOps Phase (지속적 운영):
-  - Terraform 변경 → Atlantis (PR 기반)
-  - Kubernetes 리소스 → ArgoCD (자동 동기화)
-  - 애플리케이션 → GitHub Actions + ArgoCD
-  - Ansible 변경 → Bootstrap 워크플로우 재실행
-```
-
----
-
-## 🏗️ 네임스페이스 전략
-
-### 도메인별 네임스페이스 분리 (v0.7.2)
-
-프로젝트는 **도메인별 네임스페이스 분리 전략**을 채택하여 서비스 간 격리와 보안을 강화했습니다.
-
-```mermaid
-graph TB
-    subgraph "Layer 0: Observability & Infrastructure"
-        MON[monitoring<br/>Prometheus, Grafana]
-        ATL[atlantis<br/>Terraform GitOps]
-    end
-    
-    subgraph "Layer 2: Business Logic"
-        AUTH[auth<br/>JWT 인증]
-        MY[my<br/>사용자 정보]
-        SCAN[scan<br/>AI 분석]
-        CHAR[character<br/>캐릭터]
-        LOC[location<br/>위치]
-        INFO[info<br/>정보]
-        CHAT[chat<br/>챗봇]
-    end
-    
-    subgraph "Layer 3: Integration"
-        MSG[messaging<br/>RabbitMQ]
-    end
-    
-    subgraph "Layer 4: Data"
-        DATA[data<br/>PostgreSQL, Redis]
-    end
-    
-    AUTH --> MSG
-    SCAN --> MSG
-    CHAT --> MSG
-    AUTH --> DATA
-    MY --> DATA
-    SCAN --> DATA
-    
-    style MON fill:#991b1b,color:#fff
-    style ATL fill:#991b1b,color:#fff
-    style AUTH fill:#0e7490,color:#fff
-    style MY fill:#0e7490,color:#fff
-    style SCAN fill:#0e7490,color:#fff
-    style CHAR fill:#0e7490,color:#fff
-    style LOC fill:#0e7490,color:#fff
-    style INFO fill:#0e7490,color:#fff
-    style CHAT fill:#0e7490,color:#fff
-    style MSG fill:#166534,color:#fff
+    CF["CloudFront · Route53"] --> ALB["AWS ALB (HTTPS)"]
+    ALB --> CALICO["Calico + NetworkPolicy"]
+    CALICO --> API["API Pods<br/>auth · my · scan · character · location · info · chat"]
+    CALICO --> WORK["Worker Pods<br/>storage · ai"]
+    WORK --> DATA["PostgreSQL · Redis · RabbitMQ"]
+    style CF fill:#92400e,color:#fff
+    style ALB fill:#0d9488,color:#fff
+    style CALICO fill:#1d4ed8,color:#fff
+    style API fill:#334155,color:#fff
+    style WORK fill:#166534,color:#fff
     style DATA fill:#78350f,color:#fff
 ```
 
-### 주요 특징
+---
 
-```yaml
-네임스페이스 구조:
-  Layer 0 (Observability):
-    - monitoring: Prometheus, Grafana
-    - atlantis: Terraform GitOps
-  
-  Layer 2 (Business Logic):
-    - auth, my, scan, character, location, info, chat
-    - 각 도메인별 독립 네임스페이스
-  
-  Layer 3 (Integration):
-    - messaging: RabbitMQ (비동기 작업)
-  
-  Layer 4 (Data):
-    - data: PostgreSQL, Redis
+## Quick Links
 
-Ingress 구조:
-  - 도메인별 Ingress 분리 (12개)
-  - 단일 ALB (ecoeco-main) 유지
-  - 비용 절감 + 네임스페이스 격리 병행
-
-보안:
-  - NetworkPolicy로 네임스페이스 간 트래픽 제어
-  - 도메인별 RBAC 설정 가능
-  - Secret 격리 (네임스페이스 범위)
-```
-
-### 자동화 도구
-
-```bash
-# 네임스페이스 일관성 점검
-./scripts/check-namespace-consistency.sh
-
-# AWS Credentials Secret 생성
-export AWS_ACCESS_KEY_ID='...'
-export AWS_SECRET_ACCESS_KEY='...'
-./scripts/create-aws-credentials-secret.sh
-```
-
-→ 자세한 내용: 
-- [Namespace Strategy Analysis](docs/architecture/09-NAMESPACE_STRATEGY_ANALYSIS.md)
-- [Namespace Consistency Checklist](docs/deployment/NAMESPACE_CONSISTENCY_CHECKLIST.md)
-- [Telco vs Service Namespace](docs/architecture/10-TELCO_VS_SERVICE_NAMESPACE.md)
+| 카테고리 | 문서 |
+|----------|------|
+| 아키텍처 허브 | `docs/architecture/01-README.md` |
+| GitOps & Atlantis | `docs/architecture/gitops/APP-OF-APPS-DECISION.md`, `docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md` |
+| 네트워크/네임스페이스 | `docs/architecture/networking/11-ALB_CALICO_PATTERNS_RESEARCH.md`, `docs/architecture/networking/09-NAMESPACE_STRATEGY_ANALYSIS.md` |
+| 데이터 계층 | `docs/architecture/data/database-architecture.md`, `docs/architecture/data/redis-jwt-blacklist-design.md` |
+| 배포 가이드 | `docs/deployment/README.md` |
+| 트러블슈팅 | `docs/TROUBLESHOOTING.md` |
 
 ---
 
-### 4-Layer GitOps 구조
+## GitOps Flow
 
 ```mermaid
-graph TB
-    subgraph Layer3["Layer 3: Developer"]
-        L3A["🎯 애플리케이션 개발"]
-        L3B["🔧 GitHub Actions CI"]
-    end
-    
-    Layer3 -->|Build & Push| Layer2
-    
-    subgraph Layer2["Layer 2: ArgoCD + Kustomize"]
-        L2A["🚀 K8s 리소스 배포"]
-        L2B["⏱️ Auto-Sync 3분마다"]
-        L2C["📁 k8s/base/ + overlays/"]
-    end
-    
-    Layer2 -->|kubectl apply| Layer1
-    
-    subgraph Layer1["Layer 1: Ansible"]
-        L1A["⚙️ 클러스터 설정"]
-        L1B["🔨 Ansible 수동 실행"]
-        L1C["📁 ansible/playbooks/*.yml"]
-    end
-    
-    Layer1 -->|SSH & kubeadm| Layer0
-    
-    subgraph Layer0["Layer 0: Atlantis"]
-        L0A["☁️ 인프라 생성"]
-        L0B["🏗️ Atlantis + Terraform"]
-        L0C["📁 terraform/*.tf"]
-    end
-    
-    style Layer3 fill:#1e3a8a,color:#fff
-    style Layer2 fill:#0e7490,color:#fff
-    style Layer1 fill:#166534,color:#fff
-    style Layer0 fill:#78350f,color:#fff
-    style L3A fill:#334155,color:#fff
-    style L3B fill:#334155,color:#fff
-    style L2A fill:#334155,color:#fff
-    style L2B fill:#334155,color:#fff
-    style L2C fill:#334155,color:#fff
-    style L1A fill:#334155,color:#fff
-    style L1B fill:#334155,color:#fff
-    style L1C fill:#334155,color:#fff
-    style L0A fill:#334155,color:#fff
-    style L0B fill:#334155,color:#fff
-    style L0C fill:#334155,color:#fff
+graph TD
+    TF["Atlantis + Terraform<br/>AWS Infra"] --> ANS["Ansible<br/>Cluster Bootstrap"]
+    ANS --> ACD["ArgoCD Root App<br/>Kustomize + Helm"]
+    ACD --> SVC["서비스 오버레이<br/>k8s/base + overlays/*"]
+    SVC --> OBS["Observability<br/>Prometheus · Grafana"]
+    SVC --> DB["Data Layer<br/>PostgreSQL · Redis · RabbitMQ"]
+    style TF fill:#5b21b6,color:#fff
+    style ANS fill:#b91c1c,color:#fff
+    style ACD fill:#c2410c,color:#fff
+    style SVC fill:#1e3a8a,color:#fff
+    style OBS fill:#0369a1,color:#fff
+    style DB fill:#92400e,color:#fff
 ```
 
-### 도구별 역할 구분
-
-| 도구 | 관리 대상 | 실행 방식 | 사용 시점 |
-|------|-----------|-----------|----------|
-| **Atlantis** | AWS 리소스 (EC2, VPC, IAM) | PR 코멘트 `atlantis apply` | 인프라 변경 시 |
-| **Ansible** | K8s 클러스터 설정 (Kubeadm, CNI) | `ansible-playbook` 수동 실행 | 클러스터 설정 변경 시 |
-| **ArgoCD** | K8s 리소스 (Deployment, Service) | Git Auto-Sync (3분마다) | 애플리케이션 배포 시 |
-| **GitHub Actions** | CI/CD (빌드, 테스트, 이미지) | Git Push 이벤트 | 코드 변경 시 |
-
-### 변경 시나리오별 워크플로우
-
-#### 시나리오 1: EC2 인스턴스 추가
-
-```bash
-# 1. terraform/variables.tf 수정
-variable "scan_worker_count" {
-  default = 3  # 2에서 변경
-}
-
-# 2. Pull Request 생성
-# 3. Atlantis가 자동으로 terraform plan 실행
-# 4. PR 코멘트: "atlantis apply"
-# 5. AWS에 EC2 인스턴스 생성됨 ✅
-```
-
-#### 시나리오 2: Kubernetes CNI 업그레이드
-
-```bash
-# 1. ansible/playbooks/04-cni-install.yml 수정
-# 2. Git Push
-# 3. 수동 실행:
-ansible-playbook -i ansible/inventory/hosts.ini \
-  ansible/playbooks/04-cni-install.yml
-# 4. CNI 업그레이드 완료 ✅
-```
-
-#### 시나리오 3: Auth API 새 기능 배포
-
-```bash
-# 1. k8s/overlays/auth/deployment-patch.yaml 수정
-# 새로운 환경변수 추가
-env:
-  - name: FEATURE_FLAG_NEW_LOGIN
-    value: "true"
-
-# 2. Git Push (develop 또는 main)
-git push origin main
-
-# 3. ArgoCD 자동 감지 및 배포 (3분 이내)
-# 4. auth-api Pod가 Rolling Update로 재배포 ✅
-```
-
-#### 시나리오 4: PostgreSQL 리소스 증가
-
-```bash
-# 1. k8s/database/postgres-deployment.yaml 수정
-resources:
-  requests:
-    memory: "2Gi"  # 1Gi에서 변경
-
-# 2. Git Push
-# 3. ArgoCD 자동 배포 ✅
-```
-
-### GitOps 접속 정보
-
-#### Atlantis (Terraform GitOps)
-
-| 항목 | 내용 |
-|------|------|
-| **URL** | https://atlantis.growbin.app |
-| **Role** | AWS 인프라 관리 |
-| **Workflow** | PR 기반 terraform plan/apply |
-
-#### ArgoCD (Kubernetes GitOps)
-
-| 항목 | 내용 |
-|------|------|
-| **URL** | https://argocd.growbin.app |
-| **Role** | K8s 애플리케이션 배포 |
-
-> **보안**: 초기 비밀번호는 접속 후 즉시 변경하세요!
-
-### Git 저장소 구조
-
-```mermaid
-graph LR
-    subgraph "backend/"
-        T["terraform/<br/>Atlantis 관리"]
-        A["ansible/<br/>Ansible 관리"]
-        K["k8s/<br/>ArgoCD + Kustomize"]
-        S["services/<br/>GitHub Actions 빌드"]
-    end
-    
-    T --> T1[main.tf]
-    T --> T2[vpc.tf]
-    T --> T3[ec2.tf]
-    
-    A --> A1[playbooks/]
-    A1 --> A2[site.yml]
-    
-    K --> K1[base/]
-    K --> K2[overlays/auth/]
-    K --> K3[overlays/scan/]
-    
-    S --> S1[auth/]
-    S --> S2[scan/]
-    
-    style T fill:#b91c1c,color:#fff,stroke:#fff,stroke-width:2px,min-width:150px
-    style A fill:#0e7490,color:#fff,stroke:#fff,stroke-width:2px,min-width:150px
-    style K fill:#166534,color:#fff,stroke:#fff,stroke-width:2px,min-width:150px
-    style S fill:#991b1b,color:#fff,stroke:#fff,stroke-width:2px,min-width:150px
-```
-
-### 상세 문서
-
-- [Kustomize GitOps Pipeline](docs/deployment/GITOPS_PIPELINE_KUSTOMIZE.md) - Kustomize 기반 파이프라인 상세 설명
-- [GitOps Tooling Decision](docs/architecture/08-GITOPS_TOOLING_DECISION.md) - Helm에서 Kustomize로 전환한 이유
-- [ArgoCD Access](docs/deployment/ARGOCD_ACCESS.md) - ArgoCD 접속 및 사용법
-- [Cluster Validation Report](docs/validation/CLUSTER_VALIDATION_REPORT.md) - 클러스터 검증 보고서
+Atlantis는 PR 기반으로 Terraform plan/apply를 실행하고, Ansible이 kubeadm + CNI + ArgoCD를 구성합니다. 이후 ArgoCD App-of-Apps가 Wave 순서대로 인프라·데이터·애플리케이션을 동기화하며, GitHub Actions는 서비스 이미지를 GHCR에 푸시한 뒤 Kustomize 오버레이 태그를 갱신합니다.
 
 ---
 
-## 🎯 주요 기능
+## Getting Started
 
-### 1. GitOps 완전 자동화
-
-```yaml
-Terraform (IaC):
-  - AWS 리소스 프로비저닝
-  - Atlantis를 통한 PR 기반 인프라 변경
-
-Ansible (Configuration):
-  - Kubernetes 클러스터 구성
-  - 수동 또는 자동화 도구 실행
-
-ArgoCD (CD):
-  - Kubernetes 리소스 자동 배포
-  - ApplicationSet으로 멀티 서비스 관리
-  - Kustomize 기반 manifest 관리
-  - Auto-Sync (3분마다)
+### 1. Terraform (Layer 0)
+```bash
+cd terraform
+terraform init
+terraform plan
+terraform apply -auto-approve
 ```
 
-### 2. 마이크로서비스 아키텍처
-
-```yaml
-API Services (7):
-  - auth: JWT 인증 (Redis Blacklist)
-  - my: 사용자 정보 관리
-  - scan: AI 이미지 분석 (비동기)
-  - character: 캐릭터 시스템
-  - location: 위치 기반 서비스
-  - info: 정보 제공
-  - chat: AI 챗봇 (WebSocket)
-
-Worker Services (2):
-  - storage: S3 이미지 처리
-  - ai: AI 모델 추론 (SQLite WAL + MQ)
-
-Infrastructure (4):
-  - postgresql: 메인 DB
-  - redis: JWT Blacklist + Cache-Aside
-  - rabbitmq: 비동기 작업 큐
-  - monitoring: Prometheus + Grafana
+### 2. Ansible (Layer 1)
+```bash
+cd ansible
+ansible-playbook site.yml
 ```
 
-### 3. 쿠버네티스 클러스터 네트워킹
-
-```yaml
-CNI: Calico (Network Policy)
-Ingress: AWS ALB Controller
-Service Mesh: Native Kubernetes (향후 Istio 고려)
-DNS: CoreDNS + External DNS (Route53)
-CDN: CloudFront (이미지 최적화)
+### 3. ArgoCD Root App (Layer 2)
+```bash
+kubectl apply -f argocd/root-app.yaml
+kubectl get applications -n argocd
 ```
 
-### 4. 모니터링 & 로깅
-
-```yaml
-Metrics:
-  - Prometheus (메트릭 수집)
-  - Grafana (시각화)
-  - ServiceMonitor (자동 발견)
-
-Logging:
-  - CloudWatch Logs (중앙 집중)
-  - Fluent Bit (로그 수집기)
-
-Alerting:
-  - Prometheus Alertmanager
-  - 26+ Alert Rules
-```
-
-### 5. 보안
-
-```yaml
-네트워크:
-  - Calico Network Policy
-  - Security Group (Terraform)
-  - Private Subnet (Worker, DB)
-
-인증:
-  - JWT with Redis Blacklist
-  - Refresh Token Rotation
-  - HTTPS/TLS (ALB, CloudFront)
-
-시크릿:
-  - Kubernetes Secrets
-  - AWS Secrets Manager (계획 중)
-```
+### 4. GitHub Actions (Layer 3)
+- `.github/workflows/ci-quality-gate.yml`가 서비스 코드 변경을 감지해 lint/test/build/push를 수행합니다.
+- GHCR 이미지와 Kustomize 이미지 태그가 업데이트되면 ArgoCD가 자동 배포합니다.
 
 ---
 
-## 🛠️ 기술 스택
+## Kustomize & Helm Layout
 
-### Infrastructure as Code
+상세 구조는 `k8s/README.md` 참고.
 
-| 도구 | 역할 | 버전 |
+| Wave | 소스 | 설명 |
 |------|------|------|
-| **Terraform** | AWS 리소스 프로비저닝 | 1.5.0+ |
-| **Ansible** | Kubernetes 클러스터 구성 | 2.14+ |
-| **Atlantis** | Terraform GitOps 자동화 | Latest |
+| 00 | `k8s/foundations` | 네임스페이스/CRD |
+| 10 | `k8s/infrastructure` | NetworkPolicy, RBAC |
+| 20 | `k8s/ingress` | ALB Ingress (infra/api) |
+| 40 | Helm `charts/observability/*` | kube-prometheus-stack |
+| 60 | Helm `charts/data/databases` | PostgreSQL · Redis · RabbitMQ |
+| 70 | Helm `charts/platform/atlantis` | Atlantis GitOps |
+| 80 | `k8s/overlays/<domain>` | auth · my · scan · character · location · info · chat |
 
-### Kubernetes
+모든 API는 `k8s/base` Deployment/Service를 상속하고, NodePort·이미지·환경변수만 패치합니다.
 
-| 컴포넌트 | 구현 | 비고 |
-|----------|------|------|
-| **Control Plane** | kubeadm | Self-Managed |
-| **CNI** | Calico | Network Policy 지원 |
-| **Ingress** | AWS ALB Controller | ALB 자동 생성 |
-| **Storage** | AWS EBS CSI Driver | GP3, 동적 프로비저닝 |
-| **DNS** | CoreDNS | 내장 |
+---
 
-### CI/CD
+## Services Snapshot
 
-| 도구 | 역할 | 통합 |
+| 서비스 | 설명 | 이미지 |
+|--------|------|-------|
+| auth | JWT 인증/인가 | `ghcr.io/sesacthon/auth-api` |
+| my | 사용자 정보·포인트 | `ghcr.io/sesacthon/my-api` |
+| scan | AI 폐기물 분류 | `ghcr.io/sesacthon/scan-api` |
+| character | 캐릭터 분석 | `ghcr.io/sesacthon/character-api` |
+| location | 지도/수거함 검색 | `ghcr.io/sesacthon/location-api` |
+| info | 재활용 정보/FAQ | `ghcr.io/sesacthon/info-api` |
+| chat | GPT-4o-mini 챗봇 | `ghcr.io/sesacthon/chat-api` |
+
+각 도메인은 공통 FastAPI 템플릿, `requirements.txt`, 기본 헬스체크 테스트를 포함합니다.
+
+---
+
+## Troubleshooting Highlights
+
+| 이슈 | 요약 | 문서 |
 |------|------|------|
-| **GitHub Actions** | CI Pipeline | PR 기반 Workflow |
-| **ArgoCD** | Kubernetes CD | GitOps + Kustomize |
-| **Kustomize** | Manifest 관리 | Base + Overlays |
-| **GHCR** | Container Registry | GitHub 통합 |
-
-### Monitoring
-
-| 도구 | 역할 | 메트릭 |
-|------|------|--------|
-| **Prometheus** | 메트릭 수집 | 18+ ServiceMonitors |
-| **Grafana** | 시각화 | 대시보드 |
-| **Alertmanager** | 알림 | 26+ Rules |
-
-### Database & Cache
-
-| 서비스 | 용도 | 설정 |
-|--------|------|------|
-| **PostgreSQL** | 메인 DB | 단일 인스턴스 |
-| **Redis** | JWT Blacklist + Cache | Standalone |
-| **RabbitMQ** | 작업 큐 | Cluster |
+| ALB HTTPS→HTTP NAT | `backend-protocol: HTTP` + HTTPS-only listener + HTTP NodePort | `docs/TROUBLESHOOTING.md#8-argocd-리디렉션-루프-문제` |
+| Namespace 중복 정의 | `k8s/foundations` → `../namespaces/domain-based.yaml` 싱글 소스 | `k8s/foundations/kustomization.yaml` |
+| Atlantis 배포 | Helm Chart (`charts/platform/atlantis`) + ArgoCD Wave 70 | `docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md` |
 
 ---
 
-## 📊 현재 상태
+## Repository Layout
 
-### ✅ 완료된 작업
-
-```yaml
-Infrastructure:
-  ✅ 14-Node Terraform 모듈 작성 완료
-  ✅ Ansible Playbook (Bootstrap, Label, Monitoring)
-  ✅ VPC, Subnets, Security Groups
-  ✅ CloudFront + ACM Certificate
-  ✅ S3 Bucket (이미지 스토리지)
-  ✅ Route53 DNS 자동 업데이트
-
-Kubernetes:
-  ✅ kubeadm 클러스터 초기화
-  ✅ Calico CNI 설치 및 구성
-  ✅ AWS ALB Controller (Ingress)
-  ✅ EBS CSI Driver (동적 프로비저닝)
-  ✅ Label & Annotation 시스템 (도메인별 분리)
-  ✅ 14-Node 클러스터 성공적 배포
-
-GitOps (v0.7.3):
-  ✅ Terraform + Atlantis 통합 (https://atlantis.growbin.app)
-  ✅ ArgoCD + App of Apps + Kustomize (https://argocd.growbin.app)
-  ✅ ArgoCD Root App 패턴 구현
-  ✅ k8s/infrastructure/ Kustomize 구조화
-  ✅ GitHub Actions Bootstrap 워크플로우
-  ✅ ArgoCD 실시간 모니터링 도구
-  ✅ 4-Layer GitOps 아키텍처 완성
-  ✅ GitHub Actions (CI/CD)
-  ✅ Kustomize Base + 7개 API Overlays
-  ✅ 완전 자동 배포 파이프라인 구축
-  ✅ Node Taints & Pod Tolerations (API별 전용 노드 격리)
-  ✅ 도메인별 네임스페이스 분리 (v0.7.2)
-  ✅ Ingress 리팩토링 (12개 Ingress → 단일 ALB)
-  ✅ NetworkPolicy 기반 네임스페이스 격리
-
-Monitoring:
-  ✅ Prometheus + Grafana (https://grafana.growbin.app)
-  ✅ ServiceMonitor (18개)
-  ✅ Alert Rules (26개)
-  ✅ 14-Node 대시보드
-
-Documentation:
-  ✅ 아키텍처 문서 (32개 - GitOps 2.0 추가)
-  ✅ 배포 가이드 (24개 - ArgoCD 모니터링 추가)
-  ✅ 트러블슈팅 가이드 (20개)
-  ✅ GitOps 설계 문서 완성
-  ✅ 문서 정리 (Archive 제거)
-  ✅ App of Apps 패턴 가이드
-  ✅ ArgoCD 모니터링 가이드
-```
-
-### 🚧 진행 중 / 계획
-
-```yaml
-다음 단계:
-  📝 API 애플리케이션 개발 (services/)
-  📝 실제 서비스 배포 및 테스트
-  📝 GitOps 파이프라인 검증
-  📝 성능 테스트 및 최적화
-
-향후 계획:
-  🔮 Service Mesh (Istio/Linkerd) 도입 검토
-  🔮 Multi-AZ 확장
-  🔮 Auto Scaling (HPA/Cluster Autoscaler)
-  🔮 Backup & Disaster Recovery
+```text
+backend/
+├── terraform/           # Terraform + Atlantis 대상
+├── ansible/             # kubeadm, CNI, Add-ons
+├── argocd/              # Root App & App-of-Apps
+├── k8s/                 # Kustomize base/infrastructure/overlays
+├── charts/              # Helm (observability, data, atlantis)
+├── services/            # FastAPI 도메인 코드
+└── docs/                # Architecture / Deployment / Troubleshooting
 ```
 
 ---
 
-## 🤝 기여
+## Status
 
-이 프로젝트는 **SeSACTHON 2025**의 일환으로 개발되었습니다.
+- ✅ Terraform & Atlantis · Ansible bootstrap · ArgoCD Root App  
+- ✅ 도메인별 Ingress/Namespace · Monitoring stack · CI Quality Gate  
+- 🚧 서비스 비즈니스 로직/성능 테스트 고도화 진행 예정
 
-### 팀
-
-- **Infrastructure**: Kubernetes, Terraform, Ansible, GitOps
-- **Backend**: FastAPI, PostgreSQL, Redis, RabbitMQ
-- **Frontend**: React, PWA
-- **AI**: GPT-5, GPT-4o-mini
-
----
-
-## 🔗 관련 링크
-
-- [Kubernetes 공식 문서](https://kubernetes.io/docs/)
-- [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- [Ansible Kubernetes Collection](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/index.html)
-- [ArgoCD 문서](https://argo-cd.readthedocs.io/)
-- [Calico 문서](https://docs.tigera.io/calico/latest/about/)
-
----
-
-**Last Updated**: 2025-11-14  
-**Version**: v0.7.3 (GitOps Architecture 2.0 - App of Apps + Atlantis Restoration)
+최종 업데이트: 2025-11-16 (GitOps & 문서 구조 리팩터링)
 

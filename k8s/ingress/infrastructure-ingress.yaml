@@ -21,8 +21,7 @@ metadata:
     # ALB 기본 설정
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: instance
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
     
     # Backend Protocol
     alb.ingress.kubernetes.io/backend-protocol: HTTP
@@ -76,8 +75,7 @@ metadata:
     # ALB 기본 설정
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: instance
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
     
     # Backend Protocol (ArgoCD는 HTTP만 지원)
     alb.ingress.kubernetes.io/backend-protocol: HTTP
@@ -131,8 +129,7 @@ metadata:
     # ALB 기본 설정
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: instance
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
     
     # Backend Protocol
     alb.ingress.kubernetes.io/backend-protocol: HTTP
@@ -182,8 +179,7 @@ metadata:
     # ALB 기본 설정
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: instance
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
     
     # Health Check
     alb.ingress.kubernetes.io/healthcheck-path: /-/healthy

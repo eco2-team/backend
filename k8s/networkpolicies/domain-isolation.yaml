@@ -6,7 +6,7 @@
 # 2. Data 계층 접근 제어
 # 3. 외부 트래픽 제한
 #
-# 참고: docs/architecture/09-NAMESPACE_STRATEGY_ANALYSIS.md
+# 참고: docs/TROUBLESHOOTING.md (NetworkPolicy 섹션)
 
 ---
 # auth 네임스페이스 - Data 계층 접근 허용

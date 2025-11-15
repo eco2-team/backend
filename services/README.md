@@ -1,370 +1,76 @@
-# FastAPI 프로젝트 템플릿 생성 스크립트
+# Domain API Services
 
-## 각 도메인별 디렉토리 구조
+`services/` 디렉터리는 FastAPI 기반 마이크로서비스 7개(auth, my, scan, character, location, info, chat)를 담고 있습니다. 모든 서비스는 동일한 프로젝트 스캐폴딩과 테스트 규칙을 공유하며, 세부 코딩 스타일은 `docs/development/FASTAPI_ENDPOINT_STYLE.md` 를 따른다.
+
+## 1. 디렉터리 개요
 
 ```
 services/
-├── waste-api/              # ✅ 기존 (메인 폐기물 분석)
-├── auth-api/               # 🆕 인증/인가
-├── userinfo-api/           # 🆕 고객 정보
-├── location-api/           # 🆕 지도/위치
-├── recycle-info-api/       # 🆕 재활용 정보
-└── chat-llm-api/           # 🆕 LLM 채팅
+├── auth/        # 인증/인가
+├── my/          # 사용자 프로필·포인트
+├── scan/        # 폐기물 이미지 분류
+├── character/   # 성향/캐릭터 분석
+├── location/    # 위치/지도 서비스
+├── info/        # 재활용 정보 큐레이션
+└── chat/        # GPT-4o-mini 챗봇
 ```
 
-## 표준 FastAPI 프로젝트 구조
+각 서비스는 아래와 같은 공통 레이아웃을 유지한다.
 
 ```
-{service-name}-api/
+<service>/
 ├── Dockerfile
 ├── requirements.txt
-├── .dockerignore
-├── README.md
 ├── app/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI 앱 진입점
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── config.py        # 환경 변수 설정
-│   │   └── dependencies.py  # 의존성 주입
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── v1/
-│   │       ├── __init__.py
-│   │       ├── endpoints/   # 라우터들
-│   │       └── deps.py
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── domain.py        # Pydantic 모델
+│   ├── main.py
+│   ├── api/v1/endpoints/   # health / metrics / domain router
 │   ├── schemas/
-│   │   ├── __init__.py
-│   │   └── request.py       # 요청/응답 스키마
-│   ├── services/
-│   │   ├── __init__.py
-│   │   └── business_logic.py
-│   └── db/
-│       ├── __init__.py
-│       ├── session.py       # DB 세션
-│       └── models.py        # SQLAlchemy 모델
+│   └── services/
 └── tests/
-    ├── __init__.py
-    ├── conftest.py
-    └── test_api.py
+    └── test_health.py
 ```
 
----
+## 2. 서비스 요약
 
-## 1. Auth API (인증/인가)
+| Service | Namespace | 주요 역할 | GHCR 이미지 |
+|---------|-----------|-----------|-------------|
+| `auth` | `auth` | JWT 발급, 토큰 리프레시, 블랙리스트 | `ghcr.io/sesacthon/auth-api` |
+| `my` | `my` | 프로필/포인트/활동 관리 | `ghcr.io/sesacthon/my-api` |
+| `scan` | `scan` | 이미지 분류 작업(비동기 파이프라인 연동 예정) | `ghcr.io/sesacthon/scan-api` |
+| `character` | `character` | 사용자 캐릭터 분석·히스토리 | `ghcr.io/sesacthon/character-api` |
+| `location` | `location` | 근처 수거함·센터 탐색, 좌표 변환 | `ghcr.io/sesacthon/location-api` |
+| `info` | `info` | 재활용 정보·FAQ 제공 | `ghcr.io/sesacthon/info-api` |
+| `chat` | `chat` | GPT-4o-mini 챗봇, 피드백 수집 | `ghcr.io/sesacthon/chat-api` |
 
-### 주요 기능
-- JWT 토큰 발급/검증
-- 사용자 로그인/로그아웃
-- OAuth2 소셜 로그인 (Kakao, Google)
-- 권한 관리 (RBAC)
+모든 서비스는 `/api/v1/health` 와 `/api/v1/metrics` 를 노출하여 Prometheus(ServiceMonitor)에서 namespace 단위로 상태를 수집할 수 있도록 구성했다.
 
-### 핵심 엔드포인트
-```python
-POST   /api/v1/auth/login           # 로그인
-POST   /api/v1/auth/logout          # 로그아웃
-POST   /api/v1/auth/refresh         # 토큰 갱신
-POST   /api/v1/auth/register        # 회원가입
-GET    /api/v1/auth/me              # 현재 사용자 정보
-POST   /api/v1/auth/oauth/kakao     # Kakao 로그인
-POST   /api/v1/auth/oauth/google    # Google 로그인
-```
+## 3. 개발 규칙
 
-### 기술 스택
-- `python-jose[cryptography]` - JWT
-- `passlib[bcrypt]` - 비밀번호 해싱
-- `python-multipart` - Form 데이터
-- `httpx` - OAuth2 클라이언트
+- **라우터 구성**: `api/v1/endpoints/__init__.py` 에서 `health_router`, `metrics_router`, `<domain>_router` 를 통합하고 `app/main.py` 에서 `/api/v1` prefix 로 포함시킨다.
+- **비즈니스 로직**: FastAPI 라우터에서는 DTO ↔ 서비스 호출만 담당하고, 실제 로직은 `app/services/*.py` 에 분리한다.
+- **스키마/서비스 명명**: `app/schemas/<domain>.py`, `app/services/<domain>.py` naming 을 지키고, `pydantic` 모델은 `PascalCase`, 환경 변수는 `pydantic-settings` 로 관리한다.
+- **테스트**: 각 서비스는 `tests/test_health.py` 기본 케이스를 포함하며, 도메인별 기능이 추가될 때 pytest 모듈을 확장한다. CI는 `black`, `ruff`, `pytest` 를 서비스 단위 matrix 로 실행한다.
+- **requirements.txt**: 공통 베이스( FastAPI, uvicorn, pydantic, httpx 등 )는 모든 서비스가 동일 버전을 사용한다. 추가 의존성은 해당 서비스의 `requirements.txt` 에만 추가한다.
 
----
-
-## 2. Userinfo API (고객 정보)
-
-### 주요 기능
-- 사용자 프로필 관리
-- 사용자 설정
-- 포인트/리워드 관리
-- 활동 히스토리
-
-### 핵심 엔드포인트
-```python
-GET    /api/v1/users/{user_id}           # 사용자 조회
-PATCH  /api/v1/users/{user_id}           # 프로필 수정
-DELETE /api/v1/users/{user_id}           # 계정 삭제
-GET    /api/v1/users/{user_id}/points    # 포인트 조회
-GET    /api/v1/users/{user_id}/history   # 활동 히스토리
-POST   /api/v1/users/{user_id}/avatar    # 프로필 이미지 업로드
-```
-
-### 기술 스택
-- `sqlalchemy` - ORM
-- `alembic` - DB 마이그레이션
-- `python-jose` - JWT 검증 (auth-api와 공유)
-
----
-
-## 3. Location API (지도/위치)
-
-### 주요 기능
-- 근처 분리수거함 검색
-- 주소 → 좌표 변환 (Geocoding)
-- 좌표 → 주소 변환 (Reverse Geocoding)
-- 재활용 센터 위치 정보
-
-### 핵심 엔드포인트
-```python
-GET    /api/v1/locations/bins              # 근처 수거함 검색
-GET    /api/v1/locations/centers           # 재활용 센터 검색
-POST   /api/v1/locations/geocode           # 주소 → 좌표
-POST   /api/v1/locations/reverse-geocode   # 좌표 → 주소
-GET    /api/v1/locations/route             # 경로 안내
-```
-
-### 기술 스택
-- `httpx` - Kakao Map API 호출
-- `redis` - 위치 정보 캐싱 (GeoHash)
-- `geopy` - 지리 계산
-
----
-
-## 4. Recycle Info API (재활용 정보)
-
-### 주요 기능
-- 품목별 분리배출 정보 조회
-- 재활용 가능 여부 판단
-- 지역별 배출 규정
-- FAQ 및 가이드
-
-### 핵심 엔드포인트
-```python
-GET    /api/v1/recycle/items/{item_id}      # 품목 정보
-GET    /api/v1/recycle/categories           # 카테고리 목록
-POST   /api/v1/recycle/search               # 품목 검색
-GET    /api/v1/recycle/rules/{region}       # 지역별 규정
-GET    /api/v1/recycle/faq                  # FAQ
-```
-
-### 기술 스택
-- `sqlalchemy` - 품목 DB
-- `redis` - 품목 정보 캐싱
-- `elasticsearch` - 전문 검색 (선택)
-
----
-
-## 5. Chat LLM API (LLM 채팅)
-
-### 주요 기능
-- 분리수거 관련 질의응답
-- 대화형 인터페이스
-- 대화 히스토리 관리
-- 추천 질문 제공
-
-### 핵심 엔드포인트
-```python
-POST   /api/v1/chat/messages               # 메시지 전송
-GET    /api/v1/chat/sessions/{session_id}  # 세션 조회
-DELETE /api/v1/chat/sessions/{session_id}  # 세션 삭제
-GET    /api/v1/chat/suggestions            # 추천 질문
-POST   /api/v1/chat/feedback               # 피드백
-```
-
-### 기술 스택
-- `openai` - GPT-4o mini API
-- `redis` - 대화 히스토리 캐싱
-- `langchain` (선택) - LLM 체인
-
----
-
-## 공통 requirements.txt
-
-```txt
-# FastAPI Core
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
-
-# Database
-sqlalchemy==2.0.25
-asyncpg==0.29.0  # PostgreSQL async
-alembic==1.13.1
-
-# Redis
-redis==5.0.1
-hiredis==2.3.2
-
-# Auth
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
-
-# HTTP Client
-httpx==0.26.0
-
-# Monitoring
-prometheus-client==0.19.0
-opentelemetry-api==1.22.0
-opentelemetry-sdk==1.22.0
-
-# Logging
-structlog==24.1.0
-
-# Testing
-pytest==7.4.4
-pytest-asyncio==0.23.3
-httpx==0.26.0  # Test client
-```
-
----
-
-## 공통 Dockerfile
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# 시스템 의존성
-RUN apt-get update && apt-get install -y \
-    gcc \
-    postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
-
-# Python 의존성
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# 애플리케이션 코드
-COPY ./app ./app
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8000/health')"
-
-# 실행
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
----
-
-## 개발 시작 가이드
-
-### 1. 새 서비스 생성
+## 4. 로컬 실행 & 컨테이너 빌드
 
 ```bash
-# 예: auth-api 생성
-mkdir -p services/auth-api/app/{api/v1/endpoints,core,models,schemas,services,db}
-cd services/auth-api
-
-# requirements.txt 생성
-cat > requirements.txt << 'EOF'
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-# ... (위 공통 requirements.txt 참고)
-EOF
-
-# Dockerfile 생성
-cat > Dockerfile << 'EOF'
-FROM python:3.11-slim
-# ... (위 공통 Dockerfile 참고)
-EOF
-```
-
-### 2. FastAPI 앱 생성 (app/main.py)
-
-```python
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
-from app.api.v1 import api_router
-
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
-)
-
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Health check
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
-
-@app.get("/ready")
-def readiness_check():
-    return {"status": "ready"}
-
-# API 라우터
-app.include_router(api_router, prefix=settings.API_V1_STR)
-```
-
-### 3. 로컬 개발
-
-```bash
-# 가상환경 생성
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 의존성 설치
+# 예: auth 서비스
+cd services/auth
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-
-# 환경 변수 설정
-export DATABASE_URL="postgresql://user:pass@localhost/db"
-export REDIS_URL="redis://localhost:6379/0"
-
-# 실행
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 4. Docker로 실행
+GitHub Actions는 변경된 서비스만 빌드/푸시 한다. 수동으로 검사하고 싶다면 다음과 같이 실행한다.
 
 ```bash
-# 이미지 빌드
-docker build -t auth-api:latest .
-
-# 실행
-docker run -p 8000:8000 \
-  -e DATABASE_URL="..." \
-  -e REDIS_URL="..." \
-  auth-api:latest
+docker build -t ghcr.io/sesacthon/auth-api:dev services/auth
+docker run --rm -p 8080:8000 ghcr.io/sesacthon/auth-api:dev
 ```
 
-### 5. Git Push → 자동 배포
+## 5. 다음 작업
 
-```bash
-# 코드 작성 완료 후
-git add services/auth-api/
-git commit -m "feat: Add auth-api with JWT authentication"
-git push origin feature/auth-api
-
-# PR 병합 → main 브랜치
-# → GitHub Actions가 자동으로:
-#   1. Docker 이미지 빌드
-#   2. GHCR에 푸시
-#   3. Helm values.yaml 업데이트
-#   4. ArgoCD가 자동 배포
-```
-
----
-
-## 다음 단계
-
-1. **각 서비스 스켈레톤 생성** ✅
-2. **공통 라이브러리 추출** (auth, logging, monitoring)
-3. **API Gateway 추가** (선택, Kong/Traefik)
-4. **서비스 간 통신** (gRPC 또는 REST)
-5. **통합 테스트** (pytest + Docker Compose)
-
-**결론**: 표준화된 FastAPI 템플릿으로 각 도메인 API를 독립적으로 개발하고, CI/CD 파이프라인을 통해 자동 배포할 수 있습니다! 🚀
-
+- metrics/health 테스트 확대 (`services/**/tests/test_metrics.py`)
+- 공통 인증/로깅 모듈을 `_shared/` 패키지로 분리 검토
+- External Secrets / ConfigMap 연동 시 `app/core/config.py` 에 설정 추가

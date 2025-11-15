@@ -1,8 +1,8 @@
-# ArgoCD Applications (App of Apps Pattern)
+# ArgoCD Applications (App of Apps)
 
-> **현재 브랜치**: `develop`  
-> **아키텍처**: Kustomize + App of Apps 패턴  
-> **날짜**: 2025-11-14
+> **브랜치**: `develop`  
+> **아키텍처**: Kustomize + Helm (Wave 기반)  
+> **최종 업데이트**: 2025-11-16
 
 ---
 
@@ -10,17 +10,18 @@
 
 ```
 argocd/
-├── root-app.yaml                    # 최상위 App of Apps
-│
-├── apps/                            # ✨ 신규 App of Apps 구조
-│   ├── infrastructure.yaml          # Wave 0: Namespaces, NetworkPolicies
-│   └── api-services.yaml            # Wave 3: API Services (ApplicationSet)
-│
-└── applications-archive/            # 🗄️ Legacy (참고용)
-    ├── ecoeco-14nodes-appset.yaml   # 14-Node 아키텍처 (구버전)
-    ├── api-services-appset.yaml     # API Services (Helm 기반)
-    ├── worker-services-appset.yaml  # Worker Services
-    └── ... (기타 legacy 파일들)
+├── root-app.yaml              # Root Application (path=argocd/apps)
+├── apps/                      # Wave별 Application 정의
+│   ├── 00-foundations.yaml
+│   ├── 10-infrastructure.yaml
+│   ├── 20-alb-controller.yaml
+│   ├── 30-platform.yaml
+│   ├── 40-monitoring.yaml     # Helm → charts/observability/…
+│   ├── 50-data-operators.yaml
+│   ├── 60-data-clusters.yaml  # Helm → charts/data/databases
+│   ├── 70-gitops-tools.yaml   # Helm → charts/platform/atlantis
+│   └── 80-apis-app-of-apps.yaml (ApplicationSet)
+└── applications-archive/      # Legacy manifest (참고용)
 ```
 
 ---
@@ -29,24 +30,18 @@ argocd/
 
 ### Wave 기반 배포 순서
 
-```
-Root Application (argocd/root-app.yaml)
-  │
-  ├─ Wave 0: Infrastructure (apps/infrastructure.yaml)
-  │  └─ k8s/infrastructure/
-  │     ├─ namespaces/domain-based.yaml
-  │     └─ networkpolicies/domain-isolation.yaml
-  │
-  └─ Wave 3: API Services (apps/api-services.yaml)
-     └─ ApplicationSet → k8s/overlays/{domain}/
-        ├─ auth (Phase 1)
-        ├─ my (Phase 1)
-        ├─ scan (Phase 1)
-        ├─ character (Phase 2)
-        ├─ location (Phase 2)
-        ├─ info (Phase 3)
-        └─ chat (Phase 3)
-```
+| Wave | 파일 | 설명 |
+|------|------|------|
+| -2 | `root-app.yaml` | 모든 Application을 bootstrap |
+| -1 | `00-foundations.yaml` | Namespace + CRD (Kustomize) |
+| 0  | `10-infrastructure.yaml` | NetworkPolicy, Metrics Server, Calico 정책 |
+| 20 | `20-alb-controller.yaml` | Helm `eks/aws-load-balancer-controller` |
+| 30 | `30-platform.yaml` | (예약) Node Lifecycle / External Secrets |
+| 40 | `40-monitoring.yaml` | Helm `charts/observability/kube-prometheus-stack` |
+| 50 | `50-data-operators.yaml` | Operator placeholder (Zalando/Redis/RabbitMQ) |
+| 60 | `60-data-clusters.yaml` | Helm `charts/data/databases` |
+| 70 | `70-gitops-tools.yaml` | Helm `charts/platform/atlantis` |
+| 80 | `80-apis-app-of-apps.yaml` | ApplicationSet → `k8s/overlays/<domain>` |
 
 ---
 
@@ -171,9 +166,9 @@ k8s/overlays/my/kustomization.yaml
 
 ## 🔗 관련 문서
 
-- [Kustomize + App of Apps 가이드](../../docs/architecture/KUSTOMIZE_APP_OF_APPS.md)
-- [GitOps 베스트 프랙티스](../../docs/architecture/GITOPS_BEST_PRACTICES.md)
-- [ArgoCD 운영 가이드](../../docs/guides/ARGOCD_GUIDE.md)
+- [App of Apps 의사결정](../docs/architecture/gitops/APP-OF-APPS-DECISION.md)
+- [Atlantis Terraform 흐름](../docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md)
+- [Troubleshooting Guide](../docs/TROUBLESHOOTING.md)
 
 ---
 
