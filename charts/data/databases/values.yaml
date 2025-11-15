@@ -1,0 +1,77 @@
+# Default values for the ecoeco-databases umbrella chart.
+# 각 의존 Chart 값은 Wave 30 데이터 레이어의 최소 스펙을 반영합니다.
+# 민감 정보(비밀번호 등)는 반드시 환경별 values 파일이나 Secret으로 덮어써 주세요.
+
+postgres:
+  fullnameOverride: postgres
+  auth:
+    username: ecoeco_admin
+    password: changeme # TODO: override via secret or separate values file
+    database: sesacthon
+    enablePostgresUser: true
+  primary:
+    persistence:
+      enabled: true
+      size: 50Gi
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    nodeSelector:
+      workload: database
+    tolerations:
+      - key: node-role.kubernetes.io/infrastructure
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+
+redis:
+  fullnameOverride: redis
+  architecture: standalone
+  auth:
+    enabled: true
+    password: changeme # override for production
+  master:
+    persistence:
+      enabled: true
+      size: 20Gi
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    nodeSelector:
+      workload: cache
+    tolerations:
+      - key: node-role.kubernetes.io/infrastructure
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+
+rabbitmq:
+  fullnameOverride: rabbitmq
+  auth:
+    username: ecoeco
+    password: changeme # override via Secret
+  persistence:
+    enabled: true
+    size: 20Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  nodeSelector:
+    workload: message-queue
+  tolerations:
+    - key: node-role.kubernetes.io/infrastructure
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
