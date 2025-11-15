@@ -182,31 +182,31 @@ jobs:
             echo 'services=[]' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          python <<'PY'
-import json
-import os
-
-files = os.environ.get("CHANGED_FILES", "").split()
-services = []
-
-for path in files:
-    parts = path.split("/")
-    if len(parts) >= 2 and parts[0] == "services":
-        svc = parts[1]
-        service_path = os.path.join("services", svc)
-        if not os.path.isdir(service_path):
-            continue  # README.md 등 파일은 건너뛰기
-        if svc and svc not in services:
-            services.append(svc)
-
-with open(os.environ["GITHUB_OUTPUT"], "a") as out:
-    if not services:
-        out.write("has_changes=false\n")
-        out.write("services=[]\n")
-    else:
-        out.write("has_changes=true\n")
-        out.write(f"services={json.dumps(services)}\n")
-PY
+          python3 <<'PYEOF'
+          import json
+          import os
+          
+          files = os.environ.get("CHANGED_FILES", "").split()
+          services = []
+          
+          for path in files:
+              parts = path.split("/")
+              if len(parts) >= 2 and parts[0] == "services":
+                  svc = parts[1]
+                  service_path = os.path.join("services", svc)
+                  if not os.path.isdir(service_path):
+                      continue
+                  if svc and svc not in services:
+                      services.append(svc)
+          
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              if not services:
+                  out.write("has_changes=false\n")
+                  out.write("services=[]\n")
+              else:
+                  out.write("has_changes=true\n")
+                  out.write(f"services={json.dumps(services)}\n")
+          PYEOF
         env:
           CHANGED_FILES: ${{ steps.changes.outputs.all_changed_files }}
 
