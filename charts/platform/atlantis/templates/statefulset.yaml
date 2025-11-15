@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: atlantis
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: atlantis
+    app.kubernetes.io/name: atlantis
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  serviceName: atlantis
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: atlantis
+  template:
+    metadata:
+      labels:
+        app: atlantis
+        tier: infrastructure
+        component: gitops
+        app.kubernetes.io/name: atlantis
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- if .Values.initKubectl.enabled }}
+      initContainers:
+        - name: install-kubectl
+          image: {{ .Values.initKubectl.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mkdir -p /shared/usr/local/bin
+              cp /opt/bitnami/kubectl/bin/kubectl /shared/usr/local/bin/kubectl
+              chmod +x /shared/usr/local/bin/kubectl
+              /shared/usr/local/bin/kubectl version --client
+              echo "✅ kubectl installed to /shared/usr/local/bin/kubectl"
+          volumeMounts:
+            - name: kubectl
+              mountPath: /shared
+      {{- end }}
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsGroup: 1000
+      {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      containers:
+        - name: atlantis
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - server
+            - --atlantis-url={{ .Values.atlantis.url }}
+            - --repo-allowlist={{ .Values.atlantis.repoAllowlist }}
+            - --gh-user={{ .Values.atlantis.githubUser }}
+            {{- if .Values.atlantis.hidePrevPlanComments }}
+            - --hide-prev-plan-comments
+            {{- end }}
+            - --port={{ .Values.atlantis.port }}
+          env:
+            - name: ATLANTIS_GH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: github-token
+            - name: ATLANTIS_GH_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: github-webhook-secret
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: aws-access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: aws-secret-access-key
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: atlantis-config
+                  key: AWS_REGION
+            - name: ATLANTIS_DATA_DIR
+              value: {{ .Values.atlantis.dataDir | quote }}
+            - name: PATH
+              value: {{ .Values.atlantis.pathEnv | quote }}
+            - name: ATLANTIS_REPO_CONFIG
+              value: /etc/atlantis/atlantis.yaml
+          ports:
+            - name: http
+              containerPort: {{ .Values.atlantis.port }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.atlantis.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.atlantis.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: atlantis-data
+              mountPath: /atlantis-data
+            {{- end }}
+            - name: kubectl
+              mountPath: /shared/bin
+              subPath: usr/local/bin
+              readOnly: true
+            - name: atlantis-config-file
+              mountPath: /etc/atlantis
+              readOnly: true
+      volumes:
+        - name: kubectl
+          emptyDir: {}
+        - name: atlantis-config-file
+          configMap:
+            name: atlantis-repo-config
+  {{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: atlantis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.persistence.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+  {{- end }}
+

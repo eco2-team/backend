@@ -69,32 +69,63 @@
           namespace: atlantis
         data:
           atlantis.yaml: |
-            # Atlantis Server-side Repo Config
-            # https://www.runatlantis.io/docs/server-side-repo-config.html
-            
-            # Repositories Configuration
             repos:
-            - id: github.com/SeSACTHON/*
-              workflow: infrastructure-workflow
-              allowed_overrides:
-                - workflow
-                - apply_requirements
-              allow_custom_workflows: true
-              delete_source_branch_on_merge: true
-            
-            # Workflows Configuration
+              - id: github.com/SeSACTHON/.*
+                workflow: infrastructure-workflow
+                apply_requirements:
+                  - approved
+                  - mergeable
+                allow_custom_workflows: true
             workflows:
               infrastructure-workflow:
                 plan:
                   steps:
-                    - run: echo "🔍 Terraform Plan 시작..."
+                    - env:
+                        name: SETUP_ENV
+                        command: 'echo "Setting up environment..."'
                     - init
-                    - plan
+                    - run: terraform validate
+                    - plan:
+                        extra_args:
+                          - -lock-timeout=5m
+                          - -var-file=terraform.tfvars
+                    - run: |
+                        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        echo "✅ Terraform Plan Complete"
+                        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 apply:
                   steps:
-                    - run: echo "🚀 Terraform Apply 시작..."
-                    - apply
-                    - run: echo "✅ Terraform Apply 완료"
+                    - env:
+                        name: SETUP_ENV
+                        command: 'echo "Setting up environment..."'
+                    - init
+                    - apply:
+                        extra_args:
+                          - -lock-timeout=5m
+                          - -var-file=terraform.tfvars
+                    - run: |
+                        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        echo "📊 Exporting Terraform Outputs (Phase 3)..."
+                        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        terraform output -json > /tmp/tf-outputs.json
+                        terraform output -raw ansible_inventory > /tmp/ansible-inventory.ini
+                        if command -v kubectl &> /dev/null; then
+                            kubectl get namespace argocd &>/dev/null || kubectl create namespace argocd
+                            kubectl create configmap terraform-outputs \
+                              --from-file=tf-outputs.json=/tmp/tf-outputs.json \
+                              --from-file=ansible-inventory.ini=/tmp/ansible-inventory.ini \
+                              --namespace=argocd \
+                              --dry-run=client -o yaml | kubectl apply -f -
+                            echo "✅ Terraform Outputs saved to ConfigMap (namespace: argocd)"
+                            kubectl get configmap terraform-outputs -n argocd
+                            echo "🔄 ArgoCD PreSync Hook이 이 ConfigMap을 읽어서 Ansible을 실행합니다"
+                        else
+                            echo "⚠️  kubectl not found, skipping ConfigMap creation"
+                    - run: |
+                        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        echo "🔗 Triggering Post-Apply Actions..."
+                        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        echo "Terraform Apply Complete!"
         EOF
       register: atlantis_repo_config
 
@@ -186,7 +217,7 @@
 
     - name: "Atlantis Service를 NodePort로 변경 (ALB target-type: instance 필수)"
       shell: |
-        kubectl patch svc atlantis -n atlantis -p '{"spec":{"type":"NodePort"}}'
+        kubectl patch svc atlantis -n atlantis -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"protocol":"TCP","targetPort":4141,"nodePort":{{ atlantis_node_port }}}]}}'
       register: atlantis_service_patch
       changed_when: "'patched' in atlantis_service_patch.stdout or 'unchanged' in atlantis_service_patch.stdout"
       when: atlantis_deployment is defined and atlantis_deployment.changed
@@ -196,12 +227,14 @@
         kubectl get svc atlantis -n atlantis
       register: atlantis_service
       changed_when: false
+      when: atlantis_secret_check.stdout != "NOT_FOUND"
 
     - name: "Atlantis Ingress 확인 (14-nodes-ingress.yaml에 포함됨)"
       shell: |
         kubectl get ingress atlantis-ingress -n atlantis 2>/dev/null || echo "Ingress 없음 (07-ingress-resources.yml에서 생성 예정)"
       register: atlantis_ingress_check
       changed_when: false
+      when: atlantis_secret_check.stdout != "NOT_FOUND"
 
     - name: "Phase 3: RBAC 권한 확인"
       shell: |

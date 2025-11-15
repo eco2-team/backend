@@ -1,0 +1,131 @@
+# Namespace management
+namespace:
+  create: true
+  name: atlantis
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/runatlantis/atlantis
+  tag: v0.27.0
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: atlantis
+  annotations: {}
+
+secretName: atlantis-secrets
+
+aws:
+  region: ap-northeast-2
+
+atlantis:
+  url: https://atlantis.growbin.app
+  repoAllowlist: github.com/SeSACTHON/*
+  githubUser: SeSACTHON
+  hidePrevPlanComments: true
+  port: 4141
+  dataDir: /atlantis-data
+  pathEnv: "/usr/local/bin:/usr/local/sbin:/shared/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+repoConfig: |-
+  repos:
+    - id: github.com/SeSACTHON/.*
+      workflow: infrastructure-workflow
+      apply_requirements:
+        - approved
+        - mergeable
+      allow_custom_workflows: true
+  workflows:
+    infrastructure-workflow:
+      plan:
+        steps:
+          - env:
+              name: SETUP_ENV
+              command: 'echo "Setting up environment..."'
+          - init
+          - run: terraform validate
+          - plan:
+              extra_args:
+                - -lock-timeout=5m
+                - -var-file=terraform.tfvars
+          - run: |
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "✅ Terraform Plan Complete"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      apply:
+        steps:
+          - env:
+              name: SETUP_ENV
+              command: 'echo "Setting up environment..."'
+          - init
+          - apply:
+              extra_args:
+                - -lock-timeout=5m
+                - -var-file=terraform.tfvars
+          - run: |
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "📊 Exporting Terraform Outputs (Phase 3)..."
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              terraform output -json > /tmp/tf-outputs.json
+              terraform output -raw ansible_inventory > /tmp/ansible-inventory.ini
+              if command -v kubectl &> /dev/null; then
+                kubectl get namespace argocd &>/dev/null || kubectl create namespace argocd
+                kubectl create configmap terraform-outputs \
+                  --from-file=tf-outputs.json=/tmp/tf-outputs.json \
+                  --from-file=ansible-inventory.ini=/tmp/ansible-inventory.ini \
+                  --namespace=argocd \
+                  --dry-run=client -o yaml | kubectl apply -f -
+                echo "✅ Terraform Outputs saved to ConfigMap (namespace: argocd)"
+                kubectl get configmap terraform-outputs -n argocd
+                echo "🔄 ArgoCD PreSync Hook이 이 ConfigMap을 읽어서 Ansible을 실행합니다"
+              else
+                echo "⚠️  kubectl not found, skipping ConfigMap creation"
+          - run: |
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "🔗 Triggering Post-Apply Actions..."
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "Terraform Apply Complete!"
+
+initKubectl:
+  enabled: true
+  image: bitnami/kubectl:latest
+
+service:
+  type: NodePort
+  port: 80
+  targetPort: 4141
+  nodePort: 32141
+
+persistence:
+  enabled: true
+  storageClassName: gp3
+  size: 20Gi
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+
+nodeSelector: {}
+
+tolerations:
+  - key: node-role.kubernetes.io/infrastructure
+    operator: Equal
+    value: "true"
+    effect: NoSchedule
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - k8s-monitoring
+

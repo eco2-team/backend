@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atlantis-repo-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: atlantis
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  atlantis.yaml: |
+{{ tpl .Values.repoConfig . | indent 4 }}
+
