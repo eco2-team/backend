@@ -501,4 +501,71 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: TCP
+          port: 443  # Kubernetes API / Admission Webhooks
+
+---
+# kube-system 네임스페이스 - AWS Load Balancer Controller IMDS 접근 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alb-controller-imds-egress
+  namespace: kube-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: aws-load-balancer-controller
+  policyTypes:
+    - Egress
+
+  egress:
+    # IMDS (Instance Metadata Service) 접근 허용
+    - to:
+        - ipBlock:
+            cidr: 169.254.169.254/32
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+
+    # kube-system 내 DNS 및 API Server 접근 유지
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 443
+
+    # Kubernetes API Server (ClusterIP) 접근 허용
+    - to:
+        - ipBlock:
+            cidr: 10.96.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+
+    # Control-plane 노드 직접 접근 (kube-proxy DNAT 고려)
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 443
+
+    # AWS API 호출 (인터넷 경유 443)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
 

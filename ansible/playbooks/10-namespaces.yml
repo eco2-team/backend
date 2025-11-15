@@ -10,7 +10,7 @@
   gather_facts: no
   
   vars:
-    kube_config: /etc/kubernetes/admin.conf
+    kube_config: "/home/{{ kubectl_user }}/.kube/config"
   
   tasks:
     - name: 네임스페이스 YAML 복사
@@ -60,19 +60,35 @@
         src: ../../k8s/monitoring/servicemonitors-domain-ns.yaml
         dest: /tmp/servicemonitors-domain-ns.yaml
         mode: '0644'
+
+    - name: ServiceMonitor CRD 확인
+      command: kubectl get crd servicemonitors.monitoring.coreos.com --kubeconfig={{ kube_config }}
+      register: servicemonitor_crd_check
+      failed_when: false
+      changed_when: false
     
     - name: ServiceMonitor 적용
       command: kubectl apply -f /tmp/servicemonitors-domain-ns.yaml --kubeconfig={{ kube_config }}
       register: sm_result
       changed_when: "'created' in sm_result.stdout or 'configured' in sm_result.stdout"
+      when: servicemonitor_crd_check.rc == 0
     
     - name: ServiceMonitor 확인
       command: kubectl get servicemonitors -n monitoring --kubeconfig={{ kube_config }}
       register: sm_list
+      when: servicemonitor_crd_check.rc == 0
     
     - name: ServiceMonitor 결과 출력
       debug:
         msg: |
           ✅ ServiceMonitor 적용 완료 (네임스페이스 기반 메트릭 수집)
           {{ sm_list.stdout }}
+      when: servicemonitor_crd_check.rc == 0
+
+    - name: ServiceMonitor CRD 미존재 안내
+      debug:
+        msg: |
+          ⚠️ ServiceMonitor CRD가 아직 설치되지 않아 ServiceMonitor 리소스 적용을 건너뜁니다.
+          Prometheus Operator 설치 이후 다시 실행해주세요.
+      when: servicemonitor_crd_check.rc != 0
 

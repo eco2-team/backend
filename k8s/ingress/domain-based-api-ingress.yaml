@@ -33,14 +33,14 @@ metadata:
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
     
     # SSL Certificate (ACM)
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/f8d33998-1a75-4c7d-92e1-6cd48b90f8a7
     
     # ALB Group (단일 ALB로 통합)
     alb.ingress.kubernetes.io/group.name: ecoeco-main
     alb.ingress.kubernetes.io/group.order: '10'
     
     # Tags
-    alb.ingress.kubernetes.io/tags: Environment=production,Service=api,Domain=auth,Architecture=14-nodes
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=platform,Architecture=14-nodes
 spec:
   ingressClassName: alb
   rules:
@@ -80,10 +80,10 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
     alb.ingress.kubernetes.io/healthy-threshold-count: '2'
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/f8d33998-1a75-4c7d-92e1-6cd48b90f8a7
     alb.ingress.kubernetes.io/group.name: ecoeco-main
     alb.ingress.kubernetes.io/group.order: '11'
-    alb.ingress.kubernetes.io/tags: Environment=production,Service=api,Domain=my,Architecture=14-nodes
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=platform,Architecture=14-nodes
 spec:
   ingressClassName: alb
   rules:
@@ -123,10 +123,10 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
     alb.ingress.kubernetes.io/healthy-threshold-count: '2'
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/f8d33998-1a75-4c7d-92e1-6cd48b90f8a7
     alb.ingress.kubernetes.io/group.name: ecoeco-main
     alb.ingress.kubernetes.io/group.order: '12'
-    alb.ingress.kubernetes.io/tags: Environment=production,Service=api,Domain=scan,Architecture=14-nodes
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=platform,Architecture=14-nodes
 spec:
   ingressClassName: alb
   rules:
@@ -166,10 +166,10 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
     alb.ingress.kubernetes.io/healthy-threshold-count: '2'
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/f8d33998-1a75-4c7d-92e1-6cd48b90f8a7
     alb.ingress.kubernetes.io/group.name: ecoeco-main
     alb.ingress.kubernetes.io/group.order: '13'
-    alb.ingress.kubernetes.io/tags: Environment=production,Service=api,Domain=character,Architecture=14-nodes
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=platform,Architecture=14-nodes
 spec:
   ingressClassName: alb
   rules:
@@ -209,10 +209,10 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
     alb.ingress.kubernetes.io/healthy-threshold-count: '2'
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/f8d33998-1a75-4c7d-92e1-6cd48b90f8a7
     alb.ingress.kubernetes.io/group.name: ecoeco-main
     alb.ingress.kubernetes.io/group.order: '14'
-    alb.ingress.kubernetes.io/tags: Environment=production,Service=api,Domain=location,Architecture=14-nodes
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=platform,Architecture=14-nodes
 spec:
   ingressClassName: alb
   rules:
@@ -252,10 +252,10 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
     alb.ingress.kubernetes.io/healthy-threshold-count: '2'
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/f8d33998-1a75-4c7d-92e1-6cd48b90f8a7
     alb.ingress.kubernetes.io/group.name: ecoeco-main
     alb.ingress.kubernetes.io/group.order: '15'
-    alb.ingress.kubernetes.io/tags: Environment=production,Service=api,Domain=info,Architecture=14-nodes
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=platform,Architecture=14-nodes
 spec:
   ingressClassName: alb
   rules:
@@ -295,10 +295,10 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
     alb.ingress.kubernetes.io/healthy-threshold-count: '2'
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/f8d33998-1a75-4c7d-92e1-6cd48b90f8a7
     alb.ingress.kubernetes.io/group.name: ecoeco-main
     alb.ingress.kubernetes.io/group.order: '16'
-    alb.ingress.kubernetes.io/tags: Environment=production,Service=api,Domain=chat,Architecture=14-nodes
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=platform,Architecture=14-nodes
 spec:
   ingressClassName: alb
   rules:
@@ -332,10 +332,10 @@ metadata:
     alb.ingress.kubernetes.io/ssl-redirect: '443'
     alb.ingress.kubernetes.io/healthcheck-path: /health
     alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/f8d33998-1a75-4c7d-92e1-6cd48b90f8a7
     alb.ingress.kubernetes.io/group.name: ecoeco-main
     alb.ingress.kubernetes.io/group.order: '9'  # 가장 낮은 우선순위
-    alb.ingress.kubernetes.io/tags: Environment=production,Service=api,Component=health-check
+    alb.ingress.kubernetes.io/tags: Environment=production,Service=platform,Architecture=14-nodes
 spec:
   ingressClassName: alb
   rules:

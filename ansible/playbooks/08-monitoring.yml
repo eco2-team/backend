@@ -30,7 +30,7 @@
     --set prometheus.prometheusSpec.nodeSelector.workload=monitoring
     --set prometheus.prometheusSpec.tolerations[0].key=node-role.kubernetes.io/infrastructure
     --set prometheus.prometheusSpec.tolerations[0].operator=Equal
-    --set prometheus.prometheusSpec.tolerations[0].value="true"
+    --set-string prometheus.prometheusSpec.tolerations[0].value=true
     --set prometheus.prometheusSpec.tolerations[0].effect=NoSchedule
     --set grafana.adminPassword={{ grafana_admin_password }}
     --set grafana.resources.requests.cpu=500m
@@ -38,15 +38,19 @@
     --set grafana.nodeSelector.workload=monitoring
     --set grafana.tolerations[0].key=node-role.kubernetes.io/infrastructure
     --set grafana.tolerations[0].operator=Equal
-    --set grafana.tolerations[0].value="true"
+    --set-string grafana.tolerations[0].value=true
     --set grafana.tolerations[0].effect=NoSchedule
+    --set grafana.service.type=NodePort
+    --set grafana.service.nodePort={{ grafana_node_port }}
     --set alertmanager.alertmanagerSpec.resources.requests.cpu=250m
     --set alertmanager.alertmanagerSpec.resources.requests.memory=256Mi
     --set alertmanager.alertmanagerSpec.nodeSelector.workload=monitoring
     --set alertmanager.alertmanagerSpec.tolerations[0].key=node-role.kubernetes.io/infrastructure
     --set alertmanager.alertmanagerSpec.tolerations[0].operator=Equal
-    --set alertmanager.alertmanagerSpec.tolerations[0].value="true"
+    --set-string alertmanager.alertmanagerSpec.tolerations[0].value=true
     --set alertmanager.alertmanagerSpec.tolerations[0].effect=NoSchedule
+    --set prometheus.service.type=NodePort
+    --set prometheus.service.nodePort={{ prometheus_node_port }}
   when: "'prometheus' not in prometheus_check.stdout"
 
 - name: Prometheus Operator 설치 대기 (60초)

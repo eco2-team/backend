@@ -1,24 +1,5 @@
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Data Operators Kustomization
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Wave 25: 데이터 서비스 Operators
-#
-# 참고: 현재는 Ansible에서 관리 (향후 ArgoCD로 이관 예정)
-# - PostgreSQL: 직접 StatefulSet 배포 (Operator 전환 예정)
-# - Redis: 직접 Deployment 배포 (Operator 전환 예정)
-# - RabbitMQ: RabbitMQ Cluster Operator 사용 중
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  # 향후 추가 예정:
-  # - postgresql/zalando-postgres-operator.yaml
-  # - redis/redis-operator.yaml
-  # - rabbitmq/cluster-operator.yaml  # 현재 Ansible에서 설치
-
-commonLabels:
-  app.kubernetes.io/managed-by: argocd
-  app.kubernetes.io/part-of: ecoeco-platform
-  app.kubernetes.io/component: data-operators
-
+  - namespace-databases.yaml
