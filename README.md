@@ -11,8 +11,43 @@ AI 폐기물 분류·지도·챗봇 등 도메인 API와 데이터 계층, GitOp
 ## Architecture
 ![E6A73249-BFDB-4CA9-A41B-4AF5A907C6D1](https://github.com/user-attachments/assets/c1e5430d-0fd6-4c78-9e3b-f7940502dc1e)
 
+| Layer | 네임스페이스 | 할당된 노드 | NetworkPolicy |
+| --- | --- | --- | --- |
+| Tier 1 | kube-system에 포함, ALB Controller | master node | IMDS, In-cluster API, DNS, AWS API Egress 허용 |
+| Tier 2 | 각 API별 1:1 매칭 | 각 API별 1:1 할당 | Data/Messaging 접근만 허용 |
+| Tier 3 | messaging | Infra node | API Layer에서만 접근 허용 |
+| Tier 4 | data | Data node | API Layer에서만 접근 허용 |
+| Tier 0 | monitoring, atlantis | Monitoring Node | 모든 Layer의 메트릭을 수집 |
 
-## Overview
+#### 핵심 원칙
+
+-   상위 계층은 단일 하위 계층에만 의존
+-   API 간 직접 통신 차단 (Zero Trust)
+-   Ingress/Egress 정책 면에서 default로 deny, 허용할 포트만 명시적으로 allow
+-   Data Layer는 Business Logic에서만 접근 가능
+
+#### 리소스 격리 고려사항
+
+초기엔 단일 api 네임스페이스에 7개 API를 몰아 배치했다. 빠른 개발엔 유리했지만 몇 가지 문제가 있었다:
+
+-   ❌ 특정 API의 메모리 누수 시 다른 API도 영향받음
+-   ❌ 도메인별 리소스 사용량 추적 불가
+-   ❌ NetworkPolicy 적용 불가 (모두 같은 네임스페이스)
+
+## Hardware
+| 역할  | 개수 | 용도 | 인스턴스 타입 |
+| --- | --- | --- | --- |
+| Master | 1 | Control Plane | t3a.large (2 vCPU, 8GB) |
+| API Nodes | 7 | auth, my, scan, character, location, info, chat | t3a.medium (2 vCPU, 4GB) |
+| Celery Worker Nodes | 2 | storage-worker, ai-worker | t3a.large(2 vCPU, 8GB) |
+| Infra Nodes | 4 | postgreSQL, Redis, RabbitMQ, Monitoring(Prometheus + Grafana + ArgoCD) | t3a.medium (2 vCPU, 4GB) |
+
+#### 총 리소스
+-   vCPU: 30개
+-   Memory: 74GB
+-   월 비용: ~$864 (시간당 $1.20)
+
+## GitOps Pipeline Overview
 
 ```yaml
 Cluster  : kubeadm Self-Managed (14 Nodes)
