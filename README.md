@@ -63,18 +63,23 @@ Ingress  : Route53 + CloudFront + ALB → Calico NetworkPolicy
 graph TD
     CF["CloudFront · Route53"] --> ALB["AWS ALB (HTTPS)"]
     ALB --> CALICO["Calico + NetworkPolicy"]
-    CALICO --> API["API Pods: auth · my · scan · character · location · info · chat"]
-    CALICO --> WORK["Worker Pods<br/>storage · ai"]
-    API["non-AI API: auth · my · character · location · info"] --> DATA["Redis"]
-    API["AI API: scan · character · location · info · chat"] --> DATA["RabbitMQ"]
-    DATA["RabbitMQ"] --> WORK["Worker Pods: ai"]
-    WORK["Worker Pods: ai"] --> DATA["PostgreSQL · Redis"]
+    CALICO --> APISYNC["API Pods: auth · my · character · location · info"]
+    CALICO --> APIAI["API Pods: scan · chat"]
+    CALICO --> WORK["Worker Pods: ai"]
+    APISYNC["non-AI API: auth · my · character · location · info"] --> REDIS["Redis"]
+    REDIS["Redis"] --> POSTGRE["PostgreSQL"]
+    APIAI["AI API: scan · chat"] --> RABBITMQ["RabbitMQ"]
+    RABBITMQ["RabbitMQ"] --> WORK["Worker Pods: ai"]
+    WORK["Worker Pods: ai"] --> POSTGRE["PostgreSQL"]
     style CF fill:#92400e,color:#fff
     style ALB fill:#0d9488,color:#fff
     style CALICO fill:#1d4ed8,color:#fff
-    style API fill:#334155,color:#fff
+    style APISYNC fill:#334155,color:#fff
+    style APIAI fill:#334155,color:#fff
     style WORK fill:#166534,color:#fff
-    style DATA fill:#78350f,color:#fff
+    style REDIS fill:#78350f,color:#fff
+    style POSTGRE fill:#68350f,color:#fff
+    style RABBITMQ fill:#58350f,color:#fff
 ```
 
 ---
