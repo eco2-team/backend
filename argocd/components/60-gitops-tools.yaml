@@ -1,0 +1,62 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Wave 50: GitOps Tools
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 목적:
+#   - Atlantis (Terraform GitOps)
+#   - ArgoCD Add-ons (향후 고려)
+#
+# 실행 순서: Wave 50
+# 의존성:
+#   - 00-foundations (atlantis namespace)
+#   - 50-data-clusters (PostgreSQL - Atlantis가 DB 필요)
+#
+# 참고: 현재 Ansible에서 배포 (k8s/atlantis/)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gitops-tools
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: gitops-tools
+    app.kubernetes.io/part-of: ecoeco-platform
+    app.kubernetes.io/component: gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "50"  # Wave 50
+spec:
+  project: default
+  
+  # Source: k8s/atlantis
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: k8s/atlantis
+  
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: atlantis
+  
+  # Sync Policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=false          # Namespace는 이미 생성됨
+      - ServerSideApply=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  # Revision History
+  revisionHistoryLimit: 10

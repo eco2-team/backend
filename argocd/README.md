@@ -1,197 +1,183 @@
-# ArgoCD Applications
+# ArgoCD Applications (App of Apps Pattern)
 
-> **13-Node Microservices Architecture**  
-> **GitOps 기반 자동 배포**
-
-## 📁 구조
-
-```
-argocd/
-├─ applications/
-│  ├─ growbin-backend.yaml           # 통합 Application
-│  ├─ api-services-appset.yaml       # API 서비스 ApplicationSet
-│  └─ worker-services-appset.yaml    # Worker 서비스 ApplicationSet
-```
-
-## 🎯 배포 전략
-
-### 1. 통합 Application (growbin-backend.yaml)
-
-**전체 서비스 일괄 배포**
-
-```yaml
-repoURL: https://github.com/SeSACTHON/backend.git
-path: charts/growbin-backend
-valueFiles:
-  - values-13nodes.yaml
-```
-
-**자동 동기화**:
-- prune: true (삭제된 리소스 제거)
-- selfHeal: true (Drift 자동 복구)
-- retry: 5회 재시도
-
-### 2. API Services ApplicationSet (api-services-appset.yaml)
-
-**6개 도메인별 독립 배포**
-
-| Domain | Namespace | Replicas | Node |
-|--------|-----------|----------|------|
-| waste | api | 2 | k8s-api-waste |
-| auth | api | 2 | k8s-api-auth |
-| userinfo | api | 2 | k8s-api-userinfo |
-| location | api | 2 | k8s-api-location |
-| recycle-info | api | 2 | k8s-api-recycle-info |
-| chat-llm | api | 2 | k8s-api-chat-llm |
-
-**Application 이름**: `growbin-api-{domain}`
-
-### 3. Worker Services ApplicationSet (worker-services-appset.yaml)
-
-**2개 Worker 독립 배포**
-
-| Worker | Namespace | Replicas | Pool Type | Node |
-|--------|-----------|----------|-----------|------|
-| storage | workers | 2 | eventlet | k8s-worker-storage |
-| ai | workers | 2 | prefork | k8s-worker-ai |
-
-**Application 이름**: `growbin-worker-{worker}`
-
-## 🚀 배포 방법
-
-### 방법 1: 통합 배포 (권장)
-
-```bash
-# 1. ArgoCD에 Application 등록
-kubectl apply -f argocd/applications/growbin-backend.yaml
-
-# 2. 동기화 상태 확인
-kubectl get application -n argocd growbin-backend
-
-# 3. ArgoCD UI에서 확인
-kubectl port-forward svc/argocd-server -n argocd 8080:443
-# https://localhost:8080
-```
-
-### 방법 2: ApplicationSet 배포 (도메인별)
-
-```bash
-# 1. API Services ApplicationSet 적용
-kubectl apply -f argocd/applications/api-services-appset.yaml
-
-# 2. Worker Services ApplicationSet 적용
-kubectl apply -f argocd/applications/worker-services-appset.yaml
-
-# 3. 생성된 Application 확인
-kubectl get applications -n argocd | grep growbin
-```
-
-## 📊 동기화 정책
-
-### Auto Sync
-```yaml
-syncPolicy:
-  automated:
-    prune: true      # 삭제된 리소스 자동 제거
-    selfHeal: true   # Drift 발생 시 자동 복구
-    allowEmpty: false # 빈 변경 무시
-```
-
-### Sync Options
-```yaml
-syncOptions:
-  - CreateNamespace=true           # Namespace 자동 생성
-  - PrunePropagationPolicy=foreground # 순차적 삭제
-  - PruneLast=true                 # 리소스 생성 후 정리
-```
-
-### Retry Policy
-```yaml
-retry:
-  limit: 5                # 최대 5회 재시도
-  backoff:
-    duration: 5s          # 초기 대기 시간
-    factor: 2             # 지수 백오프 (5s → 10s → 20s → 40s → 80s)
-    maxDuration: 3m       # 최대 대기 시간
-```
-
-## 🔄 배포 흐름
-
-```mermaid
-graph LR
-    A[Git Push] --> B[ArgoCD Detect]
-    B --> C{Auto Sync?}
-    C -->|Yes| D[Helm Template]
-    D --> E[Apply to Cluster]
-    E --> F{Success?}
-    F -->|No| G[Retry]
-    G --> D
-    F -->|Yes| H[Sync Complete]
-```
-
-## 🛠️ Helm Values 구조
-
-### values-13nodes.yaml
-```yaml
-api:
-  waste:
-    enabled: true
-    replicas: 2
-    nodeSelector:
-      domain: waste
-  auth:
-    enabled: true
-    replicas: 2
-    nodeSelector:
-      domain: auth
-  # ... (6개 API)
-
-worker:
-  storage:
-    enabled: true
-    replicas: 2
-    poolType: eventlet
-    nodeSelector:
-      workload: worker-storage
-  ai:
-    enabled: true
-    replicas: 2
-    poolType: prefork
-    nodeSelector:
-      workload: worker-ai
-```
-
-## 📌 참고사항
-
-### Application vs ApplicationSet
-
-| 특징 | Application | ApplicationSet |
-|------|-------------|----------------|
-| 배포 대상 | 전체 서비스 | 도메인별 서비스 |
-| 관리 복잡도 | 낮음 | 중간 |
-| 세밀한 제어 | 어려움 | 쉬움 |
-| 권장 용도 | 통합 배포 | 도메인별 독립 배포 |
-
-### 선택 가이드
-
-**통합 배포 (growbin-backend.yaml) 사용 시**:
-- ✅ 모든 서비스 동시 배포
-- ✅ 간단한 관리
-- ✅ 일관된 버전 관리
-
-**ApplicationSet 사용 시**:
-- ✅ 도메인별 독립 배포
-- ✅ 부분 롤아웃 가능
-- ✅ 세밀한 리소스 제어
-
-## 🔗 관련 문서
-
-- [Helm Charts](../charts/growbin-backend/README.md)
-- [Deployment Guide](../docs/deployment/README.md)
-- [ArgoCD Guide](../docs/guides/ARGOCD_GUIDE.md)
+> **현재 브랜치**: `develop`  
+> **아키텍처**: Kustomize + App of Apps 패턴  
+> **날짜**: 2025-11-14
 
 ---
 
-**작성일**: 2025-11-06  
-**버전**: 1.0 (13-Node Architecture)
+## 📁 디렉토리 구조
+
+```
+argocd/
+├── root-app.yaml                    # 최상위 App of Apps
+│
+├── apps/                            # ✨ 신규 App of Apps 구조
+│   ├── infrastructure.yaml          # Wave 0: Namespaces, NetworkPolicies
+│   └── api-services.yaml            # Wave 3: API Services (ApplicationSet)
+│
+└── applications-archive/            # 🗄️ Legacy (참고용)
+    ├── ecoeco-14nodes-appset.yaml   # 14-Node 아키텍처 (구버전)
+    ├── api-services-appset.yaml     # API Services (Helm 기반)
+    ├── worker-services-appset.yaml  # Worker Services
+    └── ... (기타 legacy 파일들)
+```
+
+---
+
+## 🎯 현재 App of Apps 패턴
+
+### Wave 기반 배포 순서
+
+```
+Root Application (argocd/root-app.yaml)
+  │
+  ├─ Wave 0: Infrastructure (apps/infrastructure.yaml)
+  │  └─ k8s/infrastructure/
+  │     ├─ namespaces/domain-based.yaml
+  │     └─ networkpolicies/domain-isolation.yaml
+  │
+  └─ Wave 3: API Services (apps/api-services.yaml)
+     └─ ApplicationSet → k8s/overlays/{domain}/
+        ├─ auth (Phase 1)
+        ├─ my (Phase 1)
+        ├─ scan (Phase 1)
+        ├─ character (Phase 2)
+        ├─ location (Phase 2)
+        ├─ info (Phase 3)
+        └─ chat (Phase 3)
+```
+
+---
+
+## 🚀 사용 방법
+
+### 1. Root Application 배포
+
+```bash
+# Root App 배포 (모든 하위 App 자동 생성)
+kubectl apply -f argocd/root-app.yaml
+
+# 상태 확인
+kubectl get applications -n argocd
+```
+
+### 2. 개별 Application 확인
+
+```bash
+# Infrastructure
+kubectl get application infrastructure -n argocd
+
+# API Services
+kubectl get applicationset api-services -n argocd
+
+# 생성된 개별 API Application 확인
+kubectl get applications -n argocd | grep api-
+```
+
+---
+
+## 📊 브랜치 전략
+
+### targetRevision 규칙
+
+| 환경 | 브랜치 | 용도 |
+|------|--------|------|
+| **Development** | `develop` | 개발 환경 |
+| **Feature** | `feature/*` 또는 `refactor/*` | 기능 개발/리팩토링 |
+| **Production** | `main` | 프로덕션 |
+
+**현재 브랜치**: `develop`
+- 모든 `apps/` 디렉토리의 Application은 현재 브랜치를 참조합니다.
+- `develop` 브랜치로 merge 후 `targetRevision: develop`으로 변경 예정
+
+---
+
+## 🔄 마이그레이션 히스토리
+
+### Legacy → App of Apps
+
+**Before** (`applications/`):
+- ❌ ApplicationSet만 사용 (Helm 기반)
+- ❌ 배포 순서 제어 어려움
+- ❌ Infrastructure와 Application 구분 없음
+
+**After** (`apps/`):
+- ✅ App of Apps 패턴
+- ✅ Sync Wave로 배포 순서 제어
+- ✅ Kustomize 기반 (Infrastructure)
+- ✅ 명확한 계층 구조
+
+---
+
+## 📝 주요 변경 사항
+
+### 1. Infrastructure를 Kustomize로 관리
+
+**Before**:
+```bash
+# Ansible Playbook으로 배포
+ansible-playbook k8s/namespaces/domain-based.yaml
+```
+
+**After**:
+```yaml
+# ArgoCD Application으로 관리
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infrastructure
+spec:
+  source:
+    path: k8s/infrastructure  # Kustomize
+```
+
+### 2. API Services는 Kustomize Overlay 사용
+
+**Before**:
+```yaml
+# Helm Chart values 수정
+charts/ecoeco-backend/values-14nodes.yaml
+```
+
+**After**:
+```yaml
+# Kustomize overlays 사용
+k8s/overlays/auth/kustomization.yaml
+k8s/overlays/my/kustomization.yaml
+...
+```
+
+---
+
+## 🗄️ Archive 디렉토리
+
+`applications-archive/` 디렉토리는 참고용으로 보관되며, 실제 배포에 사용되지 않습니다.
+
+**보관된 파일들**:
+- `ecoeco-14nodes-appset.yaml`: 14-Node Helm 기반 ApplicationSet
+- `api-services-appset.yaml`: 13-Node Helm 기반 ApplicationSet
+- `worker-services-appset.yaml`: Worker Services ApplicationSet
+- `ecoeco-appset-kustomize.yaml`: 초기 Kustomize 실험
+- `ecoeco-backend*.yaml`: 통합 Application (구버전)
+- `test-auth-app.yaml`: 테스트용 Application
+
+**삭제하지 않는 이유**:
+- 📚 히스토리 참고
+- 🔄 롤백 가능성
+- 📖 학습 자료
+
+---
+
+## 🔗 관련 문서
+
+- [Kustomize + App of Apps 가이드](../../docs/architecture/KUSTOMIZE_APP_OF_APPS.md)
+- [GitOps 베스트 프랙티스](../../docs/architecture/GITOPS_BEST_PRACTICES.md)
+- [ArgoCD 운영 가이드](../../docs/guides/ARGOCD_GUIDE.md)
+
+---
+
+**작성일**: 2025-11-14  
+**상태**: App of Apps 패턴 적용 완료 ✅  
+**다음**: develop 브랜치 merge 및 프로덕션 배포
 

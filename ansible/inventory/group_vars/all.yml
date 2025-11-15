@@ -22,6 +22,8 @@ docker_version: "24.0"
 # ArgoCD
 argocd_version: "stable"
 argocd_namespace: "argocd"
+argocd_http_node_port: 30080
+argocd_https_node_port: 30443
 
 # AWS (ALB Controller용)
 aws_region: "ap-northeast-2"
@@ -52,6 +54,11 @@ rabbitmq_replicas: 1  # 단일 Pod (HA 제거)
 monitoring_namespace: "monitoring"
 prometheus_retention: "7d"
 grafana_admin_password: "{{ lookup('env', 'GRAFANA_PASSWORD') | default('admin123', true) }}"
+grafana_node_port: 32080
+prometheus_node_port: 32090
+
+# Atlantis
+atlantis_node_port: 32141
 
 # 기타
 kubectl_user: "ubuntu"

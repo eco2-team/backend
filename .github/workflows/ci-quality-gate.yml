@@ -1,0 +1,290 @@
+name: CI Quality Gate
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ci-quality-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  commit-filter:
+    name: 🛂 Commit Filter
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.detect.outputs.skip }}
+      reason: ${{ steps.detect.outputs.reason }}
+      commit_type: ${{ steps.detect.outputs.commit_type }}
+    steps:
+      - name: Detect conventional commit type
+        id: detect
+        run: |
+          set -euo pipefail
+          EVENT_NAME="${{ github.event_name }}"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            REF_TEXT="${{ github.event.pull_request.title }}"
+          else
+            REF_TEXT="${{ github.event.head_commit.message }}"
+          fi
+          REF_TEXT="${REF_TEXT:-none}"
+          TYPE=$(echo "$REF_TEXT" | sed -n 's/^\([A-Za-z0-9_-]\+\):.*/\1/p' | tr '[:upper:]' '[:lower:]')
+          if [[ "$TYPE" =~ ^(chore|docs)$ ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=Commit type '$TYPE' is configured to bypass CI quality gates" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "reason=" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -z "$TYPE" ]; then
+            TYPE="unknown"
+          fi
+          echo "commit_type=$TYPE" >> "$GITHUB_OUTPUT"
+
+  skip-notice:
+    name: ⏭️ CI Skipped
+    needs: commit-filter
+    if: needs.commit-filter.outputs.skip == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish skip summary
+        run: |
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          ## ⏭️ CI Skipped
+          - Reason: ${{ needs.commit-filter.outputs.reason }}
+          - Commit type: `${{ needs.commit-filter.outputs.commit_type }}`
+          EOF
+
+  quality-gate:
+    name: ✅ CI Quality Gate
+    runs-on: ubuntu-latest
+    needs: commit-filter
+    if: needs.commit-filter.outputs.skip != 'true'
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.2
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: 5.2.1
+
+      - name: Terraform fmt & validate
+        working-directory: terraform
+        run: |
+          set -euo pipefail
+          terraform fmt -check -recursive
+          terraform init -backend=false -input=false
+          terraform validate -no-color
+
+      - name: Helm lint (Observability/Data waves)
+        run: |
+          set -euo pipefail
+          charts=(
+            charts/observability/kube-prometheus-stack
+            charts/data/databases
+          )
+          for chart in "${charts[@]}"; do
+            if [ -d "$chart" ]; then
+              echo "::group::Helm lint $chart"
+              helm dependency update "$chart"
+              helm lint "$chart" --strict
+              echo "::endgroup::"
+            fi
+          done
+
+      - name: Kustomize build smoke tests
+        run: |
+          set -euo pipefail
+          targets=(
+            k8s/infrastructure
+            k8s/data-operators
+            k8s/overlays/auth
+            k8s/overlays/my
+            k8s/overlays/scan
+            k8s/overlays/character
+            k8s/overlays/location
+            k8s/overlays/info
+            k8s/overlays/chat
+          )
+          for target in "${targets[@]}"; do
+            if [ -f "$target/kustomization.yaml" ]; then
+              echo "::group::kustomize build $target"
+              kustomize build "$target" >/tmp/kustomize-output.yaml
+              echo "::endgroup::"
+            fi
+          done
+
+      - name: Publish summary
+        run: |
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          ## ✅ CI Quality Gate
+          - Terraform fmt & validate
+          - Helm lint (observability/data charts)
+          - Kustomize build smoke tests (infra/api overlays)
+          - Commit type: `${{ needs.commit-filter.outputs.commit_type }}`
+          EOF
+
+  detect-api-changes:
+    name: 🔍 Detect API Changes
+    runs-on: ubuntu-latest
+    needs: commit-filter
+    if: needs.commit-filter.outputs.skip != 'true'
+    outputs:
+      has_changes: ${{ steps.prepare.outputs.has_changes }}
+      services: ${{ steps.prepare.outputs.services }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Changed files
+        id: changes
+        uses: tj-actions/changed-files@v45
+        with:
+          files: |
+            services/**
+
+      - name: Prepare service matrix
+        id: prepare
+        run: |
+          if [ "${{ steps.changes.outputs.any_changed }}" != "true" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo 'services=[]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python <<'PY'
+          import json
+          import os
+
+          files = os.environ.get("CHANGED_FILES", "").split()
+          services = []
+          for path in files:
+              parts = path.split("/")
+              if len(parts) >= 2 and parts[0] == "services":
+                  svc = parts[1]
+                  if svc and svc not in services:
+                      services.append(svc)
+
+          if not services:
+              with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+                  out.write("has_changes=false\n")
+                  out.write("services=[]\n")
+          else:
+              with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+                  out.write("has_changes=true\n")
+                  out.write(f"services={json.dumps(services)}\n")
+          PY
+        env:
+          CHANGED_FILES: ${{ steps.changes.outputs.all_changed_files }}
+
+  api-quality:
+    name: 🧪 API Lint & Test
+    runs-on: ubuntu-latest
+    needs:
+      - commit-filter
+      - detect-api-changes
+    if: >
+      needs.commit-filter.outputs.skip != 'true' &&
+      needs.detect-api-changes.outputs.has_changes == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-api-changes.outputs.services) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install black==24.4.2 ruff==0.6.9 pytest==8.3.3
+          pip install -r services/${{ matrix.service }}/requirements.txt
+
+      - name: Black (format check)
+        run: black --check services/${{ matrix.service }}
+
+      - name: Ruff lint
+        run: ruff check services/${{ matrix.service }}
+
+      - name: Pytest
+        working-directory: services/${{ matrix.service }}
+        env:
+          PYTHONPATH: ${{ github.workspace }}/services/${{ matrix.service }}
+        run: pytest
+
+  api-build-push:
+    name: 📦 Build & Push API Images
+    runs-on: ubuntu-latest
+    needs:
+      - commit-filter
+      - detect-api-changes
+      - api-quality
+    if: >
+      needs.commit-filter.outputs.skip != 'true' &&
+      needs.detect-api-changes.outputs.has_changes == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-api-changes.outputs.services) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: services/${{ matrix.service }}
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/sesacthon/${{ matrix.service }}-api:${{ github.sha }}
+            ghcr.io/sesacthon/${{ matrix.service }}-api:latest
+

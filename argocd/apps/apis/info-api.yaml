@@ -1,0 +1,49 @@
+# ArgoCD Application: Info API
+# Wave 70: Phase 3 Advanced API
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: info-api
+  namespace: argocd
+  labels:
+    app: info-api
+    domain: info
+    phase: "3"
+    tier: business-logic
+  annotations:
+    argocd.argoproj.io/sync-wave: "70"  # Phase 3
+spec:
+  project: default
+  
+  # Source: Kustomize overlay
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: k8s/overlays/info
+  
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: info
+  
+  # Sync Policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+    
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
+  
+  revisionHistoryLimit: 5
+

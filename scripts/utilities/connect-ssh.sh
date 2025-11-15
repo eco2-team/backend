@@ -3,7 +3,8 @@
 
 NODE_NAME=${1:-master}
 REGION=${AWS_REGION:-ap-northeast-2}
-SSH_KEY=${SSH_KEY:-~/.ssh/sesacthon}
+SSH_KEY=${SSH_KEY:-~/.ssh/sesacthon.pem}
+SSH_OPTS=${SSH_OPTS:-"-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"}
 
 echo "🔍 $NODE_NAME 인스턴스 Public IP 검색 중..."
 
@@ -31,6 +32,6 @@ echo "🔗 SSH 접속 중..."
 echo ""
 
 # SSH 접속
-ssh -i $SSH_KEY ubuntu@$PUBLIC_IP
+ssh -i "$SSH_KEY" $SSH_OPTS ubuntu@"$PUBLIC_IP"
 
 

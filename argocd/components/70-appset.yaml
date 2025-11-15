@@ -1,0 +1,148 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Wave 60: Applications (Tier 2)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 목적:
+#   - API Services (7개 도메인: auth, my, scan, character, location, info, chat)
+#   - Celery Workers (Storage, AI)
+#   - Flower (Celery 모니터링 WebUI)
+#
+# 실행 순서: Wave 60
+# 의존성:
+#   - 00-foundations (도메인별 namespaces, workers namespace)
+#   - 50-data-clusters (PostgreSQL, Redis, RabbitMQ)
+#
+# ApplicationSet:
+#   - List Generator로 7개 API 서비스 자동 생성
+#   - argocd/apps/apis/{domain}/ 경로 사용
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: api-services
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: api-services
+    app.kubernetes.io/part-of: ecoeco-platform
+    app.kubernetes.io/component: api-layer
+  annotations:
+    argocd.argoproj.io/sync-wave: "60"  # Wave 60
+spec:
+  generators:
+  - list:
+      elements:
+      - domain: auth
+        namespace: auth
+        phase: "1"
+      - domain: my
+        namespace: my
+        phase: "1"
+      - domain: scan
+        namespace: scan
+        phase: "2"
+      - domain: character
+        namespace: character
+        phase: "2"
+      - domain: location
+        namespace: location
+        phase: "2"
+      - domain: info
+        namespace: info
+        phase: "3"
+      - domain: chat
+        namespace: chat
+        phase: "3"
+  
+  template:
+    metadata:
+      name: 'api-{{domain}}'
+      labels:
+        app: 'api-{{domain}}'
+        domain: '{{domain}}'
+        phase: '{{phase}}'
+        tier: business-logic
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{phase}}'  # Phase별 순차 배포
+    
+    spec:
+      project: default
+      
+      source:
+        repoURL: https://github.com/SeSACTHON/backend
+        targetRevision: develop
+        path: k8s/overlays/{{domain}}
+      
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+        - CreateNamespace=false          # Namespace는 이미 생성됨
+        - ServerSideApply=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 1m
+      
+      revisionHistoryLimit: 5
+
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Workers Application (Celery + Flower)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: workers
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: workers
+    app.kubernetes.io/part-of: ecoeco-platform
+    app.kubernetes.io/component: worker-layer
+  annotations:
+    argocd.argoproj.io/sync-wave: "60"  # Wave 60
+spec:
+  project: default
+  
+  # Source: argocd/apps/apis/workers
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: argocd/apps/apis/workers
+    
+    # Directory Recurse로 celery-worker/, flower/ 포함
+    directory:
+      recurse: true
+  
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: workers
+  
+  # Sync Policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=false          # Namespace는 이미 생성됨
+      - ServerSideApply=true
+    
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
+  
+  # Revision History
+  revisionHistoryLimit: 5

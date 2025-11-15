@@ -1,0 +1,19 @@
+# Celery Worker Kustomization
+# 비동기 작업 처리 (Tier 3)
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Placeholder: 향후 Celery Worker Deployment 추가
+  # - deployment.yaml
+  # - service.yaml
+
+commonLabels:
+  app.kubernetes.io/name: celery-worker
+  app.kubernetes.io/part-of: ecoeco-platform
+  app.kubernetes.io/component: worker
+  tier: workers
+
+namespace: workers
+

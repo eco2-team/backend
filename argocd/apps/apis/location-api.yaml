@@ -1,0 +1,49 @@
+# ArgoCD Application: Location API
+# Wave 66: Phase 2 Extended API
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: location-api
+  namespace: argocd
+  labels:
+    app: location-api
+    domain: location
+    phase: "2"
+    tier: business-logic
+  annotations:
+    argocd.argoproj.io/sync-wave: "66"  # Phase 2
+spec:
+  project: default
+  
+  # Source: Kustomize overlay
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: k8s/overlays/location
+  
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: location
+  
+  # Sync Policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+    
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
+  
+  revisionHistoryLimit: 5
+

@@ -1,0 +1,50 @@
+# ArgoCD Application: Foundations
+# Wave -1: CRDs and RBAC (가장 먼저 배포)
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: foundations
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: foundations
+    app.kubernetes.io/part-of: ecoeco-platform
+    app.kubernetes.io/component: infrastructure
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"  # Wave -1: 가장 먼저
+spec:
+  project: default
+  
+  # Source: k8s/foundations
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: k8s/foundations
+  
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default  # CRDs는 cluster-wide
+  
+  # Sync Policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true  # CRD conflicts 방지
+      - Replace=true  # CRD 업데이트 허용
+    
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  # Revision History
+  revisionHistoryLimit: 10
+

@@ -1,0 +1,20 @@
+# Redis Kustomization
+# Cache & State Management (Tier 4)
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Placeholder: Ansible이 Redis Deployment 배포
+  # 향후 Operator CR로 전환 시:
+  # - redis.yaml (Operator CR)
+  # - servicemonitor.yaml
+
+commonLabels:
+  app.kubernetes.io/name: redis
+  app.kubernetes.io/part-of: ecoeco-platform
+  app.kubernetes.io/component: cache
+  tier: data
+
+namespace: data
+

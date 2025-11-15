@@ -1,0 +1,58 @@
+# ArgoCD Application: Infrastructure
+# Wave 0: Namespaces, NetworkPolicies, ServiceMonitors
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infrastructure
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: infrastructure
+    app.kubernetes.io/part-of: ecoeco-platform
+    app.kubernetes.io/component: infrastructure
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"  # Wave 0: 기본 인프라
+spec:
+  project: default
+  
+  # Source: Kustomize
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: k8s/infrastructure  # Kustomize 디렉토리
+  
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default  # Namespaces는 cluster-wide 리소스
+  
+  # Sync Policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ServerSideApply=true  # Namespace 충돌 방지
+    
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  # Ignore Differences (Kubernetes가 자동으로 추가하는 필드 무시)
+  ignoreDifferences:
+    - group: ""
+      kind: Namespace
+      jsonPointers:
+        - /metadata/annotations
+        - /metadata/labels/kubernetes.io~1metadata.name
+  
+  revisionHistoryLimit: 10
+

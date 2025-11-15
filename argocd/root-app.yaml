@@ -1,5 +1,5 @@
 # ArgoCD Root Application (App of Apps)
-# 모든 하위 Application을 관리하는 최상위 Application
+# components/ 디렉토리의 모든 Application/ApplicationSet을 관리
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -10,15 +10,19 @@ metadata:
     app.kubernetes.io/name: root-app
     app.kubernetes.io/part-of: ecoeco-platform
   annotations:
-    argocd.argoproj.io/sync-wave: "-1"  # 가장 먼저 실행
+    argocd.argoproj.io/sync-wave: "-2"  # 최우선 실행
 spec:
   project: default
   
-  # Source: argocd/apps 디렉토리의 모든 Application 정의
+  # Source: argocd/components 디렉토리
   source:
     repoURL: https://github.com/SeSACTHON/backend
     targetRevision: develop
-    path: argocd/apps  # 하위 Applications가 정의된 디렉토리
+    path: argocd/components
+    
+    # Directory Recurse를 사용하여 모든 YAML 파일 발견
+    directory:
+      recurse: false  # components/ 직속 파일만
   
   # Destination: ArgoCD 네임스페이스
   destination:
@@ -46,4 +50,3 @@ spec:
   
   # Revision History
   revisionHistoryLimit: 10
-
