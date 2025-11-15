@@ -63,14 +63,14 @@ Ingress  : Route53 + CloudFront + ALB → Calico NetworkPolicy
 graph TD
     CF["CloudFront · Route53"] --> ALB["AWS ALB (HTTPS)"]
     ALB --> CALICO["Calico + NetworkPolicy"]
-    CALICO --> APISYNC["API Pods: auth · my · character · location · info"]
-    CALICO --> APIAI["API Pods: scan · chat"]
+    CALICO --> APISYNC["API Pods<br> auth · my · character · location · info"]
+    CALICO --> APIAI["API Pods<br> scan · chat"]
     CALICO --> WORK["Worker Pods: ai"]
-    APISYNC["non-AI API: auth · my · character · location · info"] --> REDIS["Redis"]
+    APISYNC["non-AI API<br> auth · my · character · location · info"] --> REDIS["Redis"]
     REDIS["Redis"] --> POSTGRE["PostgreSQL"]
-    APIAI["AI API: scan · chat"] --> RABBITMQ["RabbitMQ"]
-    RABBITMQ["RabbitMQ"] --> WORK["Worker Pods: ai"]
-    WORK["Worker Pods: ai"] --> POSTGRE["PostgreSQL"]
+    APIAI["AI API<br> scan · chat"] --> RABBITMQ["RabbitMQ"]
+    RABBITMQ["RabbitMQ"] --> WORK["Worker Pods"]
+    WORK["Worker Pods"] --> POSTGRE["PostgreSQL"]
     style CF fill:#92400e,color:#fff
     style ALB fill:#0d9488,color:#fff
     style CALICO fill:#1d4ed8,color:#fff
