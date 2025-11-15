@@ -8,7 +8,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Character API",
         description="Character analysis and storytelling service",
-        version="0.2.0",
+        version="0.7.3",
     )
 
     app.add_middleware(

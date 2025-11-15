@@ -8,7 +8,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Auth API",
         description="Authentication/Authorization service",
-        version="1.0.0",
+        version="0.7.3",
     )
 
     app.add_middleware(

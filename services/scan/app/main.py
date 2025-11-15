@@ -8,7 +8,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Scan API",
         description="Waste classification pipeline",
-        version="0.2.0",
+        version="0.7.3",
     )
 
     app.add_middleware(
