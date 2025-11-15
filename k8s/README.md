@@ -20,13 +20,13 @@ graph TD
     BASE --> SCAN["overlays/scan"]
     INFRA["infrastructure/<br/>namespaces + networkpolicies"] --> INGRESS["ingress/<br/>ALB 리소스"]
     INGRESS --> APIS["API Domains"]
-    style BASE fill:#0f172a,color:#fff
+    style BASE fill:#1e3a8a,color:#fff
     style AUTH fill:#0f172a,color:#fff
     style MY fill:#0f172a,color:#fff
     style SCAN fill:#0f172a,color:#fff
-    style INFRA fill:#0f172a,color:#fff
-    style INGRESS fill:#0f172a,color:#fff
-    style APIS fill:#0f172a,color:#fff
+    style INFRA fill:#0d9488,color:#fff
+    style INGRESS fill:#c2410c,color:#fff
+    style APIS fill:#334155,color:#fff
 ```
 
 ## 사용 방법

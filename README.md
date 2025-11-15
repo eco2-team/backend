@@ -28,12 +28,12 @@ graph TD
     CALICO --> API["API Pods<br/>auth · my · scan · character · location · info · chat"]
     CALICO --> WORK["Worker Pods<br/>storage · ai"]
     WORK --> DATA["PostgreSQL · Redis · RabbitMQ"]
-    style CF fill:#0f172a,color:#fff
-    style ALB fill:#0f172a,color:#fff
-    style CALICO fill:#0f172a,color:#fff
-    style API fill:#0f172a,color:#fff
-    style WORK fill:#0f172a,color:#fff
-    style DATA fill:#0f172a,color:#fff
+    style CF fill:#92400e,color:#fff
+    style ALB fill:#0d9488,color:#fff
+    style CALICO fill:#1d4ed8,color:#fff
+    style API fill:#334155,color:#fff
+    style WORK fill:#166534,color:#fff
+    style DATA fill:#78350f,color:#fff
 ```
 
 ---
@@ -60,12 +60,12 @@ graph TD
     ACD --> SVC["서비스 오버레이<br/>k8s/base + overlays/*"]
     SVC --> OBS["Observability<br/>Prometheus · Grafana"]
     SVC --> DB["Data Layer<br/>PostgreSQL · Redis · RabbitMQ"]
-    style TF fill:#0f172a,color:#fff
-    style ANS fill:#0f172a,color:#fff
-    style ACD fill:#0f172a,color:#fff
-    style SVC fill:#0f172a,color:#fff
-    style OBS fill:#0f172a,color:#fff
-    style DB fill:#0f172a,color:#fff
+    style TF fill:#5b21b6,color:#fff
+    style ANS fill:#b91c1c,color:#fff
+    style ACD fill:#c2410c,color:#fff
+    style SVC fill:#1e3a8a,color:#fff
+    style OBS fill:#0369a1,color:#fff
+    style DB fill:#92400e,color:#fff
 ```
 
 Atlantis는 PR 기반으로 Terraform plan/apply를 실행하고, Ansible이 kubeadm + CNI + ArgoCD를 구성합니다. 이후 ArgoCD App-of-Apps가 Wave 순서대로 인프라·데이터·애플리케이션을 동기화하며, GitHub Actions는 서비스 이미지를 GHCR에 푸시한 뒤 Kustomize 오버레이 태그를 갱신합니다.

@@ -39,10 +39,10 @@ graph TD
     L0["Terraform + Atlantis<br/>AWS 인프라"] --> L1["Ansible<br/>K8s 부트스트랩"]
     L1 --> L2["ArgoCD + Kustomize<br/>App of Apps"]
     L2 --> L3["GitHub Actions<br/>서비스 CI/CD"]
-    style L0 fill:#0f172a,color:#fff
-    style L1 fill:#0f172a,color:#fff
-    style L2 fill:#0f172a,color:#fff
-    style L3 fill:#0f172a,color:#fff
+    style L0 fill:#5b21b6,color:#fff
+    style L1 fill:#b91c1c,color:#fff
+    style L2 fill:#c2410c,color:#fff
+    style L3 fill:#1d4ed8,color:#fff
 ```
 
 ---
