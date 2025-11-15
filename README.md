@@ -24,7 +24,7 @@ AI 폐기물 분류·지도·챗봇 등 도메인 API와 데이터 계층, GitOp
 
 #### 핵심 원칙
 
--   상위 계층은 단일 하위 계층에만 의존
+-   상위 계층은 단일 하위 계층에만 의존 (Observability 계층 제외)
 -   API 간 직접 통신 차단 (Zero Trust)
 -   Ingress/Egress 정책 면에서 default로 deny, 허용할 포트만 명시적으로 allow
 -   Data Layer는 Business Logic에서만 접근 가능
