@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/sesacthon/scan-api:latest
+          image: ghcr.io/sesacthon/scan-api:scan-0.7.3-8255d8
           env:
             - name: SERVICE_NAME
               value: scan

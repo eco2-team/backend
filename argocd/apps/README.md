@@ -1,92 +1,39 @@
-# ArgoCD Apps Directory Structure
+# ArgoCD `apps/` 디렉터리 가이드
 
-이 디렉토리는 실제 Kubernetes 리소스의 소스입니다.
+이 디렉터리는 **App of Apps의 Application 정의**를 보관합니다.  
+Kustomize 리소스와 Helm Chart를 모두 참조하며, 실제 매니페스트/Chart는 각각 `k8s/` 와 `charts/` 아래에 위치합니다.
 
-## 디렉토리 구조
+## 현재 구조
 
 ```
 apps/
-├── apis/                        # Tier 2: Business Logic
-│   ├── auth/                    → k8s/overlays/auth
-│   ├── my/                      → k8s/overlays/my
-│   ├── scan/                    → k8s/overlays/scan
-│   ├── character/               → k8s/overlays/character
-│   ├── location/                → k8s/overlays/location
-│   ├── info/                    → k8s/overlays/info
-│   ├── chat/                    → k8s/overlays/chat
-│   └── workers/                 # Tier 3: Async Workers
-│       ├── celery-worker/       (Placeholder)
-│       └── flower/              (Placeholder)
-│
-├── mq/                          # Tier 3: Message Queue
-│   └── kustomization.yaml       (Placeholder - Ansible 배포)
-│
-└── data/                        # Tier 4: Persistence
-    ├── postgres/                (Placeholder - Ansible 배포)
-    └── redis/                   (Placeholder - Ansible 배포)
+└── apis/
+    ├── auth/
+    ├── my/
+    ├── scan/
+    ├── character/
+    ├── location/
+    ├── info/
+    ├── chat/
+    └── workers/ (Placeholder)
 ```
 
-## Tier 구조
+- `apis/` : `k8s/overlays/<domain>` 을 재노출하기 위한 thin wrapper.  
+  ApplicationSet(`argocd/apps/80-apis-app-of-apps.yaml`)이 이 경로를 순회하여 각 도메인 서비스를 생성합니다.
+- `workers/` : 추후 Celery/Flower 등 비동기 워커가 필요할 때 추가될 placeholder입니다.
 
-- **Tier 1**: Infrastructure (ALB, Ingress)
-- **Tier 2**: Business Logic (API Services)
-- **Tier 3**: Message Queue (RabbitMQ, Celery Workers)
-- **Tier 4**: Persistence (PostgreSQL, Redis)
+## Helm으로 이전된 계층
 
-## 참조 관계
+| Wave | 리소스 | 패키징 | 경로 |
+|------|--------|--------|------|
+| 40 | Monitoring (kube-prometheus-stack) | Helm | `charts/observability/kube-prometheus-stack` |
+| 60 | Data Clusters (PostgreSQL/Redis/RabbitMQ) | Helm | `charts/data/databases` |
+| 70 | GitOps Tools (Atlantis) | Helm | `charts/platform/atlantis` |
 
-### APIs → k8s/overlays/
-ApplicationSet `70-appset.yaml`이 자동으로 `k8s/overlays/{domain}`을 참조합니다.
-실제 Kustomize 소스는 `k8s/overlays/` 디렉토리에 있습니다.
+따라서 `apps/data/*`, `apps/mq/*` 같은 Kustomize placeholder 는 더 이상 사용하지 않으며 제거되었습니다. 데이터/메시징 계층을 수정하려면 대응하는 Helm Chart를 업데이트하고 ArgoCD Application(`argocd/apps/40-monitoring.yaml`, `60-data-clusters.yaml`, `70-gitops-tools.yaml` 등)을 통해 배포하세요.
 
-### Data → Ansible
-현재 PostgreSQL, Redis, RabbitMQ는 **Ansible이 배포**합니다.
-향후 Operator CR로 전환 시 이 디렉토리에 정의합니다.
+## 참조
 
-### Workers → Placeholder
-현재는 비어있습니다. Celery Worker 배포 시 여기에 추가합니다.
-
-## Wave 순서
-
-```
-Wave -1: Foundations (Namespaces, CRDs)
-Wave 0:  Infrastructure (Ingress)
-Wave 10: Platform (cert-manager 등)
-Wave 20: Monitoring (Prometheus, Grafana)
-Wave 25: Data Operators (Placeholder)
-Wave 30: Data Clusters (PostgreSQL, Redis, RabbitMQ)
-Wave 50: GitOps Tools (Atlantis)
-Wave 60: API Services (7개 API)
-Wave 65: Workers (Celery, Flower)
-```
-
-## 기존 구조와의 차이
-
-### 이전:
-```
-argocd/
-├── root-app.yaml
-└── apps/
-    ├── infrastructure.yaml       (Application 정의)
-    └── api-services.yaml         (ApplicationSet 정의)
-```
-
-### 현재:
-```
-argocd/
-├── root-app.yaml                 (components/ 참조)
-├── components/                   (Application/ApplicationSet 정의)
-│   ├── 00-foundations.yaml
-│   ├── ...
-│   └── 70-appset.yaml
-└── apps/                         (실제 Kubernetes 리소스)
-    ├── apis/
-    ├── mq/
-    └── data/
-```
-
-**핵심 차이점**:
-- `components/`: Application/ApplicationSet **정의만**
-- `apps/`: 실제 Kubernetes **리소스만**
-- 명확한 계층 분리!
+- Wave 정의 및 패키징 기준: `docs/architecture/gitops/APP-OF-APPS-DECISION.md`
+- Helm/Kustomize 병행 전략: `charts/README.md`
 

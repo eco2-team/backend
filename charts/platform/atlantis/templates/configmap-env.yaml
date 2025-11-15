@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atlantis-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: atlantis
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  AWS_REGION: "{{ .Values.aws.region }}"
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atlantis-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: atlantis
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  AWS_REGION: "{{ .Values.aws.region }}"
+

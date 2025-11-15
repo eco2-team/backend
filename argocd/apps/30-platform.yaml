@@ -1,0 +1,60 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Wave 30: Platform Services (Tier 1 - Reserved)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 목적:
+#   - cert-manager (TLS 인증서 관리)
+#   - ingress-nginx (Ingress Controller - 향후 고려)
+#   - AWS Load Balancer Controller (ALB 자동 생성)
+#   - External DNS (Route53 자동 업데이트 - 향후 고려)
+#   - External Secrets Operator (Secrets 관리 - 향후 고려)
+#
+# 실행 순서: Wave 30
+# 의존성: 00-foundations (Namespaces, CRDs)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: platform
+    app.kubernetes.io/part-of: ecoeco-platform
+    app.kubernetes.io/component: platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"  # Wave 30 (Placeholder)
+spec:
+  project: default
+  
+  # Source: k8s/platform
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: k8s/platform
+  
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+  
+  # Sync Policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true           # kube-system, cert-manager 등
+      - ServerSideApply=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  # Revision History
+  revisionHistoryLimit: 10

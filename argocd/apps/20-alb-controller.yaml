@@ -1,0 +1,64 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Wave 20: AWS Load Balancer Controller (Helm)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 목적:
+#   - aws-load-balancer-controller 설치 (eks/aws-load-balancer-controller Chart)
+#   - target-type: instance + NodePort 서비스용 ALB 관리
+#
+# 의존성:
+#   - 00-foundations (kube-system namespace, 네트워크 정책)
+#   - 10-infrastructure (NodePort 허용 보안 그룹 규칙)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alb-controller
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: alb-controller
+    app.kubernetes.io/part-of: ecoeco-platform
+    app.kubernetes.io/component: platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  project: default
+
+  source:
+    repoURL: https://aws.github.io/eks-charts
+    chart: aws-load-balancer-controller
+    targetRevision: 1.8.1
+    helm:
+      releaseName: aws-load-balancer-controller
+      parameters:
+        - name: clusterName
+          value: sesacthon
+        - name: region
+          value: ap-northeast-2
+        - name: vpcId
+          value: vpc-08049a4dd788790fa
+        - name: serviceAccount.create
+          value: "true"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true
+      - PrunePropagationPolicy=foreground
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  revisionHistoryLimit: 10
+

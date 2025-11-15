@@ -18,8 +18,7 @@ assignees: ''
 - [ ] docs/development/
 - [ ] docs/deployment/
 - [ ] docs/infrastructure/
-- [ ] docs/guides/
-- [ ] API 문서 (Swagger/ReDoc)
+- [ ] docs/TROUBLESHOOTING.md
 - [ ] 기타: 
 
 ## 💡 수정 이유

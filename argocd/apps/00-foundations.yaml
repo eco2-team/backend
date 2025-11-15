@@ -1,5 +1,13 @@
-# ArgoCD Application: Foundations
-# Wave -1: CRDs and RBAC (가장 먼저 배포)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Wave -1: Foundations
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 목적:
+#   - CRDs 설치 (Prometheus Operator, Cert-Manager, External Secrets, etc.)
+#   - Namespaces 생성 (Tier 기반 구조)
+#
+# 실행 순서: 최우선 (Wave -1)
+# 의존성: 없음
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -11,7 +19,7 @@ metadata:
     app.kubernetes.io/part-of: ecoeco-platform
     app.kubernetes.io/component: infrastructure
   annotations:
-    argocd.argoproj.io/sync-wave: "-1"  # Wave -1: 가장 먼저
+    argocd.argoproj.io/sync-wave: "-1"  # 최우선 실행
 spec:
   project: default
   
@@ -21,10 +29,9 @@ spec:
     targetRevision: develop
     path: k8s/foundations
   
-  # Destination
+  # Destination: 각 리소스의 네임스페이스에 배포
   destination:
     server: https://kubernetes.default.svc
-    namespace: default  # CRDs는 cluster-wide
   
   # Sync Policy
   syncPolicy:
@@ -34,9 +41,10 @@ spec:
       allowEmpty: false
     
     syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true  # CRD conflicts 방지
-      - Replace=true  # CRD 업데이트 허용
+      - CreateNamespace=true           # Namespace 자동 생성
+      - ServerSideApply=true           # Server-Side Apply 사용
+      - PrunePropagationPolicy=foreground
+      - PruneLast=false                # CRD는 마지막에 삭제하지 않음
     
     retry:
       limit: 5
@@ -45,6 +53,13 @@ spec:
         factor: 2
         maxDuration: 3m
   
+  # Ignore Differences (Namespace metadata)
+  ignoreDifferences:
+    - group: ""
+      kind: Namespace
+      jsonPointers:
+        - /metadata/annotations
+        - /metadata/labels/kubernetes.io~1metadata.name
+  
   # Revision History
   revisionHistoryLimit: 10
-

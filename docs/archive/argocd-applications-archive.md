@@ -133,5 +133,5 @@ kubectl apply -f argocd/apps/api-services.yaml
 
 **Archive 생성일**: 2025-11-14  
 **Archive 사유**: App of Apps 패턴으로 마이그레이션  
-**관련 문서**: [Kustomize + App of Apps 가이드](../../docs/architecture/KUSTOMIZE_APP_OF_APPS.md)
+**관련 문서**: [App of Apps 의사결정](../APP-OF-APPS-DECISION.md)
 

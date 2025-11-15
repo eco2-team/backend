@@ -116,11 +116,6 @@ Redis DB 1 제거 ✅
    - 성능 개선 예상치
    - 비용 절감 분석
 
-### ⚠️ 업데이트 필요 (별도 PR)
-- `docs/architecture/image-processing-architecture.md`
-- `docs/infrastructure/redis-configuration.md`
-- Worker 코드 (`workers/vision_worker.py`)
-
 ---
 
 ## 🔧 설정 변경

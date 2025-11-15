@@ -10,7 +10,7 @@ kind: Kustomization
 
 resources:
   # 1. Namespaces 먼저 생성
-  - namespaces/domain-based.yaml
+  - ../namespaces/domain-based.yaml
   
   # 2. CRDs (향후 추가)
   # - crds/prometheus-operator.yaml

@@ -1,6 +1,10 @@
 # Troubleshooting Guide - 이코에코(Eco²)
 
 > 14-Node Microservices Architecture + Worker Local SQLite WAL 구축 과정에서 발생한 문제 및 해결 방안
+>
+> **업데이트 (2025-11-15)**  
+> 본 문서에는 `k8s/atlantis/atlantis-deployment.yaml` 등 레거시 경로가 다수 언급됩니다.  
+> 현재 Atlantis는 `charts/platform/atlantis` Helm Chart와 `argocd/apps/70-gitops-tools.yaml`을 통해 배포되므로, 동일 문제 발생 시 최신 절차(`docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md`)도 함께 참고하세요.
 
 ## 📋 목차
 
@@ -1159,13 +1163,26 @@ aws ec2 delete-vpc --vpc-id "$VPC_ID" --region ap-northeast-2
 - ALB가 HTTPS로 연결 시도하지만 ArgoCD는 HTTP만 지원
 - Health Check 실패로 Target Group이 unhealthy 상태
 
-### 해결
-1. Ingress `backend-protocol`을 HTTP로 변경
-2. Service Port를 443 → 80으로 변경
-3. Health Check 경로 설정 (`/healthz`)
-4. ArgoCD ConfigMap에 `server.insecure: true` 추가
+### 해결 (2025-11-16 업데이트)
+1. **HTTPS → HTTP NAT 명시**  
+   - 모든 ALB Ingress에 `alb.ingress.kubernetes.io/backend-protocol: HTTP` 추가  
+   - 참고: [AWS Load Balancer Controller 공식 가이드](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.7/guide/ingress/annotations/#backend-protocol)
+2. **ALB Listener 단일화**  
+   - `alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'` 로 고정  
+   - `alb.ingress.kubernetes.io/ssl-redirect` 제거 (중복 리다이렉션 방지)
+3. **ArgoCD Service 정리**  
+   - NodePort 서비스에서 443 포트를 제거하고 HTTP(80)만 노출  
+   - ALB가 TLS 종료 → 백엔드 HTTP 전달 (AWS 베스트 프랙티스)
+4. **Health Check 일원화**  
+   - `/healthz`(ArgoCD)와 `/api/health`(Grafana) 등 실제 엔드포인트로 통일
 
-**자세한 내용:** [ARGOCD_REDIRECT_LOOP.md](./troubleshooting/ARGOCD_REDIRECT_LOOP.md)
+**적용 파일**
+- `k8s/ingress/domain-based-api-ingress.yaml`
+- `k8s/ingress/infrastructure-ingress.yaml`
+- `ansible/roles/argocd/tasks/main.yml`
+- `ansible/playbooks/07-ingress-resources.yml`
+
+> 💡 HTTPS→HTTP NAT 구성은 ALB에서 TLS를 종료하고, Target Group에는 HTTP만 전달하는 공식 권장 구성이므로 별도 프록시/재암호화가 필요 없다.
 
 ---
 

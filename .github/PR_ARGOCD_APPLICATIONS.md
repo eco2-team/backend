@@ -1,157 +1,59 @@
-# Pull Request: ArgoCD Domain Services Application
+# Pull Request: ArgoCD App of Apps (Kustomize + Helm)
 
 ## 📋 개요
-- **브랜치**: `cicd/argocd-domain-services` → `develop`
+- **브랜치**: `feature/argocd-refactor` → `develop`
 - **타입**: CI/CD
-- **목적**: 13-Node 아키텍처를 위한 ArgoCD GitOps 배포 자동화
+- **목적**: ArgoCD Root App이 Kustomize/Helm 계층을 Wave 순서로 자동 배포하도록 구조화
 
 ## 🎯 변경 사항
 
-### 1. ArgoCD Application (통합 배포)
+### 1. Root Application (`argocd/root-app.yaml`)
+- `path: argocd/apps`, `directory.recurse=false`
+- Sync Wave = -2 (모든 하위 App보다 먼저 실행)
+- `CreateNamespace`, `PruneLast`, `retry` 등 운영 기본값 명시
 
-#### argocd/applications/ecoeco-backend.yaml
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: ecoeco-backend
-spec:
-  source:
-    repoURL: https://github.com/SeSACTHON/backend.git
-    path: charts/ecoeco-backend
-    helm:
-      valueFiles:
-        - values-13nodes.yaml
-  
-  syncPolicy:
-    automated:
-      prune: true      # 삭제된 리소스 자동 제거
-      selfHeal: true   # Drift 자동 복구
-```
+### 2. Wave별 Application 정의 (`argocd/apps/*.yaml`)
+| 파일 | Wave | 설명 |
+|------|------|------|
+| `00-foundations.yaml` | -1 | Namespaces + CRD (Kustomize) |
+| `10-infrastructure.yaml` | 0 | NetworkPolicy, Metrics Server 등 Kustomize |
+| `20-platform.yaml` | 10 | (추가 예정) Node Lifecycle, External Secrets |
+| `30-monitoring.yaml` | 20 | `charts/observability/kube-prometheus-stack` Helm |
+| `40-data-operators.yaml` | 25 | PostgreSQL/Redis/RabbitMQ Operators (Kustomize placeholder) |
+| `50-data-clusters.yaml` | 30 | `charts/data/databases` Helm |
+| `60-gitops-tools.yaml` | 50 | `charts/platform/atlantis` Helm |
+| `70-apis-app-of-apps.yaml` | 60 | ApplicationSet → `k8s/overlays/<domain>` |
 
-**특징**:
-- 전체 서비스 일괄 배포
-- 자동 동기화 활성화
-- 5회 재시도 (Exponential Backoff)
+### 3. API ApplicationSet 강화
+- `spec.source.kustomize.images` 추가 → `ghcr.io/sesacthon/{{domain}}-api`
+- ArgoCD Image Updater 연동 준비 (tag 자동 업데이트 가능)
+- Namespace/phase 라벨 표준화
 
-### 2. API Services ApplicationSet
-
-#### argocd/applications/api-services-appset.yaml
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  name: ecoeco-api-services
-spec:
-  generators:
-    - list:
-        elements:
-          - domain: waste
-          - domain: auth
-          - domain: userinfo
-          - domain: location
-          - domain: recycle-info
-          - domain: chat-llm
-```
-
-**생성되는 Application**: 6개
-- `ecoeco-api-waste`
-- `ecoeco-api-auth`
-- `ecoeco-api-userinfo`
-- `ecoeco-api-location`
-- `ecoeco-api-recycle-info`
-- `ecoeco-api-chat-llm`
-
-### 3. Worker Services ApplicationSet
-
-#### argocd/applications/worker-services-appset.yaml
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  name: ecoeco-worker-services
-spec:
-  generators:
-    - list:
-        elements:
-          - worker: storage
-            poolType: eventlet
-          - worker: ai
-            poolType: prefork
-```
-
-**생성되는 Application**: 2개
-- `ecoeco-worker-storage`
-- `ecoeco-worker-ai`
-
-### 4. README 문서
-
-#### argocd/README.md
-- 배포 전략 설명 (통합 vs ApplicationSet)
-- 배포 방법 가이드
-- 동기화 정책 상세
-- Mermaid 배포 흐름도
+### 4. Helm/Kustomize 분리 명시
+- Helm: `charts/observability`, `charts/data`, `charts/platform`
+- Kustomize: `k8s/infrastructure`, `k8s/namespaces`, `k8s/networkpolicies`, `k8s/overlays`
 
 ## 🔄 GitOps 배포 흐름
 
 ```mermaid
-graph LR
-    A[Git Push] --> B[ArgoCD Detect]
-    B --> C{Auto Sync?}
-    C -->|Yes| D[Helm Template]
-    D --> E[Apply to Cluster]
-    E --> F{Success?}
-    F -->|No| G[Retry 5회]
-    G --> D
-    F -->|Yes| H[Sync Complete]
+graph TD
+    A[Root App] --> B[00-foundations]
+    B --> C[10-infrastructure]
+    C --> D[20-platform]
+    D --> E[30-monitoring (Helm)]
+    E --> F[40-data-operators]
+    F --> G[50-data-clusters (Helm)]
+    G --> H[60-gitops-tools (Helm)]
+    H --> I[70-apis ApplicationSet]
 ```
-
-## 📊 배포 전략 비교
-
-### 방법 1: 통합 배포 (ecoeco-backend.yaml)
-```bash
-kubectl apply -f argocd/applications/ecoeco-backend.yaml
-```
-
-**장점**:
-- ✅ 전체 서비스 동시 배포
-- ✅ 간단한 관리
-- ✅ 일관된 버전 관리
-
-### 방법 2: ApplicationSet (도메인별)
-```bash
-kubectl apply -f argocd/applications/api-services-appset.yaml
-kubectl apply -f argocd/applications/worker-services-appset.yaml
-```
-
-**장점**:
-- ✅ 도메인별 독립 배포
-- ✅ 부분 롤아웃 가능
-- ✅ 세밀한 리소스 제어
 
 ## ✅ 테스트 체크리스트
+- [ ] `kubectl apply -f argocd/root-app.yaml`
+- [ ] `argocd app get root-app -n argocd`
+- [ ] `kubectl get applications -n argocd --sort-by=.metadata.annotations.argocd\.argoproj\.io/sync-wave`
+- [ ] `kubectl get pods -n monitoring,databases,atlantis,auth,...`
 
-- [ ] ArgoCD 설치 확인
-- [ ] Application 적용: `kubectl apply -f argocd/applications/ecoeco-backend.yaml`
-- [ ] ArgoCD UI 접속: `kubectl port-forward svc/argocd-server -n argocd 8080:443`
-- [ ] Sync 상태 확인: `kubectl get application -n argocd`
-- [ ] Pod 생성 확인: `kubectl get pods -A`
-
-## 🔗 관련 PR
-
-- ⬅️ Terraform 13-Node 업데이트 (의존)
-- ⬅️ Ansible 13-Node 업데이트 (의존)
-- ➡️ Helm Charts 13-Node 템플릿 (필수)
-
-## 📝 비고
-
-- ArgoCD Application은 Helm Charts 생성 후 적용 가능
-- ApplicationSet은 선택적 사용 (통합 배포 권장)
-- Sync 정책: `prune=true`, `selfHeal=true`로 자동화
-
----
-
-**리뷰어**: @team
-**우선순위**: Medium
-**의존성**: Helm Charts PR과 함께 병합 권장
-
+## 📚 참고 문서
+- `docs/architecture/gitops/APP-OF-APPS-DECISION.md`
+- `docs/deployment/gitops/TERRAFORM-OPERATOR-PIPELINE.md`
+- `docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md`

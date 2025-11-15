@@ -1,5 +1,14 @@
-# ArgoCD Application: Infrastructure
-# Wave 0: Namespaces, NetworkPolicies, ServiceMonitors
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Wave 0: Infrastructure
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 목적:
+#   - NetworkPolicies (도메인 간 격리, Zero Trust)
+#   - RBAC (ServiceAccounts, Roles, RoleBindings)
+#   - StorageClasses (EBS CSI Driver)
+#
+# 실행 순서: Wave 0 (Foundations 이후)
+# 의존성: 00-foundations (Namespaces)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -11,20 +20,19 @@ metadata:
     app.kubernetes.io/part-of: ecoeco-platform
     app.kubernetes.io/component: infrastructure
   annotations:
-    argocd.argoproj.io/sync-wave: "0"  # Wave 0: 기본 인프라
+    argocd.argoproj.io/sync-wave: "0"  # Wave 0
 spec:
   project: default
   
-  # Source: Kustomize
+  # Source: k8s/infrastructure
   source:
     repoURL: https://github.com/SeSACTHON/backend
     targetRevision: develop
-    path: k8s/infrastructure  # Kustomize 디렉토리
+    path: k8s/infrastructure
   
   # Destination
   destination:
     server: https://kubernetes.default.svc
-    namespace: default  # Namespaces는 cluster-wide 리소스
   
   # Sync Policy
   syncPolicy:
@@ -34,10 +42,10 @@ spec:
       allowEmpty: false
     
     syncOptions:
-      - CreateNamespace=true
+      - CreateNamespace=false          # Namespace는 이미 생성됨
+      - ServerSideApply=true
       - PrunePropagationPolicy=foreground
       - PruneLast=true
-      - ServerSideApply=true  # Namespace 충돌 방지
     
     retry:
       limit: 5
@@ -46,13 +54,5 @@ spec:
         factor: 2
         maxDuration: 3m
   
-  # Ignore Differences (Kubernetes가 자동으로 추가하는 필드 무시)
-  ignoreDifferences:
-    - group: ""
-      kind: Namespace
-      jsonPointers:
-        - /metadata/annotations
-        - /metadata/labels/kubernetes.io~1metadata.name
-  
+  # Revision History
   revisionHistoryLimit: 10
-

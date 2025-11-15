@@ -1,0 +1,51 @@
+# ArgoCD Application: GitOps Tools (Atlantis)
+# Wave 70
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gitops-tools
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: gitops-tools
+    app.kubernetes.io/part-of: ecoeco-platform
+    app.kubernetes.io/component: gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "70"
+spec:
+  project: default
+  
+  # Source (Helm Chart)
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: charts/platform/atlantis
+    helm:
+      releaseName: atlantis
+      valueFiles:
+        - values.yaml
+  
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: atlantis
+  
+  # Sync Policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+  
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  revisionHistoryLimit: 10
