@@ -32,7 +32,7 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
     
     # SSL Certificate (ACM)
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/f8d33998-1a75-4c7d-92e1-6cd48b90f8a7
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
     
     # ALB Group (API와 동일한 ALB 사용)
     alb.ingress.kubernetes.io/group.name: ecoeco-main
@@ -89,7 +89,7 @@ metadata:
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
     
     # SSL Certificate (ACM)
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/f8d33998-1a75-4c7d-92e1-6cd48b90f8a7
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
     
     # ALB Group (API와 동일한 ALB 사용)
     alb.ingress.kubernetes.io/group.name: ecoeco-main
@@ -139,7 +139,7 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
     
     # SSL Certificate (ACM)
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/f8d33998-1a75-4c7d-92e1-6cd48b90f8a7
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
     
     # ALB Group (API와 동일한 ALB 사용)
     alb.ingress.kubernetes.io/group.name: ecoeco-main
@@ -186,7 +186,7 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
     
     # SSL Certificate (ACM)
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/f8d33998-1a75-4c7d-92e1-6cd48b90f8a7
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/CERT_ID
     
     # ALB Group (API와 동일한 ALB 사용)
     alb.ingress.kubernetes.io/group.name: ecoeco-main

@@ -84,13 +84,14 @@
 
 - import_playbook: playbooks/label-nodes.yml
 
-- name: Add-ons 설치 (Cert-manager, Metrics)
+- name: Add-ons 설치 (Metrics Server)
   hosts: masters
   become: yes
   become_user: "{{ kubectl_user }}"
   tasks:
     - import_tasks: playbooks/05-addons.yml
-    - import_tasks: playbooks/06-cert-manager-issuer.yml
+    # Cert-manager 제거 - ACM 사용
+    # - import_tasks: playbooks/06-cert-manager-issuer.yml
 
 - name: AWS EBS CSI Driver 및 StorageClass 설정
   hosts: masters
@@ -120,7 +121,8 @@
   roles:
     - argocd
 
-- import_playbook: playbooks/10-namespaces.yml
+# Namespaces는 ArgoCD foundations (Wave -1)에서 생성됨
+# - import_playbook: playbooks/10-namespaces.yml
 
 - name: Monitoring 설치 (Prometheus Operator - ServiceMonitor CRD 제공)
   hosts: masters
