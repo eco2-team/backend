@@ -1,0 +1,49 @@
+# ArgoCD Application: Chat API
+# Wave 71: Phase 3 Advanced API
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chat-api
+  namespace: argocd
+  labels:
+    app: chat-api
+    domain: chat
+    phase: "3"
+    tier: business-logic
+  annotations:
+    argocd.argoproj.io/sync-wave: "71"  # Phase 3
+spec:
+  project: default
+  
+  # Source: Kustomize overlay
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: k8s/overlays/chat
+  
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chat
+  
+  # Sync Policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+    
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
+  
+  revisionHistoryLimit: 5
+

@@ -1,5 +1,5 @@
-# Infrastructure Application
-# Wave 0: 가장 먼저 배포 (Namespaces, NetworkPolicies, ServiceMonitors)
+# ArgoCD Application: Infrastructure
+# Wave 0: Namespaces, NetworkPolicies, ServiceMonitors
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -11,7 +11,7 @@ metadata:
     app.kubernetes.io/part-of: ecoeco-platform
     app.kubernetes.io/component: infrastructure
   annotations:
-    argocd.argoproj.io/sync-wave: "0"  # Wave 0: 가장 먼저
+    argocd.argoproj.io/sync-wave: "0"  # Wave 0: 기본 인프라
 spec:
   project: default
   
@@ -46,7 +46,7 @@ spec:
         factor: 2
         maxDuration: 3m
   
-  # Ignore Differences
+  # Ignore Differences (Kubernetes가 자동으로 추가하는 필드 무시)
   ignoreDifferences:
     - group: ""
       kind: Namespace

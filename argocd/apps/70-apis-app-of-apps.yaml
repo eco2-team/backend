@@ -1,0 +1,70 @@
+# ArgoCD Application: APIs App of Apps
+# Wave 55: 7개 API Services + Workers를 관리하는 Nested App of Apps
+# 참고: https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apis-app-of-apps
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: apis-app-of-apps
+    app.kubernetes.io/part-of: ecoeco-platform
+    app.kubernetes.io/component: application-layer
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "55"  # Wave 55: Data Clusters 이후
+  # Cascading deletion을 위한 finalizer
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  # Source: argocd/apps/apis 디렉토리 (Nested App of Apps)
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: argocd/apps/apis  # ← apis/ 디렉토리 참조
+  
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  
+  # Sync Policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - RespectIgnoreDifferences=true  # Child API apps의 ignoreDifferences 설정 존중
+    
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  
+  # Child API applications의 특정 변경사항 무시
+  # 각 API는 독립적으로 디버깅/스케일링 가능
+  ignoreDifferences:
+    - group: "argoproj.io"
+      kind: "Application"
+      namespace: "argocd"
+      jsonPointers:
+        # API별 수동 sync 제어 허용 (디버깅용)
+        - /spec/syncPolicy/automated
+        # 운영 중 리소스 조정 허용
+        - /spec/source/helm/parameters
+        # ArgoCD 내부 필드들
+        - /metadata/annotations/argocd.argoproj.io~1refresh
+        - /operation
+        - /status
+  
+  revisionHistoryLimit: 10
+

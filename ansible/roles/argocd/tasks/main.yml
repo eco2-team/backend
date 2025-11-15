@@ -19,6 +19,20 @@
   command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n {{ argocd_namespace }} --timeout=600s
   when: argocd_install.changed
 
+- name: ArgoCD Service를 NodePort로 변경
+  shell: >
+    kubectl patch svc argocd-server -n {{ argocd_namespace }}
+    -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"protocol":"TCP","targetPort":8080,"nodePort":{{ argocd_http_node_port }}},{"name":"https","port":443,"protocol":"TCP","targetPort":8080,"nodePort":{{ argocd_https_node_port }}}]}}'
+  register: argocd_service_patch
+  changed_when: "'patched' in argocd_service_patch.stdout or 'configured' in argocd_service_patch.stdout"
+  when: argocd_install is succeeded
+
+- name: ArgoCD Service 상태 확인
+  command: kubectl get svc argocd-server -n {{ argocd_namespace }}
+  register: argocd_service_info
+  changed_when: false
+  when: argocd_install is succeeded
+
 - name: ArgoCD 초기 비밀번호 조회
   shell: kubectl -n {{ argocd_namespace }} get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
   register: argocd_initial_password

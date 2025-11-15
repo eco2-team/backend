@@ -1,0 +1,59 @@
+# ArgoCD Application: Data Clusters
+# Wave 30: PostgreSQL, Redis, RabbitMQ Instances
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-clusters
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: data-clusters
+    app.kubernetes.io/part-of: ecoeco-platform
+    app.kubernetes.io/component: data-layer
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"  # Wave 30: DB Instances
+spec:
+  project: default
+  
+  # Source (Helm umbrella chart for PostgreSQL, Redis, RabbitMQ)
+  source:
+    repoURL: https://github.com/SeSACTHON/backend
+    targetRevision: develop
+    path: charts/data/databases
+    helm:
+      releaseName: databases
+      valueFiles:
+        - values.yaml
+  
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: databases
+  
+  # Sync Policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+    
+    retry:
+      limit: 5
+      backoff:
+        duration: 20s
+        factor: 2
+        maxDuration: 10m  # DB 초기화는 시간이 걸림
+  
+  # Health Check (Database는 Ready까지 시간 소요)
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates
+  
+  revisionHistoryLimit: 10
+
