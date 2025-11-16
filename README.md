@@ -88,9 +88,12 @@ cd ansible
 ansible-playbook site.yml
 ```
 
+> 전체 과정을 자동화하려면 `scripts/deployment/bootstrap_cluster.sh`를 사용하세요.  
+> 필요 시 `--skip-terraform`, `--skip-ansible`, `--skip-argocd` 옵션으로 단계를 건너뛸 수 있습니다.
+
 ### 3. ArgoCD Root App (Layer 2)
 ```bash
-kubectl apply -f argocd/root-app.yaml
+kubectl apply -n argocd -f clusters/dev/root-app.yaml
 kubectl get applications -n argocd
 ```
 
@@ -100,21 +103,22 @@ kubectl get applications -n argocd
 
 ---
 
-## Kustomize & Helm Layout
+## Kustomize / Helm Layout
 
-상세 구조는 `k8s/README.md` 참고.
+상세 구조는 `workloads/README.md`, `clusters/README.md` 를 참고하세요.
 
 | Wave | 소스 | 설명 |
 |------|------|------|
-| 00 | `k8s/namespaces` | 네임스페이스 |
-| 10 | `k8s/infrastructure` | NetworkPolicy, RBAC |
-| 20 | `k8s/ingress` | ALB Ingress (infra/api) |
-| 40 | Helm `charts/observability/*` | kube-prometheus-stack |
-| 60 | Helm `charts/data/databases` | PostgreSQL · Redis · RabbitMQ |
-| 70 | Helm `charts/platform/atlantis` | Atlantis GitOps |
-| 80 | `k8s/overlays/<domain>` | auth · my · scan · character · location · info · chat |
+| 0 / 2 | `workloads/namespaces/{env}` | 비즈니스/데이터/플랫폼 Namespace |
+| 3 | `workloads/rbac-storage/{env}` | ServiceAccount, ClusterRole, StorageClass |
+| 5-6 | `workloads/network-policies/{env}` | Tier 기반 L3/L4 정책 |
+| 11 | `workloads/secrets/external-secrets/{env}` | SSM → Kubernetes Secret ExternalSecret |
+| 20 | `workloads/ingress/apps/{env}` | ALB Ingress + ExternalDNS annotation |
+| 35 | `workloads/data/{postgres,redis}/{env}` | PostgresCluster / RedisFailover CR |
+| 60 | `workloads/apis/<domain>/{env}` | 각 API Deployment/Service/ConfigMap |
+| Helm | `platform/charts/<component>` | Calico, ALB Controller, ExternalDNS, kube-prometheus-stack, Grafana, Operators 등 |
 
-모든 API는 `k8s/base` Deployment/Service를 상속하고, NodePort·이미지·환경변수만 패치합니다.
+모든 API는 공통 base(kustomize) 템플릿을 상속하고, 환경별 patch에서 이미지/Env/NodeSelector만 조정합니다.
 
 ---
 
@@ -140,7 +144,7 @@ kubectl get applications -n argocd
 |------|------|------|
 | ALB HTTPS→HTTP NAT | `backend-protocol: HTTP` + HTTPS-only listener + HTTP NodePort | `docs/TROUBLESHOOTING.md#8-argocd-리디렉션-루프-문제` |
 | Namespace 중복 정의 | `k8s/namespaces` 한 곳에서 단일 관리 | `k8s/namespaces/kustomization.yaml` |
-| Atlantis 배포 | Helm Chart (`charts/platform/atlantis`) + ArgoCD Wave 70 | `docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md` |
+| Atlantis 배포 | Helm Chart (`platform/charts/platform/atlantis`) + ArgoCD Wave 70 | `docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md` |
 
 ---
 
@@ -148,11 +152,12 @@ kubectl get applications -n argocd
 
 ```text
 backend/
-├── terraform/           # Terraform + Atlantis 대상
-├── ansible/             # kubeadm, CNI, Add-ons
-├── argocd/              # Root App & App-of-Apps
-├── k8s/                 # Kustomize base/infrastructure/overlays
-├── charts/              # Helm (observability, data, atlantis)
+├── terraform/           # Terraform (Atlantis) IaC
+├── ansible/             # kubeadm, Calico, bootstrap playbooks
+├── scripts/deployment/  # bootstrap_cluster.sh / destroy_cluster.sh
+├── clusters/            # Argo CD Root Apps + Wave별 Application 목록
+├── workloads/           # Kustomize (namespaces, rbac, network, apis, data CR 등)
+├── platform/charts/     # Helm values + chart-testing stub charts
 ├── services/            # FastAPI 도메인 코드
 └── docs/                # Architecture / Deployment / Troubleshooting
 ```
