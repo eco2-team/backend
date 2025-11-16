@@ -30,7 +30,6 @@
 |----------|----------------|----------|------|
 | **kube-prometheus-stack** (Prometheus Operator) | Helm: `https://prometheus-community.github.io/helm-charts`, chart `kube-prometheus-stack`, version `56.21.1` | `Prometheus`, `Alertmanager`, `ServiceMonitor`, `PodMonitor`, `PrometheusRule` | - Prometheus/Alertmanager 번들<br>- CNCF 관리 Repo, CRD `monitoring.coreos.com/v1` |
 | **Grafana** | Helm: `https://grafana.github.io/helm-charts`, chart `grafana`, version `8.5.9` | (Helm-managed) | - 독립 Grafana 배포, admin Secret/Ingress 분리<br>- Datasource: Prometheus ClusterIP |
-| **Grafana** | Helm: `https://grafana.github.io/helm-charts`, chart `grafana`, version `8.5.9` | (Helm-managed) | - 독립 Grafana 배포, admin Secret/Ingress 분리<br>- Datasource: Prometheus ClusterIP |
 
 ### 요구사항
 - Namespace: `prometheus` (kube-prometheus-stack), `grafana` (grafana chart)
@@ -39,6 +38,13 @@
   - `alertmanager-config` (Slack webhook 등)
   - `grafana-admin` (ExternalSecret → `/sesacthon/{env}/platform/grafana-admin-password`)
 - ConfigMap: `prometheus-rules`
+
+### Grafana 분리 운영 배경
+- **릴리스/롤백 반경 축소**: Prometheus Operator 업데이트와 Grafana UI 배포를 별도 Helm 릴리스로 관리해 서로의 장애 범위를 줄인다.
+- **구성·비밀 격리**: `grafana.ini`, Datasource, ExternalSecret(관리자 패스워드) 등 민감 설정을 `grafana` 네임스페이스에서 독립적으로 다루고, `prometheus` values는 CRD/알람 규칙 중심으로 단순화한다.
+- **네임스페이스·정책 명확화**: Tier/Role 기반 NetworkPolicy·RBAC를 네임스페이스 단위로 설계해 관측 계층 구조를 문서화/자동화하기 쉽다.
+- **미래 교체 용이성**: SaaS Grafana나 다른 시각화 도구로 전환할 때 kube-prometheus-stack 구성을 건드리지 않고 Release만 교체할 수 있다.
+- 필요 시 `grafana.enabled: true`로 번들형 배포도 즉시 복귀 가능하므로, GitOps Sync Wave 20/21 구분은 운영 상의 선택지를 늘리기 위한 구조다.
 
 ---
 
