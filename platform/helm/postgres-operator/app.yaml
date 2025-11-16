@@ -13,11 +13,9 @@ spec:
           - env: dev
             project: dev
             namespace: data-system
-            valueFile: platform/helm/postgres-operator/values/dev.yaml
           - env: prod
             project: prod
             namespace: data-system
-            valueFile: platform/helm/postgres-operator/values/prod.yaml
   template:
     metadata:
       name: {{env}}-postgres-operator
@@ -25,12 +23,9 @@ spec:
     spec:
       project: {{project}}
       sources:
-        - repoURL: https://opensource.zalando.com/postgres-operator/charts
-          chart: postgres-operator
-          targetRevision: 1.10.0
-        - repoURL: https://github.com/SeSACTHON/backend.git
-          targetRevision: HEAD
-          ref: values
+        - repoURL: https://github.com/zalando/postgres-operator.git
+          targetRevision: v1.10.0
+          path: charts/postgres-operator
       destination:
         server: https://kubernetes.default.svc
         namespace: {{namespace}}
@@ -40,7 +35,3 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
-      helm:
-        releaseName: postgres-operator
-        valueFiles:
-          - $values/{{ valueFile }}
