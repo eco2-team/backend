@@ -121,7 +121,7 @@
   roles:
     - argocd
 
-# Namespaces는 ArgoCD foundations (Wave -1)에서 생성됨
+# Namespaces는 ArgoCD namespaces (Wave -1)에서 생성됨
 # - import_playbook: playbooks/10-namespaces.yml
 
 - name: Monitoring 설치 (Prometheus Operator - ServiceMonitor CRD 제공)

@@ -12,7 +12,7 @@
 argocd/
 ├── root-app.yaml              # Root Application (path=argocd/apps)
 ├── apps/                      # Wave별 Application 정의
-│   ├── 00-foundations.yaml
+│   ├── 00-namespaces.yaml
 │   ├── 10-infrastructure.yaml
 │   ├── 20-alb-controller.yaml
 │   ├── 30-platform.yaml
@@ -33,7 +33,7 @@ argocd/
 | Wave | 파일 | 설명 |
 |------|------|------|
 | -2 | `root-app.yaml` | 모든 Application을 bootstrap |
-| -1 | `00-foundations.yaml` | Namespace + CRD (Kustomize) |
+| -1 | `00-namespaces.yaml` | Namespaces (Kustomize) |
 | 0  | `10-infrastructure.yaml` | NetworkPolicy, Metrics Server, Calico 정책 |
 | 20 | `20-alb-controller.yaml` | Helm `eks/aws-load-balancer-controller` |
 | 30 | `30-platform.yaml` | (예약) Node Lifecycle / External Secrets |

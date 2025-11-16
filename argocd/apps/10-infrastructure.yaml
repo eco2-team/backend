@@ -7,7 +7,7 @@
 #   - StorageClasses (EBS CSI Driver)
 #
 # 실행 순서: Wave 0 (Foundations 이후)
-# 의존성: 00-foundations (Namespaces)
+# 의존성: 00-namespaces (Namespaces)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ---
 apiVersion: argoproj.io/v1alpha1

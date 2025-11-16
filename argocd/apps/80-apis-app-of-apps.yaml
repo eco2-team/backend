@@ -8,7 +8,7 @@
 #
 # 실행 순서: Wave 80
 # 의존성:
-#   - 00-foundations (도메인별 namespaces, workers namespace)
+#   - 00-namespaces (도메인별 namespaces, workers namespace)
 #   - 60-data-clusters (PostgreSQL, Redis, RabbitMQ)
 #
 # ApplicationSet:
