@@ -63,3 +63,7 @@ kubeconfig.tmp
 kubeconfig*.tmp
 *.kubeconfig
 
+# Local tooling
+.helm/
+bin/
+

@@ -13,8 +13,8 @@ sources:
   - service
 
 extraArgs:
-  aws-zone-type: public
-  aws-prefer-cname: "true"
+  - --aws-zone-type=public
+  - --aws-prefer-cname=true
 
 env:
   - name: AWS_REGION
