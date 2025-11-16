@@ -169,3 +169,36 @@
   debug:
     msg: "{{ nodes_output.stdout_lines }}"
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CoreDNS Toleration 패치 (Taint된 클러스터 대응)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- name: CoreDNS toleration 패치 (모든 node taint 허용)
+  shell: |
+    kubectl patch deployment coredns -n kube-system --type merge -p '
+    {
+      "spec": {
+        "template": {
+          "spec": {
+            "tolerations": [
+              {"key": "node-role.kubernetes.io/control-plane", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "node-role.kubernetes.io/master", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "domain", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "sesacthon.io/infrastructure", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "CriticalAddonsOnly", "operator": "Exists"},
+              {"key": "node.kubernetes.io/not-ready", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300},
+              {"key": "node.kubernetes.io/unreachable", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300}
+            ]
+          }
+        }
+      }
+    }'
+  become_user: "{{ kubectl_user }}"
+  register: coredns_patched
+  changed_when: "'patched' in coredns_patched.stdout"
+  failed_when: false
+
+- name: CoreDNS Pod 재시작 대기
+  command: kubectl rollout status deployment coredns -n kube-system --timeout=120s
+  become_user: "{{ kubectl_user }}"
+  when: coredns_patched.changed
+

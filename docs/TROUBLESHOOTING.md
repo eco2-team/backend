@@ -4,7 +4,7 @@
 >
 > **업데이트 (2025-11-15)**  
 > 본 문서에는 `k8s/atlantis/atlantis-deployment.yaml` 등 레거시 경로가 다수 언급됩니다.  
-> 현재 Atlantis는 `charts/platform/atlantis` Helm Chart와 `argocd/apps/70-gitops-tools.yaml`을 통해 배포되므로, 동일 문제 발생 시 최신 절차(`docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md`)도 함께 참고하세요.
+> 현재 Atlantis는 `platform/charts/platform/atlantis` Helm Chart와 `argocd/apps/70-gitops-tools.yaml`을 통해 배포되므로, 동일 문제 발생 시 최신 절차(`docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md`)도 함께 참고하세요.
 
 ## 📋 목차
 
@@ -1588,7 +1588,7 @@ bitnami/rabbitmq:3.13.7-debian-12-r0: not found
 
 **Option A: Docker Official Image (임시)**
 ```yaml
-# charts/data/databases/values.yaml
+# platform/charts/data/databases/values.yaml
 rabbitmq:
   image:
     registry: docker.io
@@ -1964,4 +1964,883 @@ unable to create controller: Post "https://10.96.0.1:443/...": dial tcp 10.96.0.
   1. `jq` 기반 단순 리스트로 Distribution ID를 검색하고 Disabled 상태 확인 후 명시적으로 삭제.
   2. Certificate `InUseBy`를 검사해 CloudFront 삭제 완료까지 대기.
   3. 필요 시 `scripts/utilities/manual-cleanup-cloudfront-acm.sh`로 수동 정리 후 Terraform destroy 재시도.
+
+---
+
+## 21. Ansible 노드 라벨과 Kubernetes Manifest 동기화 (2025-11-16 추가)
+
+### 21.1. 노드 라벨과 nodeSelector 불일치로 인한 Pod 스케줄링 실패
+
+#### 문제
+**증상**:
+```bash
+# API Deployments가 배포되지 않음
+kubectl get pods -n auth
+No resources found in auth namespace.
+
+# 또는 Pending 상태
+NAME                       READY   STATUS    RESTARTS   AGE
+auth-api-bff55b88f-xxxxx   0/1     Pending   0          5m
+```
+
+**Pod describe 결과**:
+```
+Events:
+  Type     Reason            Age   From               Message
+  ----     ------            ----  ----               -------
+  Warning  FailedScheduling  5m    default-scheduler  0/14 nodes are available: 14 node(s) didn't match Pod's node selector.
+```
+
+#### 원인
+Ansible playbook (`ansible/playbooks/fix-node-labels.yml`)이 설정하는 노드 라벨과 Kubernetes Deployment의 `nodeSelector`가 불일치:
+
+**Ansible이 설정한 노드 라벨** (실제 클러스터):
+```bash
+kubectl get nodes k8s-api-auth --show-labels
+# 출력:
+sesacthon.io/node-role=api
+sesacthon.io/service=auth
+workload=api
+domain=auth
+tier=business-logic
+phase=1
+```
+
+**Deployment가 요구하는 nodeSelector** (구버전 manifest):
+```yaml
+# workloads/apis/auth/base/deployment.yaml (수정 전)
+spec:
+  template:
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/api: auth  # ❌ 노드에 없는 라벨
+```
+
+**불일치 매핑**:
+| 리소스 | Ansible 라벨 | 구버전 Manifest | 결과 |
+|--------|-------------|----------------|------|
+| API | `sesacthon.io/service=auth` | `node-role.kubernetes.io/api: auth` | ❌ 불일치 |
+| PostgreSQL | `sesacthon.io/infra-type=postgresql` | `node-role.kubernetes.io/infrastructure: postgresql` | ❌ 불일치 |
+| Redis | `sesacthon.io/infra-type=redis` | `node-role.kubernetes.io/infrastructure: redis` | ❌ 불일치 |
+
+**영향받는 서비스**: 전체 9개 (auth, my, scan, character, location, info, chat + PostgreSQL + Redis)
+
+#### 해결
+
+**1. Kubernetes Manifests 수정** (권장):
+
+모든 deployment의 nodeSelector를 Ansible 라벨과 일치시킴:
+
+```yaml
+# workloads/apis/auth/base/deployment.yaml (수정 후)
+spec:
+  template:
+    spec:
+      nodeSelector:
+        sesacthon.io/service: auth  # ✅ Ansible 라벨과 일치
+      tolerations:
+        - key: domain
+          operator: Equal
+          value: auth
+          effect: NoSchedule
+```
+
+**Infrastructure 리소스**:
+```yaml
+# workloads/data/postgres/base/postgres-cluster.yaml
+spec:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: sesacthon.io/infra-type  # ✅ 변경
+              operator: In
+              values:
+                - postgresql
+  tolerations:
+    - key: sesacthon.io/infrastructure  # ✅ 변경
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+```
+
+**2. 수정된 파일 목록**:
+- API Deployments (7개): auth, my, scan, character, location, info, chat
+- PostgreSQL: `workloads/data/postgres/base/postgres-cluster.yaml`
+- Redis: `workloads/data/redis/base/redis-failover.yaml`
+- 문서: `docs/infrastructure/k8s-label-annotation-system.md`
+
+**3. 검증**:
+```bash
+# 노드 라벨 확인
+kubectl get nodes k8s-api-auth --show-labels | grep sesacthon
+
+# Deployment nodeSelector 확인
+kubectl get deploy auth-api -n auth -o yaml | grep -A 3 'nodeSelector:'
+
+# Pod 스케줄링 확인
+kubectl get pods -n auth -o wide
+# 예상 결과:
+NAME                       READY   STATUS    NODE           
+auth-api-bff55b88f-xxxxx   1/1     Running   k8s-api-auth  # ✅ 올바른 노드에 배치
+```
+
+**커밋**:
+- `f191d18` - fix: Ansible 노드 라벨과 Kubernetes manifest 동기화
+
+---
+
+### 21.2. Ansible Playbook root-app.yaml 경로 오류
+
+#### 문제
+**Ansible 실행 로그**:
+```
+TASK [argocd : root-app.yaml 복사 (Master 노드로)] *****************************
+[ERROR]: Task failed: Unexpected AnsibleActionFail error: Could not find or access 
+'/Users/mango/workspace/SeSACTHON/backend/ansible/../../argocd/root-app.yaml' on the Ansible Controller.
+fatal: [k8s-master]: FAILED!
+```
+
+**결과**:
+- ArgoCD는 설치되었지만 root-app이 배포되지 않음
+- Child applications (Calico, Namespaces, APIs 등) 전혀 생성 안 됨
+
+#### 원인
+GitOps 리팩토링으로 `argocd/` 디렉토리가 `clusters/dev/`, `clusters/prod/`로 이동했는데, Ansible playbook이 옛날 경로를 참조:
+
+```yaml
+# ansible/roles/argocd/tasks/main.yml (수정 전)
+- name: root-app.yaml 복사 (Master 노드로)
+  copy:
+    src: "{{ playbook_dir }}/../../../argocd/root-app.yaml"  # ❌ 경로 없음
+    dest: /tmp/root-app.yaml
+```
+
+#### 해결
+```yaml
+# ansible/roles/argocd/tasks/main.yml (수정 후)
+- name: root-app.yaml 복사 (Master 노드로)
+  copy:
+    src: "{{ playbook_dir }}/../../clusters/dev/root-app.yaml"  # ✅ 새 경로
+    dest: /tmp/root-app.yaml
+    mode: '0644'
+```
+
+**환경 분리 고려** (prod 배포 시):
+```yaml
+- name: root-app.yaml 복사 (환경별)
+  copy:
+    src: "{{ playbook_dir }}/../../clusters/{{ environment | default('dev') }}/root-app.yaml"
+    dest: /tmp/root-app.yaml
+    mode: '0644'
+  vars:
+    environment: "{{ lookup('env', 'DEPLOY_ENV') | default('dev', true) }}"
+```
+
+**검증**:
+```bash
+# root-app 배포 확인
+kubectl get application dev-root -n argocd
+
+# Child applications 생성 확인
+kubectl get applications -n argocd
+# 예상: dev-namespaces, dev-crds, dev-calico, dev-apis 등 12+ applications
+```
+
+**커밋**: `ansible/roles/argocd/tasks/main.yml` 수정 (현재 세션)
+
+---
+
+### 21.3. CNI 미설치로 인한 순환 의존성 (Bootstrap Chicken-and-Egg)
+
+#### 문제
+**증상**:
+```bash
+kubectl get nodes
+NAME         STATUS     ROLES           AGE   VERSION
+k8s-master   NotReady   control-plane   5m    v1.28.4
+# 모든 노드가 NotReady
+
+kubectl describe node k8s-master
+Conditions:
+  Ready   False   KubeletNotReady   container runtime network not ready: 
+                                    NetworkReady=false reason:NetworkPluginNotReady 
+                                    message:Network plugin returns error: cni plugin not initialized
+```
+
+**ArgoCD Pod 상태**:
+```bash
+kubectl get pods -n argocd
+No resources found in argocd namespace.
+# Pod가 전혀 실행되지 않음
+```
+
+#### 원인
+**순환 의존성 (Chicken-and-Egg Problem)**:
+1. ArgoCD가 Calico CNI를 배포해야 함 (GitOps 패턴)
+2. 하지만 ArgoCD Pod가 실행되려면 CNI가 필요함 (Kubernetes 요구사항)
+3. root-app 배포 실패로 Calico Application이 생성되지 않음
+4. CNI 없어서 모든 Pod가 Pending 상태로 남음
+
+#### 해결
+
+**긴급 복구** (클러스터 이미 배포된 경우):
+```bash
+# 마스터 노드에서 Calico 수동 설치
+kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml
+
+# 노드 Ready 상태 확인 (30초 대기)
+sleep 30 && kubectl get nodes
+# 모든 노드 Ready 확인
+
+# ArgoCD 수동 설치
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# ArgoCD Pod Ready 대기
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+
+# AppProject 생성
+kubectl apply -f - <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: dev
+  namespace: argocd
+spec:
+  description: Development Environment
+  sourceRepos: ['*']
+  destinations:
+    - namespace: '*'
+      server: '*'
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+EOF
+
+# root-app 배포
+kubectl apply -f /tmp/root-app.yaml
+```
+
+**Ansible 개선** (다음 부트스트랩):
+
+`ansible/roles/argocd/tasks/main.yml`에 CNI pre-check 추가:
+
+```yaml
+# ArgoCD 설치 전에 CNI 확인
+- name: CNI 플러그인 설치 여부 확인
+  shell: kubectl get pods -n kube-system -l k8s-app=calico-node --no-headers 2>/dev/null | wc -l
+  register: calico_count
+  changed_when: false
+  failed_when: false
+
+- name: Calico CNI 수동 설치 (미설치 시)
+  command: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml
+  when: calico_count.stdout | int == 0
+  register: calico_installed
+
+- name: Calico Pod Ready 대기
+  command: kubectl wait --for=condition=ready pod -l k8s-app=calico-node -n kube-system --timeout=120s --all
+  when: calico_installed.changed
+
+- name: 노드 Ready 상태 확인
+  shell: kubectl get nodes --no-headers | grep -v " Ready " | wc -l
+  register: notready_nodes
+  changed_when: false
+  failed_when: notready_nodes.stdout | int > 0
+  retries: 6
+  delay: 10
+```
+
+**커밋**: Ansible CNI pre-check 추가 필요
+
+---
+
+### 21.4. ArgoCD AppProject 미생성으로 인한 Application InvalidSpecError
+
+#### 문제
+**증상**:
+```bash
+kubectl get application dev-root -n argocd
+NAME       SYNC STATUS   HEALTH STATUS
+dev-root   Unknown       Unknown
+
+kubectl describe application dev-root -n argocd
+Conditions:
+  Message: Application referencing project dev which does not exist
+  Type:    InvalidSpecError
+```
+
+**ArgoCD controller 로그**:
+```json
+{"level":"warning","msg":"error getting app project \"dev\": appproject.argoproj.io \"dev\" not found"}
+```
+
+#### 원인
+Ansible playbook이 ArgoCD 설치만 하고 AppProject를 생성하지 않음. root-app은 `spec.project: dev`를 참조하는데 project가 없어서 검증 실패.
+
+#### 해결
+
+**Ansible 개선** - `ansible/roles/argocd/tasks/main.yml`에 추가:
+
+```yaml
+- name: ArgoCD AppProject 생성 (dev)
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: argoproj.io/v1alpha1
+    kind: AppProject
+    metadata:
+      name: dev
+      namespace: {{ argocd_namespace }}
+    spec:
+      description: Development Environment
+      sourceRepos:
+        - '*'
+      destinations:
+        - namespace: '*'
+          server: '*'
+      clusterResourceWhitelist:
+        - group: '*'
+          kind: '*'
+      namespaceResourceWhitelist:
+        - group: '*'
+          kind: '*'
+    EOF
+  register: appproject_created
+  changed_when: "'created' in appproject_created.stdout or 'configured' in appproject_created.stdout"
+
+- name: ArgoCD AppProject 생성 (prod)
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: argoproj.io/v1alpha1
+    kind: AppProject
+    metadata:
+      name: prod
+      namespace: {{ argocd_namespace }}
+    spec:
+      description: Production Environment
+      sourceRepos:
+        - '*'
+      destinations:
+        - namespace: '*'
+          server: '*'
+      clusterResourceWhitelist:
+        - group: '*'
+          kind: '*'
+      namespaceResourceWhitelist:
+        - group: '*'
+          kind: '*'
+    EOF
+  register: appproject_prod_created
+  changed_when: "'created' in appproject_prod_created.stdout or 'configured' in appproject_prod_created.stdout"
+  when: environment == "prod"
+```
+
+**검증**:
+```bash
+kubectl get appproject -n argocd
+# 예상 출력:
+NAME   AGE
+dev    30s
+prod   30s  # (if environment=prod)
+```
+
+---
+
+### 21.5. ArgoCD NetworkPolicy로 인한 DNS Timeout
+
+#### 문제
+**증상**:
+```bash
+kubectl get applications -n argocd
+NAME       SYNC STATUS   HEALTH STATUS
+dev-root   Unknown       Unknown
+
+kubectl logs -n argocd sts/argocd-application-controller
+{"level":"warning","msg":"Reconnect to redis because error: \"dial tcp: lookup argocd-redis: i/o timeout\""}
+{"level":"warning","msg":"failed to set app resource tree: dial tcp: lookup argocd-repo-server on 10.96.0.10:53: dial udp 10.96.0.10:53: i/o timeout"}
+```
+
+**Application describe**:
+```yaml
+status:
+  conditions:
+  - message: 'Failed to load target state: rpc error: code = Unavailable 
+      desc = dns: A record lookup error: lookup argocd-repo-server on 10.96.0.10:53: 
+      dial udp 10.96.0.10:53: i/o timeout'
+    type: ComparisonError
+```
+
+#### 원인
+ArgoCD 기본 설치 매니페스트에 포함된 NetworkPolicy가 너무 제한적:
+- ArgoCD Application Controller → repo-server DNS 조회 차단
+- ArgoCD Components 간 통신 차단
+
+#### 해결
+
+**즉시 완화**:
+```bash
+# ArgoCD NetworkPolicy 전체 삭제
+kubectl delete networkpolicy --all -n argocd
+
+# ArgoCD Pods 재시작 (선택)
+kubectl rollout restart deployment -n argocd
+kubectl rollout restart statefulset -n argocd
+```
+
+**근본 해결** - ArgoCD 설치 후 NetworkPolicy 삭제 자동화:
+
+`ansible/roles/argocd/tasks/main.yml`에 추가:
+```yaml
+- name: ArgoCD 기본 NetworkPolicy 삭제 (통신 차단 방지)
+  command: kubectl delete networkpolicy --all -n {{ argocd_namespace }}
+  register: netpol_deleted
+  changed_when: "'deleted' in netpol_deleted.stdout"
+  failed_when: false  # NetworkPolicy가 없을 수도 있음
+
+- name: ArgoCD NetworkPolicy 삭제 결과
+  debug:
+    msg: "{{ netpol_deleted.stdout_lines }}"
+  when: netpol_deleted.changed
+```
+
+**커스텀 NetworkPolicy** (필요 시):
+```yaml
+# ArgoCD 전용 NetworkPolicy (allow-all)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: argocd-allow-all
+  namespace: argocd
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - {}
+  egress:
+    - {}
+```
+
+**검증**:
+```bash
+kubectl get networkpolicy -n argocd
+# 예상: No resources found (또는 커스텀 정책만)
+
+kubectl logs -n argocd sts/argocd-application-controller --tail=10
+# DNS timeout 에러 없어야 함
+```
+
+---
+
+### 21.6. ArgoCD Application targetRevision 불일치
+
+#### 문제
+**증상**:
+```bash
+# 로컬에서 수정하고 커밋했지만 클러스터에 반영 안 됨
+kubectl get deploy auth-api -n auth -o yaml | grep nodeSelector
+      nodeSelector:
+        node-role.kubernetes.io/api: auth  # ❌ 구버전 라벨 (수정 전)
+```
+
+**ArgoCD Application 상태**:
+```bash
+kubectl get application dev-namespaces -n argocd -o jsonpath='{.status.conditions}'
+[{"message":"Failed to load target state: workloads/namespaces/dev: app path does not exist","type":"ComparisonError"}]
+```
+
+#### 원인
+**브랜치 불일치**:
+- 로컬 브랜치: `refactor/gitops-sync-wave` (최신 수정사항 포함)
+- GitHub default: `main` 또는 `develop`
+- ArgoCD Application: `targetRevision: HEAD` (GitHub default를 가리킴)
+
+**예시**:
+```bash
+# 로컬
+git branch --show-current
+refactor/gitops-sync-wave
+
+git log -1 --oneline
+f191d18 fix: Ansible 노드 라벨과 Kubernetes manifest 동기화
+
+# GitHub default 브랜치
+git log origin/HEAD -1 --oneline
+52920f9 Update README.md  # 수정 전 커밋
+```
+
+#### 해결
+
+**1. 작업 브랜치 push**:
+```bash
+git push origin refactor/gitops-sync-wave
+```
+
+**2. root-app의 targetRevision 변경**:
+```bash
+kubectl patch application dev-root -n argocd --type merge \
+  -p '{"spec":{"source":{"targetRevision":"refactor/gitops-sync-wave"}}}'
+```
+
+**3. 모든 child applications의 targetRevision 변경**:
+
+```bash
+# 일괄 변경
+find clusters/dev/apps -name "*.yaml" -type f \
+  -exec sed -i '' 's/targetRevision: HEAD/targetRevision: refactor\/gitops-sync-wave/g' {} \;
+
+git add clusters/dev/apps/
+git commit -m "fix: update all applications targetRevision to working branch"
+git push origin refactor/gitops-sync-wave
+```
+
+**4. Applications 재생성**:
+```bash
+# root-app 재생성으로 child applications도 자동 업데이트
+kubectl delete application dev-root -n argocd
+kubectl apply -f /tmp/root-app.yaml
+kubectl patch application dev-root -n argocd --type merge \
+  -p '{"spec":{"source":{"targetRevision":"refactor/gitops-sync-wave"}}}'
+```
+
+**검증**:
+```bash
+# targetRevision 확인
+kubectl get application dev-namespaces -n argocd -o jsonpath='{.spec.source.targetRevision}'
+# 예상: refactor/gitops-sync-wave
+
+# Sync 상태 확인
+kubectl get applications -n argocd
+# Synced 또는 Progressing 상태
+```
+
+**장기 해결책**: 
+- 작업 완료 후 main/develop에 merge
+- production은 항상 `targetRevision: main` 사용
+
+**커밋**: `9d5c34b`, `dbe3d6d`, `e82a025`, `a0e7a0b`, `451e5b0`
+
+---
+
+### 21.7. Kustomize 디렉토리 구조 문제 (platform/crds)
+
+#### 문제
+**ArgoCD sync 에러**:
+```
+The Kubernetes API could not find kustomize.config.k8s.io/Kustomization 
+for requested resource argocd/. Make sure the "Kustomization" CRD is installed 
+on the destination cluster.
+```
+
+**Application 설정**:
+```yaml
+# clusters/dev/apps/00-crds.yaml (구버전)
+source:
+  path: platform/crds
+  directory:
+    recurse: true  # ❌ 문제의 원인
+```
+
+#### 원인
+`directory.recurse: true`로 인해:
+1. ArgoCD가 `platform/crds/*/kustomization.yaml` 파일을 **리소스로 배포**하려고 시도
+2. Kustomization CRD가 클러스터에 없어서 실패
+3. 상위 디렉토리에 `kustomization.yaml`이 없어서 kustomize build 불가
+
+**디렉토리 구조**:
+```
+platform/crds/
+├── (kustomization.yaml 없음!)  # ← 문제
+├── alb-controller/
+│   └── kustomization.yaml
+├── external-secrets/
+│   └── kustomization.yaml
+└── postgres-operator/
+    └── kustomization.yaml
+```
+
+#### 해결
+
+**1. 상위 kustomization.yaml 생성**:
+```yaml
+# platform/crds/kustomization.yaml (신규)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - alb-controller
+  - external-secrets
+  - postgres-operator
+  - prometheus-operator
+```
+
+**2. Application 설정 수정**:
+```yaml
+# clusters/dev/apps/00-crds.yaml (수정)
+source:
+  path: platform/crds
+  # directory.recurse 제거 - kustomize 자동 인식
+```
+
+**검증**:
+```bash
+# 로컬 kustomize build 테스트
+kubectl kustomize platform/crds | head -20
+# CRD 리소스들이 출력되어야 함
+
+# ArgoCD sync 확인
+kubectl get application dev-crds -n argocd
+NAME       SYNC STATUS   HEALTH STATUS
+dev-crds   Synced        Healthy  # ✅
+```
+
+**커밋**: `2a8c747`, `dbe3d6d`
+
+---
+
+### 21.8. ApplicationSet 템플릿 따옴표 오류 (k8s 이름 규칙 위반)
+
+#### 문제
+**ApplicationSet 에러**:
+```bash
+kubectl get applicationset dev-data-operators -n argocd -o yaml
+status:
+  conditions:
+  - message: 'Application.argoproj.io "dev-\"postgres-operator\"" is invalid: 
+      metadata.name: Invalid value: "dev-\"postgres-operator\"": 
+      a lowercase RFC 1123 subdomain must consist of lower case alphanumeric 
+      characters, ''-'' or ''.'', and must start and end with an alphanumeric character'
+    type: ErrorOccurred
+```
+
+**child applications 미생성**:
+```bash
+kubectl get applications -n argocd | grep postgres
+# 아무것도 없음
+```
+
+#### 원인
+ApplicationSet 템플릿에서 이름에 따옴표를 잘못 사용:
+
+```yaml
+# clusters/dev/apps/25-data-operators.yaml (오류)
+template:
+  metadata:
+    name: dev-"{{name}}"  # ❌ 따옴표가 리터럴로 들어감
+    # 결과: dev-"postgres-operator" (유효하지 않은 k8s 이름)
+```
+
+**Kubernetes 이름 규칙**:
+- 소문자 영숫자, `-`, `.`만 허용
+- `"`는 허용되지 않음
+
+#### 해결
+```yaml
+# clusters/dev/apps/25-data-operators.yaml (수정)
+template:
+  metadata:
+    name: dev-{{name}}  # ✅ 따옴표 제거
+    # 결과: dev-postgres-operator (유효한 k8s 이름)
+
+# clusters/dev/apps/60-apis-appset.yaml도 동일하게 수정
+template:
+  metadata:
+    name: dev-api-{{name}}  # ✅
+  spec:
+    destination:
+      namespace: "{{name}}"  # ✅ namespace는 따옴표 OK (값으로 사용)
+```
+
+**수정 원칙**:
+- ❌ `name: "dev-{{name}}"` - 전체를 따옴표로 감싸면 리터럴이 됨
+- ✅ `name: dev-{{name}}` - 변수 치환 정상 작동
+- ✅ `namespace: "{{name}}"` - 값으로 사용 시 따옴표 OK
+
+**검증**:
+```bash
+# ApplicationSet 상태 확인
+kubectl get applicationset dev-data-operators -n argocd -o jsonpath='{.status.conditions}'
+# ErrorOccurred 없어야 함
+
+# Child applications 생성 확인
+kubectl get applications -n argocd | grep postgres
+dev-postgres-operator   Unknown   Healthy  # ✅ 생성됨
+```
+
+**영향받은 파일**:
+- `clusters/dev/apps/25-data-operators.yaml`
+- `clusters/dev/apps/35-data-cr.yaml` (data-clusters)
+- `clusters/dev/apps/60-apis-appset.yaml`
+
+**커밋**: `e82a025`, `451e5b0`
+
+---
+
+### 21.9. CoreDNS Pending 으로 인한 클러스터 전체 장애
+
+#### 문제
+**증상**:
+```bash
+kubectl get pods -n kube-system | grep coredns
+coredns-5dd5756b68-bmdzb   0/1   Pending   0   21m
+coredns-5dd5756b68-pz92s   0/1   Pending   0   21m
+```
+
+**Pod describe**:
+```
+Events:
+  Warning  FailedScheduling  11m   default-scheduler  
+    0/14 nodes are available: 
+    1 node(s) had untolerated taint {domain: auth}, 
+    1 node(s) had untolerated taint {domain: character}, 
+    ...
+    4 node(s) had untolerated taint {sesacthon.io/infrastructure: true}.
+```
+
+#### 원인
+**모든 노드에 taint가 설정되어 있어서** CoreDNS가 스케줄링될 수 없음:
+
+- Master: `node-role.kubernetes.io/control-plane:NoSchedule`
+- API 노드들: `domain=auth:NoSchedule`, `domain=my:NoSchedule`, etc.
+- Infrastructure: `sesacthon.io/infrastructure=true:NoSchedule`
+
+CoreDNS는 특정 toleration이 없어서 어디에도 배치되지 못함.
+
+**Ansible이 설정한 taint 예시**:
+```bash
+# ansible/playbooks/fix-node-labels.yml
+node_labels:
+  k8s-api-auth: "--node-labels=... --register-with-taints=domain=auth:NoSchedule"
+  k8s-postgresql: "--node-labels=... --register-with-taints=sesacthon.io/infrastructure=true:NoSchedule"
+```
+
+#### 해결
+
+**긴급 복구**:
+```bash
+# Option 1: Master 노드의 taint 일시 제거 (CoreDNS 허용)
+kubectl taint nodes k8s-master node-role.kubernetes.io/control-plane:NoSchedule-
+
+# Option 2: CoreDNS에 모든 taint toleration 추가
+kubectl patch deployment coredns -n kube-system --type merge -p '
+{
+  "spec": {
+    "template": {
+      "spec": {
+        "tolerations": [
+          {"key": "node-role.kubernetes.io/control-plane", "operator": "Exists", "effect": "NoSchedule"},
+          {"key": "domain", "operator": "Exists", "effect": "NoSchedule"},
+          {"key": "sesacthon.io/infrastructure", "operator": "Exists", "effect": "NoSchedule"}
+        ]
+      }
+    }
+  }
+}'
+```
+
+**근본 해결** - Ansible 개선:
+
+Master 노드는 taint 없이 또는 CoreDNS 배포 가능하도록 설정:
+
+```yaml
+# ansible/playbooks/02-master-init.yml에 추가
+- name: CoreDNS toleration 패치 (Taint된 클러스터 대응)
+  shell: |
+    kubectl patch deployment coredns -n kube-system --type merge -p '
+    {
+      "spec": {
+        "template": {
+          "spec": {
+            "tolerations": [
+              {"key": "node-role.kubernetes.io/control-plane", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "domain", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "sesacthon.io/infrastructure", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "CriticalAddonsOnly", "operator": "Exists"}
+            ]
+          }
+        }
+      }
+    }'
+  register: coredns_patched
+  changed_when: "'patched' in coredns_patched.stdout"
+
+- name: CoreDNS Pod 재시작 대기
+  command: kubectl rollout status deployment coredns -n kube-system --timeout=120s
+  when: coredns_patched.changed
+```
+
+**검증**:
+```bash
+kubectl get pods -n kube-system -l k8s-app=kube-dns
+NAME                      READY   STATUS    NODE
+coredns-xxx-yyy           1/1     Running   k8s-master  # ✅ 정상 배치
+```
+
+---
+
+### 21.10. 베스트 프랙티스: Ansible + GitOps 동기화
+
+#### Ansible Playbook 개선 체크리스트
+
+**1. ArgoCD 설치 전 준비**:
+```yaml
+# ansible/roles/argocd/tasks/main.yml
+- CNI 설치 확인 및 자동 설치
+- 노드 Ready 대기
+- CoreDNS toleration 패치
+```
+
+**2. ArgoCD 설치 후 설정**:
+```yaml
+- AppProject 생성 (dev, prod)
+- NetworkPolicy 삭제
+- root-app 경로 수정 (clusters/{env}/root-app.yaml)
+```
+
+**3. 노드 라벨 일관성**:
+```yaml
+# Ansible이 설정하는 라벨과 Kubernetes manifest가 일치해야 함
+- sesacthon.io/service=auth
+- sesacthon.io/infra-type=postgresql
+- sesacthon.io/worker-type=storage
+```
+
+**4. GitOps 배포 순서**:
+```
+Wave 0:  CRDs (kustomization.yaml 필수)
+Wave 2:  Namespaces
+Wave 5:  Calico CNI
+Wave 6:  NetworkPolicies
+Wave 10: External Secrets
+Wave 15: ALB Controller
+...
+Wave 60: API Applications
+```
+
+**5. 문서 동기화**:
+- `docs/infrastructure/k8s-label-annotation-system.md`: 노드 라벨 체계
+- `ansible/playbooks/fix-node-labels.yml`: 실제 라벨 설정
+- `workloads/apis/*/base/deployment.yaml`: nodeSelector 설정
+
+#### 검증 스크립트
+
+```bash
+# 노드 라벨과 deployment nodeSelector 일치 확인
+for service in auth my scan character location info chat; do
+  echo "=== $service ==="
+  echo "노드 라벨:"
+  kubectl get nodes -l sesacthon.io/service=$service --show-labels | grep sesacthon.io/service
+  echo "Deployment nodeSelector:"
+  kubectl get deploy -n $service ${service}-api -o jsonpath='{.spec.template.spec.nodeSelector}' 2>/dev/null
+  echo ""
+done
+```
+
+---
+
+**최종 업데이트**: 2025-11-16  
+**버전**: v0.7.4  
+**아키텍처**: 14-Node GitOps + Ansible Bootstrap
 
