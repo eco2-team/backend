@@ -5,7 +5,7 @@ metadata:
   namespace: data
 spec:
   teamId: platform
-  numberOfInstances: 3
+  numberOfInstances: 1
   users:
     sesacthon:
       - superuser

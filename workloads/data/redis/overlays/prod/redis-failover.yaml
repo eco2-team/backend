@@ -14,7 +14,7 @@ spec:
         cpu: 400m
         memory: 512Mi
   redis:
-    replicas: 3
+    replicas: 1
     resources:
       requests:
         cpu: 500m
