@@ -20,7 +20,7 @@ spec:
             namespace: messaging-system
   template:
     metadata:
-      name: dev-"{{name}}"
+      name: dev-{{name}}
       namespace: argocd
     spec:
       project: dev
