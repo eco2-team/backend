@@ -12,8 +12,8 @@
 
 - `POSTGRES_HOST`: `postgresql.postgres.svc.cluster.local`
 - `REDIS_HOST`: `redis.redis.svc.cluster.local`
-- ConfigMap: `LOG_LEVEL`, `ENVIRONMENT`, `DEBUG`
-- Secret: `auth-secret` (DB credentials, JWT key 등 - ExternalSecret으로 주입)
+- ConfigMap: `LOG_LEVEL`, `ENVIRONMENT`
+- Secret: `auth-secret` (DB credentials, JWT key 등)
 
 ## 선행 조건
 
@@ -28,6 +28,3 @@ kubectl apply -k workloads/apis/auth/overlays/dev
 kubectl get pods -n auth
 ```
 
-## ArgoCD 연계
-
-`clusters/dev/apps/60-apis-appset.yaml`의 ApplicationSet이 이 경로를 자동으로 참조한다.

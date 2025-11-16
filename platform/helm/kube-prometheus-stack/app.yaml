@@ -40,7 +40,4 @@ spec:
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true
-      helm:
-        releaseName: kube-prometheus-stack
-        valueFiles:
-          - "$values/{{ valueFile }}"
+
