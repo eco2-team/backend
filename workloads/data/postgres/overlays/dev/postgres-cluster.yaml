@@ -4,17 +4,9 @@ metadata:
   name: postgres-main
   namespace: postgres
 spec:
-  teamId: platform
   numberOfInstances: 1
-  users:
-    sesacthon: []
-  databases:
-    sesacthon: sesacthon
-  postgresql:
-    version: "15"
   volume:
     size: 20Gi
-    storageClass: gp3
   resources:
     requests:
       cpu: 500m

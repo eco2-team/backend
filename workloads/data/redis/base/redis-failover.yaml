@@ -1,0 +1,14 @@
+apiVersion: databases.spotahome.com/v1
+kind: RedisFailover
+metadata:
+  name: redis-main
+  namespace: redis
+  labels:
+    app.kubernetes.io/name: redis
+    tier: data
+spec:
+  sentinel:
+    replicas: 3
+  redis:
+    replicas: 1
+
