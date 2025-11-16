@@ -1,0 +1,19 @@
+configGeneral:
+  enable_pod_disruption_budget: true
+  workers: 2
+  enable_shm_volume: true
+configKubernetes:
+  pdb_max_unavailable: 1
+  pod_service_account_name: postgres-operator
+configLogicalBackup:
+  logical_backup_docker_image: registry.opensource.zalan.do/acid/logical-backup:v1.10.0
+  logical_backup_s3_bucket: sesacthon-pg-backup-dev
+  logical_backup_s3_region: ap-northeast-2
+  logical_backup_schedule: "30 00 * * *"
+configAwsOrGcp:
+  wal_s3_bucket: sesacthon-pg-wal-dev
+  aws_region: ap-northeast-2
+configConnectionPooler:
+  connection_pooler_docker_image: registry.opensource.zalan.do/acid/pgbouncer:1.20-p1
+rbac:
+  create: true

@@ -1,0 +1,16 @@
+operator:
+  replicaCount: 2
+  logLevel: info
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+rbac:
+  create: true
+redisOperator:
+  image:
+    repository: quay.io/ot-container-kit/redis-operator
+    tag: v0.15.1
+  clusterScope: true
+  leaderElection:
+    enabled: true

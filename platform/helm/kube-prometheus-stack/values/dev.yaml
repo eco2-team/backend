@@ -1,0 +1,42 @@
+# Based on kube-prometheus-stack chart (prometheus-community). Dev footprint.
+fullnameOverride: kube-prometheus-stack
+alertmanager:
+  enabled: true
+  configExistingSecret: alertmanager-config
+  alertmanagerSpec:
+    replicas: 1
+    storage: {}
+grafana:
+  enabled: true
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  replicaCount: 1
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.monitoring:3100
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+prometheusOperator:
+  admissionWebhooks:
+    patch:
+      enabled: true
+  tls:
+    enabled: false
+prometheus:
+  prometheusSpec:
+    replicas: 1
+    retention: 15d
+    serviceMonitorNamespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values: [monitoring, data, messaging, default]
+    serviceMonitorSelectorNilUsesHelmValues: false
+    additionalScrapeConfigsSecret:
+      enabled: false

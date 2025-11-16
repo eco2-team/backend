@@ -1,0 +1,50 @@
+fullnameOverride: kube-prometheus-stack
+alertmanager:
+  enabled: true
+  configExistingSecret: alertmanager-config
+  alertmanagerSpec:
+    replicas: 3
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 50Gi
+grafana:
+  enabled: true
+  admin:
+    existingSecret: grafana-admin
+  replicaCount: 2
+  persistence:
+    enabled: true
+    storageClassName: gp3
+    size: 20Gi
+prometheusOperator:
+  admissionWebhooks:
+    patch:
+      enabled: true
+  tolerations:
+    - key: dedicated
+      operator: Equal
+      value: monitoring
+      effect: NoSchedule
+prometheus:
+  prometheusSpec:
+    replicas: 2
+    retention: 30d
+    retentionSize: 150GiB
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 200Gi
+    podMetadata:
+      labels:
+        tier: monitoring
+    scrapeInterval: 30s
+    evaluationInterval: 30s

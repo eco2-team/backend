@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  generators:
+    - list:
+        elements:
+          - env: dev
+            project: dev
+            namespace: monitoring
+            valueFile: platform/helm/kube-prometheus-stack/values/dev.yaml
+          - env: prod
+            project: prod
+            namespace: monitoring
+            valueFile: platform/helm/kube-prometheus-stack/values/prod.yaml
+  template:
+    metadata:
+      name: {{env}}-kube-prom-stack
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: kube-prometheus-stack
+    spec:
+      project: {{project}}
+      sources:
+        - repoURL: https://prometheus-community.github.io/helm-charts
+          chart: kube-prometheus-stack
+          targetRevision: 56.21.1
+        - repoURL: https://github.com/SeSACTHON/backend.git
+          targetRevision: HEAD
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: {{namespace}}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+      helm:
+        releaseName: kube-prometheus-stack
+        valueFiles:
+          - $values/{{ valueFile }}

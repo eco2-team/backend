@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: rabbitmq-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "25"
+spec:
+  generators:
+    - list:
+        elements:
+          - env: dev
+            project: dev
+            namespace: messaging-system
+            valueFile: platform/helm/rabbitmq-operator/values/dev.yaml
+          - env: prod
+            project: prod
+            namespace: messaging-system
+            valueFile: platform/helm/rabbitmq-operator/values/prod.yaml
+  template:
+    metadata:
+      name: {{env}}-rabbitmq-operator
+      namespace: argocd
+    spec:
+      project: {{project}}
+      sources:
+        - repoURL: https://charts.bitnami.com/bitnami
+          chart: rabbitmq-cluster-operator
+          targetRevision: 4.0.10
+        - repoURL: https://github.com/SeSACTHON/backend.git
+          targetRevision: HEAD
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: {{namespace}}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+      helm:
+        releaseName: rabbitmq-operator
+        valueFiles:
+          - $values/{{ valueFile }}

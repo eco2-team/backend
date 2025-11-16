@@ -17,7 +17,7 @@ ArgoCD App-of-Apps는 `argocd/apps/root-app.yaml`에서 시작하며, `ARGOCD_SY
 | `argocd/apps/root-app.yaml` | App-of-Apps Application (dev/prod) | - | 하위 `argocd/apps/*.yaml` 재귀 Sync |
 | `argocd/apps/*.yaml` | Wave별 Application / ApplicationSet 선언 | -1 ~ 70+ | 파일명에 Wave 명시 (`00-*.yaml`) |
 | `platform/crds/*` | ALB / Prometheus / Postgres / ESO CRD 원본 | -1 | `argocd/apps/00-namespaces.yaml`에서 적용 |
-| `platform/helm/*` | 벤더 Helm 스택 (cert-manager, alb-controller 등) | 10~50 | Helm `values/{env}.yaml` |
+| `platform/helm/*` | 벤더 Helm 스택 (cert-manager, postgres-operator 등) | 10~50 | Helm ApplicationSet + multi-source values |
 | `k8s/*` & `workloads/*` | Kustomize base/overlay (namespaces, data CR 등) | 0~70 | `argocd/apps/**` 에서 참조 |
 
 ---
@@ -50,16 +50,15 @@ ArgoCD App-of-Apps는 `argocd/apps/root-app.yaml`에서 시작하며, `ARGOCD_SY
 ```
 platform/
 ├─ helm/
-│  ├─ alb-controller/
-│  │  ├─ app.yaml            # Wave 15 Application 템플릿
-│  │  └─ values/{dev,prod}.yaml
-│  ├─ kube-prometheus-stack/ (Wave 20)
-│  ├─ postgres-operator/     (Wave 25)
-│  ├─ redis-operator/        (Wave 25)
-│  ├─ external-secrets-operator/ (Wave 10)
-│  ├─ cert-manager/          (Wave 10)
-│  ├─ external-dns/          (Wave 10)
-│  └─ atlantis/              (Wave 50)
+│  ├─ kube-prometheus-stack/ (Wave 20, Helm repo: prometheus-community)     │
+│  ├─ postgres-operator/     (Wave 25, Helm repo: Zalando OSS)               │
+│  ├─ redis-operator/        (Wave 25, Helm repo: ot-container-kit)          │
+│  ├─ rabbitmq-operator/     (Wave 25, Helm repo: Bitnami)                   │
+│  ├─ alb-controller/        (Wave 15)                                       │
+│  ├─ external-secrets-operator/ (Wave 10)                                   │
+│  ├─ cert-manager/          (Wave 10)                                       │
+│  ├─ external-dns/          (Wave 10)                                       │
+│  └─ atlantis/              (Wave 50)                                       │
 └─ crds/
    ├─ alb-controller/*.yaml
    ├─ prometheus-operator/*.yaml
@@ -67,18 +66,34 @@ platform/
    └─ external-secrets/*.yaml
 ```
 
-각 `app.yaml`은 다음 공통 규칙을 따른다.
+각 `app.yaml`은 **ArgoCD ApplicationSet**으로 작성되어 있으며, CNCF/1급 벤더의 Helm repo를 chart source로, 이 Git repo(`ref: values`)의 `values/{env}.yaml`을 `$values/<path>` 형태로 주입한다. (ArgoCD 2.6+ multi-source 기능)
 
 ```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
 metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "<Wave>"
-    sesacthon.io/required-secrets: "comma,separated,list"
 spec:
-  source:
-    helm:
-      valueFiles:
-        - values/{{env}}.yaml
+  generators:
+    - list:
+        elements:
+          - env: dev
+            valueFile: platform/helm/<component>/values/dev.yaml
+          - env: prod
+            valueFile: platform/helm/<component>/values/prod.yaml
+  template:
+    spec:
+      sources:
+        - repoURL: https://<helm_repo>     # CNCF/공식 Helm repo
+          chart: <helm_chart>
+          targetRevision: <version>
+        - repoURL: https://github.com/SeSACTHON/backend.git
+          targetRevision: HEAD
+          ref: values
+      helm:
+        valueFiles:
+          - $values/{{ valueFile }}
 ```
 
 Secrets/ConfigMap 선행 조건은 `SYNC_WAVE_SECRET_MATRIX.md`의 “필요한 CM/Secret” 열을 그대로 사용한다. 예) ALB Controller → `/sesacthon/{env}/network/(vpc-id|public-subnets|alb-sg)` Parameter → ExternalSecret → `alb-controller-values` Secret.
@@ -113,38 +128,48 @@ Secrets/ConfigMap 선행 조건은 `SYNC_WAVE_SECRET_MATRIX.md`의 “필요한 
 
 ## 5. 예시
 
-### 5.1 `argocd/apps/25-data-operators.yaml`
+### 5.1 `platform/helm/postgres-operator/app.yaml`
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: data-operators
+  name: postgres-operator
+  namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "25"
-    sesacthon.io/required-secrets: "s3-backup-credentials"
 spec:
   generators:
     - list:
         elements:
-          - name: postgres-operator
-            path: platform/helm/postgres-operator
-          - name: redis-operator
-            path: platform/helm/redis-operator
+          - env: dev
+            project: dev
+            namespace: data-system
+            valueFile: platform/helm/postgres-operator/values/dev.yaml
+          - env: prod
+            project: prod
+            namespace: data-system
+            valueFile: platform/helm/postgres-operator/values/prod.yaml
   template:
     metadata:
-      name: dev-{{name}}
+      name: {{env}}-postgres-operator
+      namespace: argocd
     spec:
-      project: dev
-      source:
-        repoURL: https://github.com/SeSACTHON/backend.git
-        path: '{{path}}'
-        helm:
-          valueFiles:
-            - values/dev.yaml
+      project: {{project}}
+      sources:
+        - repoURL: https://opensource.zalando.com/postgres-operator/charts
+          chart: postgres-operator
+          targetRevision: 1.10.0
+        - repoURL: https://github.com/SeSACTHON/backend.git
+          targetRevision: HEAD
+          ref: values
       destination:
         server: https://kubernetes.default.svc
-        namespace: data-system
+        namespace: {{namespace}}
+      helm:
+        releaseName: postgres-operator
+        valueFiles:
+          - $values/{{ valueFile }}
       syncPolicy:
         automated:
           prune: true
