@@ -4,16 +4,22 @@ kind: ServiceAccount
 metadata:
   name: external-secrets-sa
   namespace: platform-system
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/dev-external-secrets-operator"
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: postgres-operator
   namespace: data-system
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/dev-postgres-operator"
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: aws-load-balancer-controller
   namespace: kube-system
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/dev-alb-controller"
 

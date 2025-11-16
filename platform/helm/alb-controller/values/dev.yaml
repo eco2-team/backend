@@ -1,10 +1,8 @@
 clusterName: sesacthon-dev
 region: ap-northeast-2
-vpcId: ""  # ExternalSecret: /sesacthon/dev/network/vpc-id
 serviceAccount:
-  create: true
-  annotations:
-    eks.amazonaws.com/role-arn: ""  # ExternalSecret: /sesacthon/dev/iam/alb-controller-role-arn
+  create: false
+  name: aws-load-balancer-controller
 replicaCount: 1
 enableShield: false
 enableWaf: false
@@ -12,4 +10,13 @@ enableWafv2: false
 ingressClass: alb
 createIngressClassResource: true
 defaultTargetType: instance
+controller:
+  extraEnv:
+    - name: AWS_VPC_ID
+      valueFrom:
+        secretKeyRef:
+          name: alb-controller-values
+          key: vpcId
+    - name: AWS_REGION
+      value: ap-northeast-2
 

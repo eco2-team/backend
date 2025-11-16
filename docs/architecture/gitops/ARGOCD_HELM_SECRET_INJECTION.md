@@ -247,13 +247,45 @@ serviceAccount:
 
 ---
 
-## 6. 다음 단계
+## 6. 구현 완료 (SeSACTHON)
 
-1. `platform/helm/alb-controller/values/dev.yaml`에 `extraEnv` 추가
-2. `workloads/rbac-storage/base/service-accounts.yaml` 제거, Terraform으로 이동
-3. 문서 업데이트: `TERRAFORM_SECRET_INJECTION.md`에 SA 생성 추가
+### 적용된 구조
+
+1. **Helm values** (`platform/helm/alb-controller/values/dev.yaml`):
+   - `serviceAccount.create: false` (base에서 미리 생성)
+   - `controller.extraEnv`로 Secret 참조 (`alb-controller-values` Secret의 `vpcId` key)
+
+2. **ServiceAccount** (`workloads/rbac-storage/base/service-accounts.yaml`):
+   - annotation 없이 기본 SA만 생성
+   - dev/prod overlay에서 IRSA annotation patch (`patch-sa-irsa.yaml`)
+
+3. **ExternalSecret** (`workloads/secrets/external-secrets/dev/`):
+   - `alb-controller-secret.yaml`: VPC ID, Subnet 등 → `alb-controller-values` Secret
+   - `sa-irsa-patch.yaml`: IAM Role ARN → SA annotation용 Secret (선택)
+
+4. **Terraform** (`terraform/k8s-service-accounts.tf`):
+   - kubectl provider로 SA 생성 가능 (주석 처리, EKS 전환 시 활성화)
+
+### Wave 순서
+
+- Wave 0: ServiceAccount (base, annotation 없음)
+- Wave 10: ExternalSecrets Operator
+- Wave 15: ALB Controller Helm (SA 참조, extraEnv로 Secret 주입)
+- Wave 58: ExternalSecret CR (SSM → K8s Secret 생성)
+
+### 검증
+
+```bash
+# ExternalSecret이 Secret 생성했는지 확인
+kubectl get externalsecret -n kube-system
+kubectl get secret alb-controller-values -n kube-system -o yaml
+
+# ALB Controller Pod가 env 주입받았는지 확인
+kubectl get pod -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
+kubectl exec -n kube-system <pod> -- env | grep AWS_VPC_ID
+```
 
 ---
 
-> 이 패턴을 적용하면 Git에 민감 정보 없이도 Terraform → SSM → ExternalSecret → Helm 흐름으로 안전하게 주입 가능
+> 이 패턴으로 Git에 민감 정보 없이 Terraform → SSM → ExternalSecret → Helm Controller Pod 흐름 완성
 
