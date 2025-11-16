@@ -1,0 +1,7 @@
+apiVersion: v2
+name: aws-load-balancer-controller-stub
+description: Stub chart for chart-testing. Mimics value contracts of the real AWS Load Balancer Controller deployment.
+type: application
+version: 0.1.0
+appVersion: "stub"
+

@@ -51,11 +51,12 @@ jobs:
 |------|-----------|-----------|
 | 1 | ct 설정 추가 (`charts/ct.yaml`), Helm 차트 경로 정리 | helm/chart-testing-action, helm/kind-action |
 | 2 | Kustomize 빌드 매트릭스 정의(dev/prod 등), kubeconform 설치 스크립트 작성 | kustomize 5.x, kubeconform, Datree CRD catalog |
-| 3 | CMP 명령 스크립트화 (`scripts/render-like-argocd.sh`) 후 CI/Argo에서 공유 | kustomize --enable-helm 또는 Helm→Kustomize 체인 |
-| 4 | Kind + CRD 프리로드 스크립트 작성 (`scripts/kind-preload-crds.sh`) | kubectl apply --server-side --dry-run=server |
-| 5 | ApplicationSet 템플릿 검증 단계 추가 (`argocd appset generate`) | argocd/argocd:v2.x 컨테이너 |
-| 6 | `.github/workflows/infrastructure-bootstrap.yml` 에서 Ansible step 제거, 문서 링크만 유지 | docs/deployment/LOCAL_CLUSTER_BOOTSTRAP.md |
-| 7 | `docs/refactor/gitops-sync-wave-TODO.md` 및 관련 README 업데이트 | 진행 상황 추적 |
+| 3 | Kind에서 실행 가능한 Stub Chart + ct 구성 (`charts/testing/**`) | chart-testing lint/install, AWS 의존 차트 모의 검증 |
+| 4 | CMP 명령 스크립트화 (`scripts/render-like-argocd.sh`) 후 CI/Argo에서 공유 | kustomize --enable-helm 또는 Helm→Kustomize 체인 |
+| 5 | Kind + CRD 프리로드 스크립트 작성 (`scripts/ci/server-dry-run.sh`) | kubectl apply --server-side --dry-run=server |
+| 6 | ApplicationSet 템플릿 검증 단계 추가 (`argocd appset generate`) | argocd/argocd:v2.x 컨테이너 |
+| 7 | `.github/workflows/infrastructure-bootstrap.yml` 에서 Ansible step 제거, 문서 링크만 유지 | docs/deployment/LOCAL_CLUSTER_BOOTSTRAP.md |
+| 8 | `docs/refactor/gitops-sync-wave-TODO.md` 및 관련 README 업데이트 | 진행 상황 추적 |
 
 ---
 

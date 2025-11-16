@@ -66,4 +66,5 @@ kubeconfig*.tmp
 # Local tooling
 .helm/
 bin/
+ci-artifacts/
 

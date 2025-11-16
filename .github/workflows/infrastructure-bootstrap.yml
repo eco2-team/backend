@@ -17,8 +17,7 @@ on:
         default: 'bootstrap'
         type: choice
         options:
-          - bootstrap  # 전체 초기화
-          - ansible-only  # Ansible만 재실행
+          - bootstrap  # Terraform 상태 확인 + Root App 적용
 
 env:
   AWS_REGION: ap-northeast-2
@@ -83,115 +82,22 @@ jobs:
           retention-days: 1
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # Job 2: Ansible Bootstrap (Kubernetes 설치 + ArgoCD 설치)
+  # Job 2: Manual Bootstrap 안내 (Ansible → 문서 기반)
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ansible-bootstrap:
-    name: ⚙️ Ansible Bootstrap
+  bootstrap-guide:
+    name: 📘 Manual Bootstrap Guide
     runs-on: ubuntu-latest
     needs: terraform-check
-    if: |
-      always() &&
-      (github.event.inputs.action == 'bootstrap' || github.event.inputs.action == 'ansible-only')
-    
+    if: github.event.inputs.action == 'bootstrap'
     steps:
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
-      
-      - name: 📥 Download Terraform Outputs
-        if: github.event.inputs.action == 'bootstrap'
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-outputs
-          path: /tmp
-      
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      
-      - name: 📦 Install Ansible
+
+      - name: 📄 Print bootstrap guide
         run: |
-          python -m pip install --upgrade pip
-          pip install ansible
-          ansible --version
-      
-      - name: 🔑 Setup SSH Key
-        run: |
-          # SSH 디렉토리 생성 및 권한 설정
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          
-          # SSH 키 파일 생성
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/sesacthon.pem
-          chmod 600 ~/.ssh/sesacthon.pem
-          
-          # SSH 에이전트 시작 및 키 추가
-          echo "🔐 Starting SSH Agent"
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/sesacthon.pem
-          
-          # SSH Config 설정
-          cat >> ~/.ssh/config <<EOF
-          Host *
-            IdentityFile ~/.ssh/sesacthon.pem
-            IdentitiesOnly yes
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null
-            ServerAliveInterval 60
-            ServerAliveCountMax 3
-            AddKeysToAgent yes
-          EOF
-          
-          chmod 600 ~/.ssh/config
-      
-      - name: 📝 Create Ansible Inventory
-        if: github.event.inputs.action == 'bootstrap'
-        run: |
-          # Terraform Output에서 생성된 인벤토리 사용
-          cp /tmp/ansible-inventory.ini ansible/inventory/hosts.ini
-          
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📋 Ansible Inventory:"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          cat ansible/inventory/hosts.ini
-      
-      - name: ⚙️ Run Ansible Playbook (site.yml)
-        env:
-          ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
-        run: |
-          cd ansible
-          
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🚀 Starting Ansible Bootstrap"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          ansible-playbook site.yml \
-            -i inventory/hosts.ini \
-            --timeout=300 \
-            -v
-      
-      - name: ✅ Bootstrap Summary
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ Infrastructure Bootstrap Complete"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Refer to docs/deployment/LOCAL_CLUSTER_BOOTSTRAP.md for the manual Terraform → Ansible → ArgoCD steps."
           echo ""
-          echo "📊 GitOps Architecture:"
-          echo "  1. ✅ Terraform: Managed by Atlantis (PR-based)"
-          echo "  2. ✅ Kubernetes: Installed by Ansible"
-          echo "  3. ✅ ArgoCD: Installed and ready"
-          echo "  4. ✅ Atlantis: Ready for Terraform PRs"
-          echo ""
-          echo "🔗 Next Steps:"
-          echo "  1. Deploy Root App: kubectl apply -f argocd/root-app.yaml"
-          echo "  2. Verify: argocd app get root-app"
-          echo "  3. Atlantis URL: https://atlantis.sesacthon.com"
-          echo ""
-          echo "📝 Terraform Changes:"
-          echo "  - Create PR with terraform/ changes"
-          echo "  - Comment: atlantis plan"
-          echo "  - Review and approve"
-          echo "  - Comment: atlantis apply"
+          sed -n '1,160p' docs/deployment/LOCAL_CLUSTER_BOOTSTRAP.md
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   # Job 3: ArgoCD Root Application 배포
@@ -199,7 +105,7 @@ jobs:
   argocd-deploy:
     name: 🔄 ArgoCD Root App
     runs-on: ubuntu-latest
-    needs: ansible-bootstrap
+    needs: bootstrap-guide
     if: github.event.inputs.action == 'bootstrap'
     
     steps:
