@@ -11,26 +11,23 @@ kubectl apply -f clusters/dev/root-app.yaml
 argocd app sync dev-root
 ```
 
-## Wave 순서
+## Wave 순서 (완전)
 
-| 파일 | Wave | 내용 |
-|------|------|------|
-| `00-crds.yaml` | -1 | Platform CRDs (ALB, Prometheus, Postgres, ESO) |
-| `05-namespaces.yaml` | 0 | Namespaces (workloads/namespaces/overlays/dev) |
-| `10-network-policies.yaml` | 5 | NetworkPolicy (L3/L4 격리) |
-| `60-apis-appset.yaml` | 60 | 7개 API ApplicationSet |
-| `70-ingress.yaml` | 70 | ALB Ingress (Path routing) |
-
-## 누락된 Wave (TODO)
-
-- Wave 10: Platform (ExternalSecrets, cert-manager)
-- Wave 15: ALB Controller
-- Wave 20: Monitoring Operator
-- Wave 25: Data Operators
-- Wave 35: Data Clusters (postgres/redis CR)
-- Wave 58: Secrets (ExternalSecret CRs)
-
-위 Application들은 `platform/helm/*/app.yaml`을 참조하거나 별도로 생성해야 한다.
+| 파일 | Wave | 내용 | 경로 |
+|------|------|------|------|
+| `00-crds.yaml` | -1 | Platform CRDs | `platform/crds` |
+| `05-namespaces.yaml` | 0 | Namespaces (13개) | `workloads/namespaces/dev` |
+| `08-rbac-storage.yaml` | 0 | RBAC + StorageClass | `workloads/rbac-storage/dev` |
+| `10-network-policies.yaml` | 5 | NetworkPolicy (L3/L4) | `workloads/network-policies/dev` |
+| `12-calico.yaml` | 5 | Calico CNI (VXLAN) | `platform/helm/calico` |
+| `15-platform.yaml` | 10 | ExternalSecrets Operator | Helm: `external-secrets` |
+| `20-alb-controller.yaml` | 15 | ALB Controller | `platform/helm/alb-controller` |
+| `25-monitoring-operator.yaml` | 20 | kube-prometheus-stack | `platform/helm/kube-prometheus-stack` |
+| `30-data-operators.yaml` | 25 | Postgres/Redis/RabbitMQ Operators | `platform/helm/*-operator` |
+| `45-data-cr.yaml` | 35 | DB Clusters (CR) | `workloads/data/*/dev` |
+| `58-secrets.yaml` | 58 | ExternalSecrets (SSM → K8s) | `workloads/secrets/external-secrets/dev` |
+| `60-apis-appset.yaml` | 60 | 7개 API ApplicationSet | `workloads/apis/*/dev` |
+| `70-ingress.yaml` | 70 | ALB Ingress (Path routing) | `workloads/ingress/apps/dev` |
 
 ## 참고
 
