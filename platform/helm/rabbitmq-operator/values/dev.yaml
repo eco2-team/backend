@@ -1,6 +1,0 @@
-manager:
-  leaderElection: true
-rbac:
-  create: true
-metrics:
-  enabled: true
