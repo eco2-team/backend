@@ -9,23 +9,20 @@
 
 아래 표는 각 Wave에서 배포해야 하는 대표 리소스, 의존 관계, 그리고 예시 ArgoCD Application 파일을 정리한다. Wave 번호가 낮을수록 먼저 Sync 된다.
 
-| Wave | 계층 | 대표 리소스 | 선행 의존성 | ArgoCD 예시 (`clusters/{env}/apps`) |
+| Wave | 계층 | 대표 리소스 | 선행 의존성 | ArgoCD 예시 |
 |------|------|-------------|-------------|-------------|
-| -1 | CRD 번들 | Core CRDs (Prometheus, Postgres, ESO) | 없음 | `00-crds.yaml` |
-| 0 | Namespace | `workloads/namespaces/overlays/{env}` | Wave -1 | `05-namespaces.yaml` |
-| 0 | RBAC · Storage | ServiceAccount, IRSA, StorageClass | Wave 0 | `08-rbac-storage.yaml` |
-| 5 | Network | Calico 기본 정책, Node taint/label | Wave 0 | `12-network.yaml` *(추가 예정)* |
-| 10 | Platform | cert-manager, external-dns, ESO | Wave 5 | `10-platform.yaml` |
-| 15 | LoadBalancer | AWS Load Balancer Controller + ClusterIssuer | Wave 10 | `15-alb-controller.yaml` |
-| 20 | Monitoring Operator | kube-prometheus-stack (Controller) | Wave 15 | `20-monitoring-operator.yaml` |
-| 25 | Data Operators | Postgres/Redis Operators (Helm) | Wave 20 | `25-data-operators.yaml` |
-| 30 | Monitoring CR | Prometheus/Grafana CR, Rule/Alert | Wave 20 | `30-monitoring-cr.yaml` |
-| 35 | Data CR | PostgresCluster, RedisCluster, PVC | Wave 25 | `35-data-cr.yaml` |
-| 40 | Exporters | DB/Cache Exporter, ServiceMonitor | Wave 30 & 35 | `40-exporters.yaml` *(추가 예정)* |
-| 50 | GitOps Tools | Atlantis, Workflow, Internal dashboards | Wave 35 | `50-tools-atlantis.yaml` |
-| 58 | Secrets | ExternalSecret, SOPS Secret | Wave 50 | `58-secrets.yaml` |
-| 60+ | Applications | API/Worker ApplicationSet | 모든 하위 계층 | `60-apis-appset.yaml` |
-| 70+ | Application Ingress | 서비스 Ingress(Route) | Wave 60 | `70-application-ingress.yaml` |
+| -1 | Namespaces · CRD Seed | `k8s/namespaces`, Core CRD (`prometheuses.monitoring.coreos.com`) | 없음 | `argocd/apps/00-namespaces.yaml` |
+| 0 | RBAC · Storage | ClusterRoleBinding, ServiceAccount, StorageClass, EBS-CSI | Wave -1 | `argocd/apps/10-infrastructure.yaml` |
+| 5 | Network | CNI (Calico), default NetworkPolicy, Node labels/taints | Wave 0 | `argocd/apps/15-network.yaml` *(신규 예정)* |
+| 10 | Platform | cert-manager, external-dns, secrets sync Controller | Wave 5 | `argocd/apps/20-platform.yaml` |
+| 15 | Ingress | AWS Load Balancer Controller, TLS issuers | Wave 10 | `argocd/apps/25-ingress.yaml` |
+| 20 | Monitoring Operators | Prometheus Operator, Alertmanager CRDs | Wave 15 | `argocd/apps/30-monitoring-operators.yaml` |
+| 25 | Data Operators | Zalando Postgres Operator, Spotahome Redis Operator, RabbitMQ Cluster Operator | Wave 20 | `argocd/apps/40-data-operators.yaml` |
+| 30 | Monitoring Instances | kube-prometheus-stack (Prometheus, Grafana, Alertmanager) | Wave 20 | `argocd/apps/45-monitoring-instances.yaml` |
+| 35 | Data Instances | PostgreSQL / Redis / RabbitmqCluster CR, PVC, Secrets | Wave 25 | `argocd/apps/50-data-clusters.yaml` |
+| 40 | Exporters | Custom metrics exporters, ServiceMonitor, PodMonitor | Wave 30 & 35 | `argocd/apps/55-exporters.yaml` |
+| 50 | GitOps / Ops Tools | Atlantis, Argo Workflow, Internal dashboards | Wave 35 | `argocd/apps/60-tools.yaml` |
+| 60+ | Applications | API Deployments, Celery Workers, batch jobs | 모든 하위 계층 | `argocd/apps/80-apis-app-of-apps.yaml` |
 
 ### 참고
 - Wave 번호는 5 단위로 확보해도 되지만, ArgoCD는 정수만 비교하므로 1 단위로도 표현 가능하다. 본 문서는 `sync-wave` 주석 또는 `argocd.argoproj.io/sync-wave` 어노테이션을 사용했을 때 직관적인 구간 배분을 목적으로 5 단위 간격을 권장한다.
@@ -55,22 +52,22 @@
 1. **ArgoCD Application 예시**
 
 ```yaml
-# clusters/dev/apps/25-data-operators.yaml
+# argocd/apps/40-data-operators.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: dev-data-operators
+  name: data-operators
   annotations:
     argocd.argoproj.io/sync-wave: "25"
 spec:
-  project: dev
+  project: infrastructure
   source:
     repoURL: https://github.com/SeSACTHON/backend.git
-    path: platform/helm/postgres-operator
+    path: k8s/operators
     targetRevision: main
   destination:
     server: https://kubernetes.default.svc
-    namespace: data-system
+    namespace: data-operators
   syncPolicy:
     automated:
       prune: true
@@ -81,14 +78,14 @@ spec:
    - ApplicationSet으로 다수 서비스가 배포될 경우, Template 내부에서 `argocd.argoproj.io/sync-wave`를 서비스별로 재정의하여 API 간 순서를 조정한다. (예: auth-api Wave 60, chat-api Wave 70)
 
 3. **검증 체크리스트**
-   - Root App Sync 후 `argocd app get dev-root-app` 출력에서 `Sync wave:` 값이 의도대로 표시되는지 확인한다.
+   - Root App Sync 후 `argocd app get <app>` 출력에서 `Sync wave:` 값이 의도대로 표시되는지 확인한다.
    - Wave 간 의존성 위반이 감지되면, 먼저 lower wave 리소스가 Healthy인지 점검하고, 필요 시 `argocd app wait --sync --timeout`을 통해 순차 배포를 강제한다.
 
 ---
 
 ## 4. 향후 작업
 
-1. `clusters/{env}/apps/*.yaml` 파일을 본 계획에 맞춰 재배치한다. (예: `15-alb-controller.yaml` → Wave 15)
+1. `argocd/apps/*.yaml` 파일을 본 계획에 맞춰 재배치한다. (예: `20-alb-controller.yaml` → Wave 15)
 2. Monitoring/Data Exporter에 해당하는 Helm/Kustomize 오버레이에 Wave 주석을 추가한다.
 3. `docs/architecture/networking/NAMESPACE_NETWORKPOLICY_INGRESS.md` 등 관련 문서에서 Wave 번호를 본 계획과 일치하도록 수정한다.
 
