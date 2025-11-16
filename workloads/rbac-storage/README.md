@@ -7,7 +7,7 @@ Kubernetes RBAC 역할 및 StorageClass 정의.
 - `base/`:
   - `service-accounts.yaml`: IRSA 어노테이션이 포함된 SA (ExternalSecrets, Postgres Operator, ALB Controller)
   - `cluster-roles.yaml`: platform-admin, observability-reader, read-only
-  - `namespaced-roles.yaml`: data-ops (postgres/redis/messaging), api-dev (auth)
+  - `namespaced-roles.yaml`: data-ops (postgres/redis/rabbitmq), api-dev (auth)
   - `storage-class.yaml`: gp3 기본 StorageClass
 
 - `overlays/dev/`: base 참조 (동일)

@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: grafana-ingress
-  namespace: monitoring
+  namespace: grafana
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: instance
@@ -28,6 +28,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: prometheus-grafana
+                name: grafana
                 port:
                   number: 80

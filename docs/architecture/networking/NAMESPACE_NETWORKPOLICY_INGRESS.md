@@ -9,32 +9,27 @@
 
 | Tier | Namespace | 용도 | Wave | 소스 |
 |------|-----------|------|------|------|
-| Core | `default` | 기본 시스템, 초기 Pod 스케줄링 | 00 | `k8s/namespaces/domain-based.yaml` |
-| Biz (Phase 1) | `auth`, `my` | 사용자 인증/마이페이지 API | 00 | ↑ |
-| Biz (Phase 2) | `scan`, `character`, `location` | AI 스캔, 캐릭터, 위치 API | 00 | ↑ |
-| Biz (Phase 3) | `info`, `chat` | 정보 제공/챗봇 API | 00 | ↑ |
-| Async | `workers` | Celery Worker + Flower | 00 | ↑ |
-| Integration | `messaging` | RabbitMQ 등 MQ 계층 | 00 | ↑ |
-| Data | `data`, `databases` | PostgreSQL/Redis/RabbitMQ StatefulSet | 00 | ↑ |
-| Observability | `monitoring` | kube-prometheus-stack, Loki 등 | 00 | ↑ |
-| GitOps | `atlantis` | Terraform GitOps (Atlantis) | 00 | ↑ |
+| Business Logic | `auth`, `my`, `scan`, `character`, `location`, `info`, `chat` | API 계층 | 00 | `workloads/namespaces/base/namespaces.yaml` |
+| Data | `postgres`, `redis` | Database · Cache | 00 | ↑ |
+| Integration | `rabbitmq` | 메시지 브로커 | 00 | ↑ |
+| Observability | `prometheus`, `grafana` | 모니터링 스택 | 00 | ↑ |
+| Infrastructure | `platform-system`, `data-system`, `messaging-system` | Operators | 00 | ↑ |
 
 - **배포 파이프라인**: `argocd/apps/00-namespaces.yaml` → `k8s/namespaces/kustomization.yaml`  
-- **레이블 표준**: `name`, `domain`, `tier`, `layer`, `phase`, `app.kubernetes.io/*`
+- **레이블 표준**: `name`, `domain`, `tier`, `role`, `app.kubernetes.io/*`
 - **운영 원칙**: 네임스페이스는 GitOps 단일 소스에서만 생성/수정하며, Ansible이나 수동 `kubectl` 적용을 금지한다.
 
 ---
 
 ## 2. 네트워크 정책 설계
 
-### 2.1 도메인 격리 정책
+### 2.1 Tier 격리 정책
 
-- **적용 Wave**: 01 (ArgoCD `10-infrastructure.yaml`)  
+- **적용 Wave**: 05 (ArgoCD `06-network-policies.yaml`)  
 - **핵심 규칙**
-  - Tier 2(API) → Tier 4(Data)만 TCP 5432/6379 허용
-  - Workers → Messaging/Data/S3/OpenAI API에만 egress 허용
-  - Monitoring 네임스페이스는 모든 네임스페이스에 TCP 8000/9100 접근 허용 (metrics 수집)
-  - Messaging/Data 네임스페이스는 `tier=business-logic` 라벨을 가진 네임스페이스 ingress만 허용
+  - `tier=business-logic` → `tier=data` 대상만 TCP 5432/6379 허용
+  - `tier=integration`(rabbitmq) ingress는 business-logic 네임스페이스만 허용
+  - `tier=observability` 중 `prometheus`는 모든 네임스페이스로부터 9090/8080을 수집, `grafana`는 ALB에서 3000만 허용
 
 ### 2.2 ALB Controller 전용 정책
 
@@ -45,7 +40,7 @@
   - AWS API: `0.0.0.0/0` TCP 443 (ELB/EC2/STS)
 
 > 📝 **운영 메모**  
-> `k8s/infrastructure/networkpolicies/domain-isolation.yaml` 파일명은 legacy지만, 실제 내용은 ALB Controller egress 정책이다. Wave 01에서 이 파일을 포함해 배포해야 한다.
+> ALB Controller(`kube-system`)는 Kubernetes API, DNS, AWS API, IMDS로 egress 할 수 있어야 한다. Wave 05 NetworkPolicy 배포 시 ALB Controller 전용 egress 정책을 함께 적용한다.
 
 ---
 
@@ -77,7 +72,7 @@
 | 구분 | 내용 |
 |------|------|
 | 증상 | `aws-load-balancer-controller` 파드가 `CrashLoopBackOff`, 로그: `unable to create controller ... dial tcp 10.96.0.1:443: i/o timeout` |
-| 근본 원인 | `k8s/infrastructure/networkpolicies/domain-isolation.yaml`이 `namespaceSelector: {}` + TCP 80/443만 허용하도록 잘못 배포되어, Kubernetes API(ClusterIP 10.96.0.1)로 나가는 트래픽이 차단됨 |
+| 근본 원인 | ALB Controller 전용 egress 정책이 누락되거나 `namespaceSelector: {}` + TCP 80/443만 허용하도록 잘못 배포되어 Kubernetes API(ClusterIP 10.96.0.1)로 나가는 트래픽이 차단됨 |
 | 영향 | ALB Controller MutatingWebhook(포트 443) 호출 실패 → 모든 Service/Ingress Sync가 실패, Helm 설치 및 ArgoCD Wave 40/60가 연쇄 OutOfSync |
 | 해결 | 1) `alb-controller-egress` 정책을 API/DNS/IMDS/AWS API별로 명시한 버전으로 교체, 2) Wave 01(Infrastructure) Kustomize에 포함, 3) `kubectl rollout restart deployment/aws-load-balancer-controller -n kube-system` |
 | 사후 조치 | - 네임스페이스/정책 파일을 단일 GitOps 경로에서 관리<br>- ALB Controller 관련 NetworkPolicy 변경 시 반드시 `kubectl logs`와 `kubectl describe networkpolicy`로 검증 프로세스 추가 |

@@ -51,6 +51,16 @@ sed -i '/ swap / s/^/#/' /etc/fstab
 # 타임존 설정
 timedatectl set-timezone Asia/Seoul
 
+%{ if kubelet_extra_args != "" }
+# Kubelet node labels/taints (pre-create drop-in so kubeadm join picks it up)
+mkdir -p /etc/systemd/system/kubelet.service.d
+cat <<EOF >/etc/systemd/system/kubelet.service.d/10-node-labels.conf
+[Service]
+Environment="KUBELET_EXTRA_ARGS=${kubelet_extra_args}"
+EOF
+systemctl daemon-reload || true
+%{ endif }
+
 echo "✅ 기본 설정 완료: ${hostname}"
 echo "✅ SSM Agent 활성화됨"
 

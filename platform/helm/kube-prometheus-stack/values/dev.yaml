@@ -6,22 +6,15 @@ alertmanager:
   alertmanagerSpec:
     replicas: 1
     storage: {}
+    tolerations:
+      - key: node-role.kubernetes.io/infrastructure
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+    nodeSelector:
+      node-role.kubernetes.io/infrastructure: monitoring
 grafana:
-  enabled: true
-  admin:
-    existingSecret: grafana-admin
-    userKey: admin-user
-    passwordKey: admin-password
-  replicaCount: 1
-  additionalDataSources:
-    - name: Loki
-      type: loki
-      url: http://loki-gateway.monitoring:3100
-  sidecar:
-    dashboards:
-      enabled: true
-      label: grafana_dashboard
-      searchNamespace: ALL
+  enabled: false
 prometheusOperator:
   admissionWebhooks:
     patch:
@@ -29,20 +22,28 @@ prometheusOperator:
   tls:
     enabled: false
   tolerations:
-    - key: node-role.kubernetes.io/control-plane
-      operator: Exists
+    - key: node-role.kubernetes.io/infrastructure
+      operator: Equal
+      value: "true"
       effect: NoSchedule
   nodeSelector:
-    node-role.kubernetes.io/control-plane: ""
+    node-role.kubernetes.io/infrastructure: monitoring
 prometheus:
   prometheusSpec:
     replicas: 1
     retention: 15d
+    nodeSelector:
+      node-role.kubernetes.io/infrastructure: monitoring
+    tolerations:
+      - key: node-role.kubernetes.io/infrastructure
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
     serviceMonitorNamespaceSelector:
       matchExpressions:
         - key: kubernetes.io/metadata.name
           operator: In
-          values: [monitoring, data, messaging, default]
+          values: [auth, my, scan, character, location, info, chat, postgres, redis, rabbitmq, grafana, prometheus, default]
     serviceMonitorSelectorNilUsesHelmValues: false
     additionalScrapeConfigsSecret:
       enabled: false

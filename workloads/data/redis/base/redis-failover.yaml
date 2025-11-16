@@ -9,6 +9,20 @@ metadata:
 spec:
   sentinel:
     replicas: 3
+    nodeSelector:
+      node-role.kubernetes.io/infrastructure: redis
+    tolerations:
+      - key: node-role.kubernetes.io/infrastructure
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
   redis:
     replicas: 1
+    nodeSelector:
+      node-role.kubernetes.io/infrastructure: redis
+    tolerations:
+      - key: node-role.kubernetes.io/infrastructure
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
 

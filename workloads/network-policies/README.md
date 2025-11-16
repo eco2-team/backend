@@ -8,7 +8,7 @@ Calico 기반 네임스페이스 간 네트워크 격리 정책.
   - `default-deny-all.yaml`: 모든 네임스페이스에 기본 Ingress 차단
   - `allow-dns.yaml`: CoreDNS egress 허용 (필수)
   - `data-ingress.yaml`: tier=business-logic → postgres/redis 허용 (5432, 6379)
-  - `monitoring-ingress.yaml`: 모든 NS → monitoring 스크래핑 허용
+  - `monitoring-ingress.yaml`: 모든 NS → prometheus/grafana 접근 허용
 
 - `overlays/dev/`: base 그대로 사용
 - `overlays/prod/`: base 그대로 사용 (필요 시 추가 정책)

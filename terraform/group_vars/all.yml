@@ -31,7 +31,7 @@ acm_certificate_arn: "{{ lookup('pipe', 'cd ../../terraform && terraform output 
 domain_name: "ecoeco.app"
 
 # PostgreSQL (Tier 4: Data)
-postgres_namespace: "data"
+postgres_namespace: "postgres"
 postgres_database: "sesacthon"
 postgres_username: "admin"
 postgres_password: "{{ lookup('env', 'POSTGRES_PASSWORD') | default('changeme', true) }}"
@@ -39,17 +39,18 @@ postgres_persistence_size: "50Gi"
 postgres_version: "16"  # PostgreSQL 16
 
 # Redis (Tier 4: Data)
-redis_namespace: "data"
+redis_namespace: "redis"
 
 # RabbitMQ (Tier 3: Integration)
-rabbitmq_namespace: "messaging"
+rabbitmq_namespace: "rabbitmq"
 rabbitmq_username: "admin"
 rabbitmq_password: "{{ lookup('env', 'RABBITMQ_PASSWORD') | default('changeme', true) }}"
 rabbitmq_persistence_size: "10Gi"
 rabbitmq_replicas: 1  # 단일 Pod (HA 제거)
 
 # Monitoring (Tier 0: Observability)
-monitoring_namespace: "monitoring"
+monitoring_namespace: "prometheus"
+grafana_namespace: "grafana"
 prometheus_retention: "7d"
 grafana_admin_password: "{{ lookup('env', 'GRAFANA_PASSWORD') | default('admin123', true) }}"
 

@@ -14,8 +14,11 @@
 | **RabbitMQ Cluster Operator** | GitHub: `github.com/rabbitmq/cluster-operator` (`config/default`, tag `v1.11.0`) | `RabbitmqCluster` (`rabbitmq.com/v1beta1`) | - Upstream Operator, TLS/Cert Manager 통합<br>- StatefulSet 기반 Scaling | Wave 25 (Operator) + Wave 35 (`RabbitmqCluster`) |
 
 ### 최소 요구 사항
-- Namespace: `data-system` (Operators) / `data`, `messaging` (Instance)
-- Secrets / ConfigMap: `postgresql-secret`, `redis-secret`, `rabbitmq-default-user`
+- Namespace: `data-system` (Operators) / `postgres`, `redis`, `rabbitmq` (Instance)
+- Secrets (ExternalSecret → `/sesacthon/{env}/...`):
+  - `postgresql-secret` (`/data/postgres-password`)
+  - `redis-secret` (`/data/redis-password`)
+  - `rabbitmq-default-user` (`/data/rabbitmq-password`)
 - Storage: `StorageClass` (EBS gp3) + Volume size 100Gi (Postgres), 50Gi (Redis)
 - Backup: S3 bucket (`s3://sesacthon-pg-backup`) & IAM Role (`s3-backup-credentials`)
 
@@ -25,13 +28,16 @@
 
 | Operator | Source / Chart | 주요 CRD | 특징 |
 |----------|----------------|----------|------|
-| **kube-prometheus-stack** (Prometheus Operator) | Helm: `https://prometheus-community.github.io/helm-charts`, chart `kube-prometheus-stack`, version `56.21.1` | `Prometheus`, `Alertmanager`, `ServiceMonitor`, `PodMonitor`, `PrometheusRule` | - Operator + Prom/Grafana/Alertmanager 번들<br>- CNCF 관리 Repo, CRD `monitoring.coreos.com/v1` |
+| **kube-prometheus-stack** (Prometheus Operator) | Helm: `https://prometheus-community.github.io/helm-charts`, chart `kube-prometheus-stack`, version `56.21.1` | `Prometheus`, `Alertmanager`, `ServiceMonitor`, `PodMonitor`, `PrometheusRule` | - Prometheus/Alertmanager 번들<br>- CNCF 관리 Repo, CRD `monitoring.coreos.com/v1` |
+| **Grafana** | Helm: `https://grafana.github.io/helm-charts`, chart `grafana`, version `8.5.9` | (Helm-managed) | - 독립 Grafana 배포, admin Secret/Ingress 분리<br>- Datasource: Prometheus ClusterIP |
 
 ### 요구사항
-- Namespace: `monitoring`
-- Wave: 20 (Operator) → 30 (Prometheus/Grafana CR) → 40 (Exporters)
-- Secrets: `alertmanager-config` (Slack webhook 등), `grafana-datasource`
-- ConfigMap: `prometheus-rules`, `grafana-dashboards`
+- Namespace: `prometheus` (kube-prometheus-stack), `grafana` (grafana chart)
+- Wave: 20 (Prometheus Operator) → 21 (Grafana) → 40 (Exporters)
+- Secrets:
+  - `alertmanager-config` (Slack webhook 등)
+  - `grafana-admin` (ExternalSecret → `/sesacthon/{env}/platform/grafana-admin-password`)
+- ConfigMap: `prometheus-rules`
 
 ---
 
@@ -57,7 +63,7 @@
 | **RabbitMQ Messaging Topology Operator** *(Optional)* | GitHub: `github.com/rabbitmq/messaging-topology-operator` | `RabbitmqCluster`, `Exchange`, `Queue`, `Binding` | - Infra-as-Code 방식으로 exchange/queue 정의 |
 
 ### 요구사항
-- Namespace: `messaging`
+- Namespace: `rabbitmq`
 - Secret: `rabbitmq-default-user` (for management UI)
 - Storage: StatefulSet PVC 20Gi, `ReadWriteOnce`
 - NetworkPolicy: 허용 대상 `tier=business-logic`, `tier=integration`

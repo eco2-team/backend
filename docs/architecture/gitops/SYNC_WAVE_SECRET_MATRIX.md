@@ -36,14 +36,16 @@ Terraform → SSM/Secrets Manager 저장 경로 예시:
 | **5** | Network (CNI, default NP) | CNI tuning ConfigMap(선택) | 수동 설정 | Calico Felix 설정 등 |
 | **10** | ALB Controller (Helm) | `alb-controller-values` Secret/CM: `clusterName`, `vpcId`, `region`, `awsAccountId` | Terraform outputs (`vpc_id`, `aws_region`) | Secret은 SSM → ExternalSecret으로 주입 |
 | **16** | IngressClass/Params | `alb-ingress-params` ConfigMap: 서브넷/SG 목록, tagging 전략 | (추가 Output 필요) | Wave 10 이전에 준비 |
-| **20** | Monitoring Operator (Helm) | `alertmanager-config` Secret, `grafana-datasource` ConfigMap | Slack/Webhook Secrets(GitHub `secrets.SLACK_WEBHOOK` 등), Internal URL | Helm valueFiles에서 참조 |
+| **20** | Monitoring Operator (Helm) | `alertmanager-config` Secret, `grafana-datasource` ConfigMap, `grafana-admin` Secret(`/platform/grafana-admin-password`) | Slack/Webhook Secrets(GitHub `secrets.SLACK_WEBHOOK` 등), Internal URL, SSM Parameter Store | Helm valueFiles에서 참조 |
 | **25** | Data Operators (Helm) | S3 Backup credential Secret, Operator default ConfigMap | Terraform (S3 bucket), AWS IAM | ExternalSecrets 권장 |
 | **30** | Monitoring CR (Prometheus/Alertmanager) | Alert rule ConfigMap, Grafana dashboard ConfigMap, SLO Secret(옵션) | Git repo / Config repo | Wave 25보다 앞선 commit에 포함 |
-| **35** | Data CR (PostgresCluster, RedisCluster, RabbitmqCluster) | DB 사용자 Secret, TLS Secret, ConfigMap(연결 모드) | External Secrets Operator (SM/Parameter Store) | 예: `postgresql-secret`, `redis-secret`, `rabbitmq-default-user` |
+| **35** | Data CR (PostgresCluster, RedisCluster, RabbitmqCluster) | DB 사용자 Secret, TLS Secret, ConfigMap(연결 모드) | External Secrets Operator (SM/Parameter Store) | `postgresql-secret`(`/sesacthon/{env}/data/postgres-password`), `redis-secret`(`/data/redis-password`), `rabbitmq-default-user`(`/data/rabbitmq-password`) |
 | **40** | Exporters | Target credential Secret (DB/Redis metrics user) | Data CR과 동일 Secret reuse | Secrets 존재를 체크 후 배포 |
 | **50** | Tools (Atlantis, Workflows) | `atlantis-git-token` Secret, Slack Webhook Secret | GitHub `secrets.GH_TOKEN`, `secrets.SLACK_WEBHOOK` | GitHub Actions에서 Kubernetes Secret 생성 or ExternalSecret |
 | **60** | 서비스/워크로드 (API, Worker) | 애플리케이션 ConfigMap/Secret (API URL, env vars, GHCR pull secret) | GitHub Secrets (`GH_TOKEN` → `dockerconfigjson`) | `GH_TOKEN`은 GitHub Actions에서 `kubectl create secret docker-registry`로 Wave 55 이전 생성 |
 | **65** | Ingress (ALB) | TLS Secret (ACM ARN reference), host routing ConfigMap(옵션) | ACM(외부), Terraform output | Ingress 배포 직전 Secret 존재 확인 |
+
+> **Wave 11 (Secrets CR)**: `workloads/secrets/external-secrets/{env}`를 통해 `alb-controller-values`, `alb-sa-irsa-values`, `postgresql-secret`, `redis-secret`, `rabbitmq-default-user`, `grafana-admin`, `argocd-admin-secret` 등이 `/sesacthon/{env}/**` SSM 경로에서 동기화된다.
 
 ### GitHub Secrets
 - `secrets.GH_TOKEN`: GHCR 이미지 Pull Secret 생성에 사용 (Wave 60 이전).  

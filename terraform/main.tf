@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -101,7 +105,8 @@ module "master" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-master"
+    hostname           = "k8s-master"
+    kubelet_extra_args = ""
   })
 
   tags = {
@@ -132,7 +137,8 @@ module "api_auth" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-api-auth"
+    hostname           = "k8s-api-auth"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/api=auth,workload=api,domain=auth,tier=business-logic,phase=1 --register-with-taints=domain=auth:NoSchedule"
   })
 
   tags = {
@@ -159,7 +165,8 @@ module "api_my" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-api-my"
+    hostname           = "k8s-api-my"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/api=my,workload=api,domain=my,tier=business-logic,phase=1 --register-with-taints=domain=my:NoSchedule"
   })
 
   tags = {
@@ -186,7 +193,8 @@ module "api_scan" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-api-scan"
+    hostname           = "k8s-api-scan"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/api=scan,workload=api,domain=scan,tier=business-logic,phase=2 --register-with-taints=domain=scan:NoSchedule"
   })
 
   tags = {
@@ -213,7 +221,8 @@ module "api_character" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-api-character"
+    hostname           = "k8s-api-character"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/api=character,workload=api,domain=character,tier=business-logic,phase=2 --register-with-taints=domain=character:NoSchedule"
   })
 
   tags = {
@@ -240,7 +249,8 @@ module "api_location" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-api-location"
+    hostname           = "k8s-api-location"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/api=location,workload=api,domain=location,tier=business-logic,phase=2 --register-with-taints=domain=location:NoSchedule"
   })
 
   tags = {
@@ -270,7 +280,8 @@ module "api_info" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-api-info"
+    hostname           = "k8s-api-info"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/api=info,workload=api,domain=info,tier=business-logic,phase=3 --register-with-taints=domain=info:NoSchedule"
   })
 
   tags = {
@@ -297,7 +308,8 @@ module "api_chat" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-api-chat"
+    hostname           = "k8s-api-chat"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/api=chat,workload=api,domain=chat,tier=business-logic,phase=3 --register-with-taints=domain=chat:NoSchedule"
   })
 
   tags = {
@@ -331,7 +343,8 @@ module "worker_storage" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-worker-storage"
+    hostname           = "k8s-worker-storage"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/worker=storage,workload=worker-storage,worker-type=io-bound,tier=worker,phase=4"
   })
 
   tags = {
@@ -359,7 +372,8 @@ module "worker_ai" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-worker-ai"
+    hostname           = "k8s-worker-ai"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/worker=ai,workload=worker-ai,worker-type=network-bound,tier=worker,phase=4"
   })
 
   tags = {
@@ -394,7 +408,8 @@ module "rabbitmq" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-rabbitmq"
+    hostname           = "k8s-rabbitmq"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/infrastructure=rabbitmq,workload=message-queue,tier=platform,phase=4 --register-with-taints=node-role.kubernetes.io/infrastructure=true:NoSchedule"
   })
 
   tags = {
@@ -423,7 +438,8 @@ module "postgresql" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-postgresql"
+    hostname           = "k8s-postgresql"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/infrastructure=postgresql,workload=database,tier=data,phase=1 --register-with-taints=node-role.kubernetes.io/infrastructure=true:NoSchedule"
   })
 
   tags = {
@@ -449,7 +465,8 @@ module "redis" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-redis"
+    hostname           = "k8s-redis"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/infrastructure=redis,workload=cache,tier=data,phase=1 --register-with-taints=node-role.kubernetes.io/infrastructure=true:NoSchedule"
   })
 
   tags = {
@@ -476,7 +493,8 @@ module "monitoring" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname = "k8s-monitoring"
+    hostname           = "k8s-monitoring"
+    kubelet_extra_args = "--node-labels=node-role.kubernetes.io/infrastructure=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=node-role.kubernetes.io/infrastructure=true:NoSchedule"
   })
 
   tags = {

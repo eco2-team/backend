@@ -1,8 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: monitoring-scrape-all
-  namespace: monitoring
+  name: prometheus-scrape-all
+  namespace: prometheus
 spec:
   podSelector: {}
   policyTypes:
@@ -13,6 +13,22 @@ spec:
       ports:
         - protocol: TCP
           port: 9090  # Prometheus
+        - protocol: TCP
+          port: 8080  # kube-state-metrics, etc.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: grafana-allow-from-alb
+  namespace: grafana
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
         - protocol: TCP
           port: 3000  # Grafana
 

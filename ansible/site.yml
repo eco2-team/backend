@@ -65,54 +65,12 @@
   tasks:
     - import_tasks: playbooks/03-1-set-provider-id.yml
 
-- name: CNI 플러그인 설치 및 클러스터 검증 (AWS VPC CNI)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - include_tasks: playbooks/04-cni-install-vpc.yml
-      when: cni_plugin == 'vpc-cni'
-  # ⚠️ 노드 Ready 실패 시 여기서 중단됨
-  
-- name: CNI 플러그인 설치 및 클러스터 검증 (Calico)
+- name: CNI 플러그인 설치 및 클러스터 검증 (Calico VXLAN Always, BGP Off)
   hosts: masters
   become: yes
   become_user: "{{ kubectl_user }}"
   tasks:
     - include_tasks: playbooks/04-cni-install.yml
-      when: cni_plugin != 'vpc-cni'
-
-- import_playbook: playbooks/label-nodes.yml
-
-- name: Add-ons 설치 (Metrics Server)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/05-addons.yml
-    # Cert-manager 제거 - ACM 사용
-    # - import_tasks: playbooks/06-cert-manager-issuer.yml
-
-- name: AWS EBS CSI Driver 및 StorageClass 설정
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/05-1-ebs-csi-driver.yml
-
-- name: AWS Load Balancer Controller 설치
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/07-alb-controller.yml
-
-- name: IngressClass 리소스 생성 (Kubernetes v1.22+ 표준)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/07-1-ingress-class.yml
 
 - name: ArgoCD 설치
   hosts: masters
@@ -120,53 +78,6 @@
   become_user: "{{ kubectl_user }}"
   roles:
     - argocd
-
-# Namespaces는 ArgoCD namespaces (Wave -1)에서 생성됨
-# - import_playbook: playbooks/10-namespaces.yml
-
-- name: Monitoring 설치 (Prometheus Operator - ServiceMonitor CRD 제공)
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  tasks:
-    - import_tasks: playbooks/08-monitoring.yml
-
-- name: "RabbitMQ 설치 (Tier 3: Message Queue)"
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  roles:
-    - rabbitmq
-
-- name: "Redis 설치 (Tier 4: Persistence - Cache & State)"
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  roles:
-    - redis
-
-- name: "PostgreSQL 설치 (Tier 4: Persistence - Database)"
-  hosts: masters
-  become: yes
-  become_user: "{{ kubectl_user }}"
-  roles:
-    - postgresql
-
-- import_playbook: playbooks/09-atlantis.yml
-
-# Ingress는 ArgoCD가 관리함 (Wave 기반)
-# - name: Ingress 리소스 생성 (ALB 자동 생성)
-#   hosts: masters
-#   become: yes
-#   become_user: "{{ kubectl_user }}"
-#   tasks:
-#     - import_tasks: playbooks/07-ingress-resources.yml
-
-- name: etcd 백업 설정
-  hosts: masters
-  become: yes
-  tasks:
-    - import_tasks: playbooks/09-etcd-backup.yml
 
 - name: 클러스터 정보 출력
   hosts: masters
@@ -208,16 +119,4 @@
           - "Username: admin"
           - "Password: {{ argocd_password.stdout }}"
       when: argocd_password is succeeded
-
-# Route53 A 레코드 업데이트 (ALB 연결)
-- name: Route53 업데이트 (ALB 연결)
-  hosts: localhost
-  connection: local
-  become: no
-  gather_facts: no
-  vars:
-    aws_region: "{{ lookup('pipe', 'cd ../terraform && terraform output -raw aws_region') }}"
-    domain_name: "{{ lookup('pipe', 'cd ../terraform && terraform output -json dns_records | jq -r .apex_domain | sed \"s|https://||\"') }}"
-  tasks:
-    - import_tasks: playbooks/09-route53-update.yml
 

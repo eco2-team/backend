@@ -123,3 +123,101 @@ resource "aws_ssm_parameter" "acm_certificate_arn" {
   }
 }
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 5. Application Credentials (SecureString)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+locals {
+  secret_special_chars = "!@#$%^&*()-_=+[]{}"
+}
+
+resource "random_password" "postgres_admin" {
+  length           = 32
+  special          = true
+  override_special = local.secret_special_chars
+}
+
+resource "random_password" "redis_auth" {
+  length           = 32
+  special          = true
+  override_special = local.secret_special_chars
+}
+
+resource "random_password" "rabbitmq_admin" {
+  length           = 32
+  special          = true
+  override_special = local.secret_special_chars
+}
+
+resource "random_password" "argocd_admin" {
+  length           = 32
+  special          = true
+  override_special = local.secret_special_chars
+}
+
+resource "random_password" "grafana_admin" {
+  length           = 32
+  special          = true
+  override_special = local.secret_special_chars
+}
+
+resource "aws_ssm_parameter" "postgres_admin_password" {
+  name        = "/sesacthon/${var.environment}/data/postgres-password"
+  type        = "SecureString"
+  value       = random_password.postgres_admin.result
+  description = "PostgreSQL superuser password"
+  tags = {
+    ManagedBy   = "terraform"
+    Scope       = "data"
+    Environment = var.environment
+  }
+}
+
+resource "aws_ssm_parameter" "redis_password" {
+  name        = "/sesacthon/${var.environment}/data/redis-password"
+  type        = "SecureString"
+  value       = random_password.redis_auth.result
+  description = "Redis authentication password"
+  tags = {
+    ManagedBy   = "terraform"
+    Scope       = "data"
+    Environment = var.environment
+  }
+}
+
+resource "aws_ssm_parameter" "rabbitmq_password" {
+  name        = "/sesacthon/${var.environment}/data/rabbitmq-password"
+  type        = "SecureString"
+  value       = random_password.rabbitmq_admin.result
+  description = "RabbitMQ default user password"
+  tags = {
+    ManagedBy   = "terraform"
+    Scope       = "data"
+    Environment = var.environment
+  }
+}
+
+resource "aws_ssm_parameter" "argocd_admin_password" {
+  name        = "/sesacthon/${var.environment}/platform/argocd-admin-password"
+  type        = "SecureString"
+  value       = random_password.argocd_admin.result
+  description = "ArgoCD admin password"
+  tags = {
+    ManagedBy   = "terraform"
+    Scope       = "platform"
+    Environment = var.environment
+  }
+}
+
+resource "aws_ssm_parameter" "grafana_admin_password" {
+  name        = "/sesacthon/${var.environment}/platform/grafana-admin-password"
+  type        = "SecureString"
+  value       = random_password.grafana_admin.result
+  description = "Grafana admin password"
+  tags = {
+    ManagedBy   = "terraform"
+    Scope       = "platform"
+    Environment = var.environment
+  }
+}
+

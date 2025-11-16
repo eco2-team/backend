@@ -4,11 +4,11 @@
 
 ## 구조
 
-- `base/namespaces.yaml`: 13개 네임스페이스 정의
+- `base/namespaces.yaml`: 15개 네임스페이스 정의
   - Business Logic (7): auth, my, scan, character, location, info, chat
   - Data (2): postgres, redis
-  - Integration (1): messaging
-  - Observability (1): monitoring
+  - Integration (1): rabbitmq
+  - Observability (2): prometheus, grafana
   - Infrastructure (3): platform-system, data-system, messaging-system
 
 - `overlays/dev/`: environment=dev 레이블 추가
@@ -20,8 +20,8 @@
 |------|-----------|------|
 | business-logic | auth, my, scan, ... | API 서비스 |
 | data | postgres, redis | 데이터 저장소 |
-| integration | messaging | RabbitMQ |
-| observability | monitoring | Prometheus/Grafana |
+| integration | rabbitmq | RabbitMQ |
+| observability | prometheus, grafana | Prometheus / Grafana |
 | infrastructure | *-system | Operators |
 
 ## 배포

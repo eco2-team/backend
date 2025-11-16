@@ -12,25 +12,26 @@ alertmanager:
           resources:
             requests:
               storage: 50Gi
+    tolerations:
+      - key: node-role.kubernetes.io/infrastructure
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+    nodeSelector:
+      node-role.kubernetes.io/infrastructure: monitoring
 grafana:
-  enabled: true
-  admin:
-    existingSecret: grafana-admin
-  replicaCount: 2
-  persistence:
-    enabled: true
-    storageClassName: gp3
-    size: 20Gi
+  enabled: false
 prometheusOperator:
   admissionWebhooks:
     patch:
       enabled: true
   tolerations:
-    - key: node-role.kubernetes.io/control-plane
-      operator: Exists
+    - key: node-role.kubernetes.io/infrastructure
+      operator: Equal
+      value: "true"
       effect: NoSchedule
   nodeSelector:
-    node-role.kubernetes.io/control-plane: ""
+    node-role.kubernetes.io/infrastructure: monitoring
 prometheus:
   prometheusSpec:
     replicas: 2
@@ -44,8 +45,17 @@ prometheus:
           resources:
             requests:
               storage: 200Gi
-    podMetadata:
-      labels:
-        tier: monitoring
+    nodeSelector:
+      node-role.kubernetes.io/infrastructure: monitoring
+    tolerations:
+      - key: node-role.kubernetes.io/infrastructure
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
     scrapeInterval: 30s
     evaluationInterval: 30s
+    serviceMonitorNamespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values: [auth, my, scan, character, location, info, chat, postgres, redis, rabbitmq, grafana, prometheus, default]

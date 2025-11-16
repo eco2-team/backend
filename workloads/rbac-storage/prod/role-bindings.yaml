@@ -23,7 +23,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: prometheus
-    namespace: monitoring
+    namespace: prometheus
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -56,8 +56,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: data-ops-messaging
-  namespace: messaging
+  name: data-ops-rabbitmq
+  namespace: rabbitmq
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

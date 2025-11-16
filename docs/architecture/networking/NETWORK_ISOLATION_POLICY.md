@@ -10,10 +10,9 @@
 
 ## 1. 범위
 
-| 구분 | 설명 | 현재 전략 | 향후 계획 |
-|------|------|-----------|-----------|
-| 레이어 격리 (Layer Isolation) | 네임스페이스·라벨 기반 L3/L4 트래픽 제어 | **즉시 적용** (Sync Wave 5 Network) | NetworkPolicy 템플릿 확장 |
-| 도메인 격리 (FQDN Isolation) | 외부 도메인 단위 허용/차단 | **후속 프로젝트** | Cilium FQDN, Istio Egress 등 검토 |
+| 구분 | 설명 | 현재 전략 |
+|------|------|-----------|
+| 레이어(Tier) 격리 | 네임스페이스·라벨 기반 L3/L4 트래픽 제어 | **즉시 적용** (Sync Wave 5 Network) |
 
 ---
 
@@ -80,13 +79,11 @@ spec:
 
 | Wave | 작업 | 내용 |
 |------|------|------|
-| Wave -1 | Namespaces | 레이블 표준화 (`domain`, `layer`, `workload`) |
+| Wave -1 | Namespaces | 레이블 표준화 (`tier`, `role`, `app.kubernetes.io/*`) |
 | Wave 0 | RBAC/Storage | NetworkPolicy에서 참조할 ServiceAccount/클래스 준비 |
 | **Wave 5** | **Network** | default-deny, DNS 허용, 동일 Layer 허용 정책 배포 |
 | Wave 10+ | Platform/Ingress | 레이어 격리 성공 시 TLS/Ingress 배포 |
 | Wave 60+ | Apps | Layer 정책 준수 확인 후 애플리케이션 배포 |
-
-> 도메인 격리 솔루션 적용 시에는 해당 Wave(예: 32 FQDN Gateway)를 추가로 정의하고 `ARGOCD_SYNC_WAVE_PLAN.md`와 동기화한다.
 
 ---
 
@@ -99,25 +96,12 @@ spec:
 
 ---
 
-## 6. 요약
+## 5. 요약
 - **지금**: L3/L4 레벨 격리를 NetworkPolicy로 완비하고, Sync Wave 5에서 자동 배포.  
-- **나중**: FQDN·L7 격리를 위해 CNI/ServiceMesh 옵션을 비교하고 별도 Wave로 도입.  
 - **문서 연계**: `ARGOCD_SYNC_WAVE_PLAN.md`, `NAMESPACE_NETWORKPOLICY_INGRESS.md`와 일관성을 유지하며 업데이트한다.
 
 ---
 
 ## 참고
-1. <a name="ref-k8s-np"></a>`kubernetes.io` NetworkPolicy 문서: “control traffic flow at the IP address or port level (OSI layer 3 or 4)”[[1]](#ref-k8s-np-code)
-2. <a name="ref-calico-matrix"></a>Tigera “Calico Product Editions” 표의 Network Security 항목 (DNS/FQDN-based policy는 Calico Cloud/Enterprise 전용)
-
-```21:59:tmp/tigera-docs/calico-enterprise_versioned_docs/version-3.22-1/about/calico-product-editions.mdx
-|  | Calico Open Source | Calico Cloud Free Tier* | Calico Cloud | Calico Enterprise |
-...
-| DNS/FQDN-based policy |  |  | <CheckIcon /> | <CheckIcon /> |
-```
-
-```1:24:https://raw.githubusercontent.com/kubernetes/website/main/content/en/docs/concepts/services-networking/network-policies.md
-description: >-
-  If you want to control traffic flow at the IP address or port level (OSI layer 3 or 4),
-```
+1. <a name="ref-k8s-np"></a>[Kubernetes NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/) 공식 문서
 

@@ -67,6 +67,15 @@ resource "aws_ssm_parameter" "private_subnets" {
 2. **KMS 암호화**: 민감한 값은 `aws_ssm_parameter` `type = "SecureString"`과 전용 KMS 키 사용.  
 3. **출력 제한**: `output` 블록에는 `sensitive = true`를 설정해 CLI 출력에서 숨긴다.
 
+#### 3.1 Application Credential Parameters
+- `/sesacthon/{env}/data/postgres-password`
+- `/sesacthon/{env}/data/redis-password`
+- `/sesacthon/{env}/data/rabbitmq-password`
+- `/sesacthon/{env}/platform/grafana-admin-password`
+- `/sesacthon/{env}/platform/argocd-admin-password`
+
+위 항목은 `aws_ssm_parameter` SecureString으로 저장되고, Wave 11 `ExternalSecret`이 각각 `postgresql-secret`, `redis-secret`, `rabbitmq-default-user`, `grafana-admin`, `argocd-admin-secret`으로 동기화한다.
+
 ---
 
 ## 4. 소비(Consumption) 전략

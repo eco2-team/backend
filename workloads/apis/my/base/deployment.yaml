@@ -49,4 +49,11 @@ spec:
             periodSeconds: 5
       imagePullSecrets:
         - name: ghcr-secret
+      nodeSelector:
+        node-role.kubernetes.io/api: my
+      tolerations:
+        - key: domain
+          operator: Equal
+          value: my
+          effect: NoSchedule
 

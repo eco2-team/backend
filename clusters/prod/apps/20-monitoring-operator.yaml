@@ -13,7 +13,7 @@ spec:
     path: platform/helm/kube-prometheus-stack
   destination:
     server: https://kubernetes.default.svc
-    namespace: monitoring
+    namespace: prometheus
   syncPolicy:
     automated:
       prune: true

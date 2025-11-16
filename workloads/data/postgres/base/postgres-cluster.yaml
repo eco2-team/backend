@@ -16,4 +16,17 @@ spec:
     version: "15"
   volume:
     storageClass: gp3
+  tolerations:
+    - key: node-role.kubernetes.io/infrastructure
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/infrastructure
+              operator: In
+              values:
+                - postgresql
 

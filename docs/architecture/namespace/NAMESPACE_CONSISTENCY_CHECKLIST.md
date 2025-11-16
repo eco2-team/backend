@@ -28,17 +28,38 @@
 
 ### 1.1 네임스페이스 정의 파일
 
+#### 1.1.1 네임스페이스 기준 표 (Authoritative Matrix)
+
+> `workloads/namespaces/base/namespaces.yaml`과 Terraform 노드 맵핑을 한 번에 확인하기 위한 기준표입니다. 아래 표와 불일치하는 항목이 발견되면 **반드시 수정 및 재검증** 절차를 거칩니다.
+
+| Tier | Namespace | 필수 Label 세트 | 주요 역할/리소스 | 전용 노드 & Taint |
+|------|-----------|-----------------|------------------|-------------------|
+| business-logic | `auth` | `tier=business-logic`, `domain=auth`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | Auth API Deploy/Service/Secret | `k8s-api-auth`, taint `domain=auth:NoSchedule` |
+| business-logic | `my` | `tier=business-logic`, `domain=my`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | My API | `k8s-api-my`, `domain=my:NoSchedule` |
+| business-logic | `scan` | `tier=business-logic`, `domain=scan`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | Scan API + 이미지 처리 | `k8s-api-scan`, `domain=scan:NoSchedule` |
+| business-logic | `character` | `tier=business-logic`, `domain=character`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | Character/Mission API | `k8s-api-character`, `domain=character:NoSchedule` |
+| business-logic | `location` | `tier=business-logic`, `domain=location`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | Location/Map API | `k8s-api-location`, `domain=location:NoSchedule` |
+| business-logic | `info` | `tier=business-logic`, `domain=info`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | Recycle-Info API | `k8s-api-info`, `domain=info:NoSchedule` |
+| business-logic | `chat` | `tier=business-logic`, `domain=chat`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | Chat/LLM API | `k8s-api-chat`, `domain=chat:NoSchedule` |
+| data | `postgres` | `tier=data`, `data-type=postgres`, `role=database`, `app.kubernetes.io/part-of=ecoeco-backend` | `postgresql` CR, DB Secret | `k8s-postgresql`, `node-role.kubernetes.io/infrastructure=true:NoSchedule` |
+| data | `redis` | `tier=data`, `data-type=redis`, `role=cache`, `app.kubernetes.io/part-of=ecoeco-backend` | `RedisFailover` CR, Sentinel | `k8s-redis`, `node-role.kubernetes.io/infrastructure=true:NoSchedule` |
+| integration | `rabbitmq` | `tier=integration`, `role=messaging`, `app.kubernetes.io/part-of=ecoeco-backend` | RabbitMQ Cluster/Stream | `k8s-rabbitmq`, `node-role.kubernetes.io/infrastructure=true:NoSchedule` |
+| observability | `prometheus` | `tier=observability`, `role=metrics`, `app.kubernetes.io/part-of=ecoeco-backend` | kube-prometheus-stack (Prometheus/Alertmanager) | `k8s-monitoring`, `node-role.kubernetes.io/infrastructure=true:NoSchedule` |
+| observability | `grafana` | `tier=observability`, `role=dashboards`, `app.kubernetes.io/part-of=ecoeco-backend` | Grafana (helm/grafana) | `k8s-monitoring`, `node-role.kubernetes.io/infrastructure=true:NoSchedule` |
+| infrastructure | `platform-system` | `tier=infrastructure`, `app.kubernetes.io/part-of=ecoeco-platform` | External Secrets Operator 등 플랫폼 컨트롤러 | Control Plane (`k8s-master`), toleration `node-role.kubernetes.io/control-plane` |
+| infrastructure | `data-system` | `tier=infrastructure`, `app.kubernetes.io/part-of=ecoeco-platform` | Postgres/Redis Operators (Helm) | Control Plane (`k8s-master`), toleration `node-role.kubernetes.io/control-plane` |
+| infrastructure | `messaging-system` | `tier=infrastructure`, `app.kubernetes.io/part-of=ecoeco-platform` | RabbitMQ Operator/CRDs | Control Plane (`k8s-master`), toleration `node-role.kubernetes.io/control-plane` |
+
 
 **점검 항목**:
 - [ ] 모든 네임스페이스가 정의되어 있는가?
-- [ ] `tier` 레이블이 올바른가?
-  - `business-logic`: auth, my, scan, character, location, info, chat
-  - `integration`: messaging
-  - `data`: data
-  - `observability`: monitoring
-  - `infrastructure`: atlantis
-- [ ] `phase` 레이블이 올바른가? (Phase 1/2/3)
-- [ ] `app.kubernetes.io/part-of: ecoeco-backend` 레이블이 있는가?
+- [ ] `tier` / `role` 레이블이 올바른가?
+  - `business-logic` + `role=api`: auth, my, scan, character, location, info, chat
+  - `data`: postgres(`role=database`), redis(`role=cache`)
+  - `integration`: rabbitmq(`role=messaging`)
+  - `observability`: prometheus(`role=metrics`), grafana(`role=dashboards`)
+  - `infrastructure`: platform-system, data-system, messaging-system
+- [ ] `app.kubernetes.io/part-of: ecoeco-backend`(or `ecoeco-platform`) 레이블이 맞는가?
 
 **점검 명령**:
 ```bash
@@ -47,14 +68,15 @@ kubectl get namespaces -l app.kubernetes.io/part-of=ecoeco-backend --show-labels
 
 **예상 출력**:
 ```
-auth          Active   tier=business-logic,phase=1
-my            Active   tier=business-logic,phase=1
-scan          Active   tier=business-logic,phase=1
+auth        Active   tier=business-logic,role=api
+my          Active   tier=business-logic,role=api
+scan        Active   tier=business-logic,role=api
 ...
-data          Active   tier=data
-messaging     Active   tier=integration
-monitoring    Active   tier=observability
-atlantis      Active   tier=infrastructure
+redis       Active   tier=data,role=cache
+postgres    Active   tier=data,role=database
+rabbitmq    Active   tier=integration,role=messaging
+prometheus  Active   tier=observability,role=metrics
+grafana     Active   tier=observability,role=dashboards
 ```
 
 ---
@@ -63,9 +85,10 @@ atlantis      Active   tier=infrastructure
 
 
 **점검 항목**:
-- [ ] `data-ingress-from-api` PolicyTier 2 (`business-logic`)에서만 접근 허용하는가?
-- [ ] `messaging-ingress-from-api` Policy: Tier 2에서만 접근 허용하는가?
-- [ ] `monitoring-ingress` Policy: 모든 네임스페이스에서 접근 가능한가?
+- [ ] `postgres-ingress-from-business-logic` 정책이 `tier=business-logic` 네임스페이스만 허용하는가?
+- [ ] `redis-ingress-from-business-logic` 정책이 동일 조건을 만족하는가?
+- [ ] `prometheus-scrape-all` 정책이 모든 네임스페이스에서 9090/8080 접근을 허용하는가?
+- [ ] `grafana-allow-from-alb` 정책이 외부 트래픽을 허용하되 3000 포트만 열었는가?
 
 **점검 명령**:
 ```bash
@@ -90,13 +113,13 @@ from:
 **점검 항목**:
 - [ ] 모든 도메인 네임스페이스를 대상으로 하는 ServiceMonitor가 있는가?
 - [ ] `tier` 레이블이 올바른가?
-- [ ] `relabelings`에 `namespace`, `domain`, `phase`, `tier` 자동 추가 설정이 있는가?
+- [ ] `relabelings`에 `namespace`, `domain`, `tier` 자동 추가 설정이 있는가?
 - [ ] `namespaceSelector.matchNames`가 올바른 네임스페이스 목록을 포함하는가?
 
 **점검 명령**:
 ```bash
-kubectl get servicemonitors -n monitoring
-kubectl describe servicemonitor api-services-all-domains -n monitoring
+kubectl get servicemonitors -n prometheus
+kubectl describe servicemonitor api-services-all-domains -n prometheus
 ```
 
 **검증 포인트**:
@@ -124,7 +147,6 @@ namespaceSelector:
 **점검 항목**:
 - [ ] 각 도메인의 `namespace` 필드가 도메인명과 일치하는가?
 - [ ] `commonLabels.domain`이 올바른가?
-- [ ] `commonLabels.phase`가 올바른가?
 
 **점검 명령**:
 ```bash
@@ -151,9 +173,9 @@ namespaceSelector:
 
 **예상 출력**:
 ```
-POSTGRES_HOST: postgresql.data.svc.cluster.local  # ✅ "db" 아님!
-REDIS_HOST: redis.data.svc.cluster.local          # ✅ "db" 아님!
-RABBITMQ_HOST: rabbitmq.messaging.svc.cluster.local  # ✅ "db" 아님!
+POSTGRES_HOST: postgresql.postgres.svc.cluster.local  # ✅ "db" 아님!
+REDIS_HOST: redis.redis.svc.cluster.local             # ✅ "db" 아님!
+RABBITMQ_HOST: rabbitmq.rabbitmq.svc.cluster.local    # ✅ "db" 아님!
 ```
 
 **❌ 잘못된 예**:
@@ -187,7 +209,6 @@ kubectl describe application ecoeco-api-auth -n argocd
 # generators.list.elements
 - domain: auth
   namespace: auth  # ✅ 도메인명과 일치
-  phase: "1"
 
 # template.metadata.labels
 labels:
@@ -233,10 +254,9 @@ auth          auth-ingress          ecoeco-main    10
 my            my-ingress            ecoeco-main    11
 scan          scan-ingress          ecoeco-main    12
 ...
-atlantis      atlantis-ingress      ecoeco-main    20
 argocd        argocd-ingress        ecoeco-main    21
-monitoring    grafana-ingress       ecoeco-main    30
-monitoring    prometheus-ingress    ecoeco-main    40
+grafana       grafana-ingress       ecoeco-main    30
+prometheus    prometheus-ingress    ecoeco-main    40
 ```
 
 **검증 포인트**:
@@ -278,10 +298,11 @@ spec:
 
 
 **점검 항목**:
-- [ ] `postgres_namespace`가 `data`인가?
-- [ ] `redis_namespace`가 `data`인가?
-- [ ] `rabbitmq_namespace`가 `messaging`인가?
-- [ ] `monitoring_namespace`가 `monitoring`인가?
+- [ ] `postgres_namespace`가 `postgres`인가?
+- [ ] `redis_namespace`가 `redis`인가?
+- [ ] `rabbitmq_namespace`가 `rabbitmq`인가?
+- [ ] `monitoring_namespace`가 `prometheus`인가?
+- [ ] `grafana_namespace`가 `grafana`인가?
 - [ ] `atlantis_namespace`가 `atlantis`인가? (정의되어 있는가?)
 
 **점검 명령**:
@@ -290,10 +311,11 @@ spec:
 
 **예상 출력**:
 ```yaml
-postgres_namespace: "data"       # ✅ "db" 아님!
-redis_namespace: "data"          # ✅ "db" 아님!
-rabbitmq_namespace: "messaging"  # ✅
-monitoring_namespace: "monitoring"
+postgres_namespace: "postgres"
+redis_namespace: "redis"
+rabbitmq_namespace: "rabbitmq"
+monitoring_namespace: "prometheus"
+grafana_namespace: "grafana"
 atlantis_namespace: "atlantis"
 ```
 
@@ -303,7 +325,7 @@ atlantis_namespace: "atlantis"
 
 
 **점검 항목**:
-- [ ] `domain-based.yaml` 복사 및 적용 태스크가 있는가?
+- [ ] `workloads/namespaces/base/namespaces.yaml` 적용 태스크가 있는가?
 - [ ] `domain-isolation.yaml` 복사 및 적용 태스크가 있는가?
 - [ ] `servicemonitors-domain-ns.yaml` 복사 및 적용 태스크가 있는가?
 
@@ -348,22 +370,21 @@ kubectl create secret generic postgresql-secret \  # ✅ "postgres-secret" 아�
 |--------|------------|-------------|----------|
 | AWS Credentials | `aws-credentials` | `workers`, `data`, `scan` | `scripts/create-aws-credentials-secret.sh` |
 
-**점검 항목**:
-- [ ] PostgreSQL Secret이 `data` 네임스페이스에 `postgresql-secret` 이름으로 생성되는가?
-- [ ] RabbitMQ Secret이 `messaging` 네임스페이스에 생성되는가?
+- [ ] PostgreSQL Secret이 `postgres` 네임스페이스에 `postgresql-secret` 이름으로 생성되는가?
+- [ ] RabbitMQ Secret이 `rabbitmq` 네임스페이스에 생성되는가?
 - [ ] AWS Credentials Secret이 필요한 네임스페이스에 모두 생성되었는가?
 - [ ] Worker Deployments가 올바른 Secret 이름을 참조하는가?
 
 **점검 명령**:
 ```bash
 # Secret 존재 확인
-kubectl get secrets -n data
-kubectl get secrets -n messaging
+kubectl get secrets -n postgres
+kubectl get secrets -n rabbitmq
 kubectl get secrets -n workers
 kubectl get secrets -n atlantis
 
 # PostgreSQL Secret 확인
-kubectl get secret postgresql-secret -n data -o yaml
+kubectl get secret postgresql-secret -n postgres -o yaml
 
 # AWS Credentials Secret 확인
 kubectl get secret aws-credentials -n workers -o yaml
@@ -389,7 +410,7 @@ export AWS_SECRET_ACCESS_KEY='your-secret-key'
 
 **점검 항목**:
 - [ ] ~~`api` 네임스페이스 생성 태스크가 제거되었는가?~~ (✅ 제거됨)
-- [ ] `domain-based-api-ingress.yaml` 적용 태스크가 있는가?
+- [ ] `workloads/ingress/apps/base/api-ingress.yaml` 적용 태스크가 있는가?
 - [ ] `infrastructure-ingress.yaml` 적용 태스크가 있는가?
 - [ ] ACM 인증서 ARN 치환이 올바르게 작동하는가?
 
@@ -436,7 +457,7 @@ for domain in auth my scan character location info chat; do
     fi
     
     # 데이터베이스 연결 문자열 확인
-        echo "  ❌ FAIL: deployment-patch.yaml에서 'db' 네임스페이스 발견 (data 또는 messaging이어야 함)"
+        echo "  ❌ FAIL: deployment-patch.yaml에서 'db' 네임스페이스 발견 (postgres/redis/rabbitmq 중 하나여야 함)"
         ((ERRORS++))
     fi
 done
@@ -481,8 +502,8 @@ fi
 
 echo -n "  rabbitmq_namespace... "
 RABBITMQ_NS=$(grep "^rabbitmq_namespace:" $ANSIBLE_VARS | awk '{print $2}' | tr -d '"')
-if [ "$RABBITMQ_NS" != "messaging" ]; then
-    echo "❌ FAIL: expected 'messaging', got '$RABBITMQ_NS'"
+if [ "$RABBITMQ_NS" != "rabbitmq" ]; then
+    echo "❌ FAIL: expected 'rabbitmq', got '$RABBITMQ_NS'"
     ((ERRORS++))
 else
     echo "✅ OK"
@@ -538,13 +559,13 @@ chmod +x scripts/check-namespace-consistency.sh
 
 | 레이어 | 파일 | 점검 항목 | 예상 값 |
 |--------|------|-----------|---------|
-| | | `REDIS_HOST` | `redis.data.svc.cluster.local` (❌ `.db.` 아님!) |
-| | | `RABBITMQ_HOST` | `rabbitmq.messaging.svc.cluster.local` (❌ `.db.` 아님!) |
+| | | `REDIS_HOST` | `redis.redis.svc.cluster.local` (❌ `.db.` 아님!) |
+| | | `RABBITMQ_HOST` | `rabbitmq.rabbitmq.svc.cluster.local` (❌ `.db.` 아님!) |
 | | | `template.metadata.labels.tier` | `business-logic` (❌ `api` 아님!) |
 | | | `template.spec.destination.namespace` | `'{{namespace}}'` (동적 할당) |
-| | | `redis_namespace` | `data` (❌ `db` 아님!) |
-| | | `rabbitmq_namespace` | `messaging` |
-| | | `monitoring_namespace` | `monitoring` |
+| | | `redis_namespace` | `redis` |
+| | | `rabbitmq_namespace` | `rabbitmq` |
+| | | `monitoring_namespace` | `prometheus` |
 | | | API 노드 | auth, my, scan, character, location, info, chat (7개) |
 | | | 제거된 노드 참조 | ❌ api_waste, api_userinfo, api_recycle_info, api_chat_llm |
 | | `.github/workflows/infrastructure.yml` | Terraform Plan | PR 생성 시 자동 실행 |
@@ -691,7 +712,7 @@ k8s-api-chat ansible_host=... domain=chat
 
 ### 1. Git 브랜치 전략
 - 네임스페이스 변경은 **반드시 별도 브랜치에서 작업**하세요.
-- 예: `refactor/namespace-cleanup`, `feat/domain-based-namespaces`
+- 예: `refactor/namespace-cleanup`, `feat/namespace-standardization`
 
 ### 2. 배포 전 검증
 - 네임스페이스 변경 후 **main 브랜치에 머지하기 전** 이 체크리스트를 실행하세요.
