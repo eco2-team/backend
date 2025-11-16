@@ -11,9 +11,11 @@ spec:
     repoURL: https://github.com/SeSACTHON/backend.git
     targetRevision: refactor/gitops-sync-wave
     path: platform/charts/grafana
+    directory:
+      include: app.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: grafana
+    namespace: argocd
   syncPolicy:
     automated:
       prune: true

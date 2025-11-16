@@ -28,9 +28,11 @@ spec:
         repoURL: https://github.com/SeSACTHON/backend.git
         targetRevision: refactor/gitops-sync-wave
         path: "{{path}}"
+        directory:
+          include: app.yaml
       destination:
         server: https://kubernetes.default.svc
-        namespace: "{{namespace}}"
+        namespace: argocd
       syncPolicy:
         automated:
           prune: true
