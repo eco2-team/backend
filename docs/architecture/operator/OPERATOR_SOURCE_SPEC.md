@@ -68,12 +68,27 @@
 
 ---
 
-## 5. 참고 문서
+## 5. Ingress / Load Balancer Controller
+
+| Controller | Source / Chart | 주요 CRD/리소스 | 특징 | 비고 |
+|------------|----------------|-----------------|------|------|
+| **AWS Load Balancer Controller (ALB Controller)** | Helm: `https://aws.github.io/eks-charts`, chart `aws-load-balancer-controller`, version `1.8.3` (ArtifactHub 안정 릴리스) | `TargetGroupBinding` (`elbv2.k8s.aws/v1beta1`) | - AWS 공식 Controller, NLB/ALB 지원<br>- IRSA 필수 (IAM policy: `AWSLoadBalancerControllerIAMPolicy`) | Wave 15 (`argocd/apps/15-ingress.yaml`), `platform/crds/alb-controller`에서 CRD 관리 |
+
+### 요구사항
+- Namespace: `kube-system`
+- Secret/Config: `alb-controller-values` (VPC ID, Subnet IDs, SG ID 등 Terraform output 연동)
+- IAM: IRSA Role에 `AWSLoadBalancerControllerIAMPolicy` 부여 (`alb-controller-iam.tf`)
+- 서비스: NodePort 또는 `alb.ingress.kubernetes.io/target-type: ip` 선택 (현재 Instance 모드)
+
+---
+
+## 6. 참고 문서
 - Zalando Postgres Operator Docs: <https://postgres-operator.readthedocs.io/>
 - CloudNativePG Docs: <https://cloudnative-pg.io/documentation/>
 - Spotahome Redis Operator: <https://github.com/spotahome/redis-operator>
 - RabbitMQ Cluster Operator: <https://www.rabbitmq.com/kubernetes/operator/cluster-operator/index.html>
 - Prometheus Operator: <https://github.com/prometheus-operator/kube-prometheus/tree/main>
+- AWS Load Balancer Controller Helm Chart: <https://artifacthub.io/packages/helm/aws/aws-load-balancer-controller>
 
 > 이 문서는 운영 중인 Operator의 소스와 스펙을 추적하기 위한 기준 정보이며, 새 Operator를 도입할 경우 동일한 테이블 포맷으로 항목을 추가하고 Helm/Kustomize 경로를 문서에 반영한다.
 

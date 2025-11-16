@@ -72,7 +72,8 @@ spec:
 
 ### 3.1 ALB Controller (AWS Load Balancer Controller)
 - **CRD**: `TargetGroupBinding` 등 CRD를 `platform/crds/alb-controller`에서 관리.  
-- **Helm**: AWS 공식 차트(`aws-load-balancer-controller`) 사용.  
+- **Helm Source**: AWS GitHub/EKS Charts `https://aws.github.io/eks-charts`, chart `aws-load-balancer-controller`, 버전 `1.8.3`(ArtifactHub 안정 릴리스).  
+- **필수 설정**: IRSA Role (`AWSLoadBalancerControllerIAMPolicy`), `alb-controller-values` Secret에서 `clusterName`, `region`, `vpcId`, `publicSubnetIds`, `albSecurityGroupId` 주입.  
 - **Values 예시**:  
   ```yaml
   clusterName: sesacthon-prod

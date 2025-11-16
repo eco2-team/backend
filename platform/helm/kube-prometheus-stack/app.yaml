@@ -29,9 +29,7 @@ spec:
         - repoURL: https://prometheus-community.github.io/helm-charts
           chart: kube-prometheus-stack
           targetRevision: 56.21.1
-        - repoURL: https://github.com/SeSACTHON/backend.git
-          targetRevision: HEAD
-          ref: values
+
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{namespace}}"
