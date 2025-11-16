@@ -17,7 +17,7 @@ ArgoCD App-of-Apps는 `argocd/apps/root-app.yaml`에서 시작하며, `ARGOCD_SY
 | `argocd/apps/root-app.yaml` | App-of-Apps Application (dev/prod) | - | 하위 `argocd/apps/*.yaml` 재귀 Sync |
 | `argocd/apps/*.yaml` | Wave별 Application / ApplicationSet 선언 | -1 ~ 70+ | 파일명에 Wave 명시 (`00-*.yaml`) |
 | `platform/crds/*` | ALB / Prometheus / Postgres / ESO CRD 원본 | -1 | `argocd/apps/00-namespaces.yaml`에서 적용 |
-| `platform/helm/*` | 벤더 Helm 스택 (cert-manager, postgres-operator 등) | 10~50 | Helm ApplicationSet + multi-source values |
+| `platform/helm/*` | 벤더 Helm 스택 (postgres-operator, alb-controller 등) | 5~50 | Helm ApplicationSet + multi-source values |
 | `k8s/*` & `workloads/*` | Kustomize base/overlay (namespaces, data CR 등) | 0~70 | `argocd/apps/**` 에서 참조 |
 
 ---
@@ -29,8 +29,8 @@ ArgoCD App-of-Apps는 `argocd/apps/root-app.yaml`에서 시작하며, `ARGOCD_SY
 | `00-namespaces.yaml` | -1 | 네임스페이스, Core CRD (Prometheus 등) | 없음 |
 | `01-infrastructure.yaml` | 0 | RBAC, ServiceAccount, StorageClass | `cluster-config`, `irsa-role-arn` |
 | `05-network.yaml` *(예정)* | 5 | Calico 기본 정책, 노드 라벨/taint | `network-policy-defaults` (선택) |
-| `10-platform.yaml` | 10 | cert-manager, external-dns, external-secrets | `route53-credentials`, `acme-email` |
-| `15-ingress.yaml` | 15 | AWS Load Balancer Controller + ClusterIssuer | `alb-controller-values` Secret |
+| `10-platform.yaml` | 10 | ExternalSecrets Operator | `aws-region`, `cluster-name` |
+| `15-ingress.yaml` | 15 | AWS Load Balancer Controller (ACM은 Terraform) | `alb-controller-values` Secret (VPC/Subnet/ACM ARN) |
 | `20-monitoring-operators.yaml` | 20 | Prometheus Operator, Alertmanager CRD | `alertmanager-config`, `grafana-datasource` |
 | `25-data-operators.yaml` | 25 | Postgres / Redis / RabbitMQ Operator | `s3-backup-credentials` |
 | `30-monitoring-instances.yaml` | 30 | kube-prometheus-stack (Prom/Grafana) | Prometheus Rule, Grafana Dashboard CM |
@@ -54,10 +54,13 @@ platform/
 │  ├─ postgres-operator/     (Wave 25, Helm repo: Zalando OSS)               │
 │  ├─ redis-operator/        (Wave 25, Helm repo: ot-container-kit)          │
 │  ├─ rabbitmq-operator/     (Wave 25, Helm repo: Bitnami)                   │
-│  ├─ alb-controller/        (Wave 15)                                       │
+│  ├─ calico/                (Wave 5)                                        │
 │  ├─ external-secrets-operator/ (Wave 10)                                   │
-│  ├─ cert-manager/          (Wave 10)                                       │
-│  ├─ external-dns/          (Wave 10)                                       │
+│  ├─ alb-controller/        (Wave 15)                                       │
+│  ├─ kube-prometheus-stack/ (Wave 20)                                       │
+│  ├─ postgres-operator/     (Wave 25)                                       │
+│  ├─ redis-operator/        (Wave 25)                                       │
+│  ├─ rabbitmq-operator/     (Wave 25)                                       │
 │  └─ atlantis/              (Wave 50)                                       │
 └─ crds/
    ├─ alb-controller/*.yaml

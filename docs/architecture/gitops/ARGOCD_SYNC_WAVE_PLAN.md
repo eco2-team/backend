@@ -14,8 +14,8 @@
 | -1 | Namespaces · CRD Seed | `k8s/namespaces`, Core CRD (`prometheuses.monitoring.coreos.com`) | 없음 | `argocd/apps/00-namespaces.yaml` |
 | 0 | RBAC · Storage | ClusterRoleBinding, ServiceAccount, StorageClass, EBS-CSI | Wave -1 | `argocd/apps/01-infrastructure.yaml` |
 | 5 | Network | CNI (Calico), default NetworkPolicy, Node labels/taints | Wave 0 | `argocd/apps/05-network.yaml` *(신규 예정)* |
-| 10 | Platform | cert-manager, external-dns, secrets sync Controller | Wave 5 | `argocd/apps/10-platform.yaml` |
-| 15 | Ingress | AWS Load Balancer Controller, TLS issuers | Wave 10 | `argocd/apps/15-ingress.yaml` |
+| 10 | Platform | ExternalSecrets Operator | Wave 5 | `argocd/apps/10-platform.yaml` |
+| 15 | Ingress | AWS Load Balancer Controller (ACM via Terraform) | Wave 10 | `argocd/apps/15-ingress.yaml` |
 | 20 | Monitoring Operators | Prometheus Operator, Alertmanager CRDs | Wave 15 | `argocd/apps/20-monitoring-operators.yaml` |
 | 25 | Data Operators | Zalando Postgres Operator, Spotahome Redis Operator, RabbitMQ Cluster Operator | Wave 20 | `argocd/apps/25-data-operators.yaml` |
 | 30 | Monitoring Instances | kube-prometheus-stack (Prometheus, Grafana, Alertmanager) | Wave 20 | `argocd/apps/30-monitoring-instances.yaml` |
@@ -23,7 +23,7 @@
 | 40 | Exporters | Custom metrics exporters, ServiceMonitor, PodMonitor | Wave 30 & 35 | `argocd/apps/40-exporters.yaml` |
 | 50 | GitOps / Ops Tools | Atlantis, Argo Workflow, Internal dashboards | Wave 35 | `argocd/apps/50-tools.yaml` |
 | 60+ | Applications | API Deployments, Celery Workers, batch jobs | 모든 하위 계층 | `argocd/apps/60-apis-app-of-apps.yaml` |
-| 70+ | Application Ingress | ALB, instance+NodePort Ingress | Wave 60 | `argocd/apps/70-applications-ingress.yaml` |
+| 70+ | Application Ingress | instance+NodePort Ingress for ALB Path Based Routing | Wave 60 | `argocd/apps/70-applications-ingress.yaml` |
 
 ### 참고
 - Wave 번호는 5 단위로 확보해도 되지만, ArgoCD는 정수만 비교하므로 1 단위로도 표현 가능하다. 본 문서는 `sync-wave` 주석 또는 `argocd.argoproj.io/sync-wave` 어노테이션을 사용했을 때 직관적인 구간 배분을 목적으로 5 단위 간격을 권장한다.
@@ -36,7 +36,7 @@
 1. **CRD → Operator → Instance**  
    - CRD가 필요한 경우, Wave -1에서 설치하고, Operator Wave에서 컨트롤러를 배포한 뒤, Instance Wave에서 Custom Resource를 선언한다.
 2. **Network와 TLS 선행**  
-   - cert-manager, external-dns는 Network(AWS CNI/Calico, NetworkPolicy)가 준비된 후 배포한다. Ingress Controller는 TLS ClusterIssuer가 존재해야 하므로 Wave 15로 고정한다.
+   - ExternalSecrets는 Network(Calico, NetworkPolicy) 준비 후 배포한다. ALB Controller는 ACM Certificate ARN(Terraform 생성)이 필요하므로 Wave 15로 고정한다.
 3. **모니터링 관점**  
    - Prometheus Operator가 Ingress보다 늦으면 Admission Webhook이 생성되지 못해 실패할 수 있으므로 Wave 20 ≥ Wave 15를 강제한다.
 4. **데이터 계층 보호**  
