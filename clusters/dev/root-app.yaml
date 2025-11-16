@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-root
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: dev-root-app
+    environment: dev
+spec:
+  project: dev
+  source:
+    repoURL: https://github.com/SeSACTHON/backend.git
+    targetRevision: HEAD
+    path: clusters/dev/apps
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
