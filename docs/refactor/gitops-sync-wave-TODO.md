@@ -22,7 +22,8 @@
 - [x] 10-2. IRSA Roles (Terraform)
 - [x] 10-3. JSON → YAML patch 전환
 - [x] 10-4. overlays 플랫 구조로 변경
-- [🔄] 11. Clusters App-of-Apps 생성 (부분 완료)
+- [x] 11. Clusters App-of-Apps 생성
+- [x] 11-1. Wave 번호 파일명 일치화
 - [ ] 12. Ansible 부트스트랩 전용 정리
 - [ ] 13. 최종 검증 및 문서 동기화
 
@@ -215,28 +216,37 @@
 
 ---
 
-## 11. Clusters App-of-Apps 생성 🔄
+## 11. Clusters App-of-Apps 생성 ✅
 
 ### 작업 항목
 - [x] `clusters/dev/root-app.yaml`: Dev 환경 루트 Application
-- [x] `clusters/dev/apps/00-crds.yaml`: Wave -1, platform/crds 참조
-- [x] `clusters/dev/apps/05-namespaces.yaml`: Wave 0, workloads/namespaces/overlays/dev
-- [x] `clusters/dev/apps/10-network-policies.yaml`: Wave 5, NetworkPolicy
-- [ ] `clusters/dev/apps/08-rbac-storage.yaml`: Wave 0, RBAC + StorageClass
-- [ ] `clusters/dev/apps/15-platform.yaml`: Wave 10, ExternalSecrets + cert-manager
-- [ ] `clusters/dev/apps/20-alb-controller.yaml`: Wave 15, ALB Helm
-- [ ] `clusters/dev/apps/25-monitoring-operator.yaml`: Wave 20, kube-prometheus-stack
-- [ ] `clusters/dev/apps/30-data-operators.yaml`: Wave 25, Postgres/Redis/RabbitMQ
-- [ ] `clusters/dev/apps/40-monitoring-cr.yaml`: Wave 30, Prometheus CR
-- [ ] `clusters/dev/apps/45-data-cr.yaml`: Wave 35, DB Instance CR
-- [ ] `clusters/dev/apps/58-secrets.yaml`: Wave 58, ExternalSecrets
-- [x] `clusters/dev/apps/60-apis-appset.yaml`: Wave 60+, API ApplicationSet
-- [x] `clusters/dev/apps/70-ingress.yaml`: Wave 70+, Ingress
+- [x] `clusters/dev/apps/00-crds.yaml`: Wave 0, platform/crds 참조
+- [x] `clusters/dev/apps/02-namespaces.yaml`: Wave 2, workloads/namespaces/dev
+- [x] `clusters/dev/apps/03-rbac-storage.yaml`: Wave 3, RBAC + StorageClass
+- [x] `clusters/dev/apps/05-calico.yaml`: Wave 5, Calico CNI
+- [x] `clusters/dev/apps/06-network-policies.yaml`: Wave 6, NetworkPolicy
+- [x] `clusters/dev/apps/10-secrets-operator.yaml`: Wave 10, ExternalSecrets Operator
+- [x] `clusters/dev/apps/11-secrets-cr.yaml`: Wave 11, ExternalSecret CR
+- [x] `clusters/dev/apps/15-alb-controller.yaml`: Wave 15, ALB Helm
+- [x] `clusters/dev/apps/20-monitoring-operator.yaml`: Wave 20, kube-prometheus-stack
+- [x] `clusters/dev/apps/25-data-operators.yaml`: Wave 25, Postgres/Redis/RabbitMQ
+- [x] `clusters/dev/apps/35-data-cr.yaml`: Wave 35, DB Instance CR
+- [x] `clusters/dev/apps/60-apis-appset.yaml`: Wave 60, API ApplicationSet
+- [x] `clusters/dev/apps/70-ingress.yaml`: Wave 70, Ingress
 - [x] `clusters/dev/README.md`: Dev 환경 가이드
-- [ ] `clusters/prod/`: 동일 구조
+- [x] `clusters/prod/`: 동일 구조 (13개 Application)
+- [x] `clusters/prod/README.md`: Prod 환경 가이드
 
 ### 커밋
-- `4303d13` feat: add dev cluster app-of-apps structure (부분 완료)
+- `4303d13` feat: add dev cluster app-of-apps structure
+- `f9e66ae` feat: complete dev/prod cluster app-of-apps
+- `bfb718a` fix: correct prod cluster structure
+- `ddb97c5` feat: add prod cluster apps
+- `9576289` docs: update clusters readme with complete wave list
+- `d8c18da` refactor: rename platform to secrets-operator, move secrets to wave 11
+- `91cda51` fix: ensure calico before network policies
+- `9caed4c` refactor: align filenames with wave numbers
+- `e4a0230` docs: update wave plan with actual numbers and filenames
 
 ### 참고
 - `ARGOCD_SYNC_WAVE_PLAN.md` 표 기준

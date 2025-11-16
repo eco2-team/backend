@@ -11,8 +11,8 @@
 
 | Wave | 계층 | 대표 리소스 | 선행 의존성 | ArgoCD 파일 (clusters/{env}/apps) |
 |------|------|-------------|-------------|-------------------------------|
-| -1 | CRD Seed | ALB, Prometheus, Postgres, ESO CRDs | 없음 | `00-crds.yaml` |
-| 2 | Namespaces | 13개 Namespace (tier, domain 레이블) | Wave -1 | `02-namespaces.yaml` |
+| 0 | CRD Seed | ALB, Prometheus, Postgres, ESO CRDs | 없음 | `00-crds.yaml` |
+| 2 | Namespaces | 13개 Namespace (tier, domain 레이블) | Wave 0 | `02-namespaces.yaml` |
 | 3 | RBAC · Storage | ServiceAccount, ClusterRole, Role, StorageClass | Wave 2 | `03-rbac-storage.yaml` |
 | 5 | CNI | Calico (VXLAN, BGP disabled) | Wave 3 | `05-calico.yaml` |
 | 6 | NetworkPolicy | default-deny, tier 기반 격리 (L3/L4) | Wave 5 | `06-network-policies.yaml` |
