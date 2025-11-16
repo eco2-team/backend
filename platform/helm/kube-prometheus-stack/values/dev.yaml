@@ -28,6 +28,12 @@ prometheusOperator:
       enabled: true
   tls:
     enabled: false
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
 prometheus:
   prometheusSpec:
     replicas: 1

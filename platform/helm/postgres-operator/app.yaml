@@ -26,6 +26,14 @@ spec:
         - repoURL: https://github.com/zalando/postgres-operator.git
           targetRevision: v1.10.0
           path: charts/postgres-operator
+          helm:
+            values: |
+              nodeSelector:
+                node-role.kubernetes.io/control-plane: ""
+              tolerations:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: Exists
+                  effect: NoSchedule
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{namespace}}"

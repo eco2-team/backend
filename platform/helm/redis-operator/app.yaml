@@ -25,6 +25,22 @@ spec:
         - repoURL: https://github.com/spotahome/redis-operator.git
           targetRevision: v1.0.0
           path: deploy
+          kustomize:
+            patches:
+              - target:
+                  kind: Deployment
+                  name: redisoperator
+                patch: |
+                  - op: add
+                    path: /spec/template/spec/nodeSelector
+                    value:
+                      node-role.kubernetes.io/control-plane: ""
+                  - op: add
+                    path: /spec/template/spec/tolerations
+                    value:
+                      - key: node-role.kubernetes.io/control-plane
+                        operator: Exists
+                        effect: NoSchedule
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{namespace}}"

@@ -26,10 +26,11 @@ prometheusOperator:
     patch:
       enabled: true
   tolerations:
-    - key: dedicated
-      operator: Equal
-      value: monitoring
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
       effect: NoSchedule
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
 prometheus:
   prometheusSpec:
     replicas: 2
