@@ -12,11 +12,9 @@ spec:
           - env: dev
             project: dev
             namespace: data-system
-            valueFile: platform/helm/redis-operator/values/dev.yaml
           - env: prod
             project: prod
             namespace: data-system
-            valueFile: platform/helm/redis-operator/values/prod.yaml
   template:
     metadata:
       name: {{env}}-redis-operator
@@ -24,12 +22,9 @@ spec:
     spec:
       project: {{project}}
       sources:
-        - repoURL: https://ot-container-kit.github.io/helm-charts
-          chart: redis-operator
-          targetRevision: 0.15.1
-        - repoURL: https://github.com/SeSACTHON/backend.git
-          targetRevision: HEAD
-          ref: values
+        - repoURL: https://github.com/spotahome/redis-operator.git
+          targetRevision: v1.0.0
+          path: deploy
       destination:
         server: https://kubernetes.default.svc
         namespace: {{namespace}}
@@ -39,7 +34,3 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
-      helm:
-        releaseName: redis-operator
-        valueFiles:
-          - $values/{{ valueFile }}
