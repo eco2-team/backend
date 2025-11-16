@@ -12,17 +12,18 @@
 | Wave | 계층 | 대표 리소스 | 선행 의존성 | ArgoCD 예시 |
 |------|------|-------------|-------------|-------------|
 | -1 | Namespaces · CRD Seed | `k8s/namespaces`, Core CRD (`prometheuses.monitoring.coreos.com`) | 없음 | `argocd/apps/00-namespaces.yaml` |
-| 0 | RBAC · Storage | ClusterRoleBinding, ServiceAccount, StorageClass, EBS-CSI | Wave -1 | `argocd/apps/10-infrastructure.yaml` |
-| 5 | Network | CNI (Calico), default NetworkPolicy, Node labels/taints | Wave 0 | `argocd/apps/15-network.yaml` *(신규 예정)* |
-| 10 | Platform | cert-manager, external-dns, secrets sync Controller | Wave 5 | `argocd/apps/20-platform.yaml` |
-| 15 | Ingress | AWS Load Balancer Controller, TLS issuers | Wave 10 | `argocd/apps/25-ingress.yaml` |
-| 20 | Monitoring Operators | Prometheus Operator, Alertmanager CRDs | Wave 15 | `argocd/apps/30-monitoring-operators.yaml` |
-| 25 | Data Operators | Zalando Postgres Operator, Spotahome Redis Operator, RabbitMQ Cluster Operator | Wave 20 | `argocd/apps/40-data-operators.yaml` |
-| 30 | Monitoring Instances | kube-prometheus-stack (Prometheus, Grafana, Alertmanager) | Wave 20 | `argocd/apps/45-monitoring-instances.yaml` |
-| 35 | Data Instances | PostgreSQL / Redis / RabbitmqCluster CR, PVC, Secrets | Wave 25 | `argocd/apps/50-data-clusters.yaml` |
-| 40 | Exporters | Custom metrics exporters, ServiceMonitor, PodMonitor | Wave 30 & 35 | `argocd/apps/55-exporters.yaml` |
-| 50 | GitOps / Ops Tools | Atlantis, Argo Workflow, Internal dashboards | Wave 35 | `argocd/apps/60-tools.yaml` |
-| 60+ | Applications | API Deployments, Celery Workers, batch jobs | 모든 하위 계층 | `argocd/apps/80-apis-app-of-apps.yaml` |
+| 0 | RBAC · Storage | ClusterRoleBinding, ServiceAccount, StorageClass, EBS-CSI | Wave -1 | `argocd/apps/01-infrastructure.yaml` |
+| 5 | Network | CNI (Calico), default NetworkPolicy, Node labels/taints | Wave 0 | `argocd/apps/05-network.yaml` *(신규 예정)* |
+| 10 | Platform | cert-manager, external-dns, secrets sync Controller | Wave 5 | `argocd/apps/10-platform.yaml` |
+| 15 | Ingress | AWS Load Balancer Controller, TLS issuers | Wave 10 | `argocd/apps/15-ingress.yaml` |
+| 20 | Monitoring Operators | Prometheus Operator, Alertmanager CRDs | Wave 15 | `argocd/apps/20-monitoring-operators.yaml` |
+| 25 | Data Operators | Zalando Postgres Operator, Spotahome Redis Operator, RabbitMQ Cluster Operator | Wave 20 | `argocd/apps/25-data-operators.yaml` |
+| 30 | Monitoring Instances | kube-prometheus-stack (Prometheus, Grafana, Alertmanager) | Wave 20 | `argocd/apps/30-monitoring-instances.yaml` |
+| 35 | Data Instances | PostgreSQL / Redis / RabbitmqCluster CR, PVC, Secrets | Wave 25 | `argocd/apps/35-data-clusters.yaml` |
+| 40 | Exporters | Custom metrics exporters, ServiceMonitor, PodMonitor | Wave 30 & 35 | `argocd/apps/40-exporters.yaml` |
+| 50 | GitOps / Ops Tools | Atlantis, Argo Workflow, Internal dashboards | Wave 35 | `argocd/apps/50-tools.yaml` |
+| 60+ | Applications | API Deployments, Celery Workers, batch jobs | 모든 하위 계층 | `argocd/apps/60-apis-app-of-apps.yaml` |
+| 70+ | Application Ingress | ALB, instance+NodePort Ingress | Wave 60 | `argocd/apps/70-applications-ingress.yaml` |
 
 ### 참고
 - Wave 번호는 5 단위로 확보해도 되지만, ArgoCD는 정수만 비교하므로 1 단위로도 표현 가능하다. 본 문서는 `sync-wave` 주석 또는 `argocd.argoproj.io/sync-wave` 어노테이션을 사용했을 때 직관적인 구간 배분을 목적으로 5 단위 간격을 권장한다.
