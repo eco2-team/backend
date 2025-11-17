@@ -15,7 +15,7 @@ kubectl get applications -n argocd
 kubectl get applicationset -n argocd
 
 # 노드 라벨/taint 확인
-kubectl get nodes --show-labels | grep sesacthon.io
+kubectl get nodes --show-labels | grep kubernetes.io
 kubectl describe node <node> | grep -A4 Taints
 ```
 
@@ -69,8 +69,8 @@ ansible-playbook -i ansible/inventory/hosts.ini ansible/site.yml
 ## 3. Incident Response Flow
 
 1. **로그 수집**
-   ```bash
-   kubectl get events -A --sort-by='.lastTimestamp'
+```bash
+kubectl get events -A --sort-by='.lastTimestamp'
    kubectl logs -n argocd sts/argocd-application-controller --tail=100
    ```
 2. **영향 범위 파악**
@@ -96,7 +96,7 @@ ansible-playbook -i ansible/inventory/hosts.ini ansible/site.yml
 | AWS TargetGroup 잔존 | 0 | 존재 시 destroy 실패 | `scripts/cleanup-vpc-resources.sh` 실행 |
 
 - **지원 채널**  
-  - GitHub Issues: https://github.com/SeSACTHON/backend/issues  
+- GitHub Issues: https://github.com/SeSACTHON/backend/issues
   - Slack: #backend-support (로그/명령 결과 첨부)  
   - AWS 리소스 장애: Terraform 담당자와 즉시 공유
 

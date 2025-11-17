@@ -4,8 +4,8 @@ metadata:
   name: grafana-ingress
   namespace: grafana
   annotations:
-    alb.ingress.sesacthon.io/certificate-arn: arn:aws:acm:ap-northeast-2:123456789012:certificate/DEV_GRAFANA_CERT
-  external-dns.alpha.sesacthon.io/managed-by: external-dns
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:123456789012:certificate/DEV_GRAFANA_CERT
+  external-dns.alpha.kubernetes.io/managed-by: external-dns
 spec:
   rules:
     - host: grafana.dev.growbin.app

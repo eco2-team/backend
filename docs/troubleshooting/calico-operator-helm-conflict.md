@@ -48,7 +48,7 @@
 
 ## 4. 예방 팁
 
-- 부트스트랩 단계에서 항상 Tigera Operator 버전과 Helm values를 동기화한다.
+- 부트스트랩 단계에서 항상 Tigera Operator 버전과 Helm overlay(`patch-application.yaml`)를 동기화한다.
 - `ansible/roles/argocd/tasks/main.yml`에 포함된 CNI Pre-check를 활용해 Calico DaemonSet이 준비되지 않았다면 ArgoCD 설치를 중단한다.
 - 신규 클러스터를 만들기 전에 `ansible/playbooks/04-cni-install.yml`만 단독으로 실행해 vxlan/bgp 설정을 검증한 뒤 Root-App을 배포한다.
 
@@ -56,7 +56,7 @@
 
 ## 5. 참고 문서
 
-- `platform/helm/calico/values/{env}.yaml`
+- `platform/helm/calico/{env}/patch-application.yaml`
 - `ansible/playbooks/04-cni-install.yml`
 - `docs/infrastructure/05-cni-comparison.md`
 

@@ -181,7 +181,7 @@ spec:
 
 **Custom Node Lifecycle Operator:**
 ```yaml
-apiVersion: nodelifecycle.sesacthon.io/v1alpha1
+apiVersion: nodelifecycle.kubernetes.io/v1alpha1
 kind: NodeConfig
 metadata:
   name: k8s-api-auth

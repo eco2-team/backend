@@ -91,7 +91,7 @@
 3. **검증 플로우**  
    - Helm chart upgrade 시 `helm template` + `kubeconform`으로 CRD 호환성 검사  
    - Operator Pod 변경 시 `kubectl describe deploy`에서 `image:` SHA 기록  
-   - App-of-Apps에 `sesacthon.io/operator-version` 라벨 추가하여 추적
+   - App-of-Apps에 `kubernetes.io/operator-version` 라벨 추가하여 추적
 
 ---
 

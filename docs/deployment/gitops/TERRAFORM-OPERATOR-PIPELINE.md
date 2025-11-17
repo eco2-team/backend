@@ -142,7 +142,7 @@ resource "null_resource" "deploy_operator" {
 
 ```yaml
 # k8s/operators/node-lifecycle/nodeconfig.yaml
-apiVersion: lifecycle.sesacthon.io/v1alpha1
+apiVersion: lifecycle.kubernetes.io/v1alpha1
 kind: NodeConfig
 metadata:
   name: worker-nodes

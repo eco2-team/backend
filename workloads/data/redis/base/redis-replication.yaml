@@ -14,9 +14,9 @@ spec:
   redisExporter:
     enabled: false
   nodeSelector:
-    sesacthon.io/infra-type: redis
+    kubernetes.io/infra-type: redis
   tolerations:
-    - key: sesacthon.io/infrastructure
+    - key: kubernetes.io/infrastructure
       operator: Equal
       value: "true"
       effect: NoSchedule

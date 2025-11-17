@@ -180,13 +180,13 @@
         "template": {
           "spec": {
             "tolerations": [
-              {"key": "node-role.sesacthon.io/control-plane", "operator": "Exists", "effect": "NoSchedule"},
-              {"key": "node-role.sesacthon.io/master", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "node-role.kubernetes.io/control-plane", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "node-role.kubernetes.io/master", "operator": "Exists", "effect": "NoSchedule"},
               {"key": "domain", "operator": "Exists", "effect": "NoSchedule"},
-              {"key": "sesacthon.io/infrastructure", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "kubernetes.io/infrastructure", "operator": "Exists", "effect": "NoSchedule"},
               {"key": "CriticalAddonsOnly", "operator": "Exists"},
-              {"key": "node.sesacthon.io/not-ready", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300},
-              {"key": "node.sesacthon.io/unreachable", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300}
+              {"key": "node.kubernetes.io/not-ready", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300},
+              {"key": "node.kubernetes.io/unreachable", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300}
             ]
           }
         }

@@ -27,7 +27,7 @@ Kubernetes 1.24부터 **kubelet 시작 시 `--node-labels`로 설정할 수 있�
 **허용되는 prefix:**
 - ✅ `kubelet.kubernetes.io/*`
 - ✅ `node.kubernetes.io/*`
-- ✅ 커스텀 도메인 (예: `sesacthon.io/*`, `company.com/*`)
+- ✅ 커스텀 도메인 (예: `kubernetes.io/*`, `company.com/*`)
 
 **금지된 prefix:**
 - ❌ `node-role.kubernetes.io/*`
@@ -61,16 +61,16 @@ EOF
 
 | 이전 (에러 발생) | 수정 (정상 동작) |
 |---|---|
-| `node-role.kubernetes.io/api=my` | `sesacthon.io/node-role=api` |
-| `node-role.kubernetes.io/worker=storage` | `sesacthon.io/node-role=worker` |
-| `node-role.kubernetes.io/infrastructure=postgresql` | `sesacthon.io/node-role=infrastructure` |
+| `node-role.kubernetes.io/api=my` | `kubernetes.io/node-role=api` |
+| `node-role.kubernetes.io/worker=storage` | `kubernetes.io/node-role=worker` |
+| `node-role.kubernetes.io/infrastructure=postgresql` | `kubernetes.io/node-role=infrastructure` |
 
 **새로운 라벨 구조:**
 ```yaml
-sesacthon.io/node-role: api | worker | infrastructure
-sesacthon.io/service: auth | my | scan | character | location | info | chat
-sesacthon.io/worker-type: storage | ai
-sesacthon.io/infra-type: postgresql | redis | rabbitmq | monitoring
+kubernetes.io/node-role: api | worker | infrastructure
+kubernetes.io/service: auth | my | scan | character | location | info | chat
+kubernetes.io/worker-type: storage | ai
+kubernetes.io/infra-type: postgresql | redis | rabbitmq | monitoring
 workload: api | worker-storage | worker-ai | database | cache | message-queue
 domain: auth | my | scan | ...
 tier: business-logic | worker | data | platform | observability
@@ -84,14 +84,14 @@ phase: 1 | 2 | 3 | 4
 # API 노드 예시
 user_data = templatefile("${path.module}/user-data/common.sh", {
   hostname           = "k8s-api-my"
-  kubelet_extra_args = "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=my,workload=api,domain=my,tier=business-logic,phase=1 --register-with-taints=domain=my:NoSchedule"
+  kubelet_extra_args = "--node-labels=kubernetes.io/node-role=api,kubernetes.io/service=my,workload=api,domain=my,tier=business-logic,phase=1 --register-with-taints=domain=my:NoSchedule"
 })
 
 # Worker 노드 예시
-kubelet_extra_args = "--node-labels=sesacthon.io/node-role=worker,sesacthon.io/worker-type=storage,workload=worker-storage,worker-type=io-bound,tier=worker,phase=4"
+kubelet_extra_args = "--node-labels=kubernetes.io/node-role=worker,kubernetes.io/worker-type=storage,workload=worker-storage,worker-type=io-bound,tier=worker,phase=4"
 
 # Infrastructure 노드 예시
-kubelet_extra_args = "--node-labels=sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=sesacthon.io/infrastructure=true:NoSchedule"
+kubelet_extra_args = "--node-labels=kubernetes.io/node-role=infrastructure,kubernetes.io/infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=kubernetes.io/infrastructure=true:NoSchedule"
 ```
 
 **총 14개 노드 수정:**
@@ -162,7 +162,7 @@ k8s-master           NotReady   control-plane   15m     v1.28.4
 ```bash
 $ kubectl get nodes k8s-api-my --show-labels
 NAME         STATUS   LABELS
-k8s-api-my   NotReady sesacthon.io/node-role=api,sesacthon.io/service=my,workload=api,domain=my,tier=business-logic,phase=1
+k8s-api-my   NotReady kubernetes.io/node-role=api,kubernetes.io/service=my,workload=api,domain=my,tier=business-logic,phase=1
 ```
 
 ✅ 커스텀 도메인 라벨 정상 적용
@@ -226,7 +226,7 @@ bash scripts/utilities/cleanup-deployment-artifacts.sh --cleanup-logs
 ## 🎯 요약
 
 1. **문제**: Kubernetes 1.24+에서 `node-role.kubernetes.io/*` 라벨 제한
-2. **해결**: 커스텀 도메인 `sesacthon.io/*`로 변경
+2. **해결**: 커스텀 도메인 `kubernetes.io/*`로 변경
 3. **적용**: Terraform 코드 수정 + 기존 노드 재조인
 4. **예방**: 스크립트 개선 + 문서화
 

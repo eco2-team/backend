@@ -210,7 +210,7 @@ workloads/ingress/apps/
 ## 6. 운영 체크리스트
 
 1. **Wave 일관성**: 모든 `argocd/apps/*.yaml`에 `argocd.argoproj.io/sync-wave`가 `ARGOCD_SYNC_WAVE_PLAN.md`의 값과 동일한지 확인한다.  
-2. **Secret 선행**: `sesacthon.io/required-secrets` 어노테이션을 기반으로 ArgoCD PreSync 훅 또는 External Secrets Ready 상태를 검증한다.  
+2. **Secret 선행**: `kubernetes.io/required-secrets` 어노테이션을 기반으로 ArgoCD PreSync 훅 또는 External Secrets Ready 상태를 검증한다.  
 3. **환경 Overlay**: dev/prod의 `values/{env}.yaml`, `workloads/**/overlays/{env}`가 존재하는지 CI에서 확인한다.  
 4. **App-of-Apps 검증**: `argocd app get root-app` (또는 환경 별 명칭)으로 하위 Application 상태 및 wave 순서 확인.  
 5. **문서 연계**: 변경 시 `ARGOCD_SYNC_WAVE_PLAN.md`, `SYNC_WAVE_SECRET_MATRIX.md`, `RBAC_NAMESPACE_POLICY.md`를 동시 업데이트한다.

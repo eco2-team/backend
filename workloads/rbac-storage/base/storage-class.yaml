@@ -3,8 +3,8 @@ kind: StorageClass
 metadata:
   name: gp3
   annotations:
-    storageclass.sesacthon.io/is-default-class: "true"
-provisioner: sesacthon.io/aws-ebs
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: kubernetes.io/aws-ebs
 parameters:
   type: gp3
   iops: "3000"

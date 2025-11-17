@@ -125,7 +125,7 @@ CNCF White Paper에 따르면, Operator는 다음 3가지 핵심 컴포넌트로
 **NodeConfig CRD**는 노드 설정을 선언적으로 정의합니다:
 
 ```yaml
-apiVersion: lifecycle.sesacthon.io/v1alpha1
+apiVersion: lifecycle.kubernetes.io/v1alpha1
 kind: NodeConfig
 metadata:
   name: worker-node-config
@@ -398,11 +398,11 @@ metadata:
   name: node-lifecycle-operator-role
 rules:
   # NodeConfig CRD 관리
-  - apiGroups: ["lifecycle.sesacthon.io"]
+  - apiGroups: ["lifecycle.kubernetes.io"]
     resources: ["nodeconfigs"]
     verbs: ["get", "list", "watch"]
   
-  - apiGroups: ["lifecycle.sesacthon.io"]
+  - apiGroups: ["lifecycle.kubernetes.io"]
     resources: ["nodeconfigs/status"]
     verbs: ["update", "patch"]
   
@@ -611,7 +611,7 @@ platform/helm/node-lifecycle-operator/
 │   ├── service.yaml           # Metrics endpoint
 │   └── servicemonitor.yaml    # Prometheus scraping
 └── crds/
-    └── lifecycle.sesacthon.io_nodeconfigs.yaml
+    └── lifecycle.kubernetes.io_nodeconfigs.yaml
 ```
 
 **values.yaml**:
@@ -791,10 +791,10 @@ spec:
 **Step 3**: 점진적 활성화
 ```bash
 # 1개 노드로 시작
-kubectl label node k8s-api-auth node-lifecycle.sesacthon.io/managed=true
+kubectl label node k8s-api-auth node-lifecycle.kubernetes.io/managed=true
 
 # 확인 후 나머지 노드
-kubectl label nodes -l node-role.kubernetes.io/worker node-lifecycle.sesacthon.io/managed=true
+kubectl label nodes -l node-role.kubernetes.io/worker node-lifecycle.kubernetes.io/managed=true
 ```
 
 **Step 4**: Ansible playbook 제거
@@ -842,9 +842,9 @@ rm ansible/playbooks/14-route53-update.yml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: nodeconfigs.lifecycle.sesacthon.io
+  name: nodeconfigs.lifecycle.kubernetes.io
 spec:
-  group: lifecycle.sesacthon.io
+  group: lifecycle.kubernetes.io
   names:
     kind: NodeConfig
     listKind: NodeConfigList

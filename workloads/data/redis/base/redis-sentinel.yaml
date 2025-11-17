@@ -14,9 +14,9 @@ spec:
     image: quay.io/opstree/redis-sentinel:7.2.4
     imagePullPolicy: IfNotPresent
   nodeSelector:
-    sesacthon.io/infra-type: redis
+    kubernetes.io/infra-type: redis
   tolerations:
-    - key: sesacthon.io/infrastructure
+    - key: kubernetes.io/infrastructure
       operator: Equal
       value: "true"
       effect: NoSchedule
