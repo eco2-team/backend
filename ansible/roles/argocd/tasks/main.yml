@@ -166,6 +166,19 @@
       no_log: true
       run_once: true
 
+    - name: aws-global-credentials Secret용 platform-system Namespace 생성
+      become_user: "{{ kubectl_user }}"
+      shell: |
+        set -euo pipefail
+        if ! kubectl get namespace platform-system >/dev/null 2>&1; then
+          kubectl create namespace platform-system
+        fi
+      args:
+        executable: /bin/bash
+      register: platform_system_namespace
+      changed_when: "'created' in (platform_system_namespace.stdout | default(''))"
+      run_once: true
+
     - name: aws-global-credentials Secret 생성
       become_user: "{{ kubectl_user }}"
       shell: |
@@ -195,7 +208,7 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - name: root-app.yaml 복사 (Master 노드로)
   copy:
-    src: "{{ playbook_dir }}/../../clusters/dev/root-app.yaml"
+    src: "{{ playbook_dir }}/../clusters/dev/root-app.yaml"
     dest: /tmp/root-app.yaml
     mode: '0644'
 
