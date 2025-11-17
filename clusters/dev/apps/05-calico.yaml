@@ -11,7 +11,7 @@ spec:
   source:
     repoURL: https://github.com/SeSACTHON/backend.git
     targetRevision: refactor/gitops-sync-wave
-    path: platform/charts/calico
+    path: platform/helm/calico
     directory:
       include: app.yaml
   destination:

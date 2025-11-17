@@ -1,0 +1,116 @@
+name: CI ApplicationSet Validation
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "clusters/**/apps/*-appset.yaml"
+      - "platform/helm/**/app.yaml"
+      - "scripts/ci/lint-appset-templates.sh"
+      - ".github/workflows/ci-appset.yml"
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "clusters/**/apps/*-appset.yaml"
+      - "platform/helm/**/app.yaml"
+      - "scripts/ci/lint-appset-templates.sh"
+      - ".github/workflows/ci-appset.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-appset-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  commit-filter:
+    name: 🛂 Commit Filter
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.detect.outputs.skip }}
+      reason: ${{ steps.detect.outputs.reason }}
+    steps:
+      - name: Detect conventional commit type
+        id: detect
+        run: |
+          set -euo pipefail
+          EVENT_NAME="${{ github.event_name }}"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            REF_TEXT="${{ github.event.pull_request.title }}"
+          else
+            REF_TEXT="${{ github.event.head_commit.message }}"
+          fi
+          REF_TEXT="${REF_TEXT:-none}"
+          TYPE=$(echo "$REF_TEXT" | sed -n 's/^\([A-Za-z0-9_-]\+\):.*/\1/p' | tr '[:upper:]' '[:lower:]')
+          if [[ "$TYPE" =~ ^(docs)$ ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=Commit type '$TYPE' is configured to bypass AppSet CI" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "reason=" >> "$GITHUB_OUTPUT"
+          fi
+
+  skip-notice:
+    name: ⏭️ CI Skipped
+    needs: commit-filter
+    if: needs.commit-filter.outputs.skip == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish skip summary
+        run: |
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          ## ⏭️ AppSet CI Skipped
+          - Reason: ${{ needs.commit-filter.outputs.reason }}
+          EOF
+
+  appset-lint:
+    name: 🧹 ApplicationSet Lint
+    runs-on: ubuntu-latest
+    needs: commit-filter
+    if: needs.commit-filter.outputs.skip != 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce template style
+        run: scripts/ci/lint-appset-templates.sh
+
+  appset-verify:
+    name: 📋 ApplicationSet Generate
+    runs-on: ubuntu-latest
+    needs:
+      - commit-filter
+      - appset-lint
+    if: needs.commit-filter.outputs.skip != 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Argo CD CLI
+        run: |
+          curl -sSL -o /tmp/argocd https://github.com/argoproj/argo-cd/releases/download/v2.10.5/argocd-linux-amd64
+          chmod +x /tmp/argocd
+          sudo mv /tmp/argocd /usr/local/bin/argocd
+
+      - name: Generate ApplicationSet manifests (dev/prod)
+        run: |
+          set -euo pipefail
+          mkdir -p ci-artifacts/appset
+          argocd appset generate -f clusters/dev/apps/60-apis-appset.yaml > ci-artifacts/appset/dev.yaml
+          argocd appset generate -f clusters/prod/apps/60-apis-appset.yaml > ci-artifacts/appset/prod.yaml
+          find clusters -path "*/apps/*-appset.yaml" -print0 | while IFS= read -r -d '' file; do
+            SAFE="$(echo "${file}" | tr '/.' '-')"
+            argocd appset generate -f "${file}" > "ci-artifacts/appset/${SAFE}.yaml"
+          done
+          ls -1 ci-artifacts/appset
+

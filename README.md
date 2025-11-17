@@ -116,7 +116,7 @@ kubectl get applications -n argocd
 | 20 | `workloads/ingress/apps/{env}` | ALB Ingress + ExternalDNS annotation |
 | 35 | `workloads/data/{postgres,redis}/{env}` | PostgresCluster / RedisFailover CR |
 | 60 | `workloads/apis/<domain>/{env}` | 각 API Deployment/Service/ConfigMap |
-| Helm | `platform/charts/<component>` | Calico, ALB Controller, ExternalDNS, kube-prometheus-stack, Grafana, Operators 등 |
+| Helm | `platform/helm/<component>` | Calico, ALB Controller, ExternalDNS, kube-prometheus-stack, Grafana, Operators 등 |
 
 모든 API는 공통 base(kustomize) 템플릿을 상속하고, 환경별 patch에서 이미지/Env/NodeSelector만 조정합니다.
 
@@ -144,7 +144,7 @@ kubectl get applications -n argocd
 |------|------|------|
 | ALB HTTPS→HTTP NAT | `backend-protocol: HTTP` + HTTPS-only listener + HTTP NodePort | `docs/TROUBLESHOOTING.md#8-argocd-리디렉션-루프-문제` |
 | Namespace 중복 정의 | `k8s/namespaces` 한 곳에서 단일 관리 | `k8s/namespaces/kustomization.yaml` |
-| Atlantis 배포 | Helm Chart (`platform/charts/platform/atlantis`) + ArgoCD Wave 70 | `docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md` |
+| Atlantis 배포 | Helm Chart (`platform/helm/platform/atlantis`) + ArgoCD Wave 70 | `docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md` |
 | GitOps/Cluster Health Check | `scripts/diagnostics/gitops_cluster_health.sh` 실행 · kubectl 기반 상태 요약 | README – Getting Started |
 
 ---
@@ -158,7 +158,7 @@ backend/
 ├── scripts/deployment/  # bootstrap_cluster.sh / destroy_cluster.sh
 ├── clusters/            # Argo CD Root Apps + Wave별 Application 목록
 ├── workloads/           # Kustomize (namespaces, rbac, network, apis, data CR 등)
-├── platform/charts/     # Helm values + chart-testing stub charts
+├── platform/helm/     # Helm values + chart-testing stub charts
 ├── services/            # FastAPI 도메인 코드
 └── docs/                # Architecture / Deployment / Troubleshooting
 ```

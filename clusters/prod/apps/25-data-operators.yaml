@@ -12,6 +12,9 @@ spec:
           - name: postgres-operator
             path: platform/helm/postgres-operator
             namespace: data-system
+          - name: redis-operator
+            path: platform/helm/redis-operator
+            namespace: data-system
           - name: rabbitmq-operator
             path: platform/helm/rabbitmq-operator
             namespace: messaging-system

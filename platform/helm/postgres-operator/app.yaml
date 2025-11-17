@@ -13,9 +13,13 @@ spec:
           - env: dev
             project: dev
             namespace: data-system
+            targetRevision: refactor/gitops-sync-wave
+            valueFile: platform/helm/postgres-operator/values/dev.yaml
           - env: prod
             project: prod
             namespace: data-system
+            targetRevision: main
+            valueFile: platform/helm/postgres-operator/values/prod.yaml
   template:
     metadata:
       name: "{{env}}-postgres-operator"
@@ -26,14 +30,9 @@ spec:
         - repoURL: https://github.com/zalando/postgres-operator.git
           targetRevision: v1.10.0
           path: charts/postgres-operator
-          helm:
-            values: |
-              nodeSelector:
-                node-role.kubernetes.io/control-plane: ""
-              tolerations:
-                - key: node-role.kubernetes.io/control-plane
-                  operator: Exists
-                  effect: NoSchedule
+        - repoURL: https://github.com/SeSACTHON/backend.git
+          targetRevision: "{{targetRevision}}"
+          ref: values
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{namespace}}"
@@ -43,3 +42,7 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
+      helm:
+        releaseName: postgres-operator
+        valueFiles:
+          - $values/{{ valueFile }}

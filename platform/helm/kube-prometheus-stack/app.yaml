@@ -13,16 +13,18 @@ spec:
             project: dev
             namespace: prometheus
             valueFile: platform/helm/kube-prometheus-stack/values/dev.yaml
+            targetRevision: refactor/gitops-sync-wave
           - env: prod
             project: prod
             namespace: prometheus
             valueFile: platform/helm/kube-prometheus-stack/values/prod.yaml
+            targetRevision: main
   template:
     metadata:
       name: "{{env}}-kube-prom-stack"
       namespace: argocd
       labels:
-        app.kubernetes.io/name: kube-prometheus-stack
+        app.sesacthon.io/name: kube-prometheus-stack
     spec:
       project: "{{project}}"
       sources:
@@ -30,7 +32,7 @@ spec:
           chart: kube-prometheus-stack
           targetRevision: 56.21.1
         - repoURL: https://github.com/SeSACTHON/backend.git
-          targetRevision: HEAD
+          targetRevision: "{{targetRevision}}"
           ref: values
       destination:
         server: https://kubernetes.default.svc

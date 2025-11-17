@@ -27,20 +27,20 @@ clusters/
 | 0 | `00-crds.yaml` | External Secrets / Prometheus / Postgres 등 필수 CRD | `platform/crds` |
 | 2 | `02-namespaces.yaml` | 13개 비즈니스/데이터/플랫폼 Namespace | `workloads/namespaces/{env}` |
 | 3 | `03-rbac-storage.yaml` | ServiceAccount, ClusterRole, StorageClass | `workloads/rbac-storage/{env}` |
-| 5 | `05-calico.yaml` | Calico CNI (Helm) | `platform/charts/calico` |
+| 5 | `05-calico.yaml` | Calico CNI (Helm) | `platform/helm/calico` |
 | 6 | `06-network-policies.yaml` | Tier 기반 NetworkPolicy | `workloads/network-policies/{env}` |
-| 10 | `10-secrets-operator.yaml` | External Secrets Operator (Helm) | `platform/charts/external-secrets` |
+| 10 | `10-secrets-operator.yaml` | External Secrets Operator (Helm) | `platform/helm/external-secrets` |
 | 11 | `11-secrets-cr.yaml` | SSM → K8s Secret ExternalSecret | `workloads/secrets/external-secrets/{env}` |
-| 15 | `15-alb-controller.yaml` | AWS Load Balancer Controller (Helm) | `platform/charts/alb-controller` |
-| 16 | `16-external-dns.yaml` | ExternalDNS (Helm) | `platform/charts/external-dns` |
-| 20 | `20-monitoring-operator.yaml` | kube-prometheus-stack (Helm) | `platform/charts/kube-prometheus-stack` |
-| 21 | `21-grafana.yaml` | Grafana (Helm) | `platform/charts/grafana` |
-| 25 | `25-data-operators.yaml` | Postgres / Redis / RabbitMQ Operators | `platform/charts/*-operator` |
+| 15 | `15-alb-controller.yaml` | AWS Load Balancer Controller (Helm) | `platform/helm/alb-controller` |
+| 16 | `16-external-dns.yaml` | ExternalDNS (Helm) | `platform/helm/external-dns` |
+| 20 | `20-monitoring-operator.yaml` | kube-prometheus-stack (Helm) | `platform/helm/kube-prometheus-stack` |
+| 21 | `21-grafana.yaml` | Grafana (Helm) | `platform/helm/grafana` |
+| 25 | `25-data-operators.yaml` | Postgres / Redis / RabbitMQ Operators | `platform/helm/*-operator` |
 | 35 | `35-data-cr.yaml` | PostgresCluster, RedisFailover CR | `workloads/data/{postgres,redis}/{env}` |
 | 60 | `60-apis-appset.yaml` | 7개 API ApplicationSet (auth/my/…) | `workloads/apis/*/{env}` |
 | 70 | `70-ingress.yaml` | ALB Ingress / Path Routing | `workloads/ingress/apps/{env}` |
 
-> Helm chart values는 `platform/charts/<component>/values/{env}.yaml` 에서 관리합니다.
+> Helm chart values는 `platform/helm/<component>/values/{env}.yaml` 에서 관리합니다.
 
 ## 3. 검증/문서
 - `workloads/README.md`: Kustomize 디렉터리 구조 및 작성 규칙  

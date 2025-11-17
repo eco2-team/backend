@@ -2,9 +2,9 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - ../base
+- ../base
 
-patchesStrategicMerge:
-  - patch-api-ingress.yaml
-  - patch-argocd-ingress.yaml
-  - patch-grafana-ingress.yaml
+patches:
+- path: patch-api-ingress.yaml
+- path: patch-argocd-ingress.yaml
+- path: patch-grafana-ingress.yaml

@@ -9,7 +9,7 @@ spec:
   project: prod
   source:
     repoURL: https://github.com/SeSACTHON/backend.git
-    targetRevision: HEAD
+    targetRevision: main
     path: platform/crds
     directory:
       recurse: true

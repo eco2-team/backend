@@ -17,6 +17,7 @@
 - [9. ArgoCD Application 자동 Sync 안됨](#9-argocd-application-자동-sync-안됨)
 - [10. ALB Controller VPC ID 하드코딩](#10-alb-controller-vpc-id-하드코딩)
 - [11. ALB Controller egress 차단](#11-alb-controller-egress-차단)
+- [12. macOS TLS 인증서 경로 누락](#12-macos-tls-인증서-경로-누락)
 
 ---
 
@@ -146,7 +147,7 @@ bitnami/rabbitmq:3.13.7-debian-12-r0: not found
 
 **Option A: Docker Official Image** (임시):
 ```yaml
-# platform/charts/data/databases/values.yaml
+# platform/helm/data/databases/values.yaml
 rabbitmq:
   image:
     registry: docker.io
@@ -159,7 +160,7 @@ rabbitmq:
 **Option B: RabbitMQ Cluster Operator** (권장):
 ```yaml
 # RabbitMQ Operator 사용
-# platform/charts/rabbitmq-operator/app.yaml
+# platform/helm/rabbitmq-operator/app.yaml
 ```
 
 **커밋**: `dd51c46`
@@ -297,7 +298,7 @@ Error: unable to create controller
 
 ### 해결
 ```yaml
-# platform/charts/alb-controller/values/dev.yaml
+# platform/helm/alb-controller/values/dev.yaml
 controller:
   extraEnv:
     - name: AWS_VPC_ID
@@ -359,6 +360,40 @@ spec:
 ```
 
 **커밋**: `5c4f5cc`, `77d694c`
+
+---
+
+## 12. macOS TLS 인증서 경로 누락
+
+### 문제
+
+```
+error setting certificate verify locations:  CAfile: /etc/ssl/cert.pem CApath: none
+Error: looks like "https://aws.github.io/eks-charts" is not a valid chart repository or cannot be reached
+```
+
+**원인**: 로컬 macOS 개발 환경에는 `/etc/ssl/cert.pem`이 존재하지 않아 `git`, `helm`, `kustomize` 등이 시스템 CA 번들을 찾지 못함.
+
+### 해결
+
+1. `certifi`가 제공하는 최신 CA 번들을 기준으로 TLS 변수를 고정하는 스크립트를 추가했습니다.  
+2. 아래 명령을 실행하면 필요한 변수들이 자동으로 export 됩니다.
+
+```bash
+source scripts/utilities/export-ca-env.sh
+```
+
+3. 스크립트는 다음 환경 변수를 설정합니다.
+
+```bash
+export SSL_CERT_FILE=/Users/<user>/Library/Python/.../certifi/cacert.pem
+export REQUESTS_CA_BUNDLE=$SSL_CERT_FILE
+export GIT_SSL_CAINFO=$SSL_CERT_FILE
+```
+
+4. 이후 `helm template`, `git clone`, `kustomize build` 등에서 `--insecure-skip-tls-verify`나 `GIT_SSL_NO_VERIFY=1`이 필요하지 않습니다.
+
+**참고 파일**: `scripts/utilities/export-ca-env.sh`
 
 ---
 

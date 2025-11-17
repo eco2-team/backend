@@ -1,0 +1,14 @@
+redisOperator:
+  watchNamespace: ""
+
+service:
+  namespace: data-system
+
+nodeSelector:
+  node-role.sesacthon.io/control-plane: ""
+
+tolerations:
+  - key: node-role.sesacthon.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+

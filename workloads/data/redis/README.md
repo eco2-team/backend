@@ -1,35 +1,39 @@
-# Redis Failover (Spotahome Redis Operator)
+# Redis Replication & Sentinel (OT-CONTAINER-KIT Redis Operator)
 
-이 디렉터리는 Spotahome Redis Operator가 관리하는 `RedisFailover` Custom Resource를 정의한다.
+이 디렉터리는 OT-CONTAINER-KIT에서 제공하는 `redis-operator`(CRDs: `redisredis.opstreelabs.in/v1beta2`)가
+관리하는 두 개의 Custom Resource(`RedisReplication`, `RedisSentinel`)를 정의한다.
 
-## 구조
+## 구성
 
-- `base/redis-failover.yaml`: 공통 템플릿 (sentinel 3 replicas, redis 1 replica)
-- `overlays/dev/`: Dev 환경 패치 (resources, storage 10Gi)
-- `overlays/prod/`: Prod 환경 패치 (resources 증가, storage 50Gi)
+- `base/redis-replication.yaml`: 공통 RedisReplication 스펙
+- `base/redis-sentinel.yaml`: 상단 replication을 감시하는 Sentinel 스펙
+- `overlays/dev/redis-failover.yaml`: dev 전용 패치(리소스, 10Gi PVC)
+- `overlays/prod/redis-failover.yaml`: prod 전용 패치(리소스 상향, 50Gi PVC)
 
-## Sentinel vs Redis
+## CR 분리 이유
 
-- **Redis Pods**: 실제 데이터 저장 (replicas: 1, StatefulSet)
-- **Sentinel Pods**: Master 모니터링 및 자동 Failover (replicas: 3, Deployment)
-  - Quorum 기반 장애 감지 (2/3 이상 동의 필요)
-  - 경량 프로세스 (128~256Mi)
+- OT-CONTAINER-KIT 오퍼레이터는 Spotahome과 CRD 스펙이 완전히 다르다.
+  - `RedisFailover` → **미지원**
+  - `RedisReplication`/`RedisSentinel`/`RedisCluster` 등으로 분리되어 있다.
+- 따라서 Redis 데이터를 운영하려면 기존 `RedisFailover` CR을 **필수로 마이그레이션**해야 한다.
 
 ## 선행 조건
 
-- **Wave 25**: `platform/helm/redis-operator` (Operator)
-- **Wave 35**: 이 CR 배포
-- **NetworkPolicy**: `tier=business-logic` → `redis` 네임스페이스 허용 (6379 포트)
+1. **Wave 25** `platform/helm/redis-operator` (Helm repo: `https://ot-container-kit.github.io/helm-charts`, chart `redis-operator`)
+2. **Wave 35** 본 Kustomize 오버레이
+3. **CA/네트워크**: Helm repo 접근 시 macOS 기본 CA(`/etc/ssl/cert.pem`)가 없으면 `--insecure-skip-tls-verify`가 필요하므로,
+   `scripts/utilities/export-ca-env.sh`를 통해 사내 CA를 export하거나 chart를 미리 미러링한다.
+4. **NetworkPolicy**: `tier=business-logic` → `redis` 네임스페이스 6379 포트 허용
 
 ## 배포 후 확인
 
 ```bash
-kubectl get redisfailover -n redis
-kubectl get pods -n redis -l app.kubernetes.io/component=redis
-kubectl get pods -n redis -l app.kubernetes.io/component=sentinel
+kubectl get redisreplication -n redis
+kubectl get redissentinel -n redis
+kubectl get pods -n redis -l app.sesacthon.io/name=redis
 ```
 
 ## 참고
-- Operator 스펙: `docs/architecture/operator/OPERATOR_SOURCE_SPEC.md`
-- CRD 문서: https://github.com/spotahome/redis-operator
+- OT-CONTAINER-KIT Redis Operator: https://github.com/OT-CONTAINER-KIT/redis-operator
+- CRD 세부 스펙: `.tmp/redis-operator/crds/crds.yaml`
 

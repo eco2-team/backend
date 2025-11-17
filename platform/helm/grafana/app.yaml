@@ -13,16 +13,18 @@ spec:
             project: dev
             namespace: grafana
             valueFile: platform/helm/grafana/values/dev.yaml
+            targetRevision: refactor/gitops-sync-wave
           - env: prod
             project: prod
             namespace: grafana
             valueFile: platform/helm/grafana/values/prod.yaml
+            targetRevision: main
   template:
     metadata:
       name: "{{env}}-grafana"
       namespace: argocd
       labels:
-        app.kubernetes.io/name: grafana
+        app.sesacthon.io/name: grafana
     spec:
       project: "{{project}}"
       sources:
@@ -30,7 +32,7 @@ spec:
           chart: grafana
           targetRevision: 8.5.9
         - repoURL: https://github.com/SeSACTHON/backend.git
-          targetRevision: HEAD
+          targetRevision: "{{targetRevision}}"
           ref: values
       destination:
         server: https://kubernetes.default.svc

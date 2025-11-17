@@ -1,0 +1,87 @@
+---
+- name: Kubelet 노드 라벨 수정 (Kubernetes 1.24+ 호환)
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # 각 노드별 라벨 정의 (node-role.kubernetes.io → sesacthon.io로 변경)
+    node_labels:
+      k8s-api-auth: "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=auth,workload=api,domain=auth,tier=business-logic,phase=1 --register-with-taints=domain=auth:NoSchedule"
+      k8s-api-my: "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=my,workload=api,domain=my,tier=business-logic,phase=1 --register-with-taints=domain=my:NoSchedule"
+      k8s-api-scan: "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=scan,workload=api,domain=scan,tier=business-logic,phase=2 --register-with-taints=domain=scan:NoSchedule"
+      k8s-api-character: "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=character,workload=api,domain=character,tier=business-logic,phase=2 --register-with-taints=domain=character:NoSchedule"
+      k8s-api-location: "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=location,workload=api,domain=location,tier=business-logic,phase=2 --register-with-taints=domain=location:NoSchedule"
+      k8s-api-info: "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=info,workload=api,domain=info,tier=business-logic,phase=3 --register-with-taints=domain=info:NoSchedule"
+      k8s-api-chat: "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=chat,workload=api,domain=chat,tier=business-logic,phase=3 --register-with-taints=domain=chat:NoSchedule"
+      k8s-worker-storage: "--node-labels=sesacthon.io/node-role=worker,sesacthon.io/worker-type=storage,workload=worker-storage,worker-type=io-bound,tier=worker,phase=4"
+      k8s-worker-ai: "--node-labels=sesacthon.io/node-role=worker,sesacthon.io/worker-type=ai,workload=worker-ai,worker-type=network-bound,tier=worker,phase=4"
+      k8s-rabbitmq: "--node-labels=sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=rabbitmq,workload=message-queue,tier=platform,phase=4 --register-with-taints=sesacthon.io/infrastructure=true:NoSchedule"
+      k8s-postgresql: "--node-labels=sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=sesacthon.io/infrastructure=true:NoSchedule"
+      k8s-redis: "--node-labels=sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=redis,workload=cache,tier=data,phase=1 --register-with-taints=sesacthon.io/infrastructure=true:NoSchedule"
+      k8s-monitoring: "--node-labels=sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=sesacthon.io/infrastructure=true:NoSchedule"
+  
+  tasks:
+    - name: 노드 라벨 설정 확인
+      debug:
+        msg: "{{ inventory_hostname }} → {{ node_labels[inventory_hostname] | default('라벨 없음') }}"
+    
+    - name: 기존 kubelet 라벨 설정 파일 백업
+      copy:
+        src: /etc/systemd/system/kubelet.service.d/10-node-labels.conf
+        dest: /etc/systemd/system/kubelet.service.d/10-node-labels.conf.bak
+        remote_src: yes
+      failed_when: false
+    
+    - name: 올바른 노드 라벨로 kubelet 설정 업데이트
+      copy:
+        content: |
+          [Service]
+          Environment="KUBELET_EXTRA_ARGS={{ node_labels[inventory_hostname] }}"
+        dest: /etc/systemd/system/kubelet.service.d/10-node-labels.conf
+        mode: '0644'
+      when: node_labels[inventory_hostname] is defined
+      register: labels_updated
+    
+    - name: Kubernetes 설정 정리 (재조인 준비)
+      block:
+        - name: kubelet 중지
+          systemd:
+            name: kubelet
+            state: stopped
+        
+        - name: kubeadm reset 실행
+          command: kubeadm reset -f --cri-socket=unix:///run/containerd/containerd.sock
+          register: reset_result
+        
+        - name: Reset 결과 출력
+          debug:
+            msg: "{{ reset_result.stdout_lines }}"
+        
+        - name: Kubernetes 설정 디렉토리 삭제
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - /etc/kubernetes
+            - /var/lib/kubelet
+            - /etc/cni/net.d
+        
+        - name: systemd 재로드
+          systemd:
+            daemon_reload: yes
+        
+        - name: containerd 재시작
+          systemd:
+            name: containerd
+            state: restarted
+        
+        - name: containerd 시작 대기
+          pause:
+            seconds: 5
+      when: labels_updated.changed
+    
+    - name: 완료 메시지
+      debug:
+        msg: "✅ {{ inventory_hostname }} 라벨 수정 완료. 재조인 준비됨."
+

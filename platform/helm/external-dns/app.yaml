@@ -13,16 +13,18 @@ spec:
             project: dev
             namespace: platform-system
             valueFile: platform/helm/external-dns/values/dev.yaml
+            targetRevision: refactor/gitops-sync-wave
           - env: prod
             project: prod
             namespace: platform-system
             valueFile: platform/helm/external-dns/values/prod.yaml
+            targetRevision: main
   template:
     metadata:
       name: "{{env}}-external-dns"
       namespace: argocd
       labels:
-        app.kubernetes.io/name: external-dns
+        app.sesacthon.io/name: external-dns
     spec:
       project: "{{project}}"
       sources:
@@ -30,7 +32,7 @@ spec:
           chart: external-dns
           targetRevision: 1.15.2
         - repoURL: https://github.com/SeSACTHON/backend.git
-          targetRevision: HEAD
+          targetRevision: "{{targetRevision}}"
           ref: values
       destination:
         server: https://kubernetes.default.svc

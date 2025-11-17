@@ -15,6 +15,7 @@ sources:
 extraArgs:
   - --aws-zone-type=public
   - --aws-prefer-cname=true
+  - '--annotation-filter=external-dns.alpha.sesacthon.io/managed-by in (external-dns)'
 
 env:
   - name: AWS_REGION

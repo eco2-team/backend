@@ -4,7 +4,7 @@ metadata:
   name: postgres-main
   namespace: postgres
   labels:
-    app.kubernetes.io/name: postgresql
+    app.sesacthon.io/name: postgresql
     tier: data
 spec:
   teamId: platform

@@ -13,10 +13,12 @@ spec:
             project: dev
             namespace: tigera-operator
             valueFile: platform/helm/calico/values/dev.yaml
+            targetRevision: refactor/gitops-sync-wave
           - env: prod
             project: prod
             namespace: tigera-operator
             valueFile: platform/helm/calico/values/prod.yaml
+            targetRevision: main
   template:
     metadata:
       name: "{{env}}-calico"
@@ -28,7 +30,7 @@ spec:
           chart: tigera-operator
           targetRevision: v3.27.0
         - repoURL: https://github.com/SeSACTHON/backend.git
-          targetRevision: HEAD
+          targetRevision: "{{targetRevision}}"
           ref: values
       destination:
         server: https://kubernetes.default.svc

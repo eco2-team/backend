@@ -4,9 +4,9 @@ metadata:
   name: argocd-ingress
   namespace: argocd
   annotations:
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:123456789012:certificate/PROD_ARGOCD_CERT
-    external-dns.alpha.kubernetes.io/hostname: argocd.ecoeco.app
+    alb.ingress.sesacthon.io/certificate-arn: arn:aws:acm:ap-northeast-2:123456789012:certificate/PROD_ARGOCD_CERT
+  external-dns.alpha.sesacthon.io/managed-by: external-dns
 spec:
   rules:
-    - host: argocd.ecoeco.app
+    - host: argocd.growbin.app
 

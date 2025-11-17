@@ -10,10 +10,10 @@ spec:
     - list:
         elements:
           - name: postgres-operator
-            path: platform/charts/postgres-operator
+            path: platform/helm/postgres-operator
             namespace: data-system
           - name: rabbitmq-operator
-            path: platform/charts/rabbitmq-operator
+            path: platform/helm/rabbitmq-operator
             namespace: messaging-system
   template:
     metadata:

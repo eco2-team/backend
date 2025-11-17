@@ -13,12 +13,12 @@ alertmanager:
             requests:
               storage: 50Gi
     tolerations:
-      - key: node-role.kubernetes.io/infrastructure
+      - key: node-role.sesacthon.io/infrastructure
         operator: Equal
         value: "true"
         effect: NoSchedule
     nodeSelector:
-      node-role.kubernetes.io/infrastructure: monitoring
+      node-role.sesacthon.io/infrastructure: monitoring
 grafana:
   enabled: false
 prometheusOperator:
@@ -26,12 +26,12 @@ prometheusOperator:
     patch:
       enabled: true
   tolerations:
-    - key: node-role.kubernetes.io/infrastructure
+    - key: node-role.sesacthon.io/infrastructure
       operator: Equal
       value: "true"
       effect: NoSchedule
   nodeSelector:
-    node-role.kubernetes.io/infrastructure: monitoring
+    node-role.sesacthon.io/infrastructure: monitoring
 prometheus:
   prometheusSpec:
     replicas: 2
@@ -46,9 +46,9 @@ prometheus:
             requests:
               storage: 200Gi
     nodeSelector:
-      node-role.kubernetes.io/infrastructure: monitoring
+      node-role.sesacthon.io/infrastructure: monitoring
     tolerations:
-      - key: node-role.kubernetes.io/infrastructure
+      - key: node-role.sesacthon.io/infrastructure
         operator: Equal
         value: "true"
         effect: NoSchedule
@@ -56,6 +56,6 @@ prometheus:
     evaluationInterval: 30s
     serviceMonitorNamespaceSelector:
       matchExpressions:
-        - key: kubernetes.io/metadata.name
+        - key: sesacthon.io/metadata.name
           operator: In
           values: [auth, my, scan, character, location, info, chat, postgres, redis, rabbitmq, grafana, prometheus, default]

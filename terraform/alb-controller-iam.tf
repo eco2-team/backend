@@ -251,9 +251,36 @@ resource "aws_iam_policy" "alb_controller" {
   }
 }
 
+# IRSA Role for AWS Load Balancer Controller
+resource "aws_iam_role" "alb_controller" {
+  name = "${var.environment}-alb-controller"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Federated = local.oidc_provider_arn
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${local.oidc_provider_url}:sub" = "system:serviceaccount:kube-system:aws-load-balancer-controller"
+          "${local.oidc_provider_url}:aud" = "sts.amazonaws.com"
+        }
+      }
+    }]
+  })
+
+  tags = {
+    Name        = "${var.environment}-alb-controller"
+    Description = "IRSA role for AWS Load Balancer Controller"
+  }
+}
+
 # IAM Role에 ALB Controller Policy 추가
 resource "aws_iam_role_policy_attachment" "alb_controller" {
-  role       = aws_iam_role.k8s_node.name
+  role       = aws_iam_role.alb_controller.name
   policy_arn = aws_iam_policy.alb_controller.arn
 }
 

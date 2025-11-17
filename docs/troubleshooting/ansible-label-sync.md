@@ -1292,8 +1292,8 @@ chat-api-76488b98b5-gfgfw       0/1  ImagePullBackOff  k8s-api-chat       # ✅
 7. `c94469d` - TROUBLESHOOTING 가이드 + Ansible 개선 (1,006 lines)
 8. `73d2ca6` - ALB Controller ApplicationSet 패턴
 9. `90172b3` - ALB Controller single-source 패턴
-10. `6d0ff79` - 모든 platform/charts directory.include 추가
-11. `3ff81d7` - 모든 platform/charts app.yaml 추가 (7 files, +338 lines)
+10. `6d0ff79` - 모든 platform/helm directory.include 추가
+11. `3ff81d7` - 모든 platform/helm app.yaml 추가 (7 files, +338 lines)
 
 ### 최종 상태 (실제 클러스터)
 

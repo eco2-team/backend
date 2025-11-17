@@ -33,11 +33,11 @@ spec:
                   - op: add
                     path: /spec/template/spec/nodeSelector
                     value:
-                      node-role.kubernetes.io/control-plane: ""
+                      node-role.sesacthon.io/control-plane: ""
                   - op: add
                     path: /spec/template/spec/tolerations
                     value:
-                      - key: node-role.kubernetes.io/control-plane
+                      - key: node-role.sesacthon.io/control-plane
                         operator: Exists
                         effect: NoSchedule
       destination:

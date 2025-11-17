@@ -28,7 +28,7 @@ aws_region: "ap-northeast-2"
 cluster_name: "sesacthon"
 vpc_id: "{{ lookup('pipe', 'cd ../../terraform && terraform output -raw vpc_id') }}"
 acm_certificate_arn: "{{ lookup('pipe', 'cd ../../terraform && terraform output -raw acm_certificate_arn') }}"
-domain_name: "ecoeco.app"
+domain_name: "growbin.app"
 
 # PostgreSQL (Tier 4: Data)
 postgres_namespace: "postgres"
@@ -62,5 +62,5 @@ kubectl_user: "ubuntu"
 kubectl_home: "/home/ubuntu"
 
 # Cert-manager (Let's Encrypt)
-letsencrypt_email: "admin@ecoeco.app"  # Let's Encrypt 인증서 이메일
+letsencrypt_email: "admin@growbin.app"  # Let's Encrypt 인증서 이메일
 

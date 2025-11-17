@@ -1,0 +1,5 @@
+chart-dirs:
+  - ci-artifacts/ct/charts
+check-version-increment: false
+skip-cleanup: true
+

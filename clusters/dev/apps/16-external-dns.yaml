@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/SeSACTHON/backend.git
     targetRevision: refactor/gitops-sync-wave
-    path: platform/charts/external-dns
+    path: platform/helm/external-dns
     directory:
       include: app.yaml
   destination:

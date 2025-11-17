@@ -4,7 +4,7 @@ kind: Namespace
 metadata:
   name: auth
   labels:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
     domain: auth
@@ -14,7 +14,7 @@ kind: Namespace
 metadata:
   name: my
   labels:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
     domain: my
@@ -24,7 +24,7 @@ kind: Namespace
 metadata:
   name: scan
   labels:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
     domain: scan
@@ -34,7 +34,7 @@ kind: Namespace
 metadata:
   name: character
   labels:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
     domain: character
@@ -44,7 +44,7 @@ kind: Namespace
 metadata:
   name: location
   labels:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
     domain: location
@@ -54,7 +54,7 @@ kind: Namespace
 metadata:
   name: info
   labels:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
     domain: info
@@ -64,7 +64,7 @@ kind: Namespace
 metadata:
   name: chat
   labels:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
     domain: chat
@@ -74,7 +74,7 @@ kind: Namespace
 metadata:
   name: postgres
   labels:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     tier: data
     role: database
     data-type: postgres
@@ -84,7 +84,7 @@ kind: Namespace
 metadata:
   name: redis
   labels:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     tier: data
     role: cache
     data-type: redis
@@ -94,7 +94,7 @@ kind: Namespace
 metadata:
   name: rabbitmq
   labels:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     tier: integration
     role: messaging
 ---
@@ -103,7 +103,7 @@ kind: Namespace
 metadata:
   name: prometheus
   labels:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     tier: observability
     role: metrics
 ---
@@ -112,7 +112,7 @@ kind: Namespace
 metadata:
   name: grafana
   labels:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     tier: observability
     role: dashboards
 ---
@@ -121,7 +121,7 @@ kind: Namespace
 metadata:
   name: platform-system
   labels:
-    app.kubernetes.io/part-of: ecoeco-platform
+    app.sesacthon.io/part-of: ecoeco-platform
     tier: infrastructure
     role: platform-core
 ---
@@ -130,7 +130,7 @@ kind: Namespace
 metadata:
   name: data-system
   labels:
-    app.kubernetes.io/part-of: ecoeco-platform
+    app.sesacthon.io/part-of: ecoeco-platform
     tier: infrastructure
     role: operators
 ---
@@ -139,7 +139,7 @@ kind: Namespace
 metadata:
   name: messaging-system
   labels:
-    app.kubernetes.io/part-of: ecoeco-platform
+    app.sesacthon.io/part-of: ecoeco-platform
     tier: infrastructure
     role: operators
 

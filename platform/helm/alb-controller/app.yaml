@@ -14,10 +14,12 @@ spec:
             project: dev
             namespace: kube-system
             valueFile: platform/helm/alb-controller/values/dev.yaml
+            targetRevision: refactor/gitops-sync-wave
           - env: prod
             project: prod
             namespace: kube-system
             valueFile: platform/helm/alb-controller/values/prod.yaml
+            targetRevision: main
   template:
     metadata:
       name: "{{env}}-alb-controller"
@@ -29,7 +31,7 @@ spec:
           chart: aws-load-balancer-controller
           targetRevision: 1.7.1
         - repoURL: https://github.com/SeSACTHON/backend.git
-          targetRevision: HEAD
+          targetRevision: "{{targetRevision}}"
           ref: values
       destination:
         server: https://kubernetes.default.svc

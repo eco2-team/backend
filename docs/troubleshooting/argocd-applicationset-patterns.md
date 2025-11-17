@@ -2,7 +2,7 @@
 
 > **작성일**: 2025-11-16  
 > **실제 클러스터 데이터 포함** ✅  
-> **해결한 문제**: platform/charts ApplicationSet 참조 오류, Multi-source 패턴 문제
+> **해결한 문제**: platform/helm ApplicationSet 참조 오류, Multi-source 패턴 문제
 
 ## 📋 목차
 
@@ -26,7 +26,7 @@ dev-alb-controller Unknown       Healthy
 $ kubectl describe application dev-alb-controller -n argocd
 Conditions:
   Message: Failed to load target state: failed to generate manifest for source 1 of 1: 
-           rpc error: code = Unknown desc = platform/charts/alb-controller: app path does not exist
+           rpc error: code = Unknown desc = platform/helm/alb-controller: app path does not exist
   Type:    ComparisonError
 ```
 
@@ -35,14 +35,14 @@ Conditions:
 # clusters/dev/apps/15-alb-controller.yaml (구버전)
 spec:
   source:
-    path: platform/charts/alb-controller  # ❌ 디렉토리를 직접 참조
+    path: platform/helm/alb-controller  # ❌ 디렉토리를 직접 참조
   destination:
     namespace: kube-system  # ❌ ApplicationSet이 배포될 namespace가 아님
 ```
 
 **디렉토리 구조**:
 ```
-platform/charts/alb-controller/
+platform/helm/alb-controller/
 ├── app.yaml      # ← ApplicationSet 정의
 └── values/
     ├── dev.yaml
@@ -51,7 +51,7 @@ platform/charts/alb-controller/
 
 ### 원인
 
-1. `platform/charts/alb-controller`는 디렉토리인데, 그 안에 Kubernetes 리소스가 없음
+1. `platform/helm/alb-controller`는 디렉토리인데, 그 안에 Kubernetes 리소스가 없음
 2. 실제로는 `app.yaml`에 **ApplicationSet**이 정의되어 있음
 3. Application은 ApplicationSet을 **리소스로 배포**해야 하는데, 디렉토리를 직접 참조함
 
@@ -59,7 +59,7 @@ platform/charts/alb-controller/
 ```
 Application (clusters/dev/apps/15-alb-controller.yaml)
   ↓ deploys
-ApplicationSet (platform/charts/alb-controller/app.yaml)
+ApplicationSet (platform/helm/alb-controller/app.yaml)
   ↓ generates
 dev-alb-controller, prod-alb-controller (Helm charts)
 ```
@@ -80,7 +80,7 @@ spec:
   source:
     repoURL: https://github.com/SeSACTHON/backend.git
     targetRevision: refactor/gitops-sync-wave
-    path: platform/charts/alb-controller
+    path: platform/helm/alb-controller
     directory:
       include: app.yaml  # ✅ app.yaml만 배포 (ApplicationSet)
   destination:
@@ -143,7 +143,7 @@ Conditions:
 
 **Application 설정** (구버전):
 ```yaml
-# platform/charts/alb-controller/app.yaml
+# platform/helm/alb-controller/app.yaml
 spec:
   sources:
     - repoURL: https://aws.github.io/eks-charts
@@ -154,7 +154,7 @@ spec:
       ref: values
   helm:
     valueFiles:
-      - "$values/platform/charts/alb-controller/values/dev.yaml"  # ❌ 경로 오류
+      - "$values/platform/helm/alb-controller/values/dev.yaml"  # ❌ 경로 오류
 ```
 
 ### 원인
@@ -168,7 +168,7 @@ spec:
 **Single-source 패턴으로 단순화**:
 
 ```yaml
-# platform/charts/alb-controller/app.yaml (수정)
+# platform/helm/alb-controller/app.yaml (수정)
 spec:
   source:
     repoURL: https://aws.github.io/eks-charts
@@ -221,17 +221,17 @@ $ kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-co
 ```bash
 $ kubectl describe application dev-postgres-operator -n argocd
 Conditions:
-  Message: Failed to load target state: platform/charts/postgres-operator: app path does not exist
+  Message: Failed to load target state: platform/helm/postgres-operator: app path does not exist
   Type:    ComparisonError
 ```
 
 **로컬 파일 확인**:
 ```bash
-$ ls platform/charts/postgres-operator/
+$ ls platform/helm/postgres-operator/
 app.yaml  # ✅ 로컬에는 존재
 
-$ git status platform/charts/postgres-operator/app.yaml
-?? platform/charts/postgres-operator/app.yaml  # ❌ Git에 추적 안 됨
+$ git status platform/helm/postgres-operator/app.yaml
+?? platform/helm/postgres-operator/app.yaml  # ❌ Git에 추적 안 됨
 ```
 
 ### 원인
@@ -243,14 +243,14 @@ $ git status platform/charts/postgres-operator/app.yaml
 
 **누락된 파일 목록**:
 ```bash
-$ git status --short platform/charts/*/app.yaml
-?? platform/charts/calico/app.yaml
-?? platform/charts/external-dns/app.yaml
-?? platform/charts/grafana/app.yaml
-?? platform/charts/kube-prometheus-stack/app.yaml
-?? platform/charts/postgres-operator/app.yaml
-?? platform/charts/rabbitmq-operator/app.yaml
-?? platform/charts/redis-operator/app.yaml
+$ git status --short platform/helm/*/app.yaml
+?? platform/helm/calico/app.yaml
+?? platform/helm/external-dns/app.yaml
+?? platform/helm/grafana/app.yaml
+?? platform/helm/kube-prometheus-stack/app.yaml
+?? platform/helm/postgres-operator/app.yaml
+?? platform/helm/rabbitmq-operator/app.yaml
+?? platform/helm/redis-operator/app.yaml
 # 7개 파일 모두 추적 안 됨
 ```
 
@@ -258,7 +258,7 @@ $ git status --short platform/charts/*/app.yaml
 
 ```bash
 # 모든 app.yaml 추가
-git add platform/charts/*/app.yaml
+git add platform/helm/*/app.yaml
 
 # 커밋
 git commit -m "feat: add ApplicationSet files for all platform charts"
@@ -307,7 +307,7 @@ dev-redis-operator      Synced   Degraded  # ✅
 
 **권장 패턴**:
 ```
-platform/charts/{service}/
+platform/helm/{service}/
 ├── app.yaml          # ApplicationSet 정의 (필수)
 └── values/
     ├── dev.yaml      # 환경별 values
@@ -323,7 +323,7 @@ metadata:
   name: dev-alb-controller-appset  # ApplicationSet wrapper
 spec:
   source:
-    path: platform/charts/alb-controller
+    path: platform/helm/alb-controller
     directory:
       include: app.yaml  # ✅ app.yaml만 배포
   destination:
@@ -466,7 +466,7 @@ $ kubectl get applications -n argocd | grep Synced | wc -l
 - `21-grafana.yaml`
 - `25-data-operators.yaml`
 
-**platform/charts** (7개 신규):
+**platform/helm** (7개 신규):
 - `alb-controller/app.yaml`
 - `calico/app.yaml`
 - `external-dns/app.yaml`

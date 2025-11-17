@@ -35,11 +35,11 @@ data "aws_route53_zone" "main" {
 #   - ansible/site.yml (Line 250-259)
 #
 # 업데이트되는 도메인:
-#   - ecoeco.app → ALB (Alias)
-#   - www.ecoeco.app → ALB (Alias)
-#   - api.ecoeco.app → ALB (Alias)
-#   - argocd.ecoeco.app → ALB (Alias)
-#   - grafana.ecoeco.app → ALB (Alias)
+#   - growbin.app → ALB (Alias)
+#   - www.growbin.app → ALB (Alias)
+#   - api.growbin.app → ALB (Alias)
+#   - argocd.growbin.app → ALB (Alias)
+#   - grafana.growbin.app → ALB (Alias)
 #
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -89,7 +89,7 @@ data "aws_route53_zone" "main" {
 #   records = [aws_eip.master.public_ip]
 # }
 # 
-# # Apex 도메인 (ecoeco.app) → Master Public IP
+# # Apex 도메인 (growbin.app) → Master Public IP
 # resource "aws_route53_record" "apex" {
 #   count = var.domain_name != "" ? 1 : 0
 #   

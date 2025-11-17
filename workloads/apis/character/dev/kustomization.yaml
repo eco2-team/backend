@@ -1,12 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../base
-commonLabels:
-  environment: dev
+- ../base
 images:
-  - name: ghcr.io/sesacthon/character-api
-    newTag: dev-latest
-patchesStrategicMerge:
-  - patch-configmap.yaml
-
+- name: ghcr.io/sesacthon/character-api
+  newTag: dev-latest
+labels:
+- includeSelectors: true
+  pairs:
+    environment: dev
+patches:
+- path: patch-configmap.yaml

@@ -30,10 +30,10 @@ resources:
 replicas: 2
 
 nodeSelector:
-  node-role.kubernetes.io/infrastructure: monitoring
+  node-role.sesacthon.io/infrastructure: monitoring
 
 tolerations:
-  - key: node-role.kubernetes.io/infrastructure
+  - key: node-role.sesacthon.io/infrastructure
     operator: Equal
     value: "true"
     effect: NoSchedule

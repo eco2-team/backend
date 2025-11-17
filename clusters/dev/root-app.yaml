@@ -4,13 +4,13 @@ metadata:
   name: dev-root
   namespace: argocd
   labels:
-    app.kubernetes.io/name: dev-root-app
+    app.sesacthon.io/name: dev-root-app
     environment: dev
 spec:
   project: dev
   source:
     repoURL: https://github.com/SeSACTHON/backend.git
-    targetRevision: HEAD
+    targetRevision: refactor/gitops-sync-wave
     path: clusters/dev/apps
     directory:
       recurse: true

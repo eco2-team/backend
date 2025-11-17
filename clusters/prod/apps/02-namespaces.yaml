@@ -9,7 +9,7 @@ spec:
   project: prod
   source:
     repoURL: https://github.com/SeSACTHON/backend.git
-    targetRevision: HEAD
+    targetRevision: main
     path: workloads/namespaces/prod
   destination:
     server: https://kubernetes.default.svc

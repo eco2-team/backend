@@ -13,7 +13,7 @@ Argo CD App-of-Apps가 참조하는 경로는 `clusters/{env}/apps/*.yaml` 파�
 | 35 | `data/postgres/*`, `data/redis/*` | Operator가 소비할 Postgres/Redis CR 선언 |
 | 60 | `apis/<domain>/{base,env}` | 각 API Deployment/Service/ConfigMap/Secret 템플릿 |
 
-> Helm Chart는 `platform/charts/**`에서 관리합니다. (예: Calico, ALB Controller, kube-prometheus-stack 등)
+> Helm Chart는 `platform/helm/**`에서 관리합니다. (예: Calico, ALB Controller, kube-prometheus-stack 등)
 
 ## 로컬 검증 예시
 
@@ -36,7 +36,7 @@ kustomize build workloads/apis/auth/dev
 5. `argocd app diff` → `argocd app sync`로 반영
 
 ## 참고
-- Helm 리소스: `platform/charts/<component>/app.yaml` (Argo CD ApplicationSet/Helm values)  
+- Helm 리소스: `platform/helm/<component>/app.yaml` (Argo CD ApplicationSet/Helm values)  
 - 문제 발생 시 `docs/TROUBLESHOOTING.md`와 `docs/deployment/LOCAL_CLUSTER_BOOTSTRAP.md` 내 Kustomize/Namespace 섹션을 참고하세요.  
 - 민감 값은 Terraform → SSM → ExternalSecret 경로로 주입되며, Kustomize 템플릿에는 literal 비밀번호를 두지 않습니다.
 

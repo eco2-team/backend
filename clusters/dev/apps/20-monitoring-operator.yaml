@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/SeSACTHON/backend.git
     targetRevision: refactor/gitops-sync-wave
-    path: platform/charts/kube-prometheus-stack
+    path: platform/helm/kube-prometheus-stack
     directory:
       include: app.yaml
   destination:

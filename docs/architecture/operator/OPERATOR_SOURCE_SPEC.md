@@ -9,18 +9,28 @@
 
 | Operator | Source / Chart | 주요 Custom Resource | 특징 / 선택 이유 | 비고 |
 |----------|----------------|----------------------|------------------|------|
-| **Zalando Postgres Operator** | GitHub: `github.com/zalando/postgres-operator` (`charts/postgres-operator`, tag `v1.10.0`) | `postgresql` (`acid.zalan.do/v1`) | - battle-tested, 다중 샤드/팀 기반 관리<br>- AWS S3 WAL archiving, logical backup 지원 | Wave 25(Operator) / Wave 35(PostgresCluster) |
-| **Redis Operator (Spotahome)** | GitHub: `github.com/spotahome/redis-operator` (`deploy/`, tag `v1.0.0`) | `RedisFailover` (`databases.spotahome.com/v1`) | - Master/Replica 자동 Failover<br>- Sentinel 내장 | Wave 25 / Wave 35에서 `Redis[Cluster].yaml` |
-| **RabbitMQ Cluster Operator** | GitHub: `github.com/rabbitmq/cluster-operator` (`config/default`, tag `v1.11.0`) | `RabbitmqCluster` (`rabbitmq.com/v1beta1`) | - Upstream Operator, TLS/Cert Manager 통합<br>- StatefulSet 기반 Scaling | Wave 25 (Operator) + Wave 35 (`RabbitmqCluster`) |
+| **Zalando Postgres Operator** | GitHub: `github.com/zalando/postgres-operator` (`charts/postgres-operator`, tag `v1.10.0`)<br>Local values: `platform/helm/postgres-operator/values/{dev,prod}.yaml` | `postgresql` (`acid.zalan.do/v1`) | - Battle-tested, 다중 샤드/팀 기반 관리<br>- AWS S3 WAL archiving, logical backup 지원<br>- Env별 nodeSelector/toleration/backup 값을 Helm values로 분리 | Wave 25 (Operator) / Wave 35 (PostgresCluster) |
+| **Redis Operator (OT Container Kit)** | Helm Repo: `https://ot-container-kit.github.io/helm-charts`, chart `redis-operator`, version `0.22.2`<br>Local values: `platform/helm/redis-operator/values/{dev,prod}.yaml` | `Redis` / `RedisCluster` (`redis.redis.opstreelabs.in/v1beta1`) | - Sentinel/Failover 내장, metrics exporter 지원<br>- Helm valueFiles로 namespace/nodeSelector 등을 env별 관리 | Wave 25 (Operator) / Wave 35 (`Redis[Cluster].yaml`) |
+| **RabbitMQ Cluster Operator** | GitHub: `github.com/rabbitmq/cluster-operator` (`config/default`, tag `v1.11.0`)<br>Kustomize manifest upstream 그대로 사용 (Helm chart 없음) | `RabbitmqCluster` (`rabbitmq.com/v1beta1`) | - Upstream Operator, TLS/Cert Manager 통합<br>- StatefulSet 기반 Scaling<br>- ArgoCD ApplicationSet에서 JSON Patch로 nodeSelector/toleration만 주입 | Wave 25 (Operator) + Wave 35 (`RabbitmqCluster`) |
 
 ### 최소 요구 사항
-- Namespace: `data-system` (Operators) / `postgres`, `redis`, `rabbitmq` (Instance)
-- Secrets (ExternalSecret → `/sesacthon/{env}/...`):
+- Namespace
+  - Operators: `data-system` (Postgres, Redis), `messaging-system` (RabbitMQ)
+  - Instance CR 네임스페이스는 각 Workload manifest에서 정의 (`workloads/data/*`, `workloads/messaging/*`)
+- Secrets (ExternalSecret → `/sesacthon/{env}/...`)
   - `postgresql-secret` (`/data/postgres-password`)
   - `redis-secret` (`/data/redis-password`)
   - `rabbitmq-default-user` (`/data/rabbitmq-password`)
-- Storage: `StorageClass` (EBS gp3) + Volume size 100Gi (Postgres), 50Gi (Redis)
-- Backup: S3 bucket (`s3://sesacthon-pg-backup`) & IAM Role (`s3-backup-credentials`)
+- Storage: `StorageClass` EBS gp3, 기본 100Gi (Postgres), 50Gi (Redis), 20Gi (RabbitMQ)
+- Backup: S3 bucket (`s3://sesacthon-pg-backup`) & IAM Role (`s3-backup-credentials`) – Postgres WAL/backup 용
+
+### RabbitMQ Operator 배포 고려사항 (2025-11)
+- **Helm Chart 부재**: 공식 repo(`rabbitmq/cluster-operator`)는 `config/default` Kustomize 매니페스트만 릴리스하며, Bitnami Helm chart는 2025-09 EOL. 서드파티 chart를 채택하면 보안/업데이트 책임이 커지므로 upstream 매니페스트를 그대로 쓰기로 결정.
+- **GitOps 일관성 vs. 유지보수성**: Helm valueFiles를 통한 env 분리가 어렵다는 단점이 있지만, upstream 변경 추적이 단순하고 CRD/컨트롤러 버전 차이가 최소화된다. env 차이는 ApplicationSet JSON Patch(노드 스케줄링) 또는 향후 Kustomize overlay로 보완.
+- **향후 선택지**: Helm 템플릿이 필요해질 경우
+  1) upstream 매니페스트를 `helmify`로 자체 chart화하여 repo에 추가하거나  
+  2) 커뮤니티 chart를 포크해 장기 유지한다.  
+  현재는 “업스트림 준수 + 최소 패치” 전략을 유지한다.
 
 ---
 
@@ -66,11 +76,11 @@
 
 | Operator | Source / Chart | CRD | 특징 |
 |----------|----------------|-----|------|
-| **RabbitMQ Cluster Operator** | GitHub Release YAML | `RabbitmqCluster` | - PodDisruptionBudget 포함<br>- TLS Secret, User Secret 자동 생성 |
+| **RabbitMQ Cluster Operator** | GitHub: `github.com/rabbitmq/cluster-operator` (`config/default`, tag `v1.11.0`) | `RabbitmqCluster` | - PodDisruptionBudget 포함<br>- TLS Secret, User Secret 자동 생성 |
 | **RabbitMQ Messaging Topology Operator** *(Optional)* | GitHub: `github.com/rabbitmq/messaging-topology-operator` | `RabbitmqCluster`, `Exchange`, `Queue`, `Binding` | - Infra-as-Code 방식으로 exchange/queue 정의 |
 
 ### 요구사항
-- Namespace: `rabbitmq`
+- Namespace: `messaging-system`
 - Secret: `rabbitmq-default-user` (for management UI)
 - Storage: StatefulSet PVC 20Gi, `ReadWriteOnce`
 - NetworkPolicy: 허용 대상 `tier=business-logic`, `tier=integration`
@@ -84,9 +94,9 @@
    - `values/{env}.yaml`에서 CRD install 옵션 (`prometheusOperator.createCustomResource`) 비활성화하고 CRD는 Wave -1에서 관리
 
 2. **Git Tag / Release**  
-   - RabbitMQ Operator: `v1.11.0` (2025-08 LTS)  
-   - Zalando Postgres Operator: `1.10.x` (Helm chart 기준)  
-   - Spotahome Redis Operator: `v1.0.0`
+   - RabbitMQ Operator: `v1.11.0` (`config/default` Kustomize)  
+   - Zalando Postgres Operator: `v1.10.0` (Helm chart)  
+   - OT Container Kit Redis Operator: `0.22.2` (Helm chart)
 
 3. **검증 플로우**  
    - Helm chart upgrade 시 `helm template` + `kubeconform`으로 CRD 호환성 검사  
