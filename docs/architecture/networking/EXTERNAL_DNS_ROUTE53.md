@@ -1,6 +1,6 @@
 # ExternalDNS & Route53 동기화 가이드
 
-> **목적**: AWS Load Balancer Controller가 생성하는 Ingress/ALB 정보를 자동으로 Route53에 반영하기 위해 ExternalDNS를 Helm + IRSA 패턴으로 배포한다.  
+> **목적**: AWS Load Balancer Controller가 생성하는 Ingress/ALB 정보를 자동으로 Route53에 반영하기 위해 ExternalDNS를 Helm으로 배포하고, 현재는 IRSA 대신 공유 AWS 자격증명 Secret을 사용한다.  
 > **적용 대상**: `images.growbin.app`를 제외한 애플리케이션/플랫폼 도메인 (api, argocd, grafana 등)  
 > **작성일**: 2025-11-16 · **Wave**: 16
 
@@ -16,13 +16,13 @@ AWS Load Balancer Controller (Wave 15) ──▶ ALB DNS
         │
         ▼
 ExternalDNS (Wave 16, Helm)
-        │ assumes IAM Role (IRSA)
+        │ uses aws-global-credentials Secret
         ▼
 Route53 (api.growbin.app, argocd.growbin.app, …)
 ```
 
 1. **Helm Chart**: `kubernetes-sigs/external-dns`, version `1.15.2` (이미지 `registry.k8s.io/external-dns/external-dns:v0.14.2`).  
-2. **ServiceAccount**: `platform-system/external-dns` (RBAC Wave 3) + IRSA (`/sesacthon/{env}/iam/external-dns-role-arn`).  
+2. **ServiceAccount**: `platform-system/external-dns` (RBAC Wave 3) + `aws-global-credentials` Secret env 주입.  
 3. **IAM Policy**: `route53:List*`, `route53:ChangeResourceRecordSets` (resource `*`, Route53 제약상 wildcard 필요).  
 4. **Sync Wave**: Namespaces → RBAC → NetworkPolicy → Secrets → ALB Controller → **ExternalDNS** → Monitoring.  
 5. **Ingress 주석**: `external-dns.alpha.kubernetes.io/hostname`, `target` 등 Git으로 관리.  
@@ -33,13 +33,12 @@ Route53 (api.growbin.app, argocd.growbin.app, …)
 
 | 단계 | 파일/경로 | 설명 |
 |------|-----------|------|
-| 1 | `terraform/irsa-roles.tf`, `ssm-parameters.tf` | IRSA Role (`external-dns`) + SSM `/sesacthon/{env}/iam/external-dns-role-arn` 추가 |
+| 1 | (수동) `aws-global-credentials` Secret | `platform-system`/`kube-system` 네임스페이스에 Access Key/Secret Key 저장 |
 | 2 | `workloads/rbac-storage/base/service-accounts.yaml` | `external-dns` ServiceAccount 정의 (Wave 3) |
-| 3 | `workloads/secrets/external-secrets/base/irsa-annotator-*.yaml` | IRSA 주입용 ServiceAccount + ClusterRole + Job (Argo Hook) |
-| 4 | `workloads/secrets/external-secrets/{env}/sa-irsa-patch.yaml` | IRSA ARN을 Secret으로 동기화 (Wave 11) |
-| 5 | `platform/helm/external-dns/` | Helm ApplicationSet + values(dev/prod) 생성 |
-| 6 | `clusters/{env}/apps/16-external-dns.yaml` | Sync Wave 16 Application 등록 |
-| 7 | `docs/architecture/...` | Sync Wave/네임스페이스 문서 업데이트 |
+| 3 | `workloads/secrets/external-secrets/{env}/data-secrets.yaml` | Route53/도메인 관련 Secret(SMM) 동기화 |
+| 4 | `platform/helm/external-dns/` | Helm ApplicationSet + values(dev/prod) 생성 (Secret env 주입) |
+| 5 | `clusters/{env}/apps/16-external-dns.yaml` | Sync Wave 16 Application 등록 |
+| 6 | `docs/architecture/...` | Sync Wave/네임스페이스 문서 업데이트 |
 
 ---
 
@@ -65,6 +64,16 @@ extraArgs:
 env:
   - name: AWS_REGION
     value: ap-northeast-2
+  - name: AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: aws-global-credentials
+        key: aws_access_key_id
+  - name: AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: aws-global-credentials
+        key: aws_secret_access_key
 ```
 
 > Route53 Hosted Zone ID는 ExternalDNS가 `ListHostedZones` 후 자동 탐색한다. `domainFilters`를 지정하여 `growbin.app` 외 레코드는 생성하지 않는다.
@@ -76,11 +85,11 @@ env:
 | Wave | 리소스 | 비고 |
 |------|--------|------|
 | 0 | Namespaces (`workloads/namespaces`) | `platform-system` |
-| 3 | RBAC/ServiceAccounts | `external-dns` SA 정의 (annotation은 Wave 11 Hook) |
+| 3 | RBAC/ServiceAccounts | `external-dns` SA 정의 |
 | 5 | NetworkPolicy | `platform-system` egress 허용 (`kube-system`, AWS API) |
-| 10 | ExternalSecrets Operator | IRSA Secret 생성 준비 |
-| 11 | ExternalSecret (IRSA) + `irsa-annotator` Job | `/sesacthon/{env}/iam/external-dns-role-arn` → Secret → ServiceAccount annotation |
-| 15 | ALB Controller | Ingress → ALB 생성 |
+| 10 | ExternalSecrets Operator | `/network/*` Secret 동기화 |
+| 11 | ExternalSecret (Route53 설정) | `/sesacthon/{env}/network/*`, `/platform/*` → Secret |
+| 15 | ALB Controller | 인프라 Ingress → ALB 생성 |
 | **16** | **ExternalDNS (Helm)** | Route53 Alias 관리 |
 | 20+ | Monitoring/Data/Apps | Route53 레코드가 이미 존재해야 함 |
 

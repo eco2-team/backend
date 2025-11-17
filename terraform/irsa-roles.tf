@@ -8,8 +8,8 @@
 # OIDC Provider Data (EKS 클러스터용, Self-managed K8s는 별도 구성 필요)
 # Self-managed의 경우 Service Account Token Projection 사용
 locals {
-  oidc_provider_arn = aws_iam_openid_connect_provider.cluster.arn
-  oidc_provider_url = trim(replace(aws_iam_openid_connect_provider.cluster.url, "https://", ""), "/")
+  oidc_provider_arn = try(aws_iam_openid_connect_provider.cluster[0].arn, "")
+  oidc_provider_url = try(trim(replace(aws_iam_openid_connect_provider.cluster[0].url, "https://", ""), "/"), "")
 }
 
 data "aws_caller_identity" "current" {}
@@ -24,6 +24,7 @@ data "aws_caller_identity" "current" {}
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 resource "aws_iam_role" "external_secrets" {
+  count = var.enable_irsa ? 1 : 0
   name = "${var.environment}-external-secrets-operator"
 
   assume_role_policy = jsonencode({
@@ -50,8 +51,9 @@ resource "aws_iam_role" "external_secrets" {
 }
 
 resource "aws_iam_role_policy" "external_secrets_ssm" {
+  count = var.enable_irsa ? 1 : 0
   name = "SSMParameterStoreRead"
-  role = aws_iam_role.external_secrets.id
+  role = aws_iam_role.external_secrets[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -82,6 +84,7 @@ resource "aws_iam_role_policy" "external_secrets_ssm" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 resource "aws_iam_role" "external_dns" {
+  count = var.enable_irsa ? 1 : 0
   name = "${var.environment}-external-dns"
 
   assume_role_policy = jsonencode({
@@ -108,8 +111,9 @@ resource "aws_iam_role" "external_dns" {
 }
 
 resource "aws_iam_role_policy" "external_dns_route53" {
+  count = var.enable_irsa ? 1 : 0
   name = "Route53ChangeRecords"
-  role = aws_iam_role.external_dns.id
+  role = aws_iam_role.external_dns[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -139,6 +143,7 @@ resource "aws_iam_role_policy" "external_dns_route53" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 resource "aws_iam_role" "postgres_operator" {
+  count = var.enable_irsa ? 1 : 0
   name = "${var.environment}-postgres-operator"
 
   assume_role_policy = jsonencode({
@@ -160,8 +165,9 @@ resource "aws_iam_role" "postgres_operator" {
 }
 
 resource "aws_iam_role_policy" "postgres_s3_backup" {
+  count = var.enable_irsa ? 1 : 0
   name = "S3BackupAccess"
-  role = aws_iam_role.postgres_operator.id
+  role = aws_iam_role.postgres_operator[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -188,9 +194,10 @@ resource "aws_iam_role_policy" "postgres_s3_backup" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 resource "aws_ssm_parameter" "external_secrets_role_arn" {
+  count       = var.enable_irsa ? 1 : 0
   name        = "/sesacthon/${var.environment}/iam/external-secrets-role-arn"
   type        = "String"
-  value       = aws_iam_role.external_secrets.arn
+  value       = aws_iam_role.external_secrets[0].arn
   description = "ExternalSecrets Operator IRSA Role ARN"
   tags = {
     ManagedBy   = "terraform"
@@ -200,9 +207,10 @@ resource "aws_ssm_parameter" "external_secrets_role_arn" {
 }
 
 resource "aws_ssm_parameter" "postgres_operator_role_arn" {
+  count       = var.enable_irsa ? 1 : 0
   name        = "/sesacthon/${var.environment}/iam/postgres-operator-role-arn"
   type        = "String"
-  value       = aws_iam_role.postgres_operator.arn
+  value       = aws_iam_role.postgres_operator[0].arn
   description = "Postgres Operator IRSA Role ARN"
   tags = {
     ManagedBy   = "terraform"
@@ -212,9 +220,10 @@ resource "aws_ssm_parameter" "postgres_operator_role_arn" {
 }
 
 resource "aws_ssm_parameter" "external_dns_role_arn" {
+  count       = var.enable_irsa ? 1 : 0
   name        = "/sesacthon/${var.environment}/iam/external-dns-role-arn"
   type        = "String"
-  value       = aws_iam_role.external_dns.arn
+  value       = aws_iam_role.external_dns[0].arn
   description = "ExternalDNS IRSA Role ARN"
   tags = {
     ManagedBy   = "terraform"

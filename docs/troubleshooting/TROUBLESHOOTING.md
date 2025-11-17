@@ -29,6 +29,10 @@ kubectl describe node <node> | grep -A4 Taints
 | IRSA / ExternalSecret 지연 | `kubectl get externalsecret -A`, ESO logs | `cluster-cases.md`, `ansible-label-sync.md` |
 
 > IRSA Hook가 600초 이상 대기하는 경우, Wave 10~11 전에 필수 Secret을 수동으로 준비해 Hook 실패를 방지하세요.
+>
+> 🔐 **AWS 자격증명 Secret 체크**  
+> - IRSA 미사용 구성에서는 `aws-global-credentials` Secret이 `kube-system`과 `platform-system` 네임스페이스에 반드시 존재해야 합니다.  
+> - Secret이 없다면 `docs/deployment/LOCAL_CLUSTER_BOOTSTRAP.md` Step 1.5에 따라 즉시 생성하세요.
 
 ---
 

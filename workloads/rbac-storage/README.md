@@ -5,7 +5,7 @@ Kubernetes RBAC 역할 및 StorageClass 정의.
 ## 구조
 
 - `base/`:
-  - `service-accounts.yaml`: IRSA 대상 ServiceAccount (ExternalSecrets, Postgres Operator, ALB Controller, ExternalDNS)
+  - `service-accounts.yaml`: AWS 리소스를 사용하는 ServiceAccount (ExternalSecrets, Postgres Operator, ALB Controller, ExternalDNS)
   - `cluster-roles.yaml`: platform-admin, observability-reader, read-only
   - `namespaced-roles.yaml`: data-ops (postgres/redis/rabbitmq), api-dev (auth)
   - `storage-class.yaml`: gp3 기본 StorageClass
@@ -13,13 +13,16 @@ Kubernetes RBAC 역할 및 StorageClass 정의.
 - `overlays/dev/`: base 참조 (동일)
 - `overlays/prod/`: base 참조 (동일)
 
-## IRSA (IAM Roles for Service Accounts)
+## AWS 권한 주입 전략
 
-ServiceAccount 주입 파이프라인:
-
-1. Terraform (`terraform/irsa-roles.tf`)이 IRSA Role + SSM Parameter(`/sesacthon/{env}/iam/*-role-arn`) 생성
-2. `workloads/secrets/external-secrets/{env}/sa-irsa-patch.yaml`이 `*-sa-irsa-values` Secret을 생성
-3. `irsa-annotator` Job(`workloads/secrets/external-secrets/base/irsa-annotator-*.yaml`)이 Secret 내용을 읽어 ServiceAccount에 `eks.amazonaws.com/role-arn`을 주입
+- **현재(임시)**: OIDC/IRSA가 준비될 때까지 Access Key/Secret Key를 `aws-global-credentials` Secret으로 만들어 Pod에 환경변수로 주입한다.  
+  - 네임스페이스: `kube-system`, `platform-system`  
+  - Secret 키: `aws_access_key_id`, `aws_secret_access_key`  
+  - 관련 Helm values(`platform/helm/*/values/{env}.yaml`)에서 env → `valueFrom.secretKeyRef`로 사용
+- **향후(IRSA 재도입)**:
+  1. Terraform (`terraform/irsa-roles.tf`)에서 `enable_irsa = true`로 바꾸고 OIDC Issuer를 등록  
+  2. `*-sa-irsa-values` ExternalSecret 및 `irsa-annotator` Hook을 다시 활성화  
+  3. ServiceAccount annotation `eks.amazonaws.com/role-arn`을 통해 최소 권한 IRSA로 전환
 
 ## 배포
 

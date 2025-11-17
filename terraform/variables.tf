@@ -53,8 +53,14 @@ variable "create_wildcard_record" {
 }
 
 variable "service_account_oidc_issuer_url" {
-  description = "Self-managed Kubernetes ServiceAccount OIDC Issuer URL (예: https://oidc.sesacthon.io/dev). 비워두면 환경 이름을 기준으로 자동 구성됩니다."
+  description = "Self-managed Kubernetes ServiceAccount OIDC Issuer URL (예: https://oidc.growbin.app/dev). 비워두면 환경 이름을 기준으로 자동 구성됩니다."
   type        = string
   default     = ""
+}
+
+variable "enable_irsa" {
+  description = "IRSA(OIDC) 구성을 활성화할지 여부. Self-managed Issuer가 준비되지 않았다면 false로 두고 나중에 전환합니다."
+  type        = bool
+  default     = false
 }
 
