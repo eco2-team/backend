@@ -26,7 +26,7 @@ SeSACTHON GitOps 부트스트랩 스크립트
   bash scripts/deployment/bootstrap_cluster.sh [옵션]
 
 옵션:
-  -e, --env <이름>         사용할 환경 (dev 또는 prod, 기본: dev)
+  -e, --env <이름>         사용할 환경 (dev 또는 prod, 기본: dev) — Terraform tfvars, Ansible vars 자동 분기
   --kubeconfig <경로>       kubectl이 사용할 kubeconfig 경로 (기본: $HOME/.kube/config)
   --skip-terraform          Terraform apply 단계 건너뛰기
   --skip-ansible            Ansible 부트스트랩 단계 건너뛰기
@@ -218,9 +218,24 @@ if [[ "${SKIP_ANSIBLE}" != "true" ]]; then
   export ANSIBLE_CONFIG="${ANSIBLE_DIR}/ansible.cfg"
   export ANSIBLE_HOST_KEY_CHECKING=${ANSIBLE_HOST_KEY_CHECKING:-False}
   ansible_playbook_cmd=(ansible-playbook -i "${ANSIBLE_INVENTORY_PATH}" site.yml)
+
+  # 1) 기본 env 변수 (항상 전달)
+  ansible_playbook_cmd+=(--extra-vars "cluster_env=${ENVIRONMENT}")
+
+  # 2) env 전용 vars 파일이 있으면 함께 전달 (예: ansible/group_vars/dev.yml)
+  ENV_VARS_FILE="${ANSIBLE_DIR}/group_vars/${ENVIRONMENT}.yml"
+  if [[ -f "${ENV_VARS_FILE}" ]]; then
+    log "Ansible env vars 적용: ${ENV_VARS_FILE}"
+    ansible_playbook_cmd+=(--extra-vars "@${ENV_VARS_FILE}")
+  else
+    log "Ansible env vars 파일(${ENV_VARS_FILE})이 없어 건너뜁니다."
+  fi
+
+  # 3) 사용자 정의 extra vars(있다면) 마지막에 전달해 최종 override 가능
   if [[ -n "${ANSIBLE_EXTRA_VARS:-}" ]]; then
     ansible_playbook_cmd+=(--extra-vars "${ANSIBLE_EXTRA_VARS}")
   fi
+
   "${ansible_playbook_cmd[@]}"
   popd >/dev/null
 else
