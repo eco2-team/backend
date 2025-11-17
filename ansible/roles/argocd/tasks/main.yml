@@ -34,6 +34,8 @@
       | kubectl apply -f -
   register: ns_apply
   changed_when: "'created' in ns_apply.stdout or 'configured' in ns_apply.stdout"
+  args:
+    executable: /bin/bash
 
 - name: ArgoCD 설치
   command: kubectl apply -n {{ argocd_namespace }} -f https://raw.githubusercontent.com/argoproj/argo-cd/{{ argocd_version }}/manifests/install.yaml
