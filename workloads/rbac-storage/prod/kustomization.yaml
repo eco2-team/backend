@@ -3,5 +3,3 @@ kind: Kustomization
 resources:
 - ../base
 - role-bindings.yaml
-patches:
-- path: patch-sa-irsa.yaml
