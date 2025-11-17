@@ -9,6 +9,7 @@ kubernetes_cni_version: "1.28.0-1.1"
 # ALB는 target-type: instance + NodePort로 연결됨
 pod_network_cidr: "192.168.0.0/16"  # Calico Overlay Network
 service_cidr: "10.96.0.0/12"
+cni_plugin: "calico"  # 선택: calico 또는 vpc-cni
 
 # Control Plane Endpoint (HA 확장 대비)
 # 현재: 단일 마스터지만 향후 HA 확장을 위해 설정

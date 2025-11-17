@@ -197,8 +197,21 @@
   changed_when: "'patched' in coredns_patched.stdout"
   failed_when: false
 
-- name: CoreDNS Pod 재시작 대기
+- name: CoreDNS Pod 재시작 대기 (CNI 설치 전 Best-effort)
   command: kubectl rollout status deployment coredns -n kube-system --timeout=120s
   become_user: "{{ kubectl_user }}"
+  register: coredns_rollout_pre_cni
+  changed_when: false
+  failed_when: false
   when: coredns_patched.changed
+
+- name: CoreDNS 롤아웃 경고 (CNI 설치 후 재확인 예정)
+  debug:
+    msg:
+      - "⚠️ CoreDNS 롤아웃이 완료되지 않았습니다 (CNI 설치 전 단계)."
+      - "stdout: {{ coredns_rollout_pre_cni.stdout | default('') }}"
+      - "stderr: {{ coredns_rollout_pre_cni.stderr | default('') }}"
+  when:
+    - coredns_rollout_pre_cni is defined
+    - coredns_rollout_pre_cni.rc != 0
 
