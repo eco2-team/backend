@@ -12,9 +12,6 @@ spec:
           - name: postgres-operator
             path: platform/charts/postgres-operator
             namespace: data-system
-          - name: redis-operator
-            path: platform/charts/redis-operator
-            namespace: data-system
           - name: rabbitmq-operator
             path: platform/charts/rabbitmq-operator
             namespace: messaging-system
