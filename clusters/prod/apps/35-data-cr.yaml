@@ -17,7 +17,7 @@ spec:
             path: workloads/data/rabbitmq/prod
   template:
     metadata:
-      name: prod-data-"{{name}}"
+      name: prod-data-{{name}}
       namespace: argocd
     spec:
       project: prod

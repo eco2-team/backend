@@ -17,7 +17,7 @@ spec:
             path: workloads/data/rabbitmq/dev
   template:
     metadata:
-      name: dev-data-"{{name}}"
+      name: dev-data-{{name}}
       namespace: argocd
     spec:
       project: dev

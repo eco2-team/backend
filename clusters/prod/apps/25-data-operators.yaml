@@ -18,12 +18,9 @@ spec:
           - name: rabbitmq-operator
             path: platform/helm/rabbitmq-operator/prod
             namespace: messaging-system
-          - name: rabbitmq-operator
-            path: platform/helm/rabbitmq-operator/prod
-            namespace: messaging-system
   template:
     metadata:
-      name: prod-"{{name}}"
+      name: prod-{{name}}
       namespace: argocd
     spec:
       project: prod
