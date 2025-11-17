@@ -91,6 +91,9 @@ sysctl --system
 mkdir -p /etc/cni/net.d /var/lib/cni /opt/cni/bin
 ```
 
+> 참고: 2025-11 이후에는 CNI 디렉토리를 매번 삭제하지 않도록 `reset_cni_dirs` 변수를 도입했습니다.  
+> 기본값은 `false`이며, 초기화가 정말 필요할 때만 `ansible-playbook ... -e reset_cni_dirs=true` 로 명시적으로 실행하세요.
+
 **구현 방법**:
 ```hcl
 # terraform/modules/ec2/main.tf

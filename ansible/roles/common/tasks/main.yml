@@ -47,7 +47,7 @@
   debug:
     msg: "Swap 상태: {{ 'OFF ✅' if swap_status.stdout == '' else 'ON ⚠️ - 재확인 필요' }}"
 
-# CNI 디렉토리 정리 (Calico init 실패 방지)
+# CNI 디렉토리 정리 (초기화 시에만 opt-in)
 - name: 이전 CNI 설정 정리
   file:
     path: "{{ item }}"
@@ -57,6 +57,8 @@
     - /var/lib/cni
     - /opt/cni/bin
   ignore_errors: yes
+  when:
+    - reset_cni_dirs | default(false)
 
 - name: CNI 디렉토리 생성
   file:
