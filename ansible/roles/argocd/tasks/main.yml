@@ -186,6 +186,8 @@
         - platform-system
       no_log: true
       run_once: true
+      args:
+        executable: /bin/bash
   when: create_aws_credentials_secret | default(true)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
