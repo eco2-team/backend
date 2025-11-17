@@ -83,9 +83,10 @@ resource "aws_ssm_parameter" "worker_sg_id" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 resource "aws_ssm_parameter" "alb_controller_role_arn" {
+  count       = var.enable_irsa ? 1 : 0
   name        = "/sesacthon/${var.environment}/iam/alb-controller-role-arn"
   type        = "String"
-  value       = aws_iam_role.alb_controller.arn
+  value       = aws_iam_role.alb_controller[0].arn
   description = "ALB Controller IRSA Role ARN"
   tags = {
     ManagedBy   = "terraform"

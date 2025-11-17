@@ -253,6 +253,7 @@ resource "aws_iam_policy" "alb_controller" {
 
 # IRSA Role for AWS Load Balancer Controller
 resource "aws_iam_role" "alb_controller" {
+  count = var.enable_irsa ? 1 : 0
   name = "${var.environment}-alb-controller"
 
   assume_role_policy = jsonencode({
@@ -280,7 +281,8 @@ resource "aws_iam_role" "alb_controller" {
 
 # IAM Role에 ALB Controller Policy 추가
 resource "aws_iam_role_policy_attachment" "alb_controller" {
-  role       = aws_iam_role.alb_controller.name
+  count      = var.enable_irsa ? 1 : 0
+  role       = aws_iam_role.alb_controller[0].name
   policy_arn = aws_iam_policy.alb_controller.arn
 }
 
