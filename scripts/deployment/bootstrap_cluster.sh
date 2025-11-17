@@ -26,7 +26,7 @@ SeSACTHON GitOps 부트스트랩 스크립트
   bash scripts/deployment/bootstrap_cluster.sh [옵션]
 
 옵션:
-  -e, --env <이름>         사용할 환경 (기본: dev)
+  -e, --env <이름>         사용할 환경 (dev 또는 prod, 기본: dev)
   --kubeconfig <경로>       kubectl이 사용할 kubeconfig 경로 (기본: $HOME/.kube/config)
   --skip-terraform          Terraform apply 단계 건너뛰기
   --skip-ansible            Ansible 부트스트랩 단계 건너뛰기
@@ -237,6 +237,8 @@ if [[ "${SKIP_ARGOCD}" != "true" ]]; then
     echo "${LOG_PREFIX} 오류: kubeconfig '${KUBECONFIG_PATH}'가 존재하지 않습니다. --kubeconfig 옵션 또는 KUBECONFIG 환경 변수를 확인하세요." >&2
     exit 1
   fi
+  log "기존 ArgoCD root-app 삭제 (${ROOT_APP_FILE})"
+  kubectl --kubeconfig "${KUBECONFIG_PATH}" delete -n argocd -f "${ROOT_APP_FILE}" --ignore-not-found || true
   log "ArgoCD root-app 적용 (${ROOT_APP_FILE})"
   kubectl --kubeconfig "${KUBECONFIG_PATH}" apply -n argocd -f "${ROOT_APP_FILE}"
 else
