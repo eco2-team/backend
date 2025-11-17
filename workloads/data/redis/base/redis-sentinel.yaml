@@ -1,0 +1,23 @@
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: RedisSentinel
+metadata:
+  name: redis-main
+  namespace: redis
+  labels:
+    app.sesacthon.io/name: redis
+    tier: data
+spec:
+  clusterSize: 3
+  redisSentinelConfig:
+    redisReplicationName: redis-main
+  kubernetesConfig:
+    image: quay.io/opstree/redis-sentinel:7.2.4
+    imagePullPolicy: IfNotPresent
+  nodeSelector:
+    sesacthon.io/infra-type: redis
+  tolerations:
+    - key: sesacthon.io/infrastructure
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+
