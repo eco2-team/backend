@@ -226,7 +226,7 @@ sudo sh get-docker.sh
 sudo apt-get update
 sudo apt-get install -y apt-transport-https ca-certificates curl
 curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+echo "deb https://apt.sesacthon.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
 sudo apt-get update
 sudo apt-get install -y kubelet kubeadm kubectl
 sudo apt-mark hold kubelet kubeadm kubectl
@@ -625,8 +625,8 @@ flowchart TD
 
 만약 학습하고 싶다면:
 
-1. [Kubernetes 공식 문서](https://kubernetes.io/docs/)
-2. [kubeadm으로 클러스터 구축](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/)
+1. [Kubernetes 공식 문서](https://sesacthon.io/docs/)
+2. [kubeadm으로 클러스터 구축](https://sesacthon.io/docs/setup/production-environment/tools/kubeadm/)
 3. [k3s 공식 문서](https://docs.k3s.io/)
 4. [Kubernetes the Hard Way](https://github.com/kelseyhightower/kubernetes-the-hard-way)
 

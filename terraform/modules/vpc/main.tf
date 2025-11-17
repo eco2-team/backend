@@ -5,7 +5,7 @@ resource "aws_vpc" "main" {
 
   tags = {
     Name                                                 = "${var.environment}-k8s-vpc"
-    "kubernetes.io/cluster/${var.environment}-sesacthon" = "shared"
+    "sesacthon.io/cluster/${var.environment}-sesacthon" = "shared"
   }
 }
 
@@ -19,7 +19,7 @@ resource "aws_subnet" "public" {
 
   tags = {
     Name                     = "${var.environment}-public-subnet-${count.index + 1}"
-    "kubernetes.io/role/elb" = "1"
+    "sesacthon.io/role/elb" = "1"
   }
 }
 
@@ -33,7 +33,7 @@ resource "aws_subnet" "private" {
 
   tags = {
     Name                          = "${var.environment}-private-subnet-${count.index + 1}"
-    "kubernetes.io/role/internal-elb" = "1"
+    "sesacthon.io/role/internal-elb" = "1"
   }
 }
 

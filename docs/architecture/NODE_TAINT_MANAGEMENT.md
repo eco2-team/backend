@@ -112,8 +112,8 @@ resource "aws_instance" "api_node" {
   for_each = var.api_domains
 
   tags = {
-    "kubernetes.io/taint/domain" = "${each.key}:NoSchedule"
-    "kubernetes.io/label/domain" = each.key
+    "sesacthon.io/taint/domain" = "${each.key}:NoSchedule"
+    "sesacthon.io/label/domain" = each.key
   }
 }
 ```
@@ -202,14 +202,14 @@ spec:
 ## 📚 참고 문서
 
 ### Kubernetes 공식 문서
-- [Taints and Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
-- [Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
+- [Taints and Tolerations](https://sesacthon.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+- [Assigning Pods to Nodes](https://sesacthon.io/docs/concepts/scheduling-eviction/assign-pod-node/)
 
 ### Ansible Kubernetes Module
 - [kubernetes.core.k8s](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/k8s_module.html)
 
 ### Kustomize Best Practices
-- [Strategic Merge Patch](https://kubectl.docs.kubernetes.io/references/kustomize/patches/)
+- [Strategic Merge Patch](https://kubectl.docs.sesacthon.io/references/kustomize/patches/)
 
 ---
 

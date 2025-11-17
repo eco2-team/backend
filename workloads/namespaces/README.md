@@ -30,6 +30,6 @@ Wave 0에서 가장 먼저 적용됨 (`clusters/dev/apps/05-namespaces.yaml`).
 
 ```bash
 kubectl apply -k workloads/namespaces/overlays/dev
-kubectl get ns -l app.kubernetes.io/part-of=ecoeco-backend
+kubectl get ns -l app.sesacthon.io/part-of=ecoeco-backend
 ```
 

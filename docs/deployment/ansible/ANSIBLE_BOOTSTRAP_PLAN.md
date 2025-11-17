@@ -60,7 +60,7 @@
 1. **노드 상태**  
    ```bash
    kubectl get nodes -o wide
-   kubectl get nodes -L workload,node-role.kubernetes.io/infrastructure
+   kubectl get nodes -L workload,node-role.sesacthon.io/infrastructure
    ```
 2. **Core Add-on**  
    - `kube-system` 네임스페이스 Pod Ready  

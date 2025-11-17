@@ -395,7 +395,7 @@ ansible-playbook site.yml --ask-vault-pass
 ### 공식 문서
 - [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
 - [Ansible Best Practices](https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html)
-- [Kubeadm Installation](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/)
+- [Kubeadm Installation](https://sesacthon.io/docs/setup/production-environment/tools/kubeadm/)
 - [Calico CNI Documentation](https://docs.tigera.io/calico/latest/about/)
 
 ---

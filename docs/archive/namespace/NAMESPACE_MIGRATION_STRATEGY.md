@@ -237,7 +237,7 @@ graph TB
 cd /Users/mango/workspace/SeSACTHON/backend
 
 # 2. 네임스페이스 생성 확인
-kubectl get namespaces -l app.kubernetes.io/part-of=ecoeco-backend
+kubectl get namespaces -l app.sesacthon.io/part-of=ecoeco-backend
 
 # 3. NetworkPolicy 확인
 kubectl get networkpolicies --all-namespaces
@@ -572,7 +572,7 @@ ssh ubuntu@<MASTER_IP>
 cd /Users/mango/workspace/SeSACTHON/backend
 
 # ✅ 3. 네임스페이스 확인
-kubectl get namespaces -l app.kubernetes.io/part-of=ecoeco-backend
+kubectl get namespaces -l app.sesacthon.io/part-of=ecoeco-backend
 # 예상 출력: auth, my, scan, character, location, info, chat, data, monitoring
 
 # ✅ 4. NetworkPolicy 확인
@@ -882,7 +882,7 @@ Day 2 (D+1):
 
 ### 외부 문서
 - [ArgoCD Best Practices](https://argo-cd.readthedocs.io/en/stable/user-guide/best_practices/)
-- [Kubernetes Deployment Strategies](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+- [Kubernetes Deployment Strategies](https://sesacthon.io/docs/concepts/workloads/controllers/deployment/)
 - [Blue-Green Deployment Pattern](https://martinfowler.com/bliki/BlueGreenDeployment.html)
 
 ---

@@ -30,7 +30,7 @@
 ```bash
 kubectl get redisreplication -n redis
 kubectl get redissentinel -n redis
-kubectl get pods -n redis -l app.kubernetes.io/name=redis
+kubectl get pods -n redis -l app.sesacthon.io/name=redis
 ```
 
 ## 참고

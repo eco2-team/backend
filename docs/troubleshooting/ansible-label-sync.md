@@ -51,8 +51,8 @@ Ansible playbook (`ansible/playbooks/fix-node-labels.yml`)이 설정하는 노�
 ```bash
 $ kubectl get nodes k8s-api-auth --show-labels
 NAME           STATUS   LABELS
-k8s-api-auth   Ready    kubernetes.io/node-role=api,
-                        kubernetes.io/service=auth,
+k8s-api-auth   Ready    sesacthon.io/node-role=api,
+                        sesacthon.io/service=auth,
                         workload=api,
                         domain=auth,
                         tier=business-logic,
@@ -66,18 +66,18 @@ spec:
   template:
     spec:
       nodeSelector:
-        node-role.kubernetes.io/api: auth  # ❌ 노드에 없는 라벨
+        node-role.sesacthon.io/api: auth  # ❌ 노드에 없는 라벨
 ```
 
 **불일치 매핑 테이블**:
 
 | 리소스 | Ansible 라벨 (실제) | 구버전 Manifest | 결과 |
 |--------|-------------------|----------------|------|
-| API-auth | `kubernetes.io/service=auth` | `node-role.kubernetes.io/api: auth` | ❌ 불일치 |
-| API-my | `kubernetes.io/service=my` | `node-role.kubernetes.io/api: my` | ❌ 불일치 |
-| PostgreSQL | `kubernetes.io/infra-type=postgresql` | `node-role.kubernetes.io/infrastructure: postgresql` | ❌ 불일치 |
-| Redis | `kubernetes.io/infra-type=redis` | `node-role.kubernetes.io/infrastructure: redis` | ❌ 불일치 |
-| Worker-Storage | `kubernetes.io/worker-type=storage` | `node-role.kubernetes.io/worker: storage` | ❌ 불일치 |
+| API-auth | `sesacthon.io/service=auth` | `node-role.sesacthon.io/api: auth` | ❌ 불일치 |
+| API-my | `sesacthon.io/service=my` | `node-role.sesacthon.io/api: my` | ❌ 불일치 |
+| PostgreSQL | `sesacthon.io/infra-type=postgresql` | `node-role.sesacthon.io/infrastructure: postgresql` | ❌ 불일치 |
+| Redis | `sesacthon.io/infra-type=redis` | `node-role.sesacthon.io/infrastructure: redis` | ❌ 불일치 |
+| Worker-Storage | `sesacthon.io/worker-type=storage` | `node-role.sesacthon.io/worker: storage` | ❌ 불일치 |
 
 **영향받는 서비스**: 전체 9개 (auth, my, scan, character, location, info, chat + PostgreSQL + Redis)
 
@@ -94,7 +94,7 @@ spec:
   template:
     spec:
       nodeSelector:
-        kubernetes.io/service: auth  # ✅ Ansible 라벨과 일치
+        sesacthon.io/service: auth  # ✅ Ansible 라벨과 일치
       tolerations:
         - key: domain
           operator: Equal
@@ -110,12 +110,12 @@ spec:
     requiredDuringSchedulingIgnoredDuringExecution:
       nodeSelectorTerms:
         - matchExpressions:
-            - key: kubernetes.io/infra-type  # ✅ 변경
+            - key: sesacthon.io/infra-type  # ✅ 변경
               operator: In
               values:
                 - postgresql
   tolerations:
-    - key: kubernetes.io/infrastructure  # ✅ 변경
+    - key: sesacthon.io/infrastructure  # ✅ 변경
       operator: Equal
       value: "true"
       effect: NoSchedule
@@ -127,17 +127,17 @@ spec:
 spec:
   redis:
     nodeSelector:
-      kubernetes.io/infra-type: redis  # ✅ 변경
+      sesacthon.io/infra-type: redis  # ✅ 변경
     tolerations:
-      - key: kubernetes.io/infrastructure
+      - key: sesacthon.io/infrastructure
         operator: Equal
         value: "true"
         effect: NoSchedule
   sentinel:
     nodeSelector:
-      kubernetes.io/infra-type: redis
+      sesacthon.io/infra-type: redis
     tolerations:
-      - key: kubernetes.io/infrastructure
+      - key: sesacthon.io/infrastructure
         operator: Equal
         value: "true"
         effect: NoSchedule
@@ -160,16 +160,16 @@ spec:
 
 **노드 라벨 확인**:
 ```bash
-$ kubectl get nodes -l kubernetes.io/service=auth --show-labels
+$ kubectl get nodes -l sesacthon.io/service=auth --show-labels
 NAME           STATUS   LABELS
-k8s-api-auth   Ready    kubernetes.io/service=auth,kubernetes.io/node-role=api,domain=auth  # ✅
+k8s-api-auth   Ready    sesacthon.io/service=auth,sesacthon.io/node-role=api,domain=auth  # ✅
 ```
 
 **Deployment nodeSelector 확인**:
 ```bash
 $ kubectl get deploy auth-api -n auth -o yaml | grep -A 3 'nodeSelector:'
       nodeSelector:
-        kubernetes.io/service: auth  # ✅ 일치
+        sesacthon.io/service: auth  # ✅ 일치
 ```
 
 **Pod 스케줄링 성공 확인** (2025-11-16 실제 클러스터):
@@ -342,7 +342,7 @@ kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
 # 4. ArgoCD Pod Ready 대기
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+kubectl wait --for=condition=ready pod -l app.sesacthon.io/name=argocd-server -n argocd --timeout=300s
 
 # 5. AppProject 생성
 kubectl apply -f - <<EOF
@@ -577,9 +577,9 @@ ArgoCD 기본 설치 매니페스트(`install.yaml`)에 포함된 NetworkPolicy�
 ```bash
 $ kubectl get networkpolicy -n argocd
 NAME                                              POD-SELECTOR
-argocd-application-controller-network-policy      app.kubernetes.io/name=argocd-application-controller
-argocd-redis-network-policy                       app.kubernetes.io/name=argocd-redis
-argocd-repo-server-network-policy                 app.kubernetes.io/name=argocd-repo-server
+argocd-application-controller-network-policy      app.sesacthon.io/name=argocd-application-controller
+argocd-redis-network-policy                       app.sesacthon.io/name=argocd-redis
+argocd-repo-server-network-policy                 app.sesacthon.io/name=argocd-repo-server
 # 7개의 제한적인 NetworkPolicy
 ```
 
@@ -651,7 +651,7 @@ $ kubectl get applications -n argocd | grep Synced | wc -l
 # 로컬에서 수정하고 커밋했지만 클러스터에 반영 안 됨
 kubectl get deploy auth-api -n auth -o yaml | grep nodeSelector
       nodeSelector:
-        node-role.kubernetes.io/api: auth  # ❌ 구버전 라벨 (수정 전)
+        node-role.sesacthon.io/api: auth  # ❌ 구버전 라벨 (수정 전)
 ```
 
 **ArgoCD Application 상태**:
@@ -682,7 +682,7 @@ HEAD  # ❌ GitHub default를 가리킴
 ```
 
 **문제 시나리오**:
-1. 로컬에서 `kubernetes.io/*` 라벨로 수정 (`refactor/gitops-sync-wave` 브랜치)
+1. 로컬에서 `sesacthon.io/*` 라벨로 수정 (`refactor/gitops-sync-wave` 브랜치)
 2. 커밋만 하고 push 안 함
 3. ArgoCD가 `targetRevision: HEAD`로 설정되어 있음
 4. ArgoCD는 GitHub의 default 브랜치(옛날 커밋)를 읽음
@@ -745,7 +745,7 @@ $ kubectl get applications -n argocd | grep Synced | wc -l
 
 $ kubectl get deploy auth-api -n auth -o yaml | grep nodeSelector
       nodeSelector:
-        kubernetes.io/service: auth  # ✅ 최신 라벨 반영됨
+        sesacthon.io/service: auth  # ✅ 최신 라벨 반영됨
 ```
 
 **커밋**: `9d5c34b`, `dbe3d6d`, `e82a025`, `a0e7a0b`, `451e5b0`
@@ -991,7 +991,7 @@ coredns-5dd5756b68-pz92s   0/1   Pending   0   21m
 ```
 Events:
   Warning  FailedScheduling  11m (x3 over 22m)  default-scheduler  
-    0/1 nodes are available: 1 node(s) had untolerated taint {node.kubernetes.io/not-ready: }
+    0/1 nodes are available: 1 node(s) had untolerated taint {node.sesacthon.io/not-ready: }
   
   Warning  FailedScheduling  105s (x2 over 6m45s)  default-scheduler  
     0/14 nodes are available: 
@@ -1002,8 +1002,8 @@ Events:
     1 node(s) had untolerated taint {domain: location}, 
     1 node(s) had untolerated taint {domain: my}, 
     1 node(s) had untolerated taint {domain: scan}, 
-    3 node(s) had untolerated taint {node.kubernetes.io/not-ready: }, 
-    4 node(s) had untolerated taint {kubernetes.io/infrastructure: true}
+    3 node(s) had untolerated taint {node.sesacthon.io/not-ready: }, 
+    4 node(s) had untolerated taint {sesacthon.io/infrastructure: true}
 ```
 
 ### 원인
@@ -1015,8 +1015,8 @@ Events:
 node_labels:
   k8s-api-auth: "--node-labels=... --register-with-taints=domain=auth:NoSchedule"
   k8s-api-my: "--node-labels=... --register-with-taints=domain=my:NoSchedule"
-  k8s-postgresql: "--node-labels=... --register-with-taints=kubernetes.io/infrastructure=true:NoSchedule"
-  k8s-redis: "--node-labels=... --register-with-taints=kubernetes.io/infrastructure=true:NoSchedule"
+  k8s-postgresql: "--node-labels=... --register-with-taints=sesacthon.io/infrastructure=true:NoSchedule"
+  k8s-redis: "--node-labels=... --register-with-taints=sesacthon.io/infrastructure=true:NoSchedule"
   # ... 모든 worker/infrastructure 노드에 taint
 ```
 
@@ -1025,10 +1025,10 @@ node_labels:
 tolerations:
   - key: CriticalAddonsOnly
     operator: Exists
-  - key: node-role.kubernetes.io/control-plane
+  - key: node-role.sesacthon.io/control-plane
     operator: Exists
     effect: NoSchedule
-# ⚠️ domain, kubernetes.io/infrastructure taint는 tolerate 안 함
+# ⚠️ domain, sesacthon.io/infrastructure taint는 tolerate 안 함
 ```
 
 **결과**: CoreDNS가 어디에도 배치되지 못함 → 클러스터 전체 DNS 장애
@@ -1045,13 +1045,13 @@ kubectl patch deployment coredns -n kube-system --type merge -p '
     "template": {
       "spec": {
         "tolerations": [
-          {"key": "node-role.kubernetes.io/control-plane", "operator": "Exists", "effect": "NoSchedule"},
-          {"key": "node-role.kubernetes.io/master", "operator": "Exists", "effect": "NoSchedule"},
+          {"key": "node-role.sesacthon.io/control-plane", "operator": "Exists", "effect": "NoSchedule"},
+          {"key": "node-role.sesacthon.io/master", "operator": "Exists", "effect": "NoSchedule"},
           {"key": "domain", "operator": "Exists", "effect": "NoSchedule"},
-          {"key": "kubernetes.io/infrastructure", "operator": "Exists", "effect": "NoSchedule"},
+          {"key": "sesacthon.io/infrastructure", "operator": "Exists", "effect": "NoSchedule"},
           {"key": "CriticalAddonsOnly", "operator": "Exists"},
-          {"key": "node.kubernetes.io/not-ready", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300},
-          {"key": "node.kubernetes.io/unreachable", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300}
+          {"key": "node.sesacthon.io/not-ready", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300},
+          {"key": "node.sesacthon.io/unreachable", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300}
         ]
       }
     }
@@ -1061,7 +1061,7 @@ kubectl patch deployment coredns -n kube-system --type merge -p '
 
 **Option 2: Master taint 제거** (비권장):
 ```bash
-kubectl taint nodes k8s-master node-role.kubernetes.io/control-plane:NoSchedule-
+kubectl taint nodes k8s-master node-role.sesacthon.io/control-plane:NoSchedule-
 # ⚠️ Master 노드에 다른 Pod도 스케줄링될 수 있음
 ```
 
@@ -1081,13 +1081,13 @@ kubectl taint nodes k8s-master node-role.kubernetes.io/control-plane:NoSchedule-
         "template": {
           "spec": {
             "tolerations": [
-              {"key": "node-role.kubernetes.io/control-plane", "operator": "Exists", "effect": "NoSchedule"},
-              {"key": "node-role.kubernetes.io/master", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "node-role.sesacthon.io/control-plane", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "node-role.sesacthon.io/master", "operator": "Exists", "effect": "NoSchedule"},
               {"key": "domain", "operator": "Exists", "effect": "NoSchedule"},
-              {"key": "kubernetes.io/infrastructure", "operator": "Exists", "effect": "NoSchedule"},
+              {"key": "sesacthon.io/infrastructure", "operator": "Exists", "effect": "NoSchedule"},
               {"key": "CriticalAddonsOnly", "operator": "Exists"},
-              {"key": "node.kubernetes.io/not-ready", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300},
-              {"key": "node.kubernetes.io/unreachable", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300}
+              {"key": "node.sesacthon.io/not-ready", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300},
+              {"key": "node.sesacthon.io/unreachable", "operator": "Exists", "effect": "NoExecute", "tolerationSeconds": 300}
             ]
           }
         }
@@ -1157,10 +1157,10 @@ Address 1: 10.96.0.1 kubernetes.default.svc.cluster.local
 
 | 리소스 타입 | Ansible 라벨 | Deployment nodeSelector | 상태 |
 |-----------|-------------|------------------------|------|
-| API | `kubernetes.io/service=auth` | `kubernetes.io/service: auth` | ✅ 일치 |
-| Worker | `kubernetes.io/worker-type=storage` | `kubernetes.io/worker-type: storage` | ✅ 일치 |
-| PostgreSQL | `kubernetes.io/infra-type=postgresql` | `kubernetes.io/infra-type: postgresql` | ✅ 일치 |
-| Redis | `kubernetes.io/infra-type=redis` | `kubernetes.io/infra-type: redis` | ✅ 일치 |
+| API | `sesacthon.io/service=auth` | `sesacthon.io/service: auth` | ✅ 일치 |
+| Worker | `sesacthon.io/worker-type=storage` | `sesacthon.io/worker-type: storage` | ✅ 일치 |
+| PostgreSQL | `sesacthon.io/infra-type=postgresql` | `sesacthon.io/infra-type: postgresql` | ✅ 일치 |
+| Redis | `sesacthon.io/infra-type=redis` | `sesacthon.io/infra-type: redis` | ✅ 일치 |
 
 #### 4. GitOps 배포 순서 (Sync Wave)
 
@@ -1199,7 +1199,7 @@ for service in auth my scan character location info chat; do
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
   echo "📍 노드 라벨:"
-  kubectl get nodes -l kubernetes.io/service=$service --show-labels 2>/dev/null | grep kubernetes.io/service || echo "  ❌ 노드 없음"
+  kubectl get nodes -l sesacthon.io/service=$service --show-labels 2>/dev/null | grep sesacthon.io/service || echo "  ❌ 노드 없음"
   
   echo ""
   echo "📍 Deployment nodeSelector:"
@@ -1218,7 +1218,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 for infra in postgresql redis; do
   echo "Service: $infra"
-  kubectl get nodes -l kubernetes.io/infra-type=$infra --show-labels 2>/dev/null | grep kubernetes.io/infra-type || echo "  ❌ 노드 없음"
+  kubectl get nodes -l sesacthon.io/infra-type=$infra --show-labels 2>/dev/null | grep sesacthon.io/infra-type || echo "  ❌ 노드 없음"
   echo ""
 done
 ```
@@ -1228,21 +1228,21 @@ done
 **전체 노드 라벨 시스템** (실제 데이터):
 
 ```bash
-$ kubectl get nodes --show-labels | grep kubernetes.io
-k8s-api-auth         kubernetes.io/node-role=api,kubernetes.io/service=auth,domain=auth,tier=business-logic,workload=api,phase=1
-k8s-api-my           kubernetes.io/node-role=api,kubernetes.io/service=my,domain=my,tier=business-logic,workload=api,phase=1
-k8s-api-scan         kubernetes.io/node-role=api,kubernetes.io/service=scan,domain=scan,tier=business-logic,workload=api,phase=2
-k8s-api-character    kubernetes.io/node-role=api,kubernetes.io/service=character,domain=character,tier=business-logic,workload=api,phase=2
-k8s-api-location     kubernetes.io/node-role=api,kubernetes.io/service=location,domain=location,tier=business-logic,workload=api,phase=2
-k8s-api-info         kubernetes.io/node-role=api,kubernetes.io/service=info,domain=info,tier=business-logic,workload=api,phase=3
-k8s-api-chat         kubernetes.io/node-role=api,kubernetes.io/service=chat,domain=chat,tier=business-logic,workload=api,phase=3
-k8s-postgresql       kubernetes.io/node-role=infrastructure,kubernetes.io/infra-type=postgresql,workload=database,tier=data,phase=1
-k8s-redis            kubernetes.io/node-role=infrastructure,kubernetes.io/infra-type=redis,workload=cache,tier=data,phase=1
-k8s-rabbitmq         kubernetes.io/node-role=infrastructure,kubernetes.io/infra-type=rabbitmq,workload=message-queue,tier=platform,phase=4
-k8s-monitoring       kubernetes.io/node-role=infrastructure,kubernetes.io/infra-type=monitoring,workload=monitoring,tier=observability,phase=4
-k8s-worker-storage   kubernetes.io/node-role=worker,kubernetes.io/worker-type=storage,workload=worker-storage,tier=worker,phase=4
-k8s-worker-ai        kubernetes.io/node-role=worker,kubernetes.io/worker-type=ai,workload=worker-ai,tier=worker,phase=4
-# ✅ 모든 노드에 kubernetes.io/* 라벨 적용됨
+$ kubectl get nodes --show-labels | grep sesacthon.io
+k8s-api-auth         sesacthon.io/node-role=api,sesacthon.io/service=auth,domain=auth,tier=business-logic,workload=api,phase=1
+k8s-api-my           sesacthon.io/node-role=api,sesacthon.io/service=my,domain=my,tier=business-logic,workload=api,phase=1
+k8s-api-scan         sesacthon.io/node-role=api,sesacthon.io/service=scan,domain=scan,tier=business-logic,workload=api,phase=2
+k8s-api-character    sesacthon.io/node-role=api,sesacthon.io/service=character,domain=character,tier=business-logic,workload=api,phase=2
+k8s-api-location     sesacthon.io/node-role=api,sesacthon.io/service=location,domain=location,tier=business-logic,workload=api,phase=2
+k8s-api-info         sesacthon.io/node-role=api,sesacthon.io/service=info,domain=info,tier=business-logic,workload=api,phase=3
+k8s-api-chat         sesacthon.io/node-role=api,sesacthon.io/service=chat,domain=chat,tier=business-logic,workload=api,phase=3
+k8s-postgresql       sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=postgresql,workload=database,tier=data,phase=1
+k8s-redis            sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=redis,workload=cache,tier=data,phase=1
+k8s-rabbitmq         sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=rabbitmq,workload=message-queue,tier=platform,phase=4
+k8s-monitoring       sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=monitoring,workload=monitoring,tier=observability,phase=4
+k8s-worker-storage   sesacthon.io/node-role=worker,sesacthon.io/worker-type=storage,workload=worker-storage,tier=worker,phase=4
+k8s-worker-ai        sesacthon.io/node-role=worker,sesacthon.io/worker-type=ai,workload=worker-ai,tier=worker,phase=4
+# ✅ 모든 노드에 sesacthon.io/* 라벨 적용됨
 ```
 
 **Pod 스케줄링 성공 확인**:
@@ -1309,7 +1309,7 @@ chat-api-76488b98b5-gfgfw       0/1  ImagePullBackOff  k8s-api-chat       # ✅
 - ✅ Calico CNI: 14/14 노드 Running
 - ✅ CoreDNS: Running (2 replicas)
 
-**Pod 스케줄링**: 100% 성공 (kubernetes.io/* 라벨 시스템)
+**Pod 스케줄링**: 100% 성공 (sesacthon.io/* 라벨 시스템)
 
 ---
 

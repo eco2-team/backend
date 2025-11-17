@@ -10,13 +10,13 @@
   - env overlay(`platform/helm/external-dns/{env}/patch-application.yaml`)의 `helm.valuesObject`에서
     - `domainFilters: [growbin.app]`
     - `txtOwnerId: sesacthon-{env}`
-    - `extraArgs`에 `--annotation-filter=external-dns.alpha.kubernetes.io/managed-by in (external-dns)`
+    - `extraArgs`에 `--annotation-filter=external-dns.alpha.sesacthon.io/managed-by in (external-dns)`
   - AWS provider: Route53 public zone
 
 ## 2. 동작 흐름
 1. **Ingress/Service 정의**
    - `workloads/ingress/apps/**/patch-*.yaml` 등에서 서비스별 Ingress를 선언
-   - 각 리소스에 `external-dns.alpha.kubernetes.io/managed-by: external-dns` annotation과 `spec.rules[].host`(예: `api.dev.growbin.app`)를 설정
+   - 각 리소스에 `external-dns.alpha.sesacthon.io/managed-by: external-dns` annotation과 `spec.rules[].host`(예: `api.dev.growbin.app`)를 설정
 2. **ExternalDNS 감지**
    - ExternalDNS Pod가 해당 annotation 및 host를 읽고 Route53에 `A`/`CNAME` 레코드를 생성
    - 동일 레코드에 대해 TXT 레코드(`txtOwnerId`)로 소유권을 기록해 충돌 방지
@@ -29,7 +29,7 @@
 ## 3. 운영 수칙
 - **책임 분리**
   - Terraform/Ansible: Apex(`growbin.app`, `www.growbin.app`) 및 공용 Alias 레코드
-  - ExternalDNS: `external-dns.alpha.kubernetes.io/managed-by=external-dns`가 붙은 Ingress/Service 서브도메인
+  - ExternalDNS: `external-dns.alpha.sesacthon.io/managed-by=external-dns`가 붙은 Ingress/Service 서브도메인
 - **검증 절차**
   1. Ingress 추가 시 반드시 annotation + host를 설정
   2. `kubectl get ingress -A -o jsonpath='{..metadata.annotations.external-dns\\.alpha\\.sesacthon\\.io/managed-by}'` 명령으로 대상 리소스 확인

@@ -4,7 +4,7 @@ metadata:
   name: redis-main
   namespace: redis
   labels:
-    app.kubernetes.io/name: redis
+    app.sesacthon.io/name: redis
     tier: data
 spec:
   clusterSize: 3
@@ -14,9 +14,9 @@ spec:
   redisExporter:
     enabled: false
   nodeSelector:
-    kubernetes.io/infra-type: redis
+    sesacthon.io/infra-type: redis
   tolerations:
-    - key: kubernetes.io/infrastructure
+    - key: sesacthon.io/infrastructure
       operator: Equal
       value: "true"
       effect: NoSchedule

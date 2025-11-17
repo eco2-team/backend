@@ -2,7 +2,7 @@
 
 > **참고 레퍼런스**  
 > - CNCF SIG App Delivery, *“Kubernetes Style Guide”* (base ↔ overlay 계층 권장)  
-> - Kustomize 공식 문서: [https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/)  
+> - Kustomize 공식 문서: [https://kubectl.docs.sesacthon.io/references/kustomize/kustomization/](https://kubectl.docs.sesacthon.io/references/kustomize/kustomization/)  
 > - Argo CD Best Practice: base 디렉토리에 공통 리소스를 정의하고 환경별 overlay를 Application으로 배포
 
 ---

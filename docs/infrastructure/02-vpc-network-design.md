@@ -29,7 +29,7 @@ Name: ecoeco-k8s-vpc
 Project: SeSACTHON-EcoEco
 ManagedBy: Terraform
 Environment: production
-kubernetes.io/cluster/ecoeco: shared  # ALB Controller 자동 인식
+sesacthon.io/cluster/ecoeco: shared  # ALB Controller 자동 인식
 ```
 
 ---
@@ -46,7 +46,7 @@ graph TB
             M["Master<br/>10.0.1.10"]
             A1["auth<br/>10.0.1.20"]
             A2["my<br/>10.0.1.21"]
-            S1["256 IPs | Public ✅<br/>kubernetes.io/role/elb=1"]
+            S1["256 IPs | Public ✅<br/>sesacthon.io/role/elb=1"]
         end
         
         subgraph Subnet2["Subnet 2 (10.0.2.0/24) - ap-northeast-2b"]
@@ -538,7 +538,7 @@ Pod Network (Calico):
 - [VPC Networking](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html)
 
 ### Kubernetes & Calico
-- [Kubernetes Networking](https://kubernetes.io/docs/concepts/cluster-administration/networking/)
+- [Kubernetes Networking](https://sesacthon.io/docs/concepts/cluster-administration/networking/)
 - [Calico Networking](https://docs.tigera.io/calico/latest/networking/)
 - [Calico VXLAN](https://docs.tigera.io/calico/latest/networking/configuring/vxlan-ipip)
 

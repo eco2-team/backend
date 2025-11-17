@@ -4,7 +4,7 @@ metadata:
   name: external-dns
   namespace: argocd
   labels:
-    app.kubernetes.io/name: external-dns
+    app.sesacthon.io/name: external-dns
   annotations:
     argocd.argoproj.io/sync-wave: "16"
 spec:

@@ -37,9 +37,9 @@ spec:
   template:
     spec:
       tolerations:
-      - key: node-role.kubernetes.io/master
+      - key: node-role.sesacthon.io/master
         effect: NoSchedule
-      - key: node-role.kubernetes.io/control-plane
+      - key: node-role.sesacthon.io/control-plane
         effect: NoSchedule
 ```
 
@@ -114,9 +114,9 @@ kubectl get pods -n monitoring -o wide
     helm install prometheus prometheus-community/kube-prometheus-stack
     --namespace monitoring
     --set grafana.adminPassword={{ grafana_admin_password }}
-    --set grafana.tolerations[0].key=node-role.kubernetes.io/control-plane
+    --set grafana.tolerations[0].key=node-role.sesacthon.io/control-plane
     --set grafana.tolerations[0].effect=NoSchedule
-    --set prometheus.prometheusSpec.tolerations[0].key=node-role.kubernetes.io/control-plane
+    --set prometheus.prometheusSpec.tolerations[0].key=node-role.sesacthon.io/control-plane
     --set prometheus.prometheusSpec.tolerations[0].effect=NoSchedule
 ```
 
@@ -130,7 +130,7 @@ kubectl patch deployment prometheus-grafana -n monitoring --type=json -p='[
     "path": "/spec/template/spec/tolerations",
     "value": [
       {
-        "key": "node-role.kubernetes.io/control-plane",
+        "key": "node-role.sesacthon.io/control-plane",
         "effect": "NoSchedule"
       }
     ]
@@ -144,7 +144,7 @@ kubectl patch statefulset prometheus-prometheus -n monitoring --type=json -p='[
     "path": "/spec/template/spec/tolerations",
     "value": [
       {
-        "key": "node-role.kubernetes.io/control-plane",
+        "key": "node-role.sesacthon.io/control-plane",
         "effect": "NoSchedule"
       }
     ]
@@ -422,7 +422,7 @@ spec:
 **구현**:
 ```yaml
 # ansible/playbooks/08-monitoring.yml
---set grafana.tolerations[0].key=node-role.kubernetes.io/control-plane
+--set grafana.tolerations[0].key=node-role.sesacthon.io/control-plane
 --set grafana.tolerations[0].effect=NoSchedule
 ```
 

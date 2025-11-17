@@ -50,7 +50,7 @@ spec:
       imagePullSecrets:
         - name: ghcr-secret
       nodeSelector:
-        kubernetes.io/service: auth
+        sesacthon.io/service: auth
       tolerations:
         - key: domain
           operator: Equal

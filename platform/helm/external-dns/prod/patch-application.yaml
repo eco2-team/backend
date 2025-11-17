@@ -22,7 +22,7 @@ spec:
         extraArgs:
           - --aws-zone-type=public
           - --aws-prefer-cname=true
-          - '--annotation-filter=external-dns.alpha.kubernetes.io/managed-by in (external-dns)'
+          - '--annotation-filter=external-dns.alpha.sesacthon.io/managed-by in (external-dns)'
         env:
           - name: AWS_REGION
             value: ap-northeast-2

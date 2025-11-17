@@ -5,7 +5,7 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "25"
-    kubernetes.io/required-secrets: s3-backup-credentials
+    sesacthon.io/required-secrets: s3-backup-credentials
 spec:
   project: platform
   source:

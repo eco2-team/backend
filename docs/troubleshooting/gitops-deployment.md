@@ -351,7 +351,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: kube-system
+              sesacthon.io/metadata.name: kube-system
       ports:
         - protocol: UDP
           port: 53

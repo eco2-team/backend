@@ -747,14 +747,14 @@ argocd app sync ecoeco-auth --hard-refresh
 ### 외부 문서
 
 #### Kustomize 공식 문서
-- https://kubectl.docs.kubernetes.io/ - Kustomize CLI 가이드
+- https://kubectl.docs.sesacthon.io/ - Kustomize CLI 가이드
 - https://kustomize.io/ - Kustomize 홈페이지
 
 #### ArgoCD + Kustomize
 - https://argo-cd.readthedocs.io/en/stable/user-guide/kustomize/ - ArgoCD Kustomize 통합
 
 #### Best Practices
-- https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/ - Kubernetes 공식 가이드
+- https://sesacthon.io/docs/tasks/manage-kubernetes-objects/kustomization/ - Kubernetes 공식 가이드
 - https://github.com/kubernetes-sigs/kustomize/tree/master/examples - 실전 예제
 
 ---

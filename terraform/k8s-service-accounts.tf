@@ -31,8 +31,8 @@
 #   annotations:
 #     eks.amazonaws.com/role-arn: ${aws_iam_role.alb_controller.arn}
 #   labels:
-#     app.kubernetes.io/name: aws-load-balancer-controller
-#     app.kubernetes.io/managed-by: terraform
+#     app.sesacthon.io/name: aws-load-balancer-controller
+#     app.sesacthon.io/managed-by: terraform
 # YAML
 #
 #   depends_on = [aws_iam_role.alb_controller]

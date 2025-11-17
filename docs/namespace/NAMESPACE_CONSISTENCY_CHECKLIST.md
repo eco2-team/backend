@@ -34,21 +34,21 @@
 
 | Tier | Namespace | 필수 Label 세트 | 주요 역할/리소스 | 전용 노드 & Taint |
 |------|-----------|-----------------|------------------|-------------------|
-| business-logic | `auth` | `tier=business-logic`, `domain=auth`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | Auth API Deploy/Service/Secret | `k8s-api-auth`, taint `domain=auth:NoSchedule` |
-| business-logic | `my` | `tier=business-logic`, `domain=my`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | My API | `k8s-api-my`, `domain=my:NoSchedule` |
-| business-logic | `scan` | `tier=business-logic`, `domain=scan`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | Scan API + 이미지 처리 | `k8s-api-scan`, `domain=scan:NoSchedule` |
-| business-logic | `character` | `tier=business-logic`, `domain=character`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | Character/Mission API | `k8s-api-character`, `domain=character:NoSchedule` |
-| business-logic | `location` | `tier=business-logic`, `domain=location`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | Location/Map API | `k8s-api-location`, `domain=location:NoSchedule` |
-| business-logic | `info` | `tier=business-logic`, `domain=info`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | Recycle-Info API | `k8s-api-info`, `domain=info:NoSchedule` |
-| business-logic | `chat` | `tier=business-logic`, `domain=chat`, `role=api`, `app.kubernetes.io/part-of=ecoeco-backend` | Chat/LLM API | `k8s-api-chat`, `domain=chat:NoSchedule` |
-| data | `postgres` | `tier=data`, `data-type=postgres`, `role=database`, `app.kubernetes.io/part-of=ecoeco-backend` | `postgresql` CR, DB Secret | `k8s-postgresql`, `node-role.kubernetes.io/infrastructure=true:NoSchedule` |
-| data | `redis` | `tier=data`, `data-type=redis`, `role=cache`, `app.kubernetes.io/part-of=ecoeco-backend` | `RedisFailover` CR, Sentinel | `k8s-redis`, `node-role.kubernetes.io/infrastructure=true:NoSchedule` |
-| integration | `rabbitmq` | `tier=integration`, `role=messaging`, `app.kubernetes.io/part-of=ecoeco-backend` | RabbitMQ Cluster/Stream | `k8s-rabbitmq`, `node-role.kubernetes.io/infrastructure=true:NoSchedule` |
-| observability | `prometheus` | `tier=observability`, `role=metrics`, `app.kubernetes.io/part-of=ecoeco-backend` | kube-prometheus-stack (Prometheus/Alertmanager) | `k8s-monitoring`, `node-role.kubernetes.io/infrastructure=true:NoSchedule` |
-| observability | `grafana` | `tier=observability`, `role=dashboards`, `app.kubernetes.io/part-of=ecoeco-backend` | Grafana (helm/grafana) | `k8s-monitoring`, `node-role.kubernetes.io/infrastructure=true:NoSchedule` |
-| infrastructure | `platform-system` | `tier=infrastructure`, `app.kubernetes.io/part-of=ecoeco-platform` | External Secrets Operator 등 플랫폼 컨트롤러 | Control Plane (`k8s-master`), toleration `node-role.kubernetes.io/control-plane` |
-| infrastructure | `data-system` | `tier=infrastructure`, `app.kubernetes.io/part-of=ecoeco-platform` | Postgres/Redis Operators (Helm) | Control Plane (`k8s-master`), toleration `node-role.kubernetes.io/control-plane` |
-| infrastructure | `messaging-system` | `tier=infrastructure`, `app.kubernetes.io/part-of=ecoeco-platform` | RabbitMQ Operator/CRDs | Control Plane (`k8s-master`), toleration `node-role.kubernetes.io/control-plane` |
+| business-logic | `auth` | `tier=business-logic`, `domain=auth`, `role=api`, `app.sesacthon.io/part-of=ecoeco-backend` | Auth API Deploy/Service/Secret | `k8s-api-auth`, taint `domain=auth:NoSchedule` |
+| business-logic | `my` | `tier=business-logic`, `domain=my`, `role=api`, `app.sesacthon.io/part-of=ecoeco-backend` | My API | `k8s-api-my`, `domain=my:NoSchedule` |
+| business-logic | `scan` | `tier=business-logic`, `domain=scan`, `role=api`, `app.sesacthon.io/part-of=ecoeco-backend` | Scan API + 이미지 처리 | `k8s-api-scan`, `domain=scan:NoSchedule` |
+| business-logic | `character` | `tier=business-logic`, `domain=character`, `role=api`, `app.sesacthon.io/part-of=ecoeco-backend` | Character/Mission API | `k8s-api-character`, `domain=character:NoSchedule` |
+| business-logic | `location` | `tier=business-logic`, `domain=location`, `role=api`, `app.sesacthon.io/part-of=ecoeco-backend` | Location/Map API | `k8s-api-location`, `domain=location:NoSchedule` |
+| business-logic | `info` | `tier=business-logic`, `domain=info`, `role=api`, `app.sesacthon.io/part-of=ecoeco-backend` | Recycle-Info API | `k8s-api-info`, `domain=info:NoSchedule` |
+| business-logic | `chat` | `tier=business-logic`, `domain=chat`, `role=api`, `app.sesacthon.io/part-of=ecoeco-backend` | Chat/LLM API | `k8s-api-chat`, `domain=chat:NoSchedule` |
+| data | `postgres` | `tier=data`, `data-type=postgres`, `role=database`, `app.sesacthon.io/part-of=ecoeco-backend` | `postgresql` CR, DB Secret | `k8s-postgresql`, `node-role.sesacthon.io/infrastructure=true:NoSchedule` |
+| data | `redis` | `tier=data`, `data-type=redis`, `role=cache`, `app.sesacthon.io/part-of=ecoeco-backend` | `RedisFailover` CR, Sentinel | `k8s-redis`, `node-role.sesacthon.io/infrastructure=true:NoSchedule` |
+| integration | `rabbitmq` | `tier=integration`, `role=messaging`, `app.sesacthon.io/part-of=ecoeco-backend` | RabbitMQ Cluster/Stream | `k8s-rabbitmq`, `node-role.sesacthon.io/infrastructure=true:NoSchedule` |
+| observability | `prometheus` | `tier=observability`, `role=metrics`, `app.sesacthon.io/part-of=ecoeco-backend` | kube-prometheus-stack (Prometheus/Alertmanager) | `k8s-monitoring`, `node-role.sesacthon.io/infrastructure=true:NoSchedule` |
+| observability | `grafana` | `tier=observability`, `role=dashboards`, `app.sesacthon.io/part-of=ecoeco-backend` | Grafana (helm/grafana) | `k8s-monitoring`, `node-role.sesacthon.io/infrastructure=true:NoSchedule` |
+| infrastructure | `platform-system` | `tier=infrastructure`, `app.sesacthon.io/part-of=ecoeco-platform` | External Secrets Operator 등 플랫폼 컨트롤러 | Control Plane (`k8s-master`), toleration `node-role.sesacthon.io/control-plane` |
+| infrastructure | `data-system` | `tier=infrastructure`, `app.sesacthon.io/part-of=ecoeco-platform` | Postgres/Redis Operators (Helm) | Control Plane (`k8s-master`), toleration `node-role.sesacthon.io/control-plane` |
+| infrastructure | `messaging-system` | `tier=infrastructure`, `app.sesacthon.io/part-of=ecoeco-platform` | RabbitMQ Operator/CRDs | Control Plane (`k8s-master`), toleration `node-role.sesacthon.io/control-plane` |
 
 
 **점검 항목**:
@@ -59,11 +59,11 @@
   - `integration`: rabbitmq(`role=messaging`)
   - `observability`: prometheus(`role=metrics`), grafana(`role=dashboards`)
   - `infrastructure`: platform-system, data-system, messaging-system
-- [ ] `app.kubernetes.io/part-of: ecoeco-backend`(or `ecoeco-platform`) 레이블이 맞는가?
+- [ ] `app.sesacthon.io/part-of: ecoeco-backend`(or `ecoeco-platform`) 레이블이 맞는가?
 
 **점검 명령**:
 ```bash
-kubectl get namespaces -l app.kubernetes.io/part-of=ecoeco-backend --show-labels
+kubectl get namespaces -l app.sesacthon.io/part-of=ecoeco-backend --show-labels
 ```
 
 **예상 출력**:

@@ -252,10 +252,10 @@ kubectl get pvc -A
 
 ```bash
 # PostgreSQL
-kubectl get pods -n data -l app.kubernetes.io/name=postgresql
+kubectl get pods -n data -l app.sesacthon.io/name=postgresql
 
 # Redis
-kubectl get pods -n data -l app.kubernetes.io/name=redis
+kubectl get pods -n data -l app.sesacthon.io/name=redis
 
 # RabbitMQ
 kubectl get rabbitmqcluster -A

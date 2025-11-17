@@ -308,7 +308,7 @@ kubectl get storageclass
 kubectl describe pod -n monitoring <pod-name>
 
 # EBS CSI Driver 확인
-kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-ebs-csi-driver
+kubectl get pods -n kube-system -l app.sesacthon.io/name=aws-ebs-csi-driver
 ```
 
 ### 4. ArgoCD 접속 실패

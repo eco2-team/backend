@@ -12,8 +12,8 @@
 
 ```yaml
 Labels:
-  node-role.kubernetes.io/control-plane: ""
-  kubernetes.io/hostname: k8s-master
+  node-role.sesacthon.io/control-plane: ""
+  sesacthon.io/hostname: k8s-master
 ```
 
 ### 2️⃣ API Nodes (7개)
@@ -21,16 +21,16 @@ Labels:
 ```yaml
 # Phase 1
 k8s-api-auth:
-  kubernetes.io/node-role: api
-  kubernetes.io/service: auth
+  sesacthon.io/node-role: api
+  sesacthon.io/service: auth
   workload: api
   domain: auth
   tier: business-logic
   phase: "1"
 
 k8s-api-my:
-  kubernetes.io/node-role: api
-  kubernetes.io/service: my
+  sesacthon.io/node-role: api
+  sesacthon.io/service: my
   workload: api
   domain: my
   tier: business-logic
@@ -38,24 +38,24 @@ k8s-api-my:
 
 # Phase 2
 k8s-api-scan:
-  kubernetes.io/node-role: api
-  kubernetes.io/service: scan
+  sesacthon.io/node-role: api
+  sesacthon.io/service: scan
   workload: api
   domain: scan
   tier: business-logic
   phase: "2"
 
 k8s-api-character:
-  kubernetes.io/node-role: api
-  kubernetes.io/service: character
+  sesacthon.io/node-role: api
+  sesacthon.io/service: character
   workload: api
   domain: character
   tier: business-logic
   phase: "2"
 
 k8s-api-location:
-  kubernetes.io/node-role: api
-  kubernetes.io/service: location
+  sesacthon.io/node-role: api
+  sesacthon.io/service: location
   workload: api
   domain: location
   tier: business-logic
@@ -63,16 +63,16 @@ k8s-api-location:
 
 # Phase 3
 k8s-api-info:
-  kubernetes.io/node-role: api
-  kubernetes.io/service: info
+  sesacthon.io/node-role: api
+  sesacthon.io/service: info
   workload: api
   domain: info
   tier: business-logic
   phase: "3"
 
 k8s-api-chat:
-  kubernetes.io/node-role: api
-  kubernetes.io/service: chat
+  sesacthon.io/node-role: api
+  sesacthon.io/service: chat
   workload: api
   domain: chat
   tier: business-logic
@@ -83,16 +83,16 @@ k8s-api-chat:
 
 ```yaml
 k8s-worker-storage:
-  kubernetes.io/node-role: worker
-  kubernetes.io/worker-type: storage
+  sesacthon.io/node-role: worker
+  sesacthon.io/worker-type: storage
   workload: worker-storage
   worker-type: io-bound
   tier: worker
   phase: "4"
 
 k8s-worker-ai:
-  kubernetes.io/node-role: worker
-  kubernetes.io/worker-type: ai
+  sesacthon.io/node-role: worker
+  sesacthon.io/worker-type: ai
   workload: worker-ai
   worker-type: network-bound
   tier: worker
@@ -103,29 +103,29 @@ k8s-worker-ai:
 
 ```yaml
 k8s-postgresql:
-  kubernetes.io/node-role: infrastructure
-  kubernetes.io/infra-type: postgresql
+  sesacthon.io/node-role: infrastructure
+  sesacthon.io/infra-type: postgresql
   workload: database
   tier: data
   phase: "1"
 
 k8s-redis:
-  kubernetes.io/node-role: infrastructure
-  kubernetes.io/infra-type: redis
+  sesacthon.io/node-role: infrastructure
+  sesacthon.io/infra-type: redis
   workload: cache
   tier: data
   phase: "1"
 
 k8s-rabbitmq:
-  kubernetes.io/node-role: infrastructure
-  kubernetes.io/infra-type: rabbitmq
+  sesacthon.io/node-role: infrastructure
+  sesacthon.io/infra-type: rabbitmq
   workload: message-queue
   tier: platform
   phase: "4"
 
 k8s-monitoring:
-  kubernetes.io/node-role: infrastructure
-  kubernetes.io/infra-type: monitoring
+  sesacthon.io/node-role: infrastructure
+  sesacthon.io/infra-type: monitoring
   workload: monitoring
   tier: observability
   phase: "4"
@@ -212,9 +212,9 @@ metadata:
 spec:
   template:
     spec:
-      # 방법 1: NodeSelector (간단) - kubernetes.io/service 사용
+      # 방법 1: NodeSelector (간단) - sesacthon.io/service 사용
       nodeSelector:
-        kubernetes.io/service: auth
+        sesacthon.io/service: auth
 
       # 방법 2: domain 라벨 사용 (대안)
       # nodeSelector:
@@ -226,7 +226,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: kubernetes.io/service
+                  - key: sesacthon.io/service
                     operator: In
                     values:
                       - auth
@@ -257,9 +257,9 @@ metadata:
 spec:
   template:
     spec:
-      # 방법 1: kubernetes.io/worker-type 사용 (권장)
+      # 방법 1: sesacthon.io/worker-type 사용 (권장)
       nodeSelector:
-        kubernetes.io/worker-type: storage
+        sesacthon.io/worker-type: storage
 
       # 방법 2: workload 라벨 사용 (대안)
       # nodeSelector:
@@ -270,7 +270,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: kubernetes.io/worker-type
+                  - key: sesacthon.io/worker-type
                     operator: In
                     values:
                       - storage
@@ -289,13 +289,13 @@ spec:
     requiredDuringSchedulingIgnoredDuringExecution:
       nodeSelectorTerms:
         - matchExpressions:
-            - key: kubernetes.io/infra-type
+            - key: sesacthon.io/infra-type
               operator: In
               values:
                 - postgresql
   
   tolerations:
-    - key: kubernetes.io/infrastructure
+    - key: sesacthon.io/infrastructure
       operator: Equal
       value: "true"
       effect: NoSchedule
@@ -309,18 +309,18 @@ metadata:
 spec:
   redis:
     nodeSelector:
-      kubernetes.io/infra-type: redis
+      sesacthon.io/infra-type: redis
     tolerations:
-      - key: kubernetes.io/infrastructure
+      - key: sesacthon.io/infrastructure
         operator: Equal
         value: "true"
         effect: NoSchedule
   
   sentinel:
     nodeSelector:
-      kubernetes.io/infra-type: redis
+      sesacthon.io/infra-type: redis
     tolerations:
-      - key: kubernetes.io/infrastructure
+      - key: sesacthon.io/infrastructure
         operator: Equal
         value: "true"
         effect: NoSchedule
@@ -561,7 +561,7 @@ kubectl get pods --all-namespaces -l phase=1
 kubectl get pods -n workers -l worker-type=io-bound
 
 # 4. 모든 API 노드 조회
-kubectl get nodes -l kubernetes.io/node-role=api
+kubectl get nodes -l sesacthon.io/node-role=api
 # 또는
 kubectl get nodes -l workload=api
 
@@ -569,16 +569,16 @@ kubectl get nodes -l workload=api
 kubectl get hpa -n api -l domain=scan
 
 # 6. 모든 Infrastructure 노드 조회
-kubectl get nodes -l kubernetes.io/node-role=infrastructure
+kubectl get nodes -l sesacthon.io/node-role=infrastructure
 
 # 7. 특정 서비스의 노드 조회
-kubectl get nodes -l kubernetes.io/service=auth
+kubectl get nodes -l sesacthon.io/service=auth
 
 # 8. PostgreSQL 노드 조회
-kubectl get nodes -l kubernetes.io/infra-type=postgresql
+kubectl get nodes -l sesacthon.io/infra-type=postgresql
 
 # 9. Worker 노드 조회
-kubectl get nodes -l kubernetes.io/worker-type=storage
+kubectl get nodes -l sesacthon.io/worker-type=storage
 
 # 10. Prometheus가 스크랩하는 모든 Pod 조회
 kubectl get pods --all-namespaces -l prometheus.io/scrape=true
@@ -591,12 +591,12 @@ kubectl get pods --all-namespaces -l prometheus.io/scrape=true
 ### 노드 Label 체계 (Ansible이 설정)
 
 ```yaml
-# kubernetes.io/* 네임스페이스 라벨 (커스텀 도메인)
-1. kubernetes.io/node-role      # 노드 역할 (api, worker, infrastructure)
-2. kubernetes.io/service        # API 서비스명 (auth, my, scan, etc.)
-3. kubernetes.io/worker-type    # Worker 타입 (storage, ai)
-4. kubernetes.io/infra-type     # Infrastructure 타입 (postgresql, redis, rabbitmq, monitoring)
-5. kubernetes.io/infrastructure # Infrastructure taint 키 (true)
+# sesacthon.io/* 네임스페이스 라벨 (커스텀 도메인)
+1. sesacthon.io/node-role      # 노드 역할 (api, worker, infrastructure)
+2. sesacthon.io/service        # API 서비스명 (auth, my, scan, etc.)
+3. sesacthon.io/worker-type    # Worker 타입 (storage, ai)
+4. sesacthon.io/infra-type     # Infrastructure 타입 (postgresql, redis, rabbitmq, monitoring)
+5. sesacthon.io/infrastructure # Infrastructure taint 키 (true)
 
 # 범용 라벨
 6. workload     # Workload 타입 (api, worker-storage, worker-ai, database, cache, message-queue, monitoring)
@@ -621,22 +621,22 @@ kubectl get pods --all-namespaces -l prometheus.io/scrape=true
 ```yaml
 # API Deployments
 nodeSelector:
-  kubernetes.io/service: auth    # → k8s-api-auth 노드
+  sesacthon.io/service: auth    # → k8s-api-auth 노드
 
 # Worker Deployments  
 nodeSelector:
-  kubernetes.io/worker-type: storage   # → k8s-worker-storage 노드
+  sesacthon.io/worker-type: storage   # → k8s-worker-storage 노드
 
 # Infrastructure (PostgreSQL Operator)
 nodeAffinity:
   matchExpressions:
-    - key: kubernetes.io/infra-type
+    - key: sesacthon.io/infra-type
       operator: In
       values: [postgresql]        # → k8s-postgresql 노드
 
 # Infrastructure (Redis Operator)
 nodeSelector:
-  kubernetes.io/infra-type: redis  # → k8s-redis 노드
+  sesacthon.io/infra-type: redis  # → k8s-redis 노드
 ```
 
 ### Annotation 사용 우선순위
@@ -645,7 +645,7 @@ nodeSelector:
 1. prometheus.io/scrape  # Prometheus 자동 발견 활성화
 2. prometheus.io/port    # 메트릭 포트
 3. prometheus.io/path    # 메트릭 경로
-4. app.kubernetes.io/*   # Kubernetes 표준 메타데이터
+4. app.sesacthon.io/*   # Kubernetes 표준 메타데이터
 ```
 
 ---
@@ -657,14 +657,14 @@ nodeSelector:
 ### Ansible이 설정하는 라벨 예시:
 
 ```bash
---node-labels=kubernetes.io/node-role=api,kubernetes.io/service=auth,workload=api,domain=auth,tier=business-logic,phase=1
+--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=auth,workload=api,domain=auth,tier=business-logic,phase=1
 ```
 
 ### Deployment가 사용하는 nodeSelector:
 
 ```yaml
 nodeSelector:
-  kubernetes.io/service: auth
+  sesacthon.io/service: auth
 ```
 
 **충돌 방지**: Ansible로 노드 라벨을 변경할 때는 반드시 모든 Deployment의 `nodeSelector`도 함께 업데이트해야 합니다.

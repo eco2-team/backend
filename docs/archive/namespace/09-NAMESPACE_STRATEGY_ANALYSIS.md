@@ -606,7 +606,7 @@ spec:
 - [GitOps 파이프라인](../deployment/GITOPS_PIPELINE_KUSTOMIZE.md) - 배포 구조
 
 ### 외부 문서
-- [Kubernetes Namespaces Best Practices](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/)
+- [Kubernetes Namespaces Best Practices](https://sesacthon.io/docs/concepts/overview/working-with-objects/namespaces/)
 - [Google: Namespace Design Patterns](https://cloud.google.com/kubernetes-engine/docs/best-practices/enterprise-multitenancy)
 - [CNCF: Multi-Tenancy in Kubernetes](https://www.cncf.io/blog/2020/07/21/kubernetes-multi-tenancy/)
 

@@ -726,8 +726,8 @@ ingress:
   enabled: true
   className: alb
   annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.sesacthon.io/scheme: internet-facing
+    alb.ingress.sesacthon.io/target-type: ip
   hosts:
     - host: api.yourdomain.com
       paths:

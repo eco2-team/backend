@@ -4,7 +4,7 @@ metadata:
   name: prod-root
   namespace: argocd
   labels:
-    app.kubernetes.io/name: prod-root-app
+    app.sesacthon.io/name: prod-root-app
     environment: prod
 spec:
   project: prod

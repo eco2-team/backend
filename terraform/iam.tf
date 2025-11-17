@@ -213,7 +213,7 @@ resource "aws_iam_policy" "ebs_csi" {
         Resource = "*"
         Condition = {
           StringLike = {
-            "ec2:ResourceTag/kubernetes.io/created-for/pvc/name" = "*"
+            "ec2:ResourceTag/sesacthon.io/created-for/pvc/name" = "*"
           }
         }
       },

@@ -34,8 +34,8 @@ Public Subnets (3개):
   - 10.0.3.0/24 (ap-northeast-2c)
 
 Tags:
-  - kubernetes.io/role/elb: "1"
-  - kubernetes.io/cluster/prod-sesacthon: "shared"
+  - sesacthon.io/role/elb: "1"
+  - sesacthon.io/cluster/prod-sesacthon: "shared"
 ```
 
 ### **Internet Gateway**
@@ -198,25 +198,25 @@ k8s-api-auth:
   workload: api
   domain: auth
   phase: "1"
-  node-role.kubernetes.io/api: auth
+  node-role.sesacthon.io/api: auth
 
 k8s-api-my:
   workload: api
   domain: my
   phase: "1"
-  node-role.kubernetes.io/api: my
+  node-role.sesacthon.io/api: my
 
 k8s-postgresql:
   workload: database
   phase: "1"
-  node-role.kubernetes.io/infrastructure: postgresql
-  Taint: node-role.kubernetes.io/infrastructure=true:NoSchedule
+  node-role.sesacthon.io/infrastructure: postgresql
+  Taint: node-role.sesacthon.io/infrastructure=true:NoSchedule
 
 k8s-redis:
   workload: cache
   phase: "1"
-  node-role.kubernetes.io/infrastructure: redis
-  Taint: node-role.kubernetes.io/infrastructure=true:NoSchedule
+  node-role.sesacthon.io/infrastructure: redis
+  Taint: node-role.sesacthon.io/infrastructure=true:NoSchedule
 ```
 
 #### **Phase 2: Extended APIs**
@@ -225,19 +225,19 @@ k8s-api-scan:
   workload: api
   domain: scan
   phase: "2"
-  node-role.kubernetes.io/api: scan
+  node-role.sesacthon.io/api: scan
 
 k8s-api-character:
   workload: api
   domain: character
   phase: "2"
-  node-role.kubernetes.io/api: character
+  node-role.sesacthon.io/api: character
 
 k8s-api-location:
   workload: api
   domain: location
   phase: "2"
-  node-role.kubernetes.io/api: location
+  node-role.sesacthon.io/api: location
 ```
 
 #### **Phase 3: Advanced APIs**
@@ -246,13 +246,13 @@ k8s-api-info:
   workload: api
   domain: info
   phase: "3"
-  node-role.kubernetes.io/api: info
+  node-role.sesacthon.io/api: info
 
 k8s-api-chat:
   workload: api
   domain: chat
   phase: "3"
-  node-role.kubernetes.io/api: chat
+  node-role.sesacthon.io/api: chat
 ```
 
 #### **Phase 4: Workers & Infrastructure**
@@ -263,7 +263,7 @@ k8s-worker-storage:
   pool-type: eventlet
   domain: scan
   phase: "4"
-  node-role.kubernetes.io/worker: storage
+  node-role.sesacthon.io/worker: storage
 
 k8s-worker-ai:
   workload: worker-ai
@@ -271,19 +271,19 @@ k8s-worker-ai:
   pool-type: prefork
   domain: ai
   phase: "4"
-  node-role.kubernetes.io/worker: ai
+  node-role.sesacthon.io/worker: ai
 
 k8s-rabbitmq:
   workload: message-queue
   phase: "4"
-  node-role.kubernetes.io/infrastructure: rabbitmq
-  Taint: node-role.kubernetes.io/infrastructure=true:NoSchedule
+  node-role.sesacthon.io/infrastructure: rabbitmq
+  Taint: node-role.sesacthon.io/infrastructure=true:NoSchedule
 
 k8s-monitoring:
   workload: monitoring
   phase: "4"
-  node-role.kubernetes.io/infrastructure: monitoring
-  Taint: node-role.kubernetes.io/infrastructure=true:NoSchedule
+  node-role.sesacthon.io/infrastructure: monitoring
+  Taint: node-role.sesacthon.io/infrastructure=true:NoSchedule
 ```
 
 ### **노드 토폴로지 요약**

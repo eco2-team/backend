@@ -47,8 +47,8 @@ metadata:
   name: auth-ingress
   namespace: auth  # ✅ 동일 네임스페이스
   annotations:
-    alb.ingress.kubernetes.io/group.name: ecoeco-main
-    alb.ingress.kubernetes.io/group.order: '10'
+    alb.ingress.sesacthon.io/group.name: ecoeco-main
+    alb.ingress.sesacthon.io/group.order: '10'
 spec:
   rules:
     - host: api.growbin.app
@@ -68,8 +68,8 @@ metadata:
   name: my-ingress
   namespace: my  # ✅ 동일 네임스페이스
   annotations:
-    alb.ingress.kubernetes.io/group.name: ecoeco-main
-    alb.ingress.kubernetes.io/group.order: '11'
+    alb.ingress.sesacthon.io/group.name: ecoeco-main
+    alb.ingress.sesacthon.io/group.order: '11'
 spec:
   rules:
     - host: api.growbin.app
@@ -380,8 +380,8 @@ scan-ingress (namespace: scan)
 
 # 3. ALB Group으로 단일 ALB 유지
 annotations:
-  alb.ingress.kubernetes.io/group.name: ecoeco-main
-  alb.ingress.kubernetes.io/group.order: '<순서>'
+  alb.ingress.sesacthon.io/group.name: ecoeco-main
+  alb.ingress.sesacthon.io/group.order: '<순서>'
 ```
 
 **방법 B: Service Export/Import (Kubernetes 1.21+)**

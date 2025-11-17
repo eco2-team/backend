@@ -68,19 +68,19 @@ data "aws_ami" "ubuntu" {
 locals {
   kubelet_profiles = {
     "k8s-master"         = ""
-    "k8s-api-auth"       = "--node-labels=kubernetes.io/node-role=api,kubernetes.io/service=auth,workload=api,domain=auth,tier=business-logic,phase=1 --register-with-taints=domain=auth:NoSchedule"
-    "k8s-api-my"         = "--node-labels=kubernetes.io/node-role=api,kubernetes.io/service=my,workload=api,domain=my,tier=business-logic,phase=1 --register-with-taints=domain=my:NoSchedule"
-    "k8s-api-scan"       = "--node-labels=kubernetes.io/node-role=api,kubernetes.io/service=scan,workload=api,domain=scan,tier=business-logic,phase=2 --register-with-taints=domain=scan:NoSchedule"
-    "k8s-api-character"  = "--node-labels=kubernetes.io/node-role=api,kubernetes.io/service=character,workload=api,domain=character,tier=business-logic,phase=2 --register-with-taints=domain=character:NoSchedule"
-    "k8s-api-location"   = "--node-labels=kubernetes.io/node-role=api,kubernetes.io/service=location,workload=api,domain=location,tier=business-logic,phase=2 --register-with-taints=domain=location:NoSchedule"
-    "k8s-api-info"       = "--node-labels=kubernetes.io/node-role=api,kubernetes.io/service=info,workload=api,domain=info,tier=business-logic,phase=3 --register-with-taints=domain=info:NoSchedule"
-    "k8s-api-chat"       = "--node-labels=kubernetes.io/node-role=api,kubernetes.io/service=chat,workload=api,domain=chat,tier=business-logic,phase=3 --register-with-taints=domain=chat:NoSchedule"
-    "k8s-worker-storage" = "--node-labels=kubernetes.io/node-role=worker,kubernetes.io/worker-type=storage,workload=worker-storage,worker-type=io-bound,tier=worker,phase=4"
-    "k8s-worker-ai"      = "--node-labels=kubernetes.io/node-role=worker,kubernetes.io/worker-type=ai,workload=worker-ai,worker-type=network-bound,tier=worker,phase=4"
-    "k8s-rabbitmq"       = "--node-labels=kubernetes.io/node-role=infrastructure,kubernetes.io/infra-type=rabbitmq,workload=message-queue,tier=platform,phase=4 --register-with-taints=kubernetes.io/infrastructure=true:NoSchedule"
-    "k8s-postgresql"     = "--node-labels=kubernetes.io/node-role=infrastructure,kubernetes.io/infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=kubernetes.io/infrastructure=true:NoSchedule"
-    "k8s-redis"          = "--node-labels=kubernetes.io/node-role=infrastructure,kubernetes.io/infra-type=redis,workload=cache,tier=data,phase=1 --register-with-taints=kubernetes.io/infrastructure=true:NoSchedule"
-    "k8s-monitoring"     = "--node-labels=kubernetes.io/node-role=infrastructure,kubernetes.io/infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=kubernetes.io/infrastructure=true:NoSchedule"
+    "k8s-api-auth"       = "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=auth,workload=api,domain=auth,tier=business-logic,phase=1 --register-with-taints=domain=auth:NoSchedule"
+    "k8s-api-my"         = "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=my,workload=api,domain=my,tier=business-logic,phase=1 --register-with-taints=domain=my:NoSchedule"
+    "k8s-api-scan"       = "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=scan,workload=api,domain=scan,tier=business-logic,phase=2 --register-with-taints=domain=scan:NoSchedule"
+    "k8s-api-character"  = "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=character,workload=api,domain=character,tier=business-logic,phase=2 --register-with-taints=domain=character:NoSchedule"
+    "k8s-api-location"   = "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=location,workload=api,domain=location,tier=business-logic,phase=2 --register-with-taints=domain=location:NoSchedule"
+    "k8s-api-info"       = "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=info,workload=api,domain=info,tier=business-logic,phase=3 --register-with-taints=domain=info:NoSchedule"
+    "k8s-api-chat"       = "--node-labels=sesacthon.io/node-role=api,sesacthon.io/service=chat,workload=api,domain=chat,tier=business-logic,phase=3 --register-with-taints=domain=chat:NoSchedule"
+    "k8s-worker-storage" = "--node-labels=sesacthon.io/node-role=worker,sesacthon.io/worker-type=storage,workload=worker-storage,worker-type=io-bound,tier=worker,phase=4"
+    "k8s-worker-ai"      = "--node-labels=sesacthon.io/node-role=worker,sesacthon.io/worker-type=ai,workload=worker-ai,worker-type=network-bound,tier=worker,phase=4"
+    "k8s-rabbitmq"       = "--node-labels=sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=rabbitmq,workload=message-queue,tier=platform,phase=4 --register-with-taints=sesacthon.io/infrastructure=true:NoSchedule"
+    "k8s-postgresql"     = "--node-labels=sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=sesacthon.io/infrastructure=true:NoSchedule"
+    "k8s-redis"          = "--node-labels=sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=redis,workload=cache,tier=data,phase=1 --register-with-taints=sesacthon.io/infrastructure=true:NoSchedule"
+    "k8s-monitoring"     = "--node-labels=sesacthon.io/node-role=infrastructure,sesacthon.io/infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=sesacthon.io/infrastructure=true:NoSchedule"
   }
 }
 

@@ -18,7 +18,7 @@
 | Infrastructure | `platform-system`, `data-system`, `messaging-system` | Operators | 00 | ↑ |
 
 - **배포 파이프라인**: `argocd/apps/00-namespaces.yaml` → `k8s/namespaces/kustomization.yaml`  
-- **레이블 표준**: `name`, `domain`, `tier`, `role`, `app.kubernetes.io/*`
+- **레이블 표준**: `name`, `domain`, `tier`, `role`, `app.sesacthon.io/*`
 - **운영 원칙**: 네임스페이스는 GitOps 단일 소스에서만 생성/수정하며, Ansible이나 수동 `kubectl` 적용을 금지한다.
 
 ---
@@ -51,7 +51,7 @@
 ### 3.1 도메인 기반 ALB 인그레스
 
 - **특징**
-  - 모든 API가 **단일 ALB 그룹(`alb.ingress.kubernetes.io/group.name: ecoeco-main`)**을 공유
+  - 모든 API가 **단일 ALB 그룹(`alb.ingress.sesacthon.io/group.name: ecoeco-main`)**을 공유
   - Listener: HTTPS 443 단일 포트, 백엔드는 HTTP(NodePort)로 통일
   - ACM 인증서 ARN은 Terraform output(`acm_certificate_arn`)에서 주입
   - 헬스체크 `/health`, 인터벌 30s, 타임아웃 5s
@@ -64,7 +64,7 @@
   - Atlantis (`atlantis.growbin.app`)
   - Grafana/Prometheus 등 Ops 포털
 - **주요 차이점**
-  - 별도의 ALB 그룹/우선순위 사용 (예: `alb.ingress.kubernetes.io/group.order: 5`)
+  - 별도의 ALB 그룹/우선순위 사용 (예: `alb.ingress.sesacthon.io/group.order: 5`)
   - 일부 서비스는 IP 화이트리스트/Basic Auth를 주석으로 안내
 
 ---
@@ -83,7 +83,7 @@
 
 1. **Ingress**
    - ACM ARN 유효성 (`terraform output acm_certificate_arn`)
-   - `alb.ingress.kubernetes.io/group.order` 중복 여부
+   - `alb.ingress.sesacthon.io/group.order` 중복 여부
    - Healthcheck path가 실제 API에 존재하는지 확인
 2. **Egress**
    - Kubernetes API CIDR (`10.96.0.1/32`) 허용 여부

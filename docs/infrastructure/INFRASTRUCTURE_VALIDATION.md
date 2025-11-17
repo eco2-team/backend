@@ -207,10 +207,10 @@ ingressClassName: alb
 #### ALB Annotations
 ```yaml
 annotations:
-  alb.ingress.kubernetes.io/scheme: internet-facing
-  alb.ingress.kubernetes.io/target-type: instance
-  alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-  alb.ingress.kubernetes.io/ssl-redirect: '443'
+  alb.ingress.sesacthon.io/scheme: internet-facing
+  alb.ingress.sesacthon.io/target-type: instance
+  alb.ingress.sesacthon.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+  alb.ingress.sesacthon.io/ssl-redirect: '443'
 ```
 
 - ✅ HTTP → HTTPS 자동 리디렉션
@@ -237,11 +237,11 @@ paths:
 
 #### Health Check
 ```yaml
-alb.ingress.kubernetes.io/healthcheck-path: /health
-alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
-alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
-alb.ingress.kubernetes.io/healthy-threshold-count: '2'
-alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
+alb.ingress.sesacthon.io/healthcheck-path: /health
+alb.ingress.sesacthon.io/healthcheck-interval-seconds: '15'
+alb.ingress.sesacthon.io/healthcheck-timeout-seconds: '5'
+alb.ingress.sesacthon.io/healthy-threshold-count: '2'
+alb.ingress.sesacthon.io/unhealthy-threshold-count: '2'
 ```
 
 ---

@@ -350,7 +350,7 @@ kubectl get configmap prometheus-rules -o yaml
 - [Prometheus 공식 문서](https://prometheus.io/docs/)
 - [Grafana 공식 문서](https://grafana.com/docs/)
 - [Node Exporter](https://github.com/prometheus/node_exporter)
-- [Kubernetes Monitoring Best Practices](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-usage-monitoring/)
+- [Kubernetes Monitoring Best Practices](https://sesacthon.io/docs/tasks/debug-application-cluster/resource-usage-monitoring/)
 
 ## 🎯 다음 단계
 

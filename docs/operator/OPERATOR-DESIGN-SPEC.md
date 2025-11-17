@@ -125,7 +125,7 @@ CNCF White Paper에 따르면, Operator는 다음 3가지 핵심 컴포넌트로
 **NodeConfig CRD**는 노드 설정을 선언적으로 정의합니다:
 
 ```yaml
-apiVersion: lifecycle.kubernetes.io/v1alpha1
+apiVersion: lifecycle.sesacthon.io/v1alpha1
 kind: NodeConfig
 metadata:
   name: worker-node-config
@@ -134,7 +134,7 @@ spec:
   # Node Selector (어떤 노드에 적용할지)
   selector:
     matchLabels:
-      node-role.kubernetes.io/worker: ""
+      node-role.sesacthon.io/worker: ""
   
   # Provider ID 설정
   providerID:
@@ -300,7 +300,7 @@ func (r *NodeConfigReconciler) getProviderIDFromAWS(ctx context.Context, node *c
     }
     
     // 2. Get availability zone from EC2 metadata or node labels
-    az := node.Labels["topology.kubernetes.io/zone"]
+    az := node.Labels["topology.sesacthon.io/zone"]
     if az == "" {
         az = r.getAZFromEC2Metadata(ctx, instanceID)
     }
@@ -398,11 +398,11 @@ metadata:
   name: node-lifecycle-operator-role
 rules:
   # NodeConfig CRD 관리
-  - apiGroups: ["lifecycle.kubernetes.io"]
+  - apiGroups: ["lifecycle.sesacthon.io"]
     resources: ["nodeconfigs"]
     verbs: ["get", "list", "watch"]
   
-  - apiGroups: ["lifecycle.kubernetes.io"]
+  - apiGroups: ["lifecycle.sesacthon.io"]
     resources: ["nodeconfigs/status"]
     verbs: ["update", "patch"]
   
@@ -611,7 +611,7 @@ platform/helm/node-lifecycle-operator/
 │   ├── service.yaml           # Metrics endpoint
 │   └── servicemonitor.yaml    # Prometheus scraping
 └── crds/
-    └── lifecycle.kubernetes.io_nodeconfigs.yaml
+    └── lifecycle.sesacthon.io_nodeconfigs.yaml
 ```
 
 **values.yaml**:
@@ -647,7 +647,7 @@ nodeConfig:
   enabled: true
   selector:
     matchLabels:
-      node-role.kubernetes.io/worker: ""
+      node-role.sesacthon.io/worker: ""
   
   providerID:
     enabled: true
@@ -791,10 +791,10 @@ spec:
 **Step 3**: 점진적 활성화
 ```bash
 # 1개 노드로 시작
-kubectl label node k8s-api-auth node-lifecycle.kubernetes.io/managed=true
+kubectl label node k8s-api-auth node-lifecycle.sesacthon.io/managed=true
 
 # 확인 후 나머지 노드
-kubectl label nodes -l node-role.kubernetes.io/worker node-lifecycle.kubernetes.io/managed=true
+kubectl label nodes -l node-role.sesacthon.io/worker node-lifecycle.sesacthon.io/managed=true
 ```
 
 **Step 4**: Ansible playbook 제거
@@ -842,9 +842,9 @@ rm ansible/playbooks/14-route53-update.yml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: nodeconfigs.lifecycle.kubernetes.io
+  name: nodeconfigs.lifecycle.sesacthon.io
 spec:
-  group: lifecycle.kubernetes.io
+  group: lifecycle.sesacthon.io
   names:
     kind: NodeConfig
     listKind: NodeConfigList

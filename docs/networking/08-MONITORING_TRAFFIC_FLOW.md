@@ -218,7 +218,7 @@ Response: kube_pod_status_phase{pod="rabbitmq-xxx",phase="Running"} 1
 │          Service (ClusterIP - prometheus-grafana)                  │
 │   - Namespace: monitoring                                          │
 │   - ClusterIP: 10.96.2.20:80                                       │
-│   - Selector: app.kubernetes.io/name=grafana                       │
+│   - Selector: app.sesacthon.io/name=grafana                       │
 └────────────────────────────────────────────────────────────────────┘
                               ↓
                     Service Discovery

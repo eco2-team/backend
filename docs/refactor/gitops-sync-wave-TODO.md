@@ -321,7 +321,7 @@
 - [x] ServiceAccount, RBAC, ExternalSecret( IRSA Secret ) 추가 (`platform-system/external-dns`)
 - [x] `platform/helm/external-dns/` Helm ApplicationSet + dev/prod values 작성
 - [x] `clusters/{env}/apps/16-external-dns.yaml` – Wave 16 배포 정의
-- [x] 모든 ALB Ingress에 `external-dns.alpha.kubernetes.io/hostname` 주석 추가
+- [x] 모든 ALB Ingress에 `external-dns.alpha.sesacthon.io/hostname` 주석 추가
 - [x] `ARGOCD_SYNC_WAVE_PLAN.md`, `SYNC_WAVE_SECRET_MATRIX.md`, `RBAC_NAMESPACE_POLICY.md` 등 파생 문서와 Wave 표 업데이트
 
 ### 커밋

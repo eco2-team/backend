@@ -4,7 +4,7 @@
 > **레퍼런스**:
 > - ArgoCD 공식 문서: [Helm Value Files from External Sources](https://argo-cd.readthedocs.io/en/stable/user-guide/helm/)
 > - ExternalSecrets Operator: [SecretStore Configuration](https://external-secrets.io/latest/provider/aws-parameter-store/)
-> - Kubernetes 공식: [Using Secrets as Environment Variables](https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets-as-environment-variables)
+> - Kubernetes 공식: [Using Secrets as Environment Variables](https://sesacthon.io/docs/concepts/configuration/secret/#using-secrets-as-environment-variables)
 
 ---
 
@@ -283,7 +283,7 @@ kubectl get externalsecret -n kube-system
 kubectl get secret alb-controller-values -n kube-system -o yaml
 
 # ALB Controller Pod가 env 주입받았는지 확인
-kubectl get pod -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
+kubectl get pod -n kube-system -l app.sesacthon.io/name=aws-load-balancer-controller
 kubectl exec -n kube-system <pod> -- env | grep AWS_VPC_ID
 ```
 

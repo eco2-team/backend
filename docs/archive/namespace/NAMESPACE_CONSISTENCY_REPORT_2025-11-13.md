@@ -22,7 +22,7 @@
 - [x] 모든 도메인 네임스페이스 정의됨 (auth, my, scan, character, location, info, chat)
 - [x] `tier` 레이블 올바름 (`business-logic`, `integration`, `data`, `observability`, `infrastructure`)
 - [x] `phase` 레이블 올바름 (Phase 1, 2, 3)
-- [x] `app.kubernetes.io/part-of: ecoeco-backend` 레이블 존재
+- [x] `app.sesacthon.io/part-of: ecoeco-backend` 레이블 존재
 
 **검증 결과**: ✅ **모두 통과**
 
@@ -269,7 +269,7 @@ kubectl -n argocd argo app sync ecoeco-api-auth --prune
 ### 4. 배포 후 검증
 ```bash
 # 네임스페이스 확인
-kubectl get namespaces -l app.kubernetes.io/part-of=ecoeco-backend --show-labels
+kubectl get namespaces -l app.sesacthon.io/part-of=ecoeco-backend --show-labels
 
 # Pod 확인 (도메인별 네임스페이스)
 for ns in auth my scan character location info chat data messaging monitoring; do

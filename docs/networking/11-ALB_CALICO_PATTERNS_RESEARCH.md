@@ -82,10 +82,10 @@ kind: Ingress
 metadata:
   name: app-ingress
   annotations:
-    kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: instance  # ⭐ 핵심
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    sesacthon.io/ingress.class: alb
+    alb.ingress.sesacthon.io/scheme: internet-facing
+    alb.ingress.sesacthon.io/target-type: instance  # ⭐ 핵심
+    alb.ingress.sesacthon.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
 spec:
   rules:
   - host: example.com
@@ -146,7 +146,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    alb.ingress.kubernetes.io/target-type: ip  # EKS만 가능
+    alb.ingress.sesacthon.io/target-type: ip  # EKS만 가능
 spec:
   # ... (Service는 ClusterIP 가능)
 ```
@@ -182,8 +182,8 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    alb.ingress.kubernetes.io/target-type: instance
-    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.sesacthon.io/target-type: instance
+    alb.ingress.sesacthon.io/scheme: internet-facing
 ```
 
 #### 3. Service: NodePort
@@ -276,7 +276,7 @@ ansible-playbook -i inventory/hosts site.yml
 ```yaml
 # ansible/playbooks/07-ingress-resources.yml
 annotations:
-  alb.ingress.kubernetes.io/target-type: instance  # ✅ 이미 올바름
+  alb.ingress.sesacthon.io/target-type: instance  # ✅ 이미 올바름
 ```
 
 ### 3. Service 타입 확인
@@ -302,7 +302,7 @@ ingress {
 
 1. [AWS Load Balancer Controller Documentation](https://kubernetes-sigs.github.io/aws-load-balancer-controller/)
 2. [Calico Networking for Kubernetes](https://docs.tigera.io/calico/latest/)
-3. [Kubernetes Service Types](https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types)
+3. [Kubernetes Service Types](https://sesacthon.io/docs/concepts/services-networking/service/#publishing-services-service-types)
 4. [ALB Target Type Comparison](https://aws.amazon.com/blogs/containers/)
 
 ---

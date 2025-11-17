@@ -25,7 +25,7 @@ Route53 (api.growbin.app, argocd.growbin.app, …)
 2. **ServiceAccount**: `platform-system/external-dns` (RBAC Wave 3) + `aws-global-credentials` Secret env 주입.  
 3. **IAM Policy**: `route53:List*`, `route53:ChangeResourceRecordSets` (resource `*`, Route53 제약상 wildcard 필요).  
 4. **Sync Wave**: Namespaces → RBAC → NetworkPolicy → Secrets → ALB Controller → **ExternalDNS** → Monitoring.  
-5. **Ingress 주석**: `external-dns.alpha.kubernetes.io/hostname`, `target` 등 Git으로 관리.  
+5. **Ingress 주석**: `external-dns.alpha.sesacthon.io/hostname`, `target` 등 Git으로 관리.  
 
 ---
 
@@ -111,7 +111,7 @@ env:
    dig +short api.growbin.app
    curl -I https://api.growbin.app/health
    ```
-4. **Ingress 주석**: 모든 Ingress는 `external-dns.alpha.kubernetes.io/hostname`를 명시해야 한다. Git PR 템플릿에 체크 항목을 추가한다.
+4. **Ingress 주석**: 모든 Ingress는 `external-dns.alpha.sesacthon.io/hostname`를 명시해야 한다. Git PR 템플릿에 체크 항목을 추가한다.
 
 ---
 

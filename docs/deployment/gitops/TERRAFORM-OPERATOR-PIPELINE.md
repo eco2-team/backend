@@ -142,7 +142,7 @@ resource "null_resource" "deploy_operator" {
 
 ```yaml
 # k8s/operators/node-lifecycle/nodeconfig.yaml
-apiVersion: lifecycle.kubernetes.io/v1alpha1
+apiVersion: lifecycle.sesacthon.io/v1alpha1
 kind: NodeConfig
 metadata:
   name: worker-nodes
@@ -150,7 +150,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      node-role.kubernetes.io/worker: ""
+      node-role.sesacthon.io/worker: ""
   
   # Provider ID 자동 설정
   providerID:

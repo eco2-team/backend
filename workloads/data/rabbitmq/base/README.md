@@ -6,7 +6,7 @@
 - `secretBackend.externalSecret`를 통해 ExternalSecret에서 동기화한
   `rabbitmq-default-user` Secret을 참조
 - `override.statefulSet`로 RabbitMQ 전용 노드에 스케줄링하고
-  `kubernetes.io/infrastructure` taint를 허용
+  `sesacthon.io/infrastructure` taint를 허용
 
 환경별(`dev`, `prod`) 오버레이는 replica/스토리지/리소스 요구사항을 patch 합니다.
 

@@ -15,7 +15,7 @@ kubectl get applications -n argocd
 kubectl get applicationset -n argocd
 
 # 노드 라벨/taint 확인
-kubectl get nodes --show-labels | grep kubernetes.io
+kubectl get nodes --show-labels | grep sesacthon.io
 kubectl describe node <node> | grep -A4 Taints
 ```
 

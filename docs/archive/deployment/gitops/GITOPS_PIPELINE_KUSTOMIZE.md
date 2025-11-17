@@ -4,7 +4,7 @@
 **최종 업데이트**: 2025-11-11  
 **참고 문서**:
 - [ArgoCD Official Docs](https://argo-cd.readthedocs.io/)
-- [Kustomize Official Docs](https://kubectl.docs.kubernetes.io/)
+- [Kustomize Official Docs](https://kubectl.docs.sesacthon.io/)
 - [ArgoCD ApplicationSet](https://argo-cd.readthedocs.io/en/stable/user-guide/application-set/)
 
 ---
@@ -175,7 +175,7 @@ spec:
 
 #### 3.2 Kustomize Structure
 
-**참고**: [Kustomize Introduction](https://kubectl.docs.kubernetes.io/guides/introduction/)
+**참고**: [Kustomize Introduction](https://kubectl.docs.sesacthon.io/guides/introduction/)
 
 ```
 k8s/
@@ -224,7 +224,7 @@ commonLabels:
   phase: "1"
 ```
 
-**참고**: [Kustomize Patching](https://kubectl.docs.kubernetes.io/references/kustomize/patches/)
+**참고**: [Kustomize Patching](https://kubectl.docs.sesacthon.io/references/kustomize/patches/)
 
 #### 3.3 ArgoCD Sync Process
 
@@ -414,7 +414,7 @@ Wave 4: Workers (storage, ai)
 ## 🎓 Kustomize 핵심 개념
 
 ### 1. Resources
-**참고**: [Kustomize Resources](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/resource/)
+**참고**: [Kustomize Resources](https://kubectl.docs.sesacthon.io/references/kustomize/kustomization/resource/)
 
 ```yaml
 resources:
@@ -424,7 +424,7 @@ resources:
 ```
 
 ### 2. Patches
-**참고**: [Kustomize Patches](https://kubectl.docs.kubernetes.io/references/kustomize/patches/)
+**참고**: [Kustomize Patches](https://kubectl.docs.sesacthon.io/references/kustomize/patches/)
 
 ```yaml
 patches:
@@ -441,7 +441,7 @@ patches:
 ```
 
 ### 3. Images
-**참고**: [Kustomize Images](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/images/)
+**참고**: [Kustomize Images](https://kubectl.docs.sesacthon.io/references/kustomize/kustomization/images/)
 
 ```yaml
 images:
@@ -451,7 +451,7 @@ images:
 ```
 
 ### 4. NamePrefix/Suffix
-**참고**: [Kustomize Name Transformers](https://kubectl.docs.kubernetes.io/references/kustomize/nameprefix/)
+**참고**: [Kustomize Name Transformers](https://kubectl.docs.sesacthon.io/references/kustomize/nameprefix/)
 
 ```yaml
 namePrefix: auth-      # auth-api, auth-service
@@ -459,7 +459,7 @@ nameSuffix: -v2        # api-v2, service-v2
 ```
 
 ### 5. CommonLabels
-**참고**: [Kustomize Labels](https://kubectl.docs.kubernetes.io/references/kustomize/commonlabels/)
+**참고**: [Kustomize Labels](https://kubectl.docs.sesacthon.io/references/kustomize/commonlabels/)
 
 ```yaml
 commonLabels:
@@ -513,10 +513,10 @@ $ kubectl get application ecoeco-api-auth -n argocd \
   -o jsonpath='{.status.conditions}'
 
 # ArgoCD repo-server 로그
-$ kubectl logs -n argocd -l app.kubernetes.io/name=argocd-repo-server
+$ kubectl logs -n argocd -l app.sesacthon.io/name=argocd-repo-server
 
 # ArgoCD application-controller 로그
-$ kubectl logs -n argocd -l app.kubernetes.io/name=argocd-application-controller
+$ kubectl logs -n argocd -l app.sesacthon.io/name=argocd-application-controller
 ```
 
 ---
@@ -530,15 +530,15 @@ $ kubectl logs -n argocd -l app.kubernetes.io/name=argocd-application-controller
 - **Auto-Sync**: https://argo-cd.readthedocs.io/en/stable/user-guide/auto_sync/
 
 ### Kustomize 공식 문서
-- **Introduction**: https://kubectl.docs.kubernetes.io/guides/introduction/
-- **Kustomization File**: https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/
-- **Patches**: https://kubectl.docs.kubernetes.io/references/kustomize/patches/
+- **Introduction**: https://kubectl.docs.sesacthon.io/guides/introduction/
+- **Kustomization File**: https://kubectl.docs.sesacthon.io/references/kustomize/kustomization/
+- **Patches**: https://kubectl.docs.sesacthon.io/references/kustomize/patches/
 - **Examples**: https://github.com/kubernetes-sigs/kustomize/tree/master/examples
 
 ### Best Practices
 - **GitOps Principles**: https://opengitops.dev/
 - **ArgoCD Best Practices**: https://argo-cd.readthedocs.io/en/stable/user-guide/best_practices/
-- **Kustomize Best Practices**: https://kubectl.docs.kubernetes.io/guides/config_management/
+- **Kustomize Best Practices**: https://kubectl.docs.sesacthon.io/guides/config_management/
 
 ---
 

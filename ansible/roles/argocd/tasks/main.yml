@@ -43,7 +43,7 @@
   changed_when: "'created' in argocd_install.stdout or 'configured' in argocd_install.stdout"
 
 - name: ArgoCD Pod가 Ready 될 때까지 대기
-  command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n {{ argocd_namespace }} --timeout=600s
+  command: kubectl wait --for=condition=ready pod -l app.sesacthon.io/name=argocd-server -n {{ argocd_namespace }} --timeout=600s
   when: argocd_install.changed
 
 - name: ArgoCD Service를 NodePort(HTTP 단일 포트)로 변경

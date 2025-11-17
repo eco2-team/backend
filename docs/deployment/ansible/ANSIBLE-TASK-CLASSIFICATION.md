@@ -943,7 +943,7 @@ kind: IngressClass
 metadata:
   name: alb
   annotations:
-    ingressclass.kubernetes.io/is-default-class: "true"
+    ingressclass.sesacthon.io/is-default-class: "true"
 spec:
   controller: ingress.k8s.aws/alb
 ```
@@ -991,7 +991,7 @@ def apply_labels_from_ec2_tags(spec, name, **kwargs):
         'workload': ec2_tags.get('Workload', 'unknown'),
         'domain': ec2_tags.get('Domain', 'unknown'),
         'phase': ec2_tags.get('Phase', 'unknown'),
-        'topology.kubernetes.io/zone': ec2_tags.get('AZ', 'unknown')
+        'topology.sesacthon.io/zone': ec2_tags.get('AZ', 'unknown')
     }
     
     # Node에 Label 적용

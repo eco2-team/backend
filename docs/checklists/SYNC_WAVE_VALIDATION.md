@@ -13,7 +13,7 @@
 - [ ] 각 Helm Application(예: `05-calico.yaml`, `15-alb-controller.yaml`)은 `path: platform/helm/<component>/{env}`를 가리키고, 더 이상 `directory.include: app.yaml`을 사용하지 않는다.
 - [ ] 환경별 `patch-application.yaml`(또는 overlay)에서 Helm 설정이 선언되며, 중복/누락 없이 관리된다.
 - [ ] External chart 버전(`targetRevision`)이 CRD/Operator 버전과 호환되는지 사전 검증한다.
-- [ ] ExternalDNS는 `external-dns.alpha.kubernetes.io/managed-by=external-dns`가 붙은 Ingress/Service만 관리하며, Apex/Alias 레코드는 Terraform·Ansible(Route53)에서만 관리된다.
+- [ ] ExternalDNS는 `external-dns.alpha.sesacthon.io/managed-by=external-dns`가 붙은 Ingress/Service만 관리하며, Apex/Alias 레코드는 Terraform·Ansible(Route53)에서만 관리된다.
 
 ## 3. Kustomize(workloads) 점검
 - [ ] 모든 경로가 `base/` + `{env}/` 오버레이 구조를 가지며, `kustomization.yaml`이 base를 참조한다.

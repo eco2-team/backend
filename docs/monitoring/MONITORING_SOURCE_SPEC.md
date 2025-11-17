@@ -91,7 +91,7 @@
 3. **검증 플로우**  
    - Helm chart upgrade 시 `helm template` + `kubeconform`으로 CRD 호환성 검사  
    - Operator Pod 변경 시 `kubectl describe deploy`에서 `image:` SHA 기록  
-   - App-of-Apps에 `kubernetes.io/operator-version` 라벨 추가하여 추적
+   - App-of-Apps에 `sesacthon.io/operator-version` 라벨 추가하여 추적
 
 ---
 
@@ -105,7 +105,7 @@
 - Namespace: `kube-system`
 - Secret/Config: `alb-controller-values` (VPC ID, Subnet IDs, SG ID 등 Terraform output 연동)
 - IAM: IRSA Role에 `AWSLoadBalancerControllerIAMPolicy` 부여 (`alb-controller-iam.tf`)
-- 서비스: NodePort 또는 `alb.ingress.kubernetes.io/target-type: ip` 선택 (현재 Instance 모드)
+- 서비스: NodePort 또는 `alb.ingress.sesacthon.io/target-type: ip` 선택 (현재 Instance 모드)
 
 ---
 

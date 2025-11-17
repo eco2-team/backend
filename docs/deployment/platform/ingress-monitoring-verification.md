@@ -181,7 +181,7 @@ resource "aws_route53_record" "atlantis" {
 aws acm list-certificates --region ap-northeast-2
 
 # Ingress YAML 업데이트
-# alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:...:certificate/CERT_ID
+# alb.ingress.sesacthon.io/certificate-arn: arn:aws:acm:...:certificate/CERT_ID
 ```
 
 ### Step 4: 접근 테스트

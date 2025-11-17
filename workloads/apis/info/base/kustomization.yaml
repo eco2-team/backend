@@ -8,6 +8,6 @@ resources:
 labels:
 - includeSelectors: true
   pairs:
-    app.kubernetes.io/part-of: ecoeco-backend
+    app.sesacthon.io/part-of: ecoeco-backend
     domain: info
     tier: business-logic

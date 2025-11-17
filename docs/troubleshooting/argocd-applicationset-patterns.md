@@ -109,7 +109,7 @@ dev-alb-controller-appset   Synced   Degraded   # ✅ ApplicationSet wrapper
 
 **ALB Controller Pod**:
 ```bash
-$ kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
+$ kubectl get pods -n kube-system -l app.sesacthon.io/name=aws-load-balancer-controller
 NAME                                            READY   STATUS    RESTARTS   AGE   NODE
 aws-load-balancer-controller-5fcc4cfccb-89bb9   1/1     Running   0          18m   k8s-master
 # ✅ 정상 작동
@@ -187,9 +187,9 @@ spec:
         createIngressClassResource: true
         defaultTargetType: instance
         nodeSelector:
-          node-role.kubernetes.io/control-plane: ""
+          node-role.sesacthon.io/control-plane: ""
         tolerations:
-          - key: node-role.kubernetes.io/control-plane
+          - key: node-role.sesacthon.io/control-plane
             operator: Exists
             effect: NoSchedule
 ```
@@ -203,7 +203,7 @@ spec:
 
 **Helm release 확인**:
 ```bash
-$ kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller -o yaml | grep -A 5 'env:'
+$ kubectl get pods -n kube-system -l app.sesacthon.io/name=aws-load-balancer-controller -o yaml | grep -A 5 'env:'
     env:
     - name: CLUSTER_NAME
       value: sesacthon-dev  # ✅ 환경별 값 적용됨
