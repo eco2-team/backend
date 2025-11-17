@@ -1,0 +1,8 @@
+installCRDs: false
+tolerations:
+  - key: node-role.sesacthon.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+nodeSelector:
+  node-role.sesacthon.io/control-plane: ""
+

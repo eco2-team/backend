@@ -1,0 +1,49 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: external-secrets
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  generators:
+    - list:
+        elements:
+          - env: dev
+            project: dev
+            namespace: platform-system
+            valueFile: platform/helm/external-secrets/values/dev.yaml
+            targetRevision: refactor/gitops-sync-wave
+          - env: prod
+            project: prod
+            namespace: platform-system
+            valueFile: platform/helm/external-secrets/values/prod.yaml
+            targetRevision: main
+  template:
+    metadata:
+      name: "{{env}}-external-secrets"
+      namespace: argocd
+    spec:
+      project: "{{project}}"
+      sources:
+        - repoURL: https://charts.external-secrets.io
+          chart: external-secrets
+          targetRevision: 0.9.11
+        - repoURL: https://github.com/SeSACTHON/backend.git
+          targetRevision: "{{targetRevision}}"
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+      helm:
+        releaseName: external-secrets
+        valueFiles:
+          - "$values/{{ valueFile }}"
+
+
