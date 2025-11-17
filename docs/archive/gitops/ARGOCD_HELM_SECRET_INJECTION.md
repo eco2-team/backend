@@ -172,6 +172,7 @@ metadata:
   annotations:
     eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/dev-alb-controller"  # ← ExternalSecret 출력 참조
 ```
+> ℹ️ 2025-11 이후에는 `patch-sa-irsa.yaml` 대신 `workloads/secrets/external-secrets/base/irsa-annotator-*.yaml` Job이 ServiceAccount annotation을 주입한다.
 
 하지만 annotation은 문자열이므로 **Secret을 직접 참조 불가**. 대안:
 
@@ -257,7 +258,7 @@ serviceAccount:
 
 2. **ServiceAccount** (`workloads/rbac-storage/base/service-accounts.yaml`):
    - annotation 없이 기본 SA만 생성
-   - dev/prod overlay에서 IRSA annotation patch (`patch-sa-irsa.yaml`)
+   - Wave 11의 `irsa-annotator` Hook Job이 Secret을 읽어 annotation을 주입
 
 3. **ExternalSecret** (`workloads/secrets/external-secrets/dev/`):
    - `alb-controller-secret.yaml`: VPC ID, Subnet 등 → `alb-controller-values` Secret
