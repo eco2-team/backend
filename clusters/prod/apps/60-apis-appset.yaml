@@ -34,7 +34,7 @@ spec:
     spec:
       project: prod
       source:
-        repoURL: https://github.com/SeSACTHON/backend.git
+        repoURL: https://github.com/eco2-team/backend.git
         targetRevision: main
         path: workloads/apis/{{name}}/prod
       destination:

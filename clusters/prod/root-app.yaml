@@ -9,7 +9,7 @@ metadata:
 spec:
   project: prod
   source:
-    repoURL: https://github.com/SeSACTHON/backend.git
+    repoURL: https://github.com/eco2-team/backend.git
     targetRevision: main
     path: clusters/prod/apps
     directory:
