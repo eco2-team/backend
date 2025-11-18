@@ -10,70 +10,73 @@ spec:
     - list:
         elements:
           - name: postgres-operator
-            repoURL: https://github.com/zalando/postgres-operator.git
-            targetRevision: v1.10.0
-            path: charts/postgres-operator
             destinationNamespace: data-system
-            helm:
-              releaseName: prod-postgres-operator
-              valuesObject:
-                nodeSelector:
-                  role: control-plane
-                tolerations:
-                  - key: node-role.kubernetes.io/control-plane
-                    operator: Exists
-                    effect: NoSchedule
-                  - key: role
-                    operator: Equal
-                    value: control-plane
-                    effect: NoSchedule
+            source:
+              repoURL: https://github.com/zalando/postgres-operator.git
+              targetRevision: v1.10.0
+              path: charts/postgres-operator
+              helm:
+                releaseName: prod-postgres-operator
+                valuesObject:
+                  nodeSelector:
+                    role: control-plane
+                  tolerations:
+                    - key: node-role.kubernetes.io/control-plane
+                      operator: Exists
+                      effect: NoSchedule
+                    - key: role
+                      operator: Equal
+                      value: control-plane
+                      effect: NoSchedule
           - name: redis-operator
-            repoURL: https://ot-container-kit.github.io/helm-charts
-            targetRevision: 0.22.2
-            chart: redis-operator
             destinationNamespace: data-system
-            helm:
-              releaseName: prod-redis-operator
-              valuesObject:
-                redisOperator:
-                  watchNamespace: ""
-                service:
-            namespace: data-system
-                nodeSelector:
-                  role: control-plane
-                tolerations:
-                  - key: node-role.kubernetes.io/control-plane
-                    operator: Exists
-                    effect: NoSchedule
-                  - key: role
-                    operator: Equal
-                    value: control-plane
-                    effect: NoSchedule
+            source:
+              repoURL: https://ot-container-kit.github.io/helm-charts
+              targetRevision: 0.22.2
+              chart: redis-operator
+              helm:
+                releaseName: prod-redis-operator
+                valuesObject:
+                  redisOperator:
+                    watchNamespace: ""
+                  service:
+                    namespace: data-system
+                  nodeSelector:
+                    role: control-plane
+                  tolerations:
+                    - key: node-role.kubernetes.io/control-plane
+                      operator: Exists
+                      effect: NoSchedule
+                    - key: role
+                      operator: Equal
+                      value: control-plane
+                      effect: NoSchedule
           - name: rabbitmq-operator
-            repoURL: https://github.com/rabbitmq/cluster-operator.git
-            targetRevision: v1.11.0
-            path: config/default
             destinationNamespace: messaging-system
-            kustomize:
-              patches:
-                - target:
-                    kind: Deployment
-                    name: rabbitmq-cluster-operator
-                  patch: |
-                    - op: add
-                      path: /spec/template/spec/nodeSelector
-                      value:
-                        role: control-plane
-                    - op: add
-                      path: /spec/template/spec/tolerations
-                      value:
-                        - key: node-role.kubernetes.io/control-plane
-                          operator: Exists
-                          effect: NoSchedule
-                        - key: role
-                          operator: Equal
-                          value: control-plane
-                          effect: NoSchedule
+            source:
+              repoURL: https://github.com/rabbitmq/cluster-operator.git
+              targetRevision: v1.11.0
+              path: config/default
+              kustomize:
+                patches:
+                  - target:
+                      kind: Deployment
+                      name: rabbitmq-cluster-operator
+                    patch: |
+                      - op: add
+                        path: /spec/template/spec/nodeSelector
+                        value:
+                          role: control-plane
+                      - op: add
+                        path: /spec/template/spec/tolerations
+                        value:
+                          - key: node-role.kubernetes.io/control-plane
+                            operator: Exists
+                            effect: NoSchedule
+                          - key: role
+                            operator: Equal
+                            value: control-plane
+                            effect: NoSchedule
   template:
     metadata:
       name: prod-{{name}}
@@ -81,22 +84,7 @@ spec:
     spec:
       project: prod
       source:
-        repoURL: "{{repoURL}}"
-        targetRevision: "{{targetRevision}}"
-{{- if chart }}
-        chart: "{{chart}}"
-{{- end }}
-{{- if path }}
-        path: "{{path}}"
-{{- end }}
-{{- with helm }}
-        helm:
-{{ toYaml . | indent 10 }}
-{{- end }}
-{{- with kustomize }}
-        kustomize:
-{{ toYaml . | indent 10 }}
-{{- end }}
+{{- toYaml .source | nindent 8 }}
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{destinationNamespace}}"
