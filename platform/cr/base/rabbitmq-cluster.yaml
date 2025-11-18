@@ -1,10 +1,10 @@
 apiVersion: rabbitmq.com/v1beta1
 kind: RabbitmqCluster
 metadata:
-  name: rabbitmq-main
+  name: rabbitmq-cluster
   namespace: rabbitmq
   labels:
-    app.kubernetes.io/name: rabbitmq-main
+    app.kubernetes.io/name: rabbitmq
     app.kubernetes.io/part-of: ecoeco-backend
     tier: integration
     role: messaging

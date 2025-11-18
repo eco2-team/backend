@@ -36,7 +36,7 @@ clusters/
 | 20 | `20-monitoring-operator.yaml` | kube-prometheus-stack (Helm) | `platform/helm/kube-prometheus-stack/{env}` |
 | 21 | `21-grafana.yaml` | Grafana (Helm) | `platform/helm/grafana/{env}` |
 | 25 | `25-data-operators.yaml` | Postgres / Redis / RabbitMQ Operators | `platform/helm/{postgres,redis,rabbitmq}-operator/{env}` |
-| 35 | `35-data-cr.yaml` | PostgresCluster, RedisFailover CR | `workloads/data/{postgres,redis}/{env}` |
+| 35 | `35-data-cr.yaml` | PostgresCluster, RedisReplication/Sentinel, RabbitmqCluster | `platform/cr/{env}` |
 | 60 | `60-apis-appset.yaml` | 7개 API ApplicationSet (auth/my/…) | `workloads/apis/*/{env}` |
 | 70 | `70-ingress.yaml` | ALB Ingress / Path Routing | `workloads/ingress/apps/{env}` |
 

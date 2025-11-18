@@ -1,35 +1,20 @@
 apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
+kind: Application
 metadata:
   name: dev-data-clusters
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "35"
 spec:
-  generators:
-    - list:
-        elements:
-          - name: postgres
-            path: workloads/data/postgres/dev
-          - name: redis
-            path: workloads/data/redis/dev
-          - name: rabbitmq
-            path: workloads/data/rabbitmq/dev
-  template:
-    metadata:
-      name: dev-data-{{name}}
-      namespace: argocd
-    spec:
-      project: dev
-      source:
-        repoURL: https://github.com/SeSACTHON/backend.git
-        targetRevision: refactor/gitops-sync-wave
-        path: "{{path}}"
-      destination:
-        server: https://kubernetes.default.svc
-        namespace: "{{name}}"
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-
+  project: dev
+  source:
+    repoURL: https://github.com/SeSACTHON/backend.git
+    targetRevision: refactor/gitops-sync-wave
+    path: platform/cr/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: postgres
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,18 +1,18 @@
 apiVersion: redis.redis.opstreelabs.in/v1beta2
-kind: RedisReplication
+kind: RedisSentinel
 metadata:
-  name: redis-main
+  name: redis-sentinel
   namespace: redis
   labels:
     app.kubernetes.io/name: redis
     tier: data
 spec:
   clusterSize: 3
+  redisSentinelConfig:
+    redisReplicationName: redis-cluster
   kubernetesConfig:
-    image: quay.io/opstree/redis:7.2.4
+    image: quay.io/opstree/redis-sentinel:7.2.4
     imagePullPolicy: IfNotPresent
-  redisExporter:
-    enabled: false
   nodeSelector:
     infra-type: redis
   tolerations:
@@ -20,14 +20,4 @@ spec:
       operator: Equal
       value: data
       effect: NoSchedule
-  storage:
-    volumeClaimTemplate:
-      metadata:
-        name: redis-data
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 10Gi
 

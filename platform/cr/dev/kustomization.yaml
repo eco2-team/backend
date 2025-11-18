@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - ../base
 patches:
-  - path: rabbitmq-cluster.yaml
-
+  - path: postgres-patch.yaml
+  - path: rabbitmq-patch.yaml
+  - path: redis-patch.yaml
 

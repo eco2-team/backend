@@ -1,35 +1,21 @@
 apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
+kind: Application
 metadata:
   name: prod-data-clusters
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "35"
 spec:
-  generators:
-    - list:
-        elements:
-          - name: postgres
-            path: workloads/data/postgres/prod
-          - name: redis
-            path: workloads/data/redis/prod
-          - name: rabbitmq
-            path: workloads/data/rabbitmq/prod
-  template:
-    metadata:
-      name: prod-data-{{name}}
-      namespace: argocd
-    spec:
-      project: prod
-      source:
-        repoURL: https://github.com/SeSACTHON/backend.git
-        targetRevision: main
-        path: "{{path}}"
-      destination:
-        server: https://kubernetes.default.svc
-        namespace: "{{name}}"
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
+  project: prod
+  source:
+    repoURL: https://github.com/SeSACTHON/backend.git
+    targetRevision: main
+    path: platform/cr/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: postgres
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
 

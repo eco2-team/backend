@@ -116,7 +116,7 @@ kubectl get applications -n argocd
 | 5-6 | `workloads/network-policies/{env}` | Tier 기반 L3/L4 정책 |
 | 11 | `workloads/secrets/external-secrets/{env}` | SSM → Kubernetes Secret ExternalSecret |
 | 20 | `workloads/ingress/apps/{env}` | ALB Ingress + ExternalDNS annotation |
-| 35 | `workloads/data/{postgres,redis}/{env}` | PostgresCluster / RedisFailover CR |
+| 35 | `platform/cr/{env}` | PostgresCluster / RedisReplication / RabbitmqCluster CR |
 | 60 | `workloads/apis/<domain>/{env}` | 각 API Deployment/Service/ConfigMap |
 | Helm | `platform/helm/<component>` | Calico, ALB Controller, ExternalDNS, kube-prometheus-stack, Grafana, Operators 등 |
 
