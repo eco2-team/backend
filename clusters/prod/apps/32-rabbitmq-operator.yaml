@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-rabbitmq-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "32"
+spec:
+  project: prod
+  source:
+    repoURL: https://github.com/rabbitmq/cluster-operator.git
+    targetRevision: v1.11.0
+    path: config/default
+    kustomize:
+      patches:
+        - target:
+            kind: Deployment
+            name: rabbitmq-cluster-operator
+          patch: |
+            - op: add
+              path: /spec/template/spec/nodeSelector
+              value:
+                role: control-plane
+            - op: add
+              path: /spec/template/spec/tolerations
+              value:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: Exists
+                  effect: NoSchedule
+                - key: role
+                  operator: Equal
+                  value: control-plane
+                  effect: NoSchedule
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: messaging-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+

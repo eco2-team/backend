@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-postgres-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "24"
+spec:
+  project: prod
+  source:
+    repoURL: https://github.com/zalando/postgres-operator.git
+    targetRevision: v1.10.0
+    path: charts/postgres-operator
+    helm:
+      releaseName: prod-postgres-operator
+      valuesObject:
+        nodeSelector:
+          role: control-plane
+        tolerations:
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule
+          - key: role
+            operator: Equal
+            value: control-plane
+            effect: NoSchedule
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
