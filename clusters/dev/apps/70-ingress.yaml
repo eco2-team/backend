@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/SeSACTHON/backend.git
     targetRevision: refactor/gitops-sync-wave
-    path: workloads/ingress/apps/dev
+    path: workloads/ingress/dev
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:

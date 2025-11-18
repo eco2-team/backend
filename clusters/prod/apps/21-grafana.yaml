@@ -8,9 +8,54 @@ metadata:
 spec:
   project: prod
   source:
-    repoURL: https://github.com/SeSACTHON/backend.git
-    targetRevision: main
-    path: platform/helm/grafana/prod
+    repoURL: https://grafana.github.io/helm-charts
+    chart: grafana
+    targetRevision: 8.5.9
+    helm:
+      releaseName: prod-grafana
+      valuesObject:
+        admin:
+          existingSecret: grafana-admin
+          userKey: admin-user
+          passwordKey: admin-password
+        serviceAccount:
+          create: true
+          name: grafana
+        service:
+          type: ClusterIP
+          port: 80
+        ingress:
+          enabled: false
+        persistence:
+          enabled: true
+          size: 10Gi
+          storageClassName: gp3
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        replicas: 2
+        nodeSelector:
+          infra-type: monitoring
+        tolerations:
+          - key: domain
+            operator: Equal
+            value: observability
+            effect: NoSchedule
+        datasources:
+          datasources.yaml:
+            apiVersion: 1
+            datasources:
+              - name: Prometheus
+                type: prometheus
+                access: proxy
+                isDefault: true
+                url: http://kube-prometheus-stack-prometheus.prometheus:9090
+                jsonData:
+                  httpMethod: GET
   destination:
     server: https://kubernetes.default.svc
     namespace: grafana

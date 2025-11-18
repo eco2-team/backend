@@ -8,9 +8,88 @@ metadata:
 spec:
   project: prod
   source:
-    repoURL: https://github.com/SeSACTHON/backend.git
-    targetRevision: main
-    path: platform/helm/kube-prometheus-stack/prod
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 56.21.1
+    helm:
+      releaseName: prod-kube-prometheus-stack
+      valuesObject:
+        fullnameOverride: kube-prometheus-stack
+        alertmanager:
+          enabled: true
+          configExistingSecret: alertmanager-config
+          alertmanagerSpec:
+            replicas: 3
+            storage:
+              volumeClaimTemplate:
+                spec:
+                  storageClassName: gp3
+                  accessModes:
+                    - ReadWriteOnce
+                  resources:
+                    requests:
+                      storage: 50Gi
+            tolerations:
+              - key: domain
+                operator: Equal
+                value: observability
+                effect: NoSchedule
+            nodeSelector:
+              infra-type: monitoring
+        grafana:
+          enabled: false
+        prometheusOperator:
+          admissionWebhooks:
+            patch:
+              enabled: true
+          tolerations:
+            - key: domain
+              operator: Equal
+              value: observability
+              effect: NoSchedule
+          nodeSelector:
+            infra-type: monitoring
+        prometheus:
+          prometheusSpec:
+            replicas: 2
+            retention: 30d
+            retentionSize: 150GiB
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  storageClassName: gp3
+                  accessModes:
+                    - ReadWriteOnce
+                  resources:
+                    requests:
+                      storage: 200Gi
+            nodeSelector:
+              infra-type: monitoring
+            tolerations:
+              - key: domain
+                operator: Equal
+                value: observability
+                effect: NoSchedule
+            scrapeInterval: 30s
+            evaluationInterval: 30s
+            serviceMonitorNamespaceSelector:
+              matchExpressions:
+                - key: kubernetes.io/metadata.name
+                  operator: In
+                  values:
+                    - auth
+                    - my
+                    - scan
+                    - character
+                    - location
+                    - info
+                    - chat
+                    - postgres
+                    - redis
+                    - rabbitmq
+                    - grafana
+                    - prometheus
+                    - default
   destination:
     server: https://kubernetes.default.svc
     namespace: prometheus

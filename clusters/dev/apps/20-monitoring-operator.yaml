@@ -8,12 +8,76 @@ metadata:
 spec:
   project: dev
   source:
-    repoURL: https://github.com/SeSACTHON/backend.git
-    targetRevision: refactor/gitops-sync-wave
-    path: platform/helm/kube-prometheus-stack/dev
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 56.21.1
+    helm:
+      releaseName: dev-kube-prometheus-stack
+      valuesObject:
+        fullnameOverride: kube-prometheus-stack
+        alertmanager:
+          enabled: true
+          configExistingSecret: alertmanager-config
+          alertmanagerSpec:
+            replicas: 1
+            storage: {}
+            tolerations:
+              - key: domain
+                operator: Equal
+                value: observability
+                effect: NoSchedule
+            nodeSelector:
+              infra-type: monitoring
+        grafana:
+          enabled: false
+        prometheusOperator:
+          admissionWebhooks:
+            patch:
+              enabled: true
+          tls:
+            enabled: false
+          tolerations:
+            - key: domain
+              operator: Equal
+              value: observability
+              effect: NoSchedule
+          nodeSelector:
+            infra-type: monitoring
+        prometheus:
+          prometheusSpec:
+            replicas: 1
+            retention: 15d
+            nodeSelector:
+              infra-type: monitoring
+            tolerations:
+              - key: domain
+                operator: Equal
+                value: observability
+                effect: NoSchedule
+            serviceMonitorNamespaceSelector:
+              matchExpressions:
+                - key: kubernetes.io/metadata.name
+                  operator: In
+                  values:
+                    - auth
+                    - my
+                    - scan
+                    - character
+                    - location
+                    - info
+                    - chat
+                    - postgres
+                    - redis
+                    - rabbitmq
+                    - grafana
+                    - prometheus
+                    - default
+            serviceMonitorSelectorNilUsesHelmValues: false
+            additionalScrapeConfigsSecret:
+              enabled: false
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
+    namespace: prometheus
   syncPolicy:
     automated:
       prune: true

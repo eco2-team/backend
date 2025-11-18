@@ -8,9 +8,48 @@ metadata:
 spec:
   project: prod
   source:
-    repoURL: https://github.com/SeSACTHON/backend.git
-    targetRevision: main
-    path: platform/helm/external-dns/prod
+    repoURL: https://kubernetes-sigs.github.io/external-dns/
+    chart: external-dns
+    targetRevision: 1.15.2
+    helm:
+      releaseName: prod-external-dns
+      valuesObject:
+        serviceAccount:
+          create: false
+          name: external-dns
+        provider: aws
+        policy: upsert-only
+        registry: txt
+        txtOwnerId: sesacthon-prod
+        domainFilters:
+          - growbin.app
+        sources:
+          - ingress
+          - service
+        extraArgs:
+          - --aws-zone-type=public
+          - --aws-prefer-cname=true
+          - '--annotation-filter=external-dns.alpha.kubernetes.io/managed-by in (external-dns)'
+        env:
+          - name: AWS_REGION
+            value: ap-northeast-2
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: aws-global-credentials
+                key: aws_access_key_id
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: aws-global-credentials
+                key: aws_secret_access_key
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 300m
+            memory: 512Mi
   destination:
     server: https://kubernetes.default.svc
     namespace: platform-system

@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/SeSACTHON/backend.git
     targetRevision: main
-    path: workloads/ingress/apps/prod
+    path: workloads/ingress/prod
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:

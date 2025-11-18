@@ -8,14 +8,50 @@ metadata:
 spec:
   project: dev
   source:
-    repoURL: https://github.com/SeSACTHON/backend.git
-    targetRevision: refactor/gitops-sync-wave
-    path: platform/helm/alb-controller/dev
+    repoURL: https://aws.github.io/eks-charts
+    chart: aws-load-balancer-controller
+    targetRevision: 1.7.1
+    helm:
+      releaseName: dev-aws-load-balancer-controller
+      valuesObject:
+        clusterName: sesacthon-dev
+        region: ap-northeast-2
+        serviceAccount:
+          create: false
+          name: aws-load-balancer-controller
+        replicaCount: 1
+        enableShield: false
+        enableWaf: false
+        enableWafv2: false
+        ingressClass: alb
+        createIngressClassResource: true
+        defaultTargetType: instance
+        controller:
+          extraEnv:
+            - name: AWS_VPC_ID
+              valueFrom:
+                secretKeyRef:
+                  name: alb-controller-values
+                  key: vpcId
+            - name: AWS_REGION
+              value: ap-northeast-2
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-global-credentials
+                  key: aws_access_key_id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-global-credentials
+                  key: aws_secret_access_key
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
+    namespace: kube-system
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
 

@@ -14,10 +14,8 @@ TARGETS=(
   "workloads/rbac-storage/prod"
   "workloads/secrets/external-secrets/dev"
   "workloads/secrets/external-secrets/prod"
-  "workloads/data/postgres/dev"
-  "workloads/data/postgres/prod"
-  "workloads/data/redis/dev"
-  "workloads/data/redis/prod"
+  "platform/cr/dev"
+  "platform/cr/prod"
   "workloads/ingress/apps/dev"
   "workloads/ingress/apps/prod"
 )
