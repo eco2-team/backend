@@ -1,97 +1,119 @@
 apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
+kind: Application
 metadata:
-  name: prod-data-operators
+  name: prod-postgres-operator
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "25"
 spec:
-  generators:
-    - list:
-        elements:
-          - name: postgres-operator
-            destinationNamespace: data-system
-            source:
-              repoURL: https://github.com/zalando/postgres-operator.git
-              targetRevision: v1.10.0
-              path: charts/postgres-operator
-              helm:
-                releaseName: prod-postgres-operator
-                valuesObject:
-                  nodeSelector:
-                    role: control-plane
-                  tolerations:
-                    - key: node-role.kubernetes.io/control-plane
-                      operator: Exists
-                      effect: NoSchedule
-                    - key: role
-                      operator: Equal
-                      value: control-plane
-                      effect: NoSchedule
-          - name: redis-operator
-            destinationNamespace: data-system
-            source:
-              repoURL: https://ot-container-kit.github.io/helm-charts
-              targetRevision: 0.22.2
-              chart: redis-operator
-              helm:
-                releaseName: prod-redis-operator
-                valuesObject:
-                  redisOperator:
-                    watchNamespace: ""
-                  service:
-                    namespace: data-system
-                  nodeSelector:
-                    role: control-plane
-                  tolerations:
-                    - key: node-role.kubernetes.io/control-plane
-                      operator: Exists
-                      effect: NoSchedule
-                    - key: role
-                      operator: Equal
-                      value: control-plane
-                      effect: NoSchedule
-          - name: rabbitmq-operator
-            destinationNamespace: messaging-system
-            source:
-              repoURL: https://github.com/rabbitmq/cluster-operator.git
-              targetRevision: v1.11.0
-              path: config/default
-              kustomize:
-                patches:
-                  - target:
-                      kind: Deployment
-                      name: rabbitmq-cluster-operator
-                    patch: |
-                      - op: add
-                        path: /spec/template/spec/nodeSelector
-                        value:
-                          role: control-plane
-                      - op: add
-                        path: /spec/template/spec/tolerations
-                        value:
-                          - key: node-role.kubernetes.io/control-plane
-                            operator: Exists
-                            effect: NoSchedule
-                          - key: role
-                            operator: Equal
-                            value: control-plane
-                            effect: NoSchedule
-  template:
-    metadata:
-      name: prod-{{name}}
-      namespace: argocd
-    spec:
-      project: prod
-      source:
-{{- toYaml .source | nindent 8 }}
-      destination:
-        server: https://kubernetes.default.svc
-        namespace: "{{destinationNamespace}}"
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-        syncOptions:
-          - CreateNamespace=true
+  project: prod
+  source:
+    repoURL: https://github.com/zalando/postgres-operator.git
+    targetRevision: v1.10.0
+    path: charts/postgres-operator
+    helm:
+      releaseName: prod-postgres-operator
+      valuesObject:
+        nodeSelector:
+          role: control-plane
+        tolerations:
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule
+          - key: role
+            operator: Equal
+            value: control-plane
+            effect: NoSchedule
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-redis-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "25"
+spec:
+  project: prod
+  source:
+    repoURL: https://ot-container-kit.github.io/helm-charts
+    chart: redis-operator
+    targetRevision: 0.22.2
+    helm:
+      releaseName: prod-redis-operator
+      valuesObject:
+        redisOperator:
+          watchNamespace: ""
+        service:
+          namespace: data-system
+        nodeSelector:
+          role: control-plane
+        tolerations:
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule
+          - key: role
+            operator: Equal
+            value: control-plane
+            effect: NoSchedule
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-rabbitmq-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "25"
+spec:
+  project: prod
+  source:
+    repoURL: https://github.com/rabbitmq/cluster-operator.git
+    targetRevision: v1.11.0
+    path: config/default
+    kustomize:
+      patches:
+        - target:
+            kind: Deployment
+            name: rabbitmq-cluster-operator
+          patch: |
+            - op: add
+              path: /spec/template/spec/nodeSelector
+              value:
+                role: control-plane
+            - op: add
+              path: /spec/template/spec/tolerations
+              value:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: Exists
+                  effect: NoSchedule
+                - key: role
+                  operator: Equal
+                  value: control-plane
+                  effect: NoSchedule
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: messaging-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
 
