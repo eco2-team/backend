@@ -1,0 +1,10 @@
+aws_region              = "ap-northeast-2"
+environment             = "prod"
+vpc_cidr                = "10.1.0.0/16"
+allowed_ssh_cidr        = "0.0.0.0/0"        # TODO: 본인 IP로 제한 권장
+public_key_path         = "~/.ssh/sesacthon.pub"
+enable_cloudfront       = true
+cluster_name            = "sesacthon-prod"
+domain_name             = "growbin.app"
+create_wildcard_record  = true
+

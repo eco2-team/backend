@@ -22,27 +22,6 @@ data "aws_route53_zone" "main" {
 #   }
 # }
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ⚠️  Route53 A 레코드는 Ansible에서 관리합니다
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#
-# 이유:
-#   - Terraform: 인프라 생성 시점에 ALB DNS를 알 수 없음
-#   - Ansible: ALB Controller가 ALB를 생성한 후 DNS를 조회하여 Route53 업데이트
-#
-# Route53 업데이트 위치:
-#   - ansible/playbooks/09-route53-update.yml
-#   - ansible/site.yml (Line 250-259)
-#
-# 업데이트되는 도메인:
-#   - growbin.app → ALB (Alias)
-#   - www.growbin.app → ALB (Alias)
-#   - api.growbin.app → ALB (Alias)
-#   - argocd.growbin.app → ALB (Alias)
-#   - grafana.growbin.app → ALB (Alias)
-#
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 # 이전 설정 (Master IP로 직접 연결) - 사용하지 않음
 # 
 # # A 레코드: api.yourdomain.com → Master Public IP

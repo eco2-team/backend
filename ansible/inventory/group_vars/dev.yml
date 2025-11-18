@@ -1,0 +1,6 @@
+---
+# Dev 환경 전용 변수
+cluster_env: dev
+argocd_root_env: dev
+deploy_prod_project: false
+

@@ -1,7 +1,7 @@
 # ExternalDNS & Route53 동기화 가이드
 
 > **목적**: AWS Load Balancer Controller가 생성하는 Ingress/ALB 정보를 자동으로 Route53에 반영하기 위해 ExternalDNS를 Helm으로 배포하고, 현재는 IRSA 대신 공유 AWS 자격증명 Secret을 사용한다.  
-> **적용 대상**: `images.growbin.app`를 제외한 애플리케이션/플랫폼 도메인 (api, argocd, grafana 등)  
+> **적용 대상**: `images.growbin.app`(Terraform/CloudFront 관리)을 제외한 애플리케이션/플랫폼 도메인 (api, argocd, grafana 등). Dev 환경은 `*.dev.growbin.app`, Prod 환경은 `*.growbin.app` 을 ExternalDNS로 관리한다.  
 > **작성일**: 2025-11-16 · **Wave**: 16
 
 ---
@@ -12,13 +12,13 @@
 Ingress/Service (Wave ≥10)
         │ annotations
         ▼
-AWS Load Balancer Controller (Wave 15) ──▶ ALB DNS
+AWS Load Balancer Controller (Wave 15) ──▶ ALB DNS (prod/dev 각각 생성)
         │
         ▼
-ExternalDNS (Wave 16, Helm)
+ExternalDNS (Wave 16, Helm, env 별 domainFilter)
         │ uses aws-global-credentials Secret
         ▼
-Route53 (api.growbin.app, argocd.growbin.app, …)
+Route53 (`api.growbin.app`, `api.dev.growbin.app`, …)
 ```
 
 1. **Helm Chart**: `kubernetes-sigs/external-dns`, version `1.15.2` (이미지 `registry.k8s.io/external-dns/external-dns:v0.14.2`).  
@@ -54,7 +54,7 @@ policy: upsert-only
 registry: txt
 txtOwnerId: sesacthon-dev   # prod는 sesacthon-prod
 domainFilters:
-  - growbin.app
+  - dev.growbin.app         # prod는 growbin.app
 sources:
   - ingress
   - service
@@ -76,7 +76,7 @@ env:
         key: aws_secret_access_key
 ```
 
-> Route53 Hosted Zone ID는 ExternalDNS가 `ListHostedZones` 후 자동 탐색한다. `domainFilters`를 지정하여 `growbin.app` 외 레코드는 생성하지 않는다.
+> Route53 Hosted Zone ID는 ExternalDNS가 `ListHostedZones` 후 자동 탐색한다. `domainFilters`는 환경별로 반드시 구분(`dev.growbin.app`, `growbin.app`)해야 하며, 각 서브존이 이미 Route53에 생성되고 NS 위임이 되어 있어야 한다.
 
 ---
 
@@ -119,6 +119,6 @@ env:
 
 - ExternalDNS는 Route53 레코드를 “선언적”으로 유지한다. Git에서 Ingress를 삭제하면 레코드도 자동 제거되므로, 임시 도메인은 `{ env }` 전용 branch에서만 운영한다.
 - `txtOwnerId`는 환경별로 고유해야 하며, 동일 Hosted Zone을 공유하는 여러 클러스터를 구분하기 위한 값이다.
-- CloudFront(`images.growbin.app`)처럼 Terraform이 별도 Alias를 관리하는 레코드에는 ExternalDNS를 사용하지 않는다 (domainFilter 예외 처리 필요 시 `excludeDomains` 사용).
+- CloudFront(`images.growbin.app`)처럼 Terraform이 별도 Alias를 관리하는 레코드에는 ExternalDNS를 사용하지 않는다 (domainFilter 또는 `excludeDomains`로 dev/prod 서브존에서 제외).
 
 
