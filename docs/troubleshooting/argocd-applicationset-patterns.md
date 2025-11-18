@@ -280,7 +280,7 @@ NAME                 AGE
 alb-controller       20m   # ✅
 calico-cni           7m    # ✅
 dev-apis             32m   # ✅
-dev-data-clusters    36m   # ✅
+dev-data-clusters    36m   # ✅ (현재는 Application)
 dev-data-operators   8m    # ✅
 external-dns         8m    # ✅
 grafana              7m    # ✅
@@ -437,7 +437,7 @@ redis-operator       8m    # ✅
 rabbitmq-operator    8m    # ✅
 dev-apis             32m   # ✅
 dev-data-operators   8m    # ✅
-dev-data-clusters    36m   # ✅
+dev-data-clusters    36m   # ✅ (현재는 Application)
 ```
 
 **모든 child applications 정상 생성**:

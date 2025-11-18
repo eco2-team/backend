@@ -104,7 +104,7 @@ spec:
 
 **PostgreSQL**:
 ```yaml
-# workloads/data/postgres/base/postgres-cluster.yaml
+# platform/cr/base/postgres-cluster.yaml
 spec:
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
@@ -123,7 +123,7 @@ spec:
 
 **Redis**:
 ```yaml
-# workloads/data/redis/base/redis-failover.yaml
+# platform/cr/dev/redis-dev-patch.yaml
 spec:
   redis:
     nodeSelector:
@@ -152,8 +152,8 @@ spec:
 - ✅ `workloads/apis/location/base/deployment.yaml`
 - ✅ `workloads/apis/info/base/deployment.yaml`
 - ✅ `workloads/apis/chat/base/deployment.yaml`
-- ✅ `workloads/data/postgres/base/postgres-cluster.yaml`
-- ✅ `workloads/data/redis/base/redis-failover.yaml`
+- ✅ `platform/cr/base/postgres-cluster.yaml`
+- ✅ `platform/cr/dev/redis-dev-patch.yaml`
 - ✅ `docs/infrastructure/k8s-label-annotation-system.md`
 
 #### 3. 검증 (실제 클러스터 결과)

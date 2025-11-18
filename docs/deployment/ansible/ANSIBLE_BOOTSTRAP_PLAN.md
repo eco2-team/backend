@@ -34,7 +34,7 @@
 | 4 | ArgoCD 설치 | - `kubectl create namespace argocd`<br>- `kubectl apply -n argocd -f install.yaml` (혹은 Helm)<br>- **관리자 비밀번호는 Terraform → SSM(`/platform/argocd-admin-password`)에 생성 후 ExternalSecret(`argocd-admin-secret`)으로 배포** | GitOps Root-App을 통해 ArgoCD 자체를 다시 관리할 계획이라면 차후 Helm 전환 가능 |
 | 5 | Root App 부트스트랩 | - `roles/argocd`가 Root-App을 적용하기 전에 **AWS Access Key/Secret Key 입력을 요청**하고 `aws-global-credentials` Secret을 `kubectl apply -f -`로 생성<br>- `argocd login` (주석 or 문서 안내)<br>- `argocd app create root-app ...` 또는 `kubectl apply -f clusters/{env}/root-app.yaml`<br>- `argocd app sync root-app` 으로 Wave 0~70 자동 진행<br>- Wave 11에서 `workloads/secrets/external-secrets`가 `/sesacthon/{env}/**` SSM Parameter를 동기화해 DB/RabbitMQ/Redis/Grafana/ArgoCD Secret이 준비됨 | Secret 생성을 건너뛰려면 `create_aws_credentials_secret=false` 변수 사용<br>Phase 5 완료 시점부터 모든 리소스는 GitOps 컨트롤 |
 
-> ⛳ **핵심**: Phase 5 완료 이후에는 Ansible이 아닌 ArgoCD가 Operators/CRDs/Ingress/Apps를 배포하므로, Ansible 변경을 CD로 감지할 필요가 없다.
+> ⛳ **핵심**: Phase 5 완료 이후에는 Ansible이 아닌 ArgoCD가 Operators/CRDs/ingress를 배포하므로, Ansible 변경을 CD로 감지할 필요가 없다.
 
 ---
 

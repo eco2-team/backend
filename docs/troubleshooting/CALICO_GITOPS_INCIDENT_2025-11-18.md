@@ -17,7 +17,7 @@
 | dev-alb-controller | OutOfSync | Progressing |
 | dev-api-auth / my / scan / character / location / info / chat | **Synced** | Degraded |
 | dev-calico | **OutOfSync** | Progressing |
-| dev-data-redis | OutOfSync | Healthy |
+| dev-data-clusters | OutOfSync | Healthy |
 | dev-external-dns / external-secrets / grafana / ingress | OutOfSync | Progressing |
 | dev-kube-prometheus-stack | OutOfSync | Missing |
 | dev-postgres-operator / dev-redis-operator / dev-rabbitmq-operator | OutOfSync | Healthy |
@@ -62,7 +62,7 @@
    - `dev-external-dns`, `dev-external-secrets`, `dev-grafana`, `dev-ingress`, `dev-kube-prometheus-stack`은 Calico/네트워크 의존성이 높은데, CNI가 내려가면서 파드가 Pending 상태에 머물러 해당 Application이 OutOfSync를 반복했다.
 
 3. **데이터/워크로드 계층**  
-   - `dev-data-redis`, `dev-rabbitmq-operator`, `dev-postgres-operator` 등은 리소스 정의는 정상이라 Health=Healthy지만, Calico 불능 때문에 실제 파드가 스케줄되지 않아 Sync 상태만 OutOfSync로 남음.
+   - `dev-data-clusters`, `dev-rabbitmq-operator`, `dev-postgres-operator` 등은 리소스 정의는 정상이라 Health=Healthy지만, Calico 불능 때문에 실제 파드가 스케줄되지 않아 Sync 상태만 OutOfSync로 남음.
 
 4. **비즈니스 로직 계층**
    - API 서비스(`dev-api-*`)는 이미지/헬스 체크 문제로 Degraded 상태였지만 Sync 자체는 유지 → 근본 원인은 여전히 Calico에 기인.

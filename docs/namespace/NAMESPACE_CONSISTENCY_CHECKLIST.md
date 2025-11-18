@@ -410,7 +410,7 @@ export AWS_SECRET_ACCESS_KEY='your-secret-key'
 
 **점검 항목**:
 - [ ] ~~`api` 네임스페이스 생성 태스크가 제거되었는가?~~ (✅ 제거됨)
-- [ ] `workloads/ingress/apps/base/api-ingress.yaml` 적용 태스크가 있는가?
+- [ ] `workloads/ingress/base/api-ingress.yaml` 적용 태스크가 있는가?
 - [ ] `infrastructure-ingress.yaml` 적용 태스크가 있는가?
 - [ ] ACM 인증서 ARN 치환이 올바르게 작동하는가?
 

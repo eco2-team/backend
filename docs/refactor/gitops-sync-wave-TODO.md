@@ -106,9 +106,9 @@
 ## 5. Workloads Ingress Kustomize 생성 ✅
 
 ### 완료 항목
-- [x] `workloads/ingress/apps/base/`: api/argocd/grafana Ingress + default-backend
-- [x] `workloads/ingress/apps/overlays/dev/`: JSON6902 patch (host, cert)
-- [x] `workloads/ingress/apps/overlays/prod/`: JSON6902 patch
+- [x] `workloads/ingress/base/`: api/argocd/grafana Ingress + default-backend
+- [x] `workloads/ingress/overlays/dev/`: JSON6902 patch (host, cert)
+- [x] `workloads/ingress/overlays/prod/`: JSON6902 patch
 
 ### 커밋
 - `3da4fdd` feat: add kustomize ingress overlays
@@ -175,18 +175,13 @@
 
 ---
 
-## 9. Workloads Data CR Kustomize 생성 ✅
+## 9. Platform Data CR Kustomize 생성 ✅
 
 ### 작업 항목
-- [x] `workloads/data/postgres/base/`: PostgresCluster CR 기본 템플릿
-- [x] `workloads/data/postgres/overlays/dev/`: dev 환경 (replicas: 1)
-- [x] `workloads/data/postgres/overlays/prod/`: prod 환경 (replicas: 1, backup)
-- [x] `workloads/data/redis/base/`: RedisFailover CR 기본
-- [x] `workloads/data/redis/overlays/dev/`: dev 환경
-- [x] `workloads/data/redis/overlays/prod/`: prod 환경
-- [x] `workloads/data/postgres/base/README.md`: Postgres CR 가이드
-- [x] `workloads/data/redis/base/README.md`: Redis Failover 가이드
-- [x] `workloads/data/README.md`: Data layer 개요
+- [x] `platform/cr/base/`: Postgres/Redis/RabbitMQ 공통 스펙
+- [x] `platform/cr/dev/`: dev 패치 (replicas/volume/toleration 등)
+- [x] `platform/cr/prod/`: prod 패치 (용량 상향, 백업 활성)
+- [x] `platform/cr/README.md`: Data layer 개요
 
 ### 커밋
 - `a056c69` refactor: use base+overlay pattern for data CRs

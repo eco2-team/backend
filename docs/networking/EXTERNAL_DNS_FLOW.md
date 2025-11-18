@@ -15,7 +15,7 @@
 
 ## 2. 동작 흐름
 1. **Ingress/Service 정의**
-   - `workloads/ingress/apps/**/patch-*.yaml` 등에서 서비스별 Ingress를 선언
+   - `workloads/ingress/**/patch-*.yaml` 등에서 서비스별 Ingress를 선언
    - 각 리소스에 `external-dns.alpha.kubernetes.io/managed-by: external-dns` annotation과 `spec.rules[].host`(예: `api.dev.growbin.app`)를 설정
 2. **ExternalDNS 감지**
    - ExternalDNS Pod가 해당 annotation 및 host를 읽고 Route53에 `A`/`CNAME` 레코드를 생성

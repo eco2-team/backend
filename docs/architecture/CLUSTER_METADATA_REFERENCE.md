@@ -131,7 +131,7 @@ spec:
 | `dev-kube-prom-stack` | `platform/helm/kube-prometheus-stack/dev` | `prometheus` | Prometheus Operator/Alertmanager |
 | `dev-grafana` | `platform/helm/grafana/dev` | `grafana` | Grafana Helm Chart (datasource=Prometheus) |
 | `dev-data-operators` | `platform/helm/{postgres,redis,rabbitmq}-operator/dev` | `data-system`, `messaging-system` | Operator (Zalando, Spotahome 등) |
-| `dev-data-clusters` | `workloads/data/{postgres,redis,rabbitmq}/dev` | `postgres`, `redis`, `rabbitmq` | 실제 데이터 클러스터 |
+| `dev-data-clusters` | `platform/cr/dev` | `postgres`, `redis`, `rabbitmq` | 실제 데이터 클러스터 |
 | `dev-root` | `clusters/dev/apps` 전체 | - | App-of-Apps 루트 |
 
 > 따라서 Application 객체가 `argocd` 네임스페이스에만 보이는 것은 정상이며, **실제 리소스는 위 표의 Namespace에 생성**됩니다. 문제가 발생하면 해당 Namespace에서 Pod/Secret/ConfigMap 상태를 점검하세요.

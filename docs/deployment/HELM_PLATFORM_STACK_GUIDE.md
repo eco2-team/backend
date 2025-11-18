@@ -108,16 +108,16 @@ spec:
 - **Base 재사용**: 반복되는 spec이 많다면 `workloads/platform/alb-controller/base`에 공통 manifest를 두고 env별 Kustomize Overlay를 통해 `Application` YAML을 생성할 수 있다.
 
 - **Manifest 위치**: `platform/helm/kube-prometheus-stack/{dev,prod}`
-- Prometheus Operator + 기본 인스턴스 번들을 하나의 Helm chart로 관리하되, Instance CRD/CR는 `workloads/data/` 등 Kustomize 경로에서 계속 관리한다.
+- Prometheus Operator + 기본 인스턴스 번들을 하나의 Helm chart로 관리하되, Instance CR/CRD는 `platform/cr/{base,dev,prod}` Kustomize 경로에서 계속 관리한다.
 - Retention, Alertmanager receiver 등은 `helm.valuesObject`나 parameters로 직접 정의한다.
 - Sync Wave 20(Operator) → Wave 30(Instance) 전략을 준수한다.
 
 - **Manifest 위치**: `platform/helm/postgres-operator/{dev,prod}`
 - S3 backup bucket, TLS secret 등 Prod 설정은 `helm.parameters`/`valuesObject`에서 환경별로 지정한다.
-- 데이터 인스턴스는 Kustomize `workloads/data/postgres` overlay에서 관리한다.
+- 데이터 인스턴스는 Kustomize `platform/cr/{dev,prod}` overlay에서 관리한다.
 
 - **Manifest 위치**: `platform/helm/redis-operator/{dev,prod}`
-- Operator만 Helm으로 설치하고, 실제 RedisCluster CR은 `workloads/data/redis` 디렉터리에서 정의한다.
+- Operator만 Helm으로 설치하고, 실제 Redis CR은 `platform/cr/{base,dev,prod}` 디렉터리에서 정의한다.
 
 - **Manifest 위치**: `platform/helm/external-secrets/{dev,prod}`
 - AWS Secrets Manager/SSM Parameter Store 연동을 위한 Controller.

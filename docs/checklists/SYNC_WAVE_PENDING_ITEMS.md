@@ -13,7 +13,7 @@
 ## 3. Route53 vs ExternalDNS 충돌 방지·보강 ✅
 - **조치**:
   1. ExternalDNS Helm overlay(dev/prod `patch-application.yaml`)에 `--annotation-filter=external-dns.alpha.kubernetes.io/managed-by in (external-dns)`를 추가해, 해당 annotation이 있는 리소스만 자동 관리하도록 제한.
-  2. 모든 ALB Ingress 패치(`workloads/ingress/apps/*/patch-*.yaml`)에 `external-dns.alpha.kubernetes.io/managed-by: external-dns` annotation과 `growbin.app` 호스트명을 명시해 Route53(Apex)와 ExternalDNS(서브도메인) 책임을 구분.
+  2. 모든 ALB Ingress 패치(`workloads/ingress/*/patch-*.yaml`)에 `external-dns.alpha.kubernetes.io/managed-by: external-dns` annotation과 `growbin.app` 호스트명을 명시해 Route53(Apex)와 ExternalDNS(서브도메인) 책임을 구분.
   3. Cluster documents와 체크리스트에 책임 분리 원칙을 반영.
 - **후속**: ExternalDNS가 관리 중인 레코드 목록을 주기적으로 점검하는 스크립트/운영 절차 추가.
 

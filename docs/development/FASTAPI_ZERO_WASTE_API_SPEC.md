@@ -25,8 +25,8 @@
 | API | `services/character` | 캐릭터 마스터/획득 기록 | S3 이미지 메타 공유 |
 | API | `services/my` | 사용자 스냅샷, 통계 어그리게이션 | 다른 도메인 API 호출 |
 | API | `services/scan` | 이미지 업로드, AI 전달 | S3 PutObject + 워커 출발 |
-| Data | Postgres Operator (workloads/data/postgres) | 영속 데이터 | namespace: `data` |
-| Data | Redis Failover (workloads/data/redis) | 토큰 블랙리스트·캐시 | Sentinel 모드 |
+| Data | Postgres Operator (`platform/cr/base/postgres-cluster.yaml`) | 영속 데이터 | namespace: `data` |
+| Data | Redis Failover (`platform/cr/base/redis-*.yaml`) | 토큰 블랙리스트·캐시 | Sentinel 모드 |
 | Object | AWS S3 + CloudFront CDN | 캐릭터/활동 이미지 저장 | 버킷: `sesacthon-ecoeco` (가정) |
 | Observability | Prometheus, Loki, Tempo | `/api/v1/metrics` 수집 | 기존 스택 재사용 |
 
@@ -347,7 +347,7 @@ sequenceDiagram
 ---
 
 ## 8. 다음 단계 & 오픈 이슈
-1. **DB 스키마 마이그레이션**: `workloads/data/postgres`에 필요한 CRD/DatabaseUser 정의 추가.
+1. **DB 스키마 마이그레이션**: `platform/cr/base/postgres-cluster.yaml`에 필요한 CRD/DatabaseUser 정의 추가.
 2. **OAuth 비밀 관리**: ExternalSecret 값을 AWS Secrets Manager 또는 SSM Parameter Store와 동기화.
 3. **AI 연동 구체화**: `scan` → AI 워커 인터페이스 확정 (HTTP vs Queue). 초기에는 HTTP, 추후 SQS/SNS 고려.
 4. **실시간 위치 업데이트**: WebSocket 필요 여부와 인프라(예: NATS JetStream) 검토.
