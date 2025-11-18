@@ -52,20 +52,13 @@ data "aws_route53_zone" "main" {
 }
 ```
 
-#### DNS 레코드 (Ansible에서 관리)
-- ✅ `growbin.app` → ALB (Apex 도메인)
-- ✅ `www.growbin.app` → ALB
-- ✅ `api.growbin.app` → ALB
-  - `/auth` → Auth API
-  - `/my` → My API
-  - `/scan` → Scan API
-  - `/character` → Character API
-  - `/location` → Location API
+#### DNS 레코드 (ExternalDNS + Terraform)
+- ✅ `growbin.app`, `www.growbin.app` → ALB (ExternalDNS)
+- ✅ `api.growbin.app` → ALB (Ingress 기반, ExternalDNS)
 - ✅ `argocd.growbin.app` → ALB
 - ✅ `grafana.growbin.app` → ALB
-- ✅ `images.growbin.app` → CloudFront (CDN)
-
-**Ansible 위치**: `ansible/playbooks/09-route53-update.yml`
+- ✅ `atlantis.growbin.app`, `prometheus.growbin.app` → ALB
+- ✅ `images.growbin.app` / `images.dev.growbin.app` → CloudFront (Terraform)
 
 **라우팅 방식**: 
 - API: 서브도메인 + Path (`api.growbin.app/auth`)
@@ -528,13 +521,7 @@ output "s3_bucket_info" {
    kubectl apply -f argocd/applications/ecoeco-backend-phase12.yaml
    ```
    - API Deployments
-   - Ingress (ALB 생성)
-
-4. **Route53 업데이트** (Ansible 자동)
-   ```bash
-   # ALB DNS 조회 후 Route53 업데이트
-   ansible-playbook ansible/playbooks/09-route53-update.yml
-   ```
+   - Ingress (ALB 생성 → ExternalDNS가 Route53 레코드 자동 반영)
 
 ---
 

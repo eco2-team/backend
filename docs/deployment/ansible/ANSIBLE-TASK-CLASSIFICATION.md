@@ -1154,46 +1154,16 @@ spec:
 
 ---
 
-### 9.2 Route53 업데이트
+### 9.2 Route53 업데이트 (Deprecated)
 
-**작업 내용**:
-```bash
-# ALB DNS를 Route53 A 레코드로 등록
-aws route53 change-resource-record-sets ...
-```
+- 과거 작업: ALB DNS를 조회해 Route53 A 레코드를 등록 (`ansible/playbooks/09-route53-update.yml`)
+- 현행 구조:  
+  1. **Terraform** – CloudFront, ACM, `images.{env}.growbin.app` Alias 등 정적 DNS/인증서 리소스를 관리 (`terraform/route53.tf`, `terraform/env/*.tfvars`).  
+  2. **ExternalDNS** – Ingress/Service 주석을 읽어 `api`, `argocd`, `grafana`, `atlantis`, `prometheus` 등 애플리케이션 도메인의 A/ALIAS 레코드를 Route53에 자동 반영.  
+     - `platform/helm/external-dns/dev`: `domainFilters = ["dev.growbin.app"]`  
+     - `platform/helm/external-dns/prod`: `domainFilters = ["growbin.app"]`
 
-**현재 코드 위치**: `ansible/playbooks/09-route53-update.yml`
-
-**대안**: ✅ **Terraform** (이미 관리 중)
-
-**확인**: `terraform/route53.tf` 파일 존재 여부 확인 필요
-
-**대안 2**: ✅ **External-DNS** (K8s Operator)
-
-```yaml
-# argocd/apps/external-dns.yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: external-dns
-  namespace: argocd
-spec:
-  source:
-    repoURL: https://kubernetes-sigs.github.io/external-dns
-    chart: external-dns
-    targetRevision: 1.13.0
-    helm:
-      values: |
-        provider: aws
-        aws:
-          region: ap-northeast-2
-        txtOwnerId: k8s-sesacthon
-        policy: sync
-```
-
-**결론**: ✅ **Terraform (정적) 또는 External-DNS (동적)**  
-**우선순위**: 낮음  
-**예상 작업 시간**: 1시간
+✅ 결론: Route53 업데이트는 Git 선언형 파이프라인(Terraform + ExternalDNS)으로만 관리하고, Ansible 태스크는 제거한다.
 
 ---
 

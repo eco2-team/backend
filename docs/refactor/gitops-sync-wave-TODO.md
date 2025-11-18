@@ -291,7 +291,7 @@
 ### 주요 변경
 - `ansible/site.yml`을 kubeadm + ArgoCD 설치 + Root App 실행으로 축소
 - DB/Redis/RabbitMQ/Monitoring 등 add-on roles 삭제, Helm/Wave에 위임
-- Route53 업데이트/ingress 역할 제거 (ExternalDNS로 대체 예정)
+- Route53 업데이트/ingress 역할 제거 (ExternalDNS로 대체 완료)
 - `docs/architecture/deployment/ANSIBLE_BOOTSTRAP_PLAN.md` 신규 작성
 - `docs/architecture/deployment/ANSIBLE-TASK-CLASSIFICATION.md`에 변경 내역 반영
 
