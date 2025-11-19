@@ -23,12 +23,6 @@ spec:
         volumeMounts:
           - name: redis-data
             mountPath: /data
-  redisConfig:
-    additionalRedisConfig: |
-      appendonly no
-      save 900 1
-      save 300 10
-      save 60 10000
   redisExporter:
     enabled: false
     image: oliver006/redis_exporter:v1.80.0
