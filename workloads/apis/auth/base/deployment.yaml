@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: auth-api
-          image: docker.io/eco2/auth-api:latest
+          image: docker.io/mng990/eco2:latest
           ports:
             - containerPort: 8000
               name: http

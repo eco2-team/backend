@@ -3,8 +3,8 @@ kind: Kustomization
 resources:
 - ../base
 images:
-- name: docker.io/eco2/chat-api
-  newTag: prod-latest
+- name: docker.io/mng990/eco2
+  newTag: chat-prod-latest
 labels:
 - includeSelectors: true
   pairs:

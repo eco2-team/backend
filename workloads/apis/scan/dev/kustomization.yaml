@@ -3,8 +3,8 @@ kind: Kustomization
 resources:
 - ../base
 images:
-- name: docker.io/eco2/scan-api
-  newTag: dev-latest
+- name: docker.io/mng990/eco2
+  newTag: scan-dev-latest
 labels:
 - includeSelectors: true
   pairs:

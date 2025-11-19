@@ -211,7 +211,8 @@ jobs:
           set -euo pipefail
           SHORT_SHA=$(git rev-parse --short=6 HEAD)
           SERVICE="${{ matrix.service }}"
-          REGISTRY="docker.io/eco2"
+          IMAGE_REPO="docker.io/mng990/eco2"
+          SERVICE_SLUG="${SERVICE}-api"
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             IS_PR=true
             BASE_REF="${{ github.event.pull_request.base.ref }}"
@@ -221,19 +222,19 @@ jobs:
           fi
           VERSION=$(cat VERSION)
           if [ "$BASE_REF" = "main" ] && [ "$IS_PR" = "false" ]; then
-            UNIQUE_TAG="${SERVICE}-${VERSION}-${SHORT_SHA}"
+            UNIQUE_TAG="${SERVICE_SLUG}-${VERSION}-${SHORT_SHA}"
             {
               echo "tags<<TAGS"
-              echo "${REGISTRY}/${SERVICE}-api:${UNIQUE_TAG}"
-              echo "${REGISTRY}/${SERVICE}-api:prod-latest"
-              echo "${REGISTRY}/${SERVICE}-api:latest"
+              echo "${IMAGE_REPO}:${UNIQUE_TAG}"
+              echo "${IMAGE_REPO}:${SERVICE_SLUG}-prod-latest"
+              echo "${IMAGE_REPO}:${SERVICE_SLUG}-latest"
               echo "TAGS"
             } >> "$GITHUB_OUTPUT"
           else
             {
               echo "tags<<TAGS"
-              echo "${REGISTRY}/${SERVICE}-api:dev-${SHORT_SHA}"
-              echo "${REGISTRY}/${SERVICE}-api:dev-latest"
+              echo "${IMAGE_REPO}:${SERVICE_SLUG}-dev-${SHORT_SHA}"
+              echo "${IMAGE_REPO}:${SERVICE_SLUG}-dev-latest"
               echo "TAGS"
             } >> "$GITHUB_OUTPUT"
           fi

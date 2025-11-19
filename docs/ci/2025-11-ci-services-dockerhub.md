@@ -8,9 +8,10 @@
 
 ## 1. 배경
 
-1. GHCR 접근 토큰 관리와 사내 감사 요건이 충돌했고, 외부 고객/협력사도 접근 가능한 Docker Hub(`docker.io/eco2/*`)를 단일 진실 공급원으로 쓰기로 결정했다.
+1. GHCR 접근 토큰 관리 요건이 충돌, public으로 공개해도 무관하기에 Docker Hub(`docker.io/mng990/eco2:*`)를 단일 진실 공급원으로 쓰기로 결정.
 2. API 이미지는 GitOps 매니페스트(Deployment/Kustomize)에서 직접 참조하므로, CI에서 빌드하는 태그/이름과 클러스터가 풀하는 값이 **완전히 일치**해야 한다.
 3. 테스트·검증은 `refactor/gitops-sync-wave` 브랜치에서 먼저 수행한 뒤 `main`/`develop`으로 확장하고, CI 실패 없이 모든 파이프라인이 통과해야만 배포를 진행한다.
+4. Harbor 도입도 검토하였으나, 일정이 촉박한 관계로 차후 일정으로 이관
 
 ---
 
@@ -18,8 +19,8 @@
 
 | 항목 | 결정 |
 |------|------|
-| 레지스트리 | `docker.io/eco2/<service>-api` (서비스별 독립 레포) |
-| 태그 정책 | `dev-{sha6}`/`dev-latest` (develop), `{service}-{VERSION}-{sha6}`/`prod-latest`/`latest` (main push) |
+| 레지스트리 | `docker.io/mng990/eco2` (단일 리포) |
+| 태그 정책 | `{service}-api-dev-{sha6}` / `{service}-api-dev-latest` (develop), `{service}-api-{VERSION}-{sha6}` / `{service}-api-prod-latest` / `{service}-api-latest` (main push) |
 | Secret 명칭 | Kubernetes `dockerhub-secret`, ExternalSecret `dockerhub-pull-secret` |
 | 자격 증명 저장소 | AWS SSM `/sesacthon/dockerhub/{username,password}` + GitHub Actions `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` |
 | 브랜치 트리거 | `main`, `develop`, `refactor/gitops-sync-wave` push/PR |
@@ -66,22 +67,23 @@ CI에서 `docker/login-action@v3`를 Docker Hub 자격증명으로 로그인하�
         run: |
           SHORT_SHA=$(git rev-parse --short=6 HEAD)
           SERVICE="${{ matrix.service }}"
-          REGISTRY="docker.io/eco2"
+          IMAGE_REPO="docker.io/mng990/eco2"
+          SERVICE_SLUG="${SERVICE}-api"
           ...
           if [ "$BASE_REF" = "main" ] && [ "$IS_PR" = "false" ]; then
-            UNIQUE_TAG="${SERVICE}-${VERSION}-${SHORT_SHA}"
+            UNIQUE_TAG="${SERVICE_SLUG}-${VERSION}-${SHORT_SHA}"
             {
               echo "tags<<TAGS"
-              echo "${REGISTRY}/${SERVICE}-api:${UNIQUE_TAG}"
-              echo "${REGISTRY}/${SERVICE}-api:prod-latest"
-              echo "${REGISTRY}/${SERVICE}-api:latest"
+              echo "${IMAGE_REPO}:${UNIQUE_TAG}"
+              echo "${IMAGE_REPO}:${SERVICE_SLUG}-prod-latest"
+              echo "${IMAGE_REPO}:${SERVICE_SLUG}-latest"
               echo "TAGS"
             } >> "$GITHUB_OUTPUT"
           else
             {
               echo "tags<<TAGS"
-              echo "${REGISTRY}/${SERVICE}-api:dev-${SHORT_SHA}"
-              echo "${REGISTRY}/${SERVICE}-api:dev-latest"
+              echo "${IMAGE_REPO}:${SERVICE_SLUG}-dev-${SHORT_SHA}"
+              echo "${IMAGE_REPO}:${SERVICE_SLUG}-dev-latest"
               echo "TAGS"
             } >> "$GITHUB_OUTPUT"
           fi
@@ -103,22 +105,22 @@ Buildx는 `steps.meta.outputs.tags` 값을 그대로 사용해 멀티 태그 푸
 
 CI가 생성하는 태그는 GitOps 오버레이가 그대로 참조하도록 모든 Deployment/Kustomize 정의를 Docker Hub 주소로 교체했다.
 
-- **Deployment 기본 이미지**: `dockerhub-secret`을 통해 풀하며 `docker.io/eco2/<service>-api:latest`를 기본값으로 둠.
+- **Deployment 기본 이미지**: `dockerhub-secret`을 통해 풀하며 `docker.io/mng990/eco2:latest`를 기본값으로 두고 태그로 서비스/환경을 구분한다.
 
 ```23:51:workloads/apis/auth/base/deployment.yaml
         - name: auth-api
-          image: docker.io/eco2/auth-api:latest
+          image: docker.io/mng990/eco2:latest
 ...
       imagePullSecrets:
         - name: dockerhub-secret
 ```
 
-- **환경별 오버레이**: dev는 `dev-latest`, prod는 `prod-latest`에 고정해 Argo CD가 해당 태그만 사용하게 했다.
+- **환경별 오버레이**: dev/prod 각각 `name: docker.io/mng990/eco2`에 `newTag: <service>-<env>-latest`를 부여해 동일 리포 내 태그만 바꾸도록 했다.
 
 ```1:14:workloads/apis/auth/prod/kustomization.yaml
 images:
-- name: docker.io/eco2/auth-api
-  newTag: prod-latest
+- name: docker.io/mng990/eco2
+  newTag: auth-prod-latest
 ```
 
 ### 3.4 Secret 공급 경로
