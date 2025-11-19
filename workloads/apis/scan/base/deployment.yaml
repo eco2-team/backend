@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: scan-api
-          image: ghcr.io/eco2-team/scan-api:latest
+          image: docker.io/eco2/scan-api:latest
           ports:
             - containerPort: 8000
               name: http
@@ -48,7 +48,7 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 5
       imagePullSecrets:
-        - name: ghcr-secret
+        - name: dockerhub-secret
       nodeSelector:
         domain: scan
       tolerations:

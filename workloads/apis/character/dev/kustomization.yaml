@@ -3,7 +3,7 @@ kind: Kustomization
 resources:
 - ../base
 images:
-- name: ghcr.io/sesacthon/character-api
+- name: docker.io/eco2/character-api
   newTag: dev-latest
 labels:
 - includeSelectors: true

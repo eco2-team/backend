@@ -16,7 +16,7 @@ Scan 도메인 API 서비스 Kustomize 구조.
 ## 선행 조건
 
 - Wave 35: Data Clusters
-- Wave 58: `ghcr-secret`
+- Wave 58: `dockerhub-secret`
 
 ## 배포
 

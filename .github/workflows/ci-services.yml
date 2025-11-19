@@ -222,20 +222,20 @@ jobs:
           VERSION=$(cat VERSION)
           if [ "$BASE_REF" = "main" ] && [ "$IS_PR" = "false" ]; then
             UNIQUE_TAG="${SERVICE}-${VERSION}-${SHORT_SHA}"
-            cat <<EOF >> "$GITHUB_OUTPUT"
-tags<<TAGS
-${REGISTRY}/${SERVICE}-api:${UNIQUE_TAG}
-${REGISTRY}/${SERVICE}-api:prod-latest
-${REGISTRY}/${SERVICE}-api:latest
-TAGS
-EOF
+            {
+              echo "tags<<TAGS"
+              echo "${REGISTRY}/${SERVICE}-api:${UNIQUE_TAG}"
+              echo "${REGISTRY}/${SERVICE}-api:prod-latest"
+              echo "${REGISTRY}/${SERVICE}-api:latest"
+              echo "TAGS"
+            } >> "$GITHUB_OUTPUT"
           else
-            cat <<EOF >> "$GITHUB_OUTPUT"
-tags<<TAGS
-${REGISTRY}/${SERVICE}-api:dev-${SHORT_SHA}
-${REGISTRY}/${SERVICE}-api:dev-latest
-TAGS
-EOF
+            {
+              echo "tags<<TAGS"
+              echo "${REGISTRY}/${SERVICE}-api:dev-${SHORT_SHA}"
+              echo "${REGISTRY}/${SERVICE}-api:dev-latest"
+              echo "TAGS"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build and push

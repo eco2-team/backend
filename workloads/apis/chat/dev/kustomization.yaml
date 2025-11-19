@@ -3,7 +3,7 @@ kind: Kustomization
 resources:
 - ../base
 images:
-- name: ghcr.io/sesacthon/chat-api
+- name: docker.io/eco2/chat-api
   newTag: dev-latest
 labels:
 - includeSelectors: true

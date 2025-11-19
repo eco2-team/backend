@@ -3,7 +3,7 @@ kind: Kustomization
 resources:
 - ../base
 images:
-- name: ghcr.io/sesacthon/scan-api
+- name: docker.io/eco2/scan-api
   newTag: dev-latest
 labels:
 - includeSelectors: true
