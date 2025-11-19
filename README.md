@@ -16,7 +16,7 @@ AI 폐기물 분류·지도·챗봇 등 도메인 API와 데이터 계층, GitOp
 ```yaml
 Tier 1 Representation : ALB, Route 53, CloudFront
 Tier 2 Business Logic : auth, my, scan, character, location, info, chat
-Tier 3 Data : PostgreSQL, Redis
+Tier 3 Data : PostgreSQL, Redis, RabbitMQ(Pending), Celery(Pending)
 Tier 0 Monitoring  : Prometheus, Grafana, Alerter Manager, ArgoCD
 ```
 
