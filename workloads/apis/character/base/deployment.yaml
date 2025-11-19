@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: character-api
-          image: ghcr.io/sesacthon/character-api:latest
+          image: ghcr.io/eco2-team/character-api:latest
           ports:
             - containerPort: 8000
               name: http

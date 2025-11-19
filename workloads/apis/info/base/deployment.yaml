@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: info-api
-          image: ghcr.io/sesacthon/info-api:latest
+          image: ghcr.io/eco2-team/info-api:latest
           ports:
             - containerPort: 8000
               name: http

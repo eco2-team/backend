@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: scan-api
-          image: ghcr.io/sesacthon/scan-api:latest
+          image: ghcr.io/eco2-team/scan-api:latest
           ports:
             - containerPort: 8000
               name: http

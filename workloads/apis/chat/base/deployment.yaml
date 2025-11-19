@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: chat-api
-          image: ghcr.io/sesacthon/chat-api:latest
+          image: ghcr.io/eco2-team/chat-api:latest
           ports:
             - containerPort: 8000
               name: http

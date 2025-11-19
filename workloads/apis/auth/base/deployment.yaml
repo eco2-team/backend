@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: auth-api
-          image: ghcr.io/sesacthon/auth-api:latest
+          image: ghcr.io/eco2-team/auth-api:latest
           ports:
             - containerPort: 8000
               name: http
