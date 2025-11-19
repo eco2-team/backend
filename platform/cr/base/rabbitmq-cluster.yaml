@@ -30,6 +30,8 @@ spec:
               workload: message-queue
               tier: integration
           spec:
+            containers:
+              - name: rabbitmq # Required by CRD to modify pod spec fields
             nodeSelector:
               infra-type: rabbitmq
             tolerations:

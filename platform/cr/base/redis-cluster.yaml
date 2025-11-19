@@ -13,6 +13,7 @@ spec:
     imagePullPolicy: IfNotPresent
   redisExporter:
     enabled: false
+    image: oliver006/redis_exporter:v1.80.0
   nodeSelector:
     infra-type: redis
   tolerations:
