@@ -40,7 +40,7 @@ GitOps   :
   Layer3 - GitHub Actions + Docker Hub
 Domains  : auth, my, scan, character, location, info, chat
 Data     : PostgreSQL, Redis, RabbitMQ (paused), Monitoring stack
-Ingress  : Route53 + CloudFront + ALB → Calico NetworkPolicy
+Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 ```
 
 ## Release Highlights (v0.7.4)
