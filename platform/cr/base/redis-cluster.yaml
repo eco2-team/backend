@@ -11,6 +11,12 @@ spec:
   kubernetesConfig:
     image: quay.io/opstree/redis:v7.0.15
     imagePullPolicy: IfNotPresent
+  redisConfig:
+    additionalRedisConfig: |
+      appendonly no
+      save 900 1
+      save 300 10
+      save 60 10000
   redisExporter:
     enabled: false
     image: oliver006/redis_exporter:v1.80.0

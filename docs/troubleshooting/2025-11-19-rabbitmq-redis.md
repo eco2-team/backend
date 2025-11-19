@@ -99,9 +99,29 @@ Can't open or create append-only dir appendonlydir: Permission denied
 ### 원인
 - Redis Operator가 생성하는 StatefulSet에 `securityContext`가 없음
 - PVC 볼륨의 기본 소유권이 root이며, Redis 프로세스가 쓰기 권한 없음
+- AOF(Append-Only File) 디렉토리 생성 시 Permission denied 발생
 
-### 조치 (진행 중)
-Redis CR에 securityContext 추가 필요 - Redis Operator가 지원하는 방식 확인 필요
+### 조치
+Redis CR에 `redisConfig` 추가하여 AOF 비활성화 및 RDB snapshot 사용:
+
+```yaml
+spec:
+  redisConfig:
+    additionalRedisConfig: |
+      appendonly no
+      save 900 1      # 15분마다 1개 이상 key 변경시 저장
+      save 300 10     # 5분마다 10개 이상 key 변경시 저장
+      save 60 10000   # 1분마다 10000개 이상 key 변경시 저장
+```
+
+**설명**:
+- `appendonly no`: AOF persistence 비활성화 (디렉토리 생성 불필요)
+- `save` 옵션: RDB snapshot 기반 persistence 사용
+- 개발 환경에서 충분한 데이터 내구성 제공
+
+### 결과
+- ✅ Redis Pod 정상 시작
+- ✅ RDB snapshot으로 데이터 persistence 유지
 
 ---
 
