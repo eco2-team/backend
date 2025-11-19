@@ -58,9 +58,6 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 - **RBAC/Storage 안정화**  
   `workloads/rbac-storage/*`가 AWS LB Controller·ExternalDNS·External Secrets·Operator용 ServiceAccount와 `gp3` StorageClass(EBS CSI)를 제공하며, External Secret → Secret → Helm Chart 흐름이 README로 문서화되었습니다.
 
-- **문서 보강**  
-  `README.md`, `clusters/README.md`, `platform/cr/README.md`, `platform/crds/README.md`, `workloads/README.md`, `workloads/rbac-storage/README.md`, `services/README.md` 등 작업 스코프별 README를 v0.7.4 기준으로 업데이트했습니다.
-
 ---
 
 ## Quick Links
