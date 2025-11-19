@@ -73,35 +73,6 @@ Ingress  : Route53 + CloudFront + ALB → Calico NetworkPolicy
 | 서비스 & CI | `services/README.md`, `docs/ci/04-CI_CD_PIPELINE.md` |
 | 배포/운영 가이드 | `docs/deployment/README.md`, `docs/troubleshooting/TROUBLESHOOTING.md` |
 
-## Getting Started
-
-### 1. Terraform (Layer 0)
-```bash
-cd terraform
-terraform init
-terraform plan
-terraform apply -auto-approve
-```
-
-### 2. Ansible (Layer 1)
-```bash
-cd ansible
-ansible-playbook site.yml
-```
-
-> 전체 과정을 자동화하려면 `scripts/deployment/bootstrap_cluster.sh`를 사용하세요.  
-> 필요 시 `--skip-terraform`, `--skip-ansible`, `--skip-argocd` 옵션으로 단계를 건너뛸 수 있습니다.
-
-### 3. ArgoCD Root App (Layer 2)
-```bash
-kubectl apply -n argocd -f clusters/dev/root-app.yaml
-kubectl get applications -n argocd
-```
-
-### 4. GitHub Actions (Layer 3)
-- `.github/workflows/ci-quality-gate.yml`가 서비스 코드 변경을 감지해 lint/test/build/push를 수행합니다.
-- Docker Hub 이미지 태그(`docker.io/mng990/eco2:*`)가 갱신되면 ArgoCD가 자동 배포합니다.
-
 ---
 
 ## Sync Wave Layout
