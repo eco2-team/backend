@@ -21,12 +21,6 @@ spec:
       operator: Equal
       value: data
       effect: NoSchedule
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: kubernetes.io/hostname
-              operator: In
-              values:
-                - k8s-postgresql
+  nodeSelector:
+    infra-type: postgresql
 
