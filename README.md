@@ -165,9 +165,7 @@ backend/
 ├── scripts/deployment/  # bootstrap_cluster.sh / destroy_cluster.sh
 ├── clusters/            # Argo CD Root Apps + Wave별 Application 목록
 ├── workloads/           # Kustomize (namespaces, rbac, network, apis, ingress 등)
-├── platform/crds/       # Upstream CRD bundles (AWS LB, External Secrets, Redis, Postgres, Prometheus)
-├── platform/cr/         # PostgresCluster / RedisReplication / RedisSentinel Kustomize
-├── platform/operators/  # (예약) 로컬 Operator 커스터마이징
+├── platform/            # Upstream CRD & CR bundles (AWS LB, External Secrets, Redis, Postgres, Prometheus)
 ├── services/            # FastAPI 도메인 코드
 └── docs/                # Architecture / Deployment / Troubleshooting
 ```
