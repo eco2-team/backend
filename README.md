@@ -11,15 +11,14 @@ AI 폐기물 분류·지도·챗봇 등 도메인 API와 데이터 계층, GitOp
 
 ## Service Architecture
 
+![E6A73249-BFDB-4CA9-A41B-4AF5A907C6D1](https://github.com/user-attachments/assets/fed94002-7bbd-49b0-bb2b-c2fc9ecd5b21)
+
 ```yaml
 Tier 1 Representation : ALB, Route 53, CloudFront
 Tier 2 Business Logic : auth, my, scan, character, location, info, chat
 Tier 3 Data : PostgreSQL, Redis
 Tier 0 Monitoring  : Prometheus, Grafana, Alerter Manager, ArgoCD
 ```
-
-![E6A73249-BFDB-4CA9-A41B-4AF5A907C6D1](https://github.com/user-attachments/assets/fed94002-7bbd-49b0-bb2b-c2fc9ecd5b21)
-
 
 본 서비스는 4-Tier Layered Architecture로 구성되었습니다. 
 
