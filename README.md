@@ -1,10 +1,8 @@
 # Eco² Backend
+> **Version**: v0.7.4 | [Changelog](CHANGELOG.md)
 
 ![0BE8497C-694D-4926-AEB8-E29AC23EBF94_4_5005_c](https://github.com/user-attachments/assets/460482ed-9bf6-4cfb-b454-d9db46a0a16f)
 
-> **Version**: v0.7.4 | [Changelog](CHANGELOG.md)
-
-![C4702A4B-B344-47EC-AB4A-7B2529496F44_1_105_c](https://github.com/user-attachments/assets/55c2b6bd-3324-4486-a146-1758cf86ea7c)
 
 Self-managed Kubernetes 기반으로 Terraform · Ansible · ArgoCD · Atlantis를 결합해 운영하는 14-Node 마이크로서비스 플랫폼입니다.  
 AI 폐기물 분류·지도·챗봇 등 도메인 API와 데이터 계층, GitOps 파이프라인을 하나의 리포지토리에서 관리합니다.
@@ -72,29 +70,6 @@ graph TD
 | 서비스 & CI | `services/README.md`, `docs/ci/04-CI_CD_PIPELINE.md` |
 | 배포/운영 가이드 | `docs/deployment/README.md`, `docs/troubleshooting/TROUBLESHOOTING.md` |
 
----
-
-## GitOps Flow
-
-```mermaid
-graph TD
-    TF["Atlantis + Terraform<br/>AWS Infra"] --> ANS["Ansible<br/>Cluster Bootstrap"]
-    ANS --> ACD["ArgoCD Root App<br/>Kustomize + Helm"]
-    ACD --> SVC["서비스 오버레이<br/>k8s/base + overlays/*"]
-    SVC --> OBS["Observability<br/>Prometheus · Grafana"]
-    SVC --> DB["Data Layer<br/>PostgreSQL · Redis · RabbitMQ"]
-    style TF fill:#5b21b6,color:#fff
-    style ANS fill:#b91c1c,color:#fff
-    style ACD fill:#c2410c,color:#fff
-    style SVC fill:#1e3a8a,color:#fff
-    style OBS fill:#0369a1,color:#fff
-    style DB fill:#92400e,color:#fff
-```
-
-Atlantis는 PR 기반으로 Terraform plan/apply를 실행하고, Ansible이 kubeadm + CNI + ArgoCD를 구성합니다. 이후 ArgoCD App-of-Apps가 Wave 순서대로 upstream Helm/Kustomize 소스를 동기화하며, GitHub Actions는 단일 Docker Hub 이미지(`docker.io/mng990/eco2`)를 태깅해 Kustomize 오버레이에 반영합니다.
-
----
-
 ## Getting Started
 
 ### 1. Terraform (Layer 0)
@@ -127,6 +102,8 @@ kubectl get applications -n argocd
 ---
 
 ## Sync Wave Layout
+
+![C4702A4B-B344-47EC-AB4A-7B2529496F44_1_105_c](https://github.com/user-attachments/assets/55c2b6bd-3324-4486-a146-1758cf86ea7c)
 
 상세 구조는 `clusters/README.md`, `platform/cr/README.md`, `platform/crds/README.md`, `workloads/README.md`를 참고하세요.
 
