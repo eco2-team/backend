@@ -8,6 +8,8 @@ metadata:
     # SSM Parameter: /sesacthon/dev/ingress/acm-certificate-arn
     # alb.ingress.kubernetes.io/certificate-arn: <SSM에서 가져올 예정>
     external-dns.alpha.kubernetes.io/managed-by: external-dns
+    # Force ALB Controller to reconcile on every update
+    meta.helm.sh/release-namespace: grafana
 spec:
   rules:
     - host: grafana.dev.growbin.app
