@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/eco2-team/backend.git
     targetRevision: refactor/gitops-sync-wave
-    path: platform/operators/rabbitmq
+    path: platform/operators/rabbitmq/dev
   destination:
     server: https://kubernetes.default.svc
     namespace: rabbitmq-system
