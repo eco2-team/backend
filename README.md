@@ -77,8 +77,6 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 
 ![C4702A4B-B344-47EC-AB4A-7B2529496F44_1_105_c](https://github.com/user-attachments/assets/55c2b6bd-3324-4486-a146-1758cf86ea7c)
 
-상세 구조는 `clusters/README.md`, `platform/cr/README.md`, `platform/crds/README.md`, `workloads/README.md`를 참고하세요.
-
 | Wave | 구성 | Source / 설명 |
 |------|------|----------------|
 | 00 | CRD 번들 | `platform/crds/{env}` · AWS LB / External Secrets / Redis / Postgres / Prometheus CRD + webhook patch |
@@ -97,7 +95,10 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 | 60 | Domain APIs | `clusters/{env}/apps/60-apis-appset.yaml` → `workloads/apis/<domain>/{env}` |
 | 70 | Ingress | `workloads/ingress/{env}` · API / Grafana / ArgoCD Ingress + ExternalDNS annotation |
 
+ArgoCD Sync-wave로 의존성 순서를 보장하며, 패키지 의존성이 높은 플랫폼은 Helm-charts 기반 Opensource Operator+CRD로 관리·배포합니다. 
+AWS Load Balancer Controller·External Secrets·Postgres/Redis Operator는 upstream Helm chart를 `skipCrds: true`로 설치하고, CRD와 CR은 `platform/{crds | cr}/{env}`에서 단일 관리합니다.
 모든 API는 공통 base(kustomize) 템플릿을 상속하고, 환경별 patch에서 이미지 태그·환경 변수·노드 셀렉터만 조정합니다.
+상세 구조는 `clusters/README.md`, `platform/cr/README.md`, `platform/crds/README.md`, `workloads/README.md`를 참고하세요.
 
 ---
 
