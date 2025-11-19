@@ -11,7 +11,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: oci://registry-1.docker.io/bitnamicharts
+    repoURL: https://charts.bitnami.com/bitnami
     chart: redis
     targetRevision: 20.2.1
     helm:
@@ -50,13 +50,13 @@ spec:
           # 중요: EBS 볼륨 권한 자동 수정을 위해 initContainer 활성화
           volumePermissions:
             enabled: true
-          nodeSelector:
+        nodeSelector:
             infra-type: redis
-          tolerations:
+        tolerations:
             - key: domain
               operator: Equal
               value: data
-              effect: NoSchedule
+            effect: NoSchedule
 
         replica:
           replicaCount: 2
@@ -78,9 +78,9 @@ spec:
             infra-type: redis
           tolerations:
             - key: domain
-              operator: Equal
+            operator: Equal
               value: data
-              effect: NoSchedule
+            effect: NoSchedule
 
         sentinel:
           enabled: true
