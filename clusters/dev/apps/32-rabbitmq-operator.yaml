@@ -10,27 +10,7 @@ spec:
   source:
     repoURL: https://github.com/rabbitmq/cluster-operator.git
     targetRevision: v1.11.0
-    path: config/default
-    kustomize:
-      patches:
-        - target:
-            kind: Deployment
-            name: rabbitmq-cluster-operator
-          patch: |
-            - op: add
-              path: /spec/template/spec/nodeSelector
-              value:
-                role: control-plane
-            - op: add
-              path: /spec/template/spec/tolerations
-              value:
-                - key: node-role.kubernetes.io/control-plane
-                  operator: Exists
-                  effect: NoSchedule
-                - key: role
-                  operator: Equal
-                  value: control-plane
-                  effect: NoSchedule
+    path: config/namespace/base
   destination:
     server: https://kubernetes.default.svc
     namespace: messaging-system
