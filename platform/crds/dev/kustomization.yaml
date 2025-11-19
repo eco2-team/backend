@@ -3,3 +3,13 @@ kind: Kustomization
 resources:
   - ../base
 
+patches:
+  - target:
+      kind: CustomResourceDefinition
+      name: clustersecretstores.external-secrets.io
+    path: patches/external-secrets-clustersecretstore-webhook.yaml
+  - target:
+      kind: CustomResourceDefinition
+      name: secretstores.external-secrets.io
+    path: patches/external-secrets-secretstore-webhook.yaml
+
