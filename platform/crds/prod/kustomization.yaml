@@ -12,4 +12,8 @@ patches:
       kind: CustomResourceDefinition
       name: secretstores.external-secrets.io
     path: patches/external-secrets-secretstore-webhook.yaml
+  - target:
+      kind: CustomResourceDefinition
+      name: externalsecrets.external-secrets.io
+    path: patches/external-secrets-externalsecret-webhook.yaml
 
