@@ -20,6 +20,12 @@ spec:
           redis:
             password: ""
 
+        # Redis 서버 이미지 (Bitnami 레거시 레포로 변경)
+        image:
+          registry: docker.io
+          repository: bitnamilegacy/redis
+          tag: 7.4.1-debian-12-r0
+
         architecture: replication
 
         auth:
@@ -79,6 +85,10 @@ spec:
           enabled: true
           masterSet: mymaster
           quorum: 2
+          image:
+            registry: docker.io
+            repository: bitnamilegacy/redis-sentinel
+            tag: 7.4.1-debian-12-r0
 
         metrics:
           enabled: false
