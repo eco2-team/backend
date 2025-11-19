@@ -11,4 +11,13 @@ metadata:
 spec:
   rules:
     - host: grafana.dev.growbin.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 80
 
