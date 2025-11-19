@@ -1,5 +1,4 @@
 # Eco² Backend
-> **Version**: v0.7.4 | [Changelog](CHANGELOG.md)
 
 ![0BE8497C-694D-4926-AEB8-E29AC23EBF94_4_5005_c](https://github.com/user-attachments/assets/460482ed-9bf6-4cfb-b454-d9db46a0a16f)
 
@@ -155,5 +154,5 @@ backend/
 - ⚠️ RabbitMQ Operator/CR 장애로 Pending, MVP API 개발 이후 재도입 예정
 - 🚧 API 개발 중
 
-최종 업데이트: 2025-11-19 (GitOps Sync Wave & 문서 보강)
+> **Version**: v0.7.4 | [Changelog](CHANGELOG.md)
 
