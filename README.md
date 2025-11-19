@@ -119,14 +119,16 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 
 ---
 
-## Troubleshooting Highlights
+### Troubleshooting Highlight
 
-| 이슈 | 요약 | 문서 |
-|------|------|------|
-| ALB HTTPS→HTTP NAT | `backend-protocol: HTTP` + HTTPS-only listener + HTTP NodePort | `docs/troubleshooting/TROUBLESHOOTING.md#8-argocd-리디렉션-루프-문제` |
-| Namespace 중복 정의 | `workloads/namespaces/{env}` 한 곳에서 단일 관리 | `workloads/namespaces/README.md` |
-| Atlantis 배포 | PR 기반 Terraform plan/apply 자동화 (Atlantis) | `docs/architecture/gitops/ATLANTIS_TERRAFORM_FLOW.md` |
-| GitOps/Cluster Health Check | `scripts/diagnostics/gitops_cluster_health.sh` 실행 · kubectl 기반 상태 요약 | README – Getting Started |
+| 이슈 | 증상 & 해결 | 문서 |
+|------|------------|------|
+| ALB HTTPS→HTTP NAT | `backend-protocol: HTTP` + HTTPS-only listener + HTTP NodePort | `docs/
+troubleshooting/TROUBLESHOOTING.md#8-argocd-리디렉션-루프-문제` |
+| **Calico Typha 포트 차단** | Master ↔ Worker 노드 간 5473/TCP 연결 실패 → Security Group에 Calico Typha 포트 규칙 추가 | `docs/troubleshooting/CALICO_TYPHA_PORT_5473_ISSUE.md` |
+| **Redis PVC Pending** | EBS CSI Driver 미설치로 PVC 생성 실패 → `ebs.csi.aws.com` Provisioner + `gp3` StorageClass 설정 | `docs/troubleshooting/2025-11-19-rabbitmq-redis.md#2` |
+| **CRD 이중 적용** | Helm Chart 내장 CRD와 충돌 → `skipCrds: true` + `platform/crds/{env}` 단일 관리 | `docs/troubleshooting/2025-11-19-rabbitmq-redis.md#4` |
+| **Taint/Toleration 이슈** | 노드 라벨/taint 불일치로 Pod Pending → `fix-node-labels.yml` 실행 + kubeadm 재설정 | `docs/troubleshooting/ansible-label-sync.md` |
 
 ---
 
@@ -148,11 +150,11 @@ backend/
 
 ## Status
 
-- ✅ Terraform · Atlantis · Ansible bootstrap · ArgoCD App-of-Apps
-- ✅ GitOps Sync Wave 재정렬 (00~70) + upstream Helm/CRD 분리
+- ✅ Terraform · Ansible bootstrap · ArgoCD Sync-wave
+- ✅ GitOps Sync-Wave 재정렬 (00~70) + upstream Helm/CRD 분리
 - ✅ Docker Hub 단일 이미지 파이프라인 + External Secrets 운영 안정화
-- ⚠️ RabbitMQ Operator/CR은 장애 원인 분석 완료 후 재도입 예정
-- 🚧 서비스 비즈니스 로직/성능 테스트 고도화 진행 예정
+- ⚠️ RabbitMQ Operator/CR 장애로 Pending, MVP API 개발 이후 재도입 예정
+- 🚧 API 개발 중
 
 최종 업데이트: 2025-11-19 (GitOps Sync Wave & 문서 보강)
 
