@@ -9,35 +9,39 @@ AI 폐기물 분류·지도·챗봇 등 도메인 API와 데이터 계층, GitOp
 
 ---
 
-## Overview
+## Service Architecture
+
+```yaml
+Tier 1 Representation : ALB, Route 53, CloudFront
+Tier 2 Business Logic : auth, my, scan, character, location, info, chat
+Tier 3 Data : PostgreSQL, Redis
+Tier 0 Monitoring  : Prometheus, Grafana, Alerter Manager, ArgoCD
+```
+
+![E6A73249-BFDB-4CA9-A41B-4AF5A907C6D1](https://github.com/user-attachments/assets/fed94002-7bbd-49b0-bb2b-c2fc9ecd5b21)
+
+
+본 서비스는 4-Tier Layered Architecture로 구성되었습니다. 
+
+각 계층은 서로 독립적으로 기능하도록 설계되었으며, 모니터링 스택을 제외한 상위 계층의 의존성은 하위 단일 계층으로 제한됩니다. 
+프로덕션 환경을 전제로 한 Self-manged Kubernetes 기반 클러스터로 컨테이너화된 어플리케이션의 오케스트레이션을 지원합니다. 
+클러스터의 안정성과 성능을 보장하기 위해 모니터링 시스템을 도입, IaC(Infrastructure as Code) 및 GitOps 파이프라인을 구축해 단일 레포지토리가 SSOT(Single Source Of Truth)로 기능 하도록 제작되었습니다. 
+이에 따라 리소스 증설, 고가용성(HA) 도입 등 다양한 요구 사항에 따라 클러스터가 유연하게 변경 및 확장이 가능합니다.
+
+---
+
+## Bootstrap Overview
 
 ```yaml
 Cluster  : kubeadm Self-Managed (14 Nodes)
 GitOps   :
-  Layer0 - Atlantis + Terraform (AWS 인프라)
+  Layer0 - Terraform (AWS 인프라)
   Layer1 - Ansible (kubeadm, CNI, Add-ons)
   Layer2 - ArgoCD App-of-Apps + Kustomize/Helm
   Layer3 - GitHub Actions + Docker Hub
 Domains  : auth, my, scan, character, location, info, chat
 Data     : PostgreSQL, Redis, RabbitMQ (paused), Monitoring stack
 Ingress  : Route53 + CloudFront + ALB → Calico NetworkPolicy
-```
-
-### Platform Map
-
-```mermaid
-graph TD
-    CF["CloudFront · Route53"] --> ALB["AWS ALB (HTTPS)"]
-    ALB --> CALICO["Calico + NetworkPolicy"]
-    CALICO --> API["API Pods<br/>auth · my · scan · character · location · info · chat"]
-    CALICO --> WORK["Worker Pods<br/>storage · ai"]
-    WORK --> DATA["PostgreSQL · Redis · RabbitMQ"]
-    style CF fill:#92400e,color:#fff
-    style ALB fill:#0d9488,color:#fff
-    style CALICO fill:#1d4ed8,color:#fff
-    style API fill:#334155,color:#fff
-    style WORK fill:#166534,color:#fff
-    style DATA fill:#78350f,color:#fff
 ```
 
 ## Release Highlights (v0.7.4)
