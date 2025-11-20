@@ -23,4 +23,3 @@ def test_token_payload_exposes_uuid_property():
     )
 
     assert payload.user_id == UUID(payload.sub)
-
