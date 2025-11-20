@@ -1,0 +1,37 @@
+from __future__ import annotations
+
+import json
+from datetime import datetime
+
+from fastapi import Depends
+from redis.asyncio import Redis
+
+from domain.auth.core.redis import get_blacklist_redis
+from domain.auth.core.security import compute_ttl_seconds, now_utc
+from domain._shared.security import TokenPayload
+
+
+class TokenBlacklist:
+    def __init__(self, redis: Redis = Depends(get_blacklist_redis)):
+        self.redis = redis
+
+    async def add(self, payload: TokenPayload, reason: str = "logout") -> None:
+        expires_at = datetime.fromtimestamp(payload.exp, tz=now_utc().tzinfo)
+        ttl = compute_ttl_seconds(expires_at)
+        if ttl <= 0:
+            return
+        data = {
+            "user_id": payload.sub,
+            "reason": reason,
+            "blacklisted_at": now_utc().isoformat(),
+            "expires_at": expires_at.isoformat(),
+        }
+        await self.redis.setex(self._key(payload.jti), ttl, json.dumps(data))
+
+    async def contains(self, jti: str) -> bool:
+        return bool(await self.redis.exists(self._key(jti)))
+
+    @staticmethod
+    def _key(jti: str) -> str:
+        return f"blacklist:{jti}"
+

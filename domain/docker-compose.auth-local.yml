@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16
+    container_name: auth-local-postgres
+    environment:
+      POSTGRES_USER: sesacthon
+      POSTGRES_PASSWORD: sesacthon
+      POSTGRES_DB: sesacthon
+    ports:
+      - "5433:5432"
+
+  redis:
+    image: redis:7
+    container_name: auth-local-redis
+    command: ["redis-server", "--appendonly", "no"]
+    ports:
+      - "6380:6379"
+
+  auth:
+    build:
+      context: ..
+      dockerfile: domain/auth/Dockerfile
+    container_name: auth-local-api
+    env_file:
+      - auth/.env.local
+    environment:
+      AUTH_DATABASE_URL: postgresql+asyncpg://sesacthon:sesacthon@db:5432/sesacthon
+      AUTH_REDIS_BLACKLIST_URL: redis://redis:6379/0
+      AUTH_REDIS_OAUTH_STATE_URL: redis://redis:6379/3
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
