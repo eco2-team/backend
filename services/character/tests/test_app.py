@@ -16,9 +16,9 @@ def load_fastapi_app() -> FastAPI:
         module = importlib.import_module("app.main")
     except ModuleNotFoundError as exc:
         raise AssertionError("FastAPI application module not found") from exc
-    app = getattr(module, "app", None)
-    if isinstance(app, FastAPI):
-        return app
+        app = getattr(module, "app", None)
+        if isinstance(app, FastAPI):
+            return app
     raise AssertionError("FastAPI application instance not found")
 
 
