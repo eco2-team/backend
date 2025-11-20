@@ -12,7 +12,7 @@ data:
   AUTH_JWT_AUDIENCE: "eco2-clients"
   AUTH_ACCESS_TOKEN_EXP_MINUTES: "15"
   AUTH_REFRESH_TOKEN_EXP_MINUTES: "20160"
-  AUTH_DATABASE_URL: "postgresql+asyncpg://sesacthon:sesacthon@postgres-cluster.postgres.svc.cluster.local:5432/sesacthon?ssl=require"
+  AUTH_DATABASE_URL: "postgresql+asyncpg://sesacthon:Mwx$z[JNMciN@u1gK)E^QUAcOjwViT&U@postgres-cluster.postgres.svc.cluster.local:5432/sesacthon?ssl=require"
   AUTH_REDIS_BLACKLIST_URL: "redis://dev-redis.redis.svc.cluster.local:6379/0"
   AUTH_REDIS_OAUTH_STATE_URL: "redis://dev-redis.redis.svc.cluster.local:6379/3"
 
