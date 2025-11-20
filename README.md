@@ -25,8 +25,8 @@ Tier 0 Monitoring  : Prometheus, Grafana, Alerter Manager, ArgoCD
 
 각 계층은 서로 독립적으로 기능하도록 설계되었으며, 모니터링 스택을 제외한 상위 계층의 의존성은 하위 단일 계층으로 제한됩니다. 
 프로덕션 환경을 전제로 한 Self-manged Kubernetes 기반 클러스터로 컨테이너화된 어플리케이션의 오케스트레이션을 지원합니다. 
-클러스터의 안정성과 성능을 보장하기 위해 모니터링 시스템을 도입, IaC(Infrastructure as Code) 및 GitOps 파이프라인을 구축해 단일 레포지토리가 SSOT(Single Source Of Truth)로 기능 하도록 제작되었습니다. 
-이에 따라 리소스 증설, 고가용성(HA) 도입 등 다양한 요구 사항에 따라 클러스터가 유연하게 변경 및 확장이 가능합니다.
+클러스터의 안정성과 성능을 보장하기 위해 모니터링 시스템을 도입, IaC(Infrastructure as Code) 및 GitOps 파이프라인을 구축해 단일 레포지토리가 SSOT(Single Source Of Truth)로 기능하도록 제작되었습니다. 
+이에 따라 리소스 증설, 고가용성(HA) 도입 등 다양한 요구사항에 따라 클러스터가 유연하게 변경 및 확장이 가능합니다.
 
 ---
 
@@ -47,13 +47,16 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 ## Release Highlights (v0.7.4)
 
 - **GitOps Sync Wave 재정렬**  
-  `clusters/{env}/apps` 전반을 Wave 00~70으로 재배치하고, 모든 플랫폼 컴포넌트를 upstream Helm/Kustomize 소스로 직접 가져오도록 정리했습니다. Calico·ALB Controller·ExternalDNS·Prometheus Stack·Grafana·Postgres/Redis Operator가 각각 전용 Wave에서 동기화되며, GitOps Root App만으로 전체 클러스터를 재생성할 수 있습니다.
+  `clusters/{env}/apps` 전반을 Wave 00~70으로 재배치하고, 모든 플랫폼 컴포넌트를 upstream Helm/Kustomize 소스로 직접 가져오도록 정리했습니다.
+  Calico·ALB Controller·ExternalDNS·Prometheus Stack·Grafana·Postgres/Redis Operator가 각각 전용 Wave에서 동기화되며, GitOps root-app만으로 전체 클러스터를 재생성할 수 있습니다.
 
 - **데이터 계층 이중화 & CRD 단일화**  
-  `platform/crds/`에 AWS Load Balancer, External Secrets, Redis, Postgres, Prometheus CRD를 모으고, `platform/cr/`에서는 Postgres/Redis CR만 관리합니다. RabbitMQ는 장애 분석이 끝날 때까지 CR 생성이 일시 중단된 상태이며, 관련 문서는 `docs/troubleshooting/2025-11-19-rabbitmq-redis.md`에 기록했습니다.
+  `platform/crds/`에 AWS Load Balancer, External Secrets, Redis, Postgres, Prometheus CRD를 모으고, `platform/cr/`에서는 Postgres/Redis CR만 관리합니다.
+  RabbitMQ는 장애 분석이 끝날 때까지 CR 생성이 일시 중단된 상태이며, 관련 문서는 `docs/troubleshooting/2025-11-19-rabbitmq-redis.md`에 기록했습니다.
 
 - **Docker Hub 기반 단일 이미지 파이프라인**  
-  모든 도메인 API가 `docker.io/mng990/eco2` 이미지를 공유하도록 CI를 단순화했습니다. GitHub Actions는 서비스별 테스트 후 공통 이미지를 태그로 분리하고, `workloads/apis/*` Kustomize 오버레이는 태그와 환경 변수를 patch 합니다.
+  모든 도메인 API가 `docker.io/mng990/eco2` 이미지를 공유하도록 CI를 단순화했습니다.
+  GitHub Actions는 서비스별 테스트 후 공통 이미지를 태그로 분리하고, `workloads/apis/*` Kustomize 오버레이는 태그와 환경 변수를 patch 합니다.
 
 - **RBAC/Storage 안정화**  
   `workloads/rbac-storage/*`가 AWS LB Controller·ExternalDNS·External Secrets·Operator용 ServiceAccount와 `gp3` StorageClass(EBS CSI)를 제공하며, External Secret → Secret → Helm Chart 흐름이 README로 문서화되었습니다.
