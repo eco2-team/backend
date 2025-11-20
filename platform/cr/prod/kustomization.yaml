@@ -4,4 +4,3 @@ resources:
   - ../base
 patches:
   - path: postgres-patch.yaml
-  - path: redis-patch.yaml

@@ -9,8 +9,8 @@ SERVICE_ROOT = Path(__file__).resolve().parents[1]
 if str(SERVICE_ROOT) not in sys.path:
     sys.path.append(str(SERVICE_ROOT))
 
-from app.database.models.user_character import UserCharacter
-from app.repositories.user_character import UserCharacterRepository
+from app.database.models.user_character import UserCharacter  # noqa: E402
+from app.repositories.user_character import UserCharacterRepository  # noqa: E402
 
 
 class DummySession:

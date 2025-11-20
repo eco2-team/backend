@@ -1,5 +1,6 @@
 # Git worktrees (AI agent workspace)
 .worktrees/
+worktrees/
 
 # Python
 __pycache__/
@@ -9,6 +10,8 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
+.tox/
 ENV/
 build/
 develop-eggs/
@@ -67,6 +70,14 @@ kubeconfig*.tmp
 .helm/
 bin/
 ci-artifacts/
+
+# Test tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+.hypothesis/
 
 # Lint configs
 .flake8

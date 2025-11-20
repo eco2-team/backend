@@ -29,8 +29,8 @@ spec:
       namespace: argocd
       labels:
         tier: business-logic
-        domain: "{{name}}"
-        phase: "{{phase}}"
+        domain: {{name}}
+        phase: {{phase}}
     spec:
       project: prod
       source:
@@ -39,7 +39,7 @@ spec:
         path: workloads/apis/{{name}}/prod
       destination:
         server: https://kubernetes.default.svc
-        namespace: "{{name}}"
+        namespace: {{name}}
       syncPolicy:
         automated:
           prune: true
