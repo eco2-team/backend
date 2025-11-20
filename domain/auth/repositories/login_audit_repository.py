@@ -28,4 +28,3 @@ class LoginAuditRepository:
         )
         self.session.add(record)
         await self.session.flush()
-

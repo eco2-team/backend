@@ -19,7 +19,9 @@ class HealthSuccessResponse(SuccessResponse[HealthData]):
     pass
 
 
-@health_router.get("/health", response_model=HealthSuccessResponse, summary="Auth service health probe")
+@health_router.get(
+    "/health", response_model=HealthSuccessResponse, summary="Auth service health probe"
+)
 async def health():
     return HealthSuccessResponse(
         data=HealthData(
@@ -29,7 +31,9 @@ async def health():
     )
 
 
-@health_router.get("/ready", response_model=HealthSuccessResponse, summary="Auth service readiness probe")
+@health_router.get(
+    "/ready", response_model=HealthSuccessResponse, summary="Auth service readiness probe"
+)
 async def readiness():
     return HealthSuccessResponse(
         data=HealthData(

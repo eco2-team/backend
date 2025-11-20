@@ -46,7 +46,9 @@ class TokenService:
             "aud": self.settings.jwt_audience,
             "provider": provider,
         }
-        token = jwt.encode(payload, self.settings.jwt_secret_key, algorithm=self.settings.jwt_algorithm)
+        token = jwt.encode(
+            payload, self.settings.jwt_secret_key, algorithm=self.settings.jwt_algorithm
+        )
         return token, jti, payload["exp"]
 
     def issue_pair(self, *, user_id: uuid.UUID, provider: str) -> TokenPairInternal:
@@ -82,6 +84,7 @@ class TokenService:
 
     def ensure_type(self, payload: TokenPayload, token_type: TokenType) -> TokenPayload:
         if payload.type != token_type:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token type mismatch")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Token type mismatch"
+            )
         return payload
-

@@ -34,4 +34,3 @@ class TokenBlacklist:
     @staticmethod
     def _key(jti: str) -> str:
         return f"blacklist:{jti}"
-

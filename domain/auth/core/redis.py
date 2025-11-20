@@ -19,4 +19,3 @@ def get_blacklist_redis() -> Redis:
 def get_oauth_state_redis() -> Redis:
     settings = get_settings()
     return _build_client(settings.redis_oauth_state_url)
-

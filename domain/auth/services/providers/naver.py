@@ -84,4 +84,3 @@ class NaverOAuthProvider(OAuthProvider):
             name=response_data.get("name"),
             profile_image_url=response_data.get("profile_image"),
         )
-

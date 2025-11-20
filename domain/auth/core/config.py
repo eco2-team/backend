@@ -49,7 +49,9 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="AUTH_", env_file=".env", extra="ignore")
 
-    @field_validator("kakao_redirect_uri", "google_redirect_uri", "naver_redirect_uri", mode="before")
+    @field_validator(
+        "kakao_redirect_uri", "google_redirect_uri", "naver_redirect_uri", mode="before"
+    )
     @classmethod
     def _empty_string_to_none(cls, value: Optional[str]):
         if isinstance(value, str) and not value.strip():
@@ -60,4 +62,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

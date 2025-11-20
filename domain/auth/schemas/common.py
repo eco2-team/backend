@@ -33,4 +33,3 @@ class ErrorResponse(BaseModel):
 
     success: bool = Field(default=False, description="Always false for error response")
     error: ErrorDetail = Field(..., description="Error details")
-

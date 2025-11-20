@@ -44,7 +44,9 @@ async def validation_exception_handler(
     errors = exc.errors() if isinstance(exc, (RequestValidationError, ValidationError)) else []
     first_error = errors[0] if errors else {}
 
-    field = ".".join(str(loc) for loc in first_error.get("loc", [])) if first_error.get("loc") else None
+    field = (
+        ".".join(str(loc) for loc in first_error.get("loc", [])) if first_error.get("loc") else None
+    )
     message = first_error.get("msg", "Validation error") if first_error else "Validation error"
 
     error_response = ErrorResponse(
@@ -74,4 +76,3 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=error_response.model_dump(),
     )
-

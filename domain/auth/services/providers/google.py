@@ -86,4 +86,3 @@ class GoogleOAuthProvider(OAuthProvider):
             name=data.get("name"),
             profile_image_url=data.get("picture"),
         )
-

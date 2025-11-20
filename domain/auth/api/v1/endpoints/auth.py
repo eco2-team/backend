@@ -187,7 +187,9 @@ async def refresh_session(
     return LoginSuccessResponse(data=LoginData(user=user))
 
 
-@auth_router.post("/logout", response_model=LogoutSuccessResponse, summary="Invalidate current session")
+@auth_router.post(
+    "/logout", response_model=LogoutSuccessResponse, summary="Invalidate current session"
+)
 async def logout(
     response: Response,
     service: Annotated[AuthService, Depends()],

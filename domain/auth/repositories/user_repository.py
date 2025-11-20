@@ -56,8 +56,5 @@ class UserRepository:
 
     async def touch_last_login(self, user_id: uuid.UUID) -> None:
         await self.session.execute(
-            update(User)
-            .where(User.id == user_id)
-            .values(last_login_at=now_utc()),
+            update(User).where(User.id == user_id).values(last_login_at=now_utc()),
         )
-

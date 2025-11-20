@@ -39,6 +39,3 @@ def compute_ttl_seconds(expires_at: datetime) -> int:
 
 def to_unix_timestamp(dt: datetime) -> int:
     return int(dt.timestamp())
-
-
-

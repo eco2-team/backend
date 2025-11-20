@@ -11,7 +11,12 @@ from domain.auth.core.config import Settings, get_settings
 from domain.auth.core.security import now_utc
 from domain.auth.database.session import get_db_session
 from domain.auth.repositories import LoginAuditRepository, UserRepository
-from domain.auth.schemas.auth import AuthorizationResponse, OAuthAuthorizeParams, OAuthLoginRequest, User
+from domain.auth.schemas.auth import (
+    AuthorizationResponse,
+    OAuthAuthorizeParams,
+    OAuthLoginRequest,
+    User,
+)
 from domain.auth.services.providers import OAuthProviderError, ProviderRegistry
 from domain.auth.services.state_service import OAuthStateStore
 from domain.auth.services.token_blacklist import TokenBlacklist
@@ -46,11 +51,15 @@ class AuthService:
         self.login_audit_repo = LoginAuditRepository(session)
         self.http_timeout = 10.0
 
-    async def authorize(self, provider_name: str, params: OAuthAuthorizeParams) -> AuthorizationResponse:
+    async def authorize(
+        self, provider_name: str, params: OAuthAuthorizeParams
+    ) -> AuthorizationResponse:
         provider = self._get_provider(provider_name)
         redirect_uri = params.redirect_uri or provider.redirect_uri
         if not redirect_uri:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="redirect_uri is required")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="redirect_uri is required"
+            )
 
         state, _, code_challenge, expires_at_ts = await self.state_store.create_state(
             provider=provider.name,
@@ -85,13 +94,21 @@ class AuthService:
         provider = self._get_provider(provider_name)
         state_data = await self.state_store.consume_state(payload.state)
         if not state_data:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired state")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired state"
+            )
         if state_data.get("provider") != provider.name:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="State provider mismatch")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="State provider mismatch"
+            )
 
-        redirect_uri = payload.redirect_uri or state_data.get("redirect_uri") or provider.redirect_uri
+        redirect_uri = (
+            payload.redirect_uri or state_data.get("redirect_uri") or provider.redirect_uri
+        )
         if not redirect_uri:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="redirect_uri is required")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="redirect_uri is required"
+            )
 
         try:
             async with httpx.AsyncClient(timeout=self.http_timeout) as client:
@@ -104,7 +121,9 @@ class AuthService:
                 )
                 profile = await provider.fetch_profile(client=client, tokens=tokens)
         except httpx.HTTPStatusError as exc:
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Provider API error") from exc
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY, detail="Provider API error"
+            ) from exc
         except (httpx.HTTPError, OAuthProviderError) as exc:
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
@@ -144,7 +163,9 @@ class AuthService:
         response: Response,
     ) -> User:
         if not refresh_token:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token"
+            )
 
         payload = self.token_service.decode(refresh_token)
         self.token_service.ensure_type(payload, TokenType.REFRESH)
@@ -153,7 +174,9 @@ class AuthService:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token revoked")
 
         if not await self.user_token_store.contains(payload.user_id, payload.jti):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token not found")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token not found"
+            )
 
         metadata = await self.user_token_store.get_metadata(payload.jti)
 
@@ -233,7 +256,9 @@ class AuthService:
         refresh_payload: TokenPayload,
     ) -> None:
         self._set_cookie(response, ACCESS_COOKIE_NAME, token_pair.access_token, access_payload.exp)
-        self._set_cookie(response, REFRESH_COOKIE_NAME, token_pair.refresh_token, refresh_payload.exp)
+        self._set_cookie(
+            response, REFRESH_COOKIE_NAME, token_pair.refresh_token, refresh_payload.exp
+        )
 
     def _clear_session_cookies(self, response: Response) -> None:
         response.delete_cookie(ACCESS_COOKIE_NAME, path=COOKIE_PATH)

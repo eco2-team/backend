@@ -25,7 +25,9 @@ class ProviderRegistry:
             "google": GoogleOAuthProvider(
                 client_id=self.settings.google_client_id,
                 client_secret=self.settings.google_client_secret,
-                redirect_uri=self._resolve_redirect_uri(self.settings.google_redirect_uri, "google"),
+                redirect_uri=self._resolve_redirect_uri(
+                    self.settings.google_redirect_uri, "google"
+                ),
             ),
             "naver": NaverOAuthProvider(
                 client_id=self.settings.naver_client_id,
@@ -48,4 +50,3 @@ class ProviderRegistry:
             return None
         env_value = (self.settings.environment or "").strip() or "dev"
         return template.format(env=env_value, provider=provider)
-

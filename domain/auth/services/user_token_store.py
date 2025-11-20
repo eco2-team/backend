@@ -81,4 +81,3 @@ class UserTokenStore:
     @staticmethod
     def _meta_key(jti: str) -> str:
         return f"user_token:{jti}"
-
