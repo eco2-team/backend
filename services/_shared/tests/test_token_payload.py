@@ -8,7 +8,7 @@ for path in (WORKSPACE_ROOT, SHARED_ROOT):
     if str(path) not in sys.path:
         sys.path.append(str(path))
 
-from services._shared.security.jwt import TokenPayload, TokenType
+from services._shared.security.jwt import TokenPayload, TokenType  # noqa: E402
 
 
 def test_token_payload_exposes_uuid_property():
