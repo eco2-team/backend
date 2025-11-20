@@ -14,9 +14,9 @@ for path in (CHARACTER_ROOT, SERVICES_ROOT):
 def load_fastapi_app() -> FastAPI:
     last_exc: ModuleNotFoundError | None = None
     for module_name in ("app.main", "main"):
-    try:
+        try:
             module = importlib.import_module(module_name)
-    except ModuleNotFoundError as exc:
+        except ModuleNotFoundError as exc:
             last_exc = exc
             continue
         app = getattr(module, "app", None)
