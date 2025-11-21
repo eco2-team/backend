@@ -9,6 +9,9 @@ def create_app() -> FastAPI:
         title="Auth API",
         description="Authentication/Authorization service",
         version="1.0.0",
+        docs_url="/api/v1/docs",
+        redoc_url="/api/v1/redoc",
+        openapi_url="/api/v1/openapi.json",
     )
 
     app.add_middleware(

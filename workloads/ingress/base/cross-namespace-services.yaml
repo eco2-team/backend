@@ -27,7 +27,7 @@ metadata:
   namespace: default
 subsets:
   - addresses:
-      - ip: 192.168.141.38  # auth-api Pod IP (현재 실행 중인 Pod)
+      - ip: 192.168.141.21  # auth-api Pod IP (현재 실행 중: auth-api-6f7d55bdf9-q5pjp)
     ports:
       - port: 8000
         protocol: TCP
@@ -64,6 +64,7 @@ subsets:
 #       - port: 8000
 #         protocol: TCP
 #         name: http
+
 
 
 

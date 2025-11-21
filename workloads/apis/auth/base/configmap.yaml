@@ -12,4 +12,7 @@ data:
   AUTH_JWT_AUDIENCE: "sesacthon-clients"
   AUTH_ACCESS_TOKEN_EXP_MINUTES: "15"
   AUTH_REFRESH_TOKEN_EXP_MINUTES: "20160"
+  AUTH_GOOGLE_REDIRECT_URI: "https://api.dev.growbin.app/api/v1/auth/google/callback"
+  AUTH_KAKAO_REDIRECT_URI: "https://api.dev.growbin.app/api/v1/auth/kakao/callback"
+  AUTH_NAVER_REDIRECT_URI: "https://api.dev.growbin.app/api/v1/auth/naver/callback"
 

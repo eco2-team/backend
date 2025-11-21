@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     app_name: str = "Auth API"
     environment: str = "local"
     api_v1_prefix: str = "/api/v1"
+    frontend_url: str = "https://frontend-beta-gray-c44lrfj3n1.vercel.app"
 
     database_url: str = (
         "postgresql+asyncpg://sesacthon:sesacthon@postgres-cluster.postgres.svc.cluster.local:5432/sesacthon"
