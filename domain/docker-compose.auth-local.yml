@@ -21,8 +21,6 @@ services:
       context: ..
       dockerfile: domain/auth/Dockerfile
     container_name: auth-local-api
-    env_file:
-      - ./auth/.env.local
     environment:
       AUTH_DATABASE_URL: postgresql+asyncpg://sesacthon:sesacthon@db:5432/sesacthon
       AUTH_REDIS_BLACKLIST_URL: redis://redis:6379/0
