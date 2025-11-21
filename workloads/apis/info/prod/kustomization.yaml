@@ -4,7 +4,7 @@ resources:
 - ../base
 images:
 - name: docker.io/mng990/eco2
-  newTag: info-prod-latest
+  newTag: info-api-prod-latest
 labels:
 - includeSelectors: true
   pairs:

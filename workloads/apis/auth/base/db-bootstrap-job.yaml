@@ -22,8 +22,8 @@ spec:
       restartPolicy: Never
       containers:
         - name: db-bootstrap
-          image: docker.io/mng990/eco2:latest
-          imagePullPolicy: IfNotPresent
+          image: docker.io/mng990/eco2:auth-api-latest
+          imagePullPolicy: Always
           command:
             - python
             - -m
@@ -33,6 +33,8 @@ spec:
                 name: auth-config
             - secretRef:
                 name: auth-secret
+      imagePullSecrets:
+        - name: dockerhub-secret
       nodeSelector:
         domain: auth
       tolerations:

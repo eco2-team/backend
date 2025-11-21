@@ -21,7 +21,8 @@ spec:
     spec:
       containers:
         - name: auth-api
-          image: docker.io/mng990/eco2:latest
+          image: docker.io/mng990/eco2:auth-api-latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
               name: http
@@ -42,6 +43,8 @@ spec:
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 5
+      imagePullSecrets:
+        - name: dockerhub-secret
       nodeSelector:
         domain: auth
       tolerations:

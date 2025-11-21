@@ -21,7 +21,8 @@ spec:
     spec:
       containers:
         - name: my-api
-          image: docker.io/mng990/eco2:latest
+          image: docker.io/mng990/eco2:my-api-latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
               name: http
