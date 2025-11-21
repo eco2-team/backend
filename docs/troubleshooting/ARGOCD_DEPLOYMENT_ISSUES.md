@@ -312,3 +312,4 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 **최종 수정**: 2025-11-19  
 **담당자**: DevOps Team
 
+

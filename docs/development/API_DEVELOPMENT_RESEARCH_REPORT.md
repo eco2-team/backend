@@ -476,7 +476,7 @@ GET    /api/v1/users/me/activities     # 활동 히스토리
 GET    /api/v1/users/me/settings       # 설정 조회
 PATCH  /api/v1/users/me/settings       # 설정 수정
 
-POST   /api/v1/users/me/avatar         # 프로필 이미지 업로드 (비동기)
+POST   /api/v1/users/me/avatar         # 프로필 이미지 업로드 (동기)
 ```
 
 #### 포인트 시스템

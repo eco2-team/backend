@@ -601,3 +601,4 @@ gh auth status
 ## 🏷️ 태그
 `#troubleshooting` `#ghcr` `#imagepullbackoff` `#external-secrets` `#automation`
 
+

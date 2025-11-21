@@ -77,6 +77,6 @@ spec:
             pathType: Exact
             backend:
               service:
-                name: health
+                name: auth-api
                 port:
                   number: 8000
