@@ -30,10 +30,6 @@ spec:
               secretKeys:
                 adminPasswordKey: postgres-password
                 userPasswordKey: password
-
-        # PostgreSQL 이미지 - Chart의 기본 이미지 사용 (image 섹션 제거)
-        # Bitnami Helm Chart가 자동으로 호환되는 이미지 선택
-
         architecture: standalone
 
         auth:
@@ -76,7 +72,7 @@ spec:
                 
                 -- sesacthon 사용자에게 auth 스키마 권한 부여
                 GRANT ALL PRIVILEGES ON SCHEMA auth TO sesacthon;
-                GRANT ALL PRIVILEGES ON DATABASE sesacthon TO sesacthon;
+                GRANT ALL PRIVILEGES ON DATABASE ecoeco TO sesacthon;
                 
                 -- 기본 스키마도 권한 부여
                 GRANT ALL PRIVILEGES ON SCHEMA public TO sesacthon;
