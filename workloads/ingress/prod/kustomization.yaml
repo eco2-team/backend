@@ -5,6 +5,6 @@ resources:
 - ../base
 
 patches:
-- path: patch-api-ingress.yaml
+- path: patch-auth-ingress.yaml
 - path: patch-argocd-ingress.yaml
 - path: patch-grafana-ingress.yaml
