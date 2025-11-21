@@ -7,6 +7,7 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: instance
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ip-address-type: ipv4
     # ACM Certificate ARN은 dev/prod overlay에서 주입
     alb.ingress.kubernetes.io/group.name: ecoeco-main
     alb.ingress.kubernetes.io/group.order: "20"
