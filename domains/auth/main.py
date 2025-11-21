@@ -3,7 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
-from domains.auth.api.v1.router import api_router, health_router
+from domains.auth.api.v1.router import api_router, health_probe_router
 from domains.auth.core.exceptions import (
     general_exception_handler,
     http_exception_handler,
@@ -36,7 +36,7 @@ def create_app() -> FastAPI:
     )
 
     # Health 엔드포인트는 루트 레벨에 마운트 (Kubernetes probes용)
-    app.include_router(health_router)
+    app.include_router(health_probe_router)
     # API 엔드포인트는 /api/v1 prefix 사용
     app.include_router(api_router)
     return app

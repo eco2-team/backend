@@ -14,7 +14,7 @@ class MetricsSuccessResponse(SuccessResponse[dict[str, Any]]):
 
 
 @metrics_router.get(
-    "/", response_model=MetricsSuccessResponse, summary="Auth service metrics snapshot"
+    "", response_model=MetricsSuccessResponse, summary="Auth service metrics snapshot"
 )
 async def metrics(service: AuthService = Depends()):
     metrics_data = await service.get_metrics()

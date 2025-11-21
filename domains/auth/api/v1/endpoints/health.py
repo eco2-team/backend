@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from domains.auth.api.v1.router import health_router
+from domains.auth.api.v1.router import health_probe_router, health_router
 from domains.auth.schemas.common import SuccessResponse
 
 SERVICE_NAME = "auth"
@@ -22,6 +22,9 @@ class HealthSuccessResponse(SuccessResponse[HealthData]):
 @health_router.get(
     "/health", response_model=HealthSuccessResponse, summary="Auth service health probe"
 )
+@health_probe_router.get(
+    "/health", response_model=HealthSuccessResponse, summary="Auth service health probe"
+)
 async def health():
     return HealthSuccessResponse(
         data=HealthData(
@@ -32,6 +35,9 @@ async def health():
 
 
 @health_router.get(
+    "/ready", response_model=HealthSuccessResponse, summary="Auth service readiness probe"
+)
+@health_probe_router.get(
     "/ready", response_model=HealthSuccessResponse, summary="Auth service readiness probe"
 )
 async def readiness():

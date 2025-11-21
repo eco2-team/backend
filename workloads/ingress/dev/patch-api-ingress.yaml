@@ -20,29 +20,43 @@ spec:
                 name: auth-api
                 port:
                   number: 8000
-          - path: /api/v1
+          - path: /api/v1/auth/metrics
             pathType: Prefix
             backend:
               service:
                 name: auth-api
                 port:
                   number: 8000
-          - path: /docs
-            pathType: Prefix
-            backend:
-              service:
-                name: auth-api
-                port:
-                  number: 8000
-          - path: /openapi.json
+          - path: /api/v1/auth/health
             pathType: Exact
             backend:
               service:
                 name: auth-api
                 port:
                   number: 8000
-          - path: /redoc
+          - path: /api/v1/auth/ready
+            pathType: Exact
+            backend:
+              service:
+                name: auth-api
+                port:
+                  number: 8000
+          - path: /api/v1/auth/docs
             pathType: Prefix
+            backend:
+              service:
+                name: auth-api
+                port:
+                  number: 8000
+          - path: /api/v1/auth/redoc
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-api
+                port:
+                  number: 8000
+          - path: /api/v1/auth/openapi.json
+            pathType: Exact
             backend:
               service:
                 name: auth-api
