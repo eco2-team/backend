@@ -11,4 +11,3 @@ labels:
     environment: dev
 patches:
 - path: patch-configmap.yaml
-- path: patch-ingress.yaml
