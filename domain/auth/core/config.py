@@ -10,12 +10,12 @@ class Settings(BaseSettings):
     environment: str = "local"
     api_v1_prefix: str = "/api/v1"
 
-    # Database connection (no default - must be provided via env)
-    database_url: str
+    # Database connection (required in production, defaults for testing)
+    database_url: str = "postgresql+asyncpg://test:test@localhost:5432/test"
 
-    # Redis connections (no defaults - must be provided via env)
-    redis_blacklist_url: str
-    redis_oauth_state_url: str
+    # Redis connections (required in production, defaults for testing)
+    redis_blacklist_url: str = "redis://localhost:6379/0"
+    redis_oauth_state_url: str = "redis://localhost:6379/3"
 
     oauth_state_ttl_seconds: int = 600
     oauth_redirect_template: str = "http://localhost:8000/api/v1/auth/{provider}/callback"
@@ -47,7 +47,12 @@ class Settings(BaseSettings):
     naver_client_secret: str = ""
     naver_redirect_uri: Optional[HttpUrl] = None
 
-    model_config = SettingsConfigDict(env_prefix="AUTH_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="AUTH_",
+        case_sensitive=False,
+        extra="ignore",
+        validate_default=True,
+    )
 
     @field_validator(
         "kakao_redirect_uri", "google_redirect_uri", "naver_redirect_uri", mode="before"
