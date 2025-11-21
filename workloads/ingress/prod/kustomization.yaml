@@ -5,10 +5,26 @@ resources:
 - ../base
 
 patches:
+- path: patch-auth-ingress.yaml
 - path: patch-argocd-ingress.yaml
 - path: patch-grafana-ingress.yaml
 
 replacements:
+- source:
+    kind: Secret
+    name: ingress-acm-arn
+    namespace: auth
+    fieldPath: data.certificate-arn
+  targets:
+  - select:
+      kind: Ingress
+      name: auth-ingress
+      namespace: auth
+    fieldPaths:
+    - metadata.annotations.[alb.ingress.kubernetes.io/certificate-arn]
+    options:
+      delimiter: ''
+
 - source:
     kind: Secret
     name: ingress-acm-arn
