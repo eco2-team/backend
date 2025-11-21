@@ -30,6 +30,7 @@ api_router.include_router(google_router)
 api_router.include_router(kakao_router)
 api_router.include_router(naver_router)
 api_router.include_router(health_router)
+api_router.include_router(metrics_router)
 
 __all__ = [
     "api_router",

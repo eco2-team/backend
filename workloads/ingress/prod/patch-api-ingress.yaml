@@ -1,8 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: api-ingress
-  namespace: default
+  name: auth-ingress
+  namespace: auth
   annotations:
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:123456789012:certificate/PROD_API_CERT
   external-dns.alpha.kubernetes.io/managed-by: external-dns

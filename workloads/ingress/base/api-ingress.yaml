@@ -1,13 +1,12 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: api-ingress
-  namespace: default
+  name: auth-ingress
+  namespace: auth
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: instance
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
-    # ACM Certificate ARN은 dev/prod overlay에서 주입
     alb.ingress.kubernetes.io/group.name: ecoeco-main
     alb.ingress.kubernetes.io/group.order: "10"
     alb.ingress.kubernetes.io/backend-protocol: HTTP
@@ -19,7 +18,7 @@ metadata:
     alb.ingress.kubernetes.io/success-codes: "200,404"
     external-dns.alpha.kubernetes.io/managed-by: external-dns
   labels:
-    app.kubernetes.io/name: api-ingress
+    app.kubernetes.io/name: auth-ingress
 spec:
   ingressClassName: alb
   rules:
@@ -28,13 +27,6 @@ spec:
         paths:
           - path: /api/v1/auth
             pathType: Prefix
-            backend:
-              service:
-                name: auth-api
-                port:
-                  number: 8000
-          - path: /health
-            pathType: Exact
             backend:
               service:
                 name: auth-api

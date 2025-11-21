@@ -1,8 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: api-ingress
-  namespace: default
+  name: auth-ingress
+  namespace: auth
   annotations:
     # TODO: ACM Certificate ARN을 ExternalSecret으로 주입
     # SSM Parameter: /sesacthon/dev/ingress/acm-certificate-arn
