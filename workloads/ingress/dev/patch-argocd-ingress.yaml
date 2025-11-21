@@ -4,9 +4,6 @@ metadata:
   name: argocd-ingress
   namespace: argocd
   annotations:
-    # TODO: ACM Certificate ARN을 ExternalSecret으로 주입
-    # SSM Parameter: /sesacthon/dev/ingress/acm-certificate-arn
-    # alb.ingress.kubernetes.io/certificate-arn: <SSM에서 가져올 예정>
     external-dns.alpha.kubernetes.io/managed-by: external-dns
 spec:
   rules:

@@ -18,6 +18,8 @@ metadata:
     alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
     alb.ingress.kubernetes.io/success-codes: "200,404"
     external-dns.alpha.kubernetes.io/managed-by: external-dns
+  labels:
+    app.kubernetes.io/name: api-ingress
 spec:
   ingressClassName: alb
   rules:
@@ -31,48 +33,6 @@ spec:
                 name: auth-api
                 port:
                   number: 8000
-          - path: /api/v1/my
-            pathType: Prefix
-            backend:
-              service:
-                name: my-api
-                port:
-                  number: 8000
-          - path: /api/v1/scan
-            pathType: Prefix
-            backend:
-              service:
-                name: scan-api
-                port:
-                  number: 8000
-          - path: /api/v1/character
-            pathType: Prefix
-            backend:
-              service:
-                name: character-api
-                port:
-                  number: 8000
-          - path: /api/v1/location
-            pathType: Prefix
-            backend:
-              service:
-                name: location-api
-                port:
-                  number: 8000
-          - path: /api/v1/info
-            pathType: Prefix
-            backend:
-              service:
-                name: info-api
-                port:
-                  number: 8000
-          - path: /api/v1/chat
-            pathType: Prefix
-            backend:
-              service:
-                name: chat-api
-                port:
-                  number: 8000
           - path: /health
             pathType: Exact
             backend:
@@ -80,3 +40,6 @@ spec:
                 name: auth-api
                 port:
                   number: 8000
+
+
+

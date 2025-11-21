@@ -5,6 +5,6 @@ resources:
 - api-ingress.yaml
 - argocd-ingress.yaml
 - grafana-ingress.yaml
-- default-backend.yaml
-- service-proxies.yaml
-- service-health.yaml
+- cross-namespace-services.yaml
+
+
