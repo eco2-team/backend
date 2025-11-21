@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auth-db-bootstrap
+  namespace: auth
+  labels:
+    app: auth-api
+    tier: business-logic
+    domain: auth
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,HookFailed
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: auth-api
+        tier: business-logic
+        domain: auth
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: db-bootstrap
+          image: docker.io/mng990/eco2:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - domain.auth.init_db
+          envFrom:
+            - configMapRef:
+                name: auth-config
+            - secretRef:
+                name: auth-secret
+      nodeSelector:
+        domain: auth
+      tolerations:
+        - key: domain
+          operator: Equal
+          value: auth
+          effect: NoSchedule
+

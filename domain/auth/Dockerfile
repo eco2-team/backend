@@ -23,7 +23,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 EXPOSE 8000
 
-# Alembic 마이그레이션 실행 후 서버 시작
-WORKDIR /app/domain/auth
-CMD alembic upgrade head && \
-    cd /app && uvicorn domain.auth.main:app --host 0.0.0.0 --port 8000
+# 애플리케이션 서버 시작
+CMD ["uvicorn", "domain.auth.main:app", "--host", "0.0.0.0", "--port", "8000"]
