@@ -9,7 +9,7 @@ metadata:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ip-address-type: ipv4
     # ACM Certificate ARN은 dev/prod overlay에서 주입
-    alb.ingress.kubernetes.io/group.name: ecoeco-main
+    alb.ingress.kubernetes.io/group.name: ecoeco-api
     alb.ingress.kubernetes.io/group.order: "10"
     alb.ingress.kubernetes.io/backend-protocol: HTTP
     alb.ingress.kubernetes.io/healthcheck-path: /health
