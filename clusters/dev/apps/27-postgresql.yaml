@@ -15,7 +15,7 @@ spec:
   source:
     repoURL: https://charts.bitnami.com/bitnami
     chart: postgresql
-    targetRevision: 16.2.1
+    targetRevision: 18.1.11  # 최신 안정 버전
     helm:
       values: |
         global:
@@ -31,11 +31,12 @@ spec:
                 adminPasswordKey: postgres-password
                 userPasswordKey: password
 
-        # PostgreSQL 이미지 - 검증된 태그 명시적 지정
+        # PostgreSQL 16 이미지 명시적 지정 (Chart 18.x이지만 PostgreSQL 16 사용)
         image:
           registry: docker.io
           repository: bitnami/postgresql
-          tag: 16.4.0  # Semantic version (확실히 존재)
+          tag: 16.4.0
+          digest: ""
           pullPolicy: IfNotPresent
 
         architecture: standalone
