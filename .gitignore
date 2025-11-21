@@ -61,6 +61,9 @@ tfplan
 .env
 .env.local
 
+# Exception: Allow specific auth .env.local for local development
+!domain/auth/.env.local
+
 # Kubernetes
 kubeconfig.tmp
 kubeconfig*.tmp
