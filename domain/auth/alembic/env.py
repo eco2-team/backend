@@ -1,4 +1,5 @@
 """Alembic environment configuration for auth service."""
+
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -32,6 +33,7 @@ target_metadata = Base.metadata
 def get_url():
     """Get database URL from settings, convert to sync driver for Alembic."""
     from domain.auth.core.config import get_settings
+
     url = get_settings().database_url
     # Convert asyncpg to psycopg2 for Alembic
     return url.replace("postgresql+asyncpg://", "postgresql://")
@@ -77,9 +79,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()
@@ -89,4 +89,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
-
