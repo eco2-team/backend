@@ -31,13 +31,8 @@ spec:
                 adminPasswordKey: postgres-password
                 userPasswordKey: password
 
-        # PostgreSQL 16 이미지 명시적 지정 (Chart 18.x이지만 PostgreSQL 16 사용)
-        image:
-          registry: docker.io
-          repository: bitnami/postgresql
-          tag: "16"
-          digest: ""
-          pullPolicy: IfNotPresent
+        # PostgreSQL 16 이미지 - Bitnami Chart가 자동으로 적절한 이미지 선택
+        # image 섹션을 제거하고 Chart 기본값 사용 (PostgreSQL 16.x)
 
         architecture: standalone
 
