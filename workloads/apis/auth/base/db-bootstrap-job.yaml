@@ -27,7 +27,7 @@ spec:
           command:
             - python
             - -m
-            - domain.auth.init_db
+            - domains.auth.init_db
           envFrom:
             - configMapRef:
                 name: auth-config
