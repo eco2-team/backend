@@ -10,7 +10,7 @@ google_router = APIRouter(prefix="/auth/google", tags=["auth/google"])
 kakao_router = APIRouter(prefix="/auth/kakao", tags=["auth/kakao"])
 naver_router = APIRouter(prefix="/auth/naver", tags=["auth/naver"])
 metrics_router = APIRouter(prefix="/metrics", tags=["metrics"])
-health_router = APIRouter(prefix="/health", tags=["health"])
+health_router = APIRouter(tags=["health"])  # prefix 제거
 
 access_token_dependency = build_access_token_dependency(
     get_settings,
