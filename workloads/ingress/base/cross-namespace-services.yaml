@@ -1,5 +1,6 @@
 # Cross-namespace service proxy for api-ingress
 # api-ingress (default namespace)가 auth namespace의 auth-api NodePort를 참조
+# target-type: instance를 사용하므로 NodePort 타입 필수
 
 ---
 apiVersion: v1
@@ -10,10 +11,11 @@ metadata:
   labels:
     app: auth-api
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - port: 8000
       targetPort: 8000
+      nodePort: 30800  # 8000 포트를 NodePort 범위로 매핑 (30000-32767)
       protocol: TCP
       name: http
 
@@ -34,6 +36,7 @@ subsets:
 ---
 # 향후 추가될 API 서비스들 (현재는 주석 처리)
 # 각 서비스마다 Service + Endpoints 정의 필요
+# 각 서비스의 실제 NodePort 번호를 확인하여 지정
 
 # apiVersion: v1
 # kind: Service
@@ -41,10 +44,11 @@ subsets:
 #   name: my-api
 #   namespace: default
 # spec:
-#   type: ClusterIP
+#   type: NodePort
 #   ports:
 #     - port: 8000
 #       targetPort: 8000
+#       nodePort: <my-api의 실제 NodePort>
 #       protocol: TCP
 #       name: http
 # ---
@@ -61,31 +65,6 @@ subsets:
 #         protocol: TCP
 #         name: http
 
----
-# apiVersion: v1
-# kind: Service
-# metadata:
-#   name: scan-api
-#   namespace: default
-# spec:
-#   type: ClusterIP
-#   ports:
-#     - port: 8000
-#       targetPort: 8000
-#       protocol: TCP
-#       name: http
-# ---
-# apiVersion: v1
-# kind: Endpoints
-# metadata:
-#   name: scan-api
-#   namespace: default
-# subsets:
-#   - addresses:
-#       - ip: <scan-api Pod IP>
-#     ports:
-#       - port: 8000
-#         protocol: TCP
-#         name: http
+
 
 
