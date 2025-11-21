@@ -36,7 +36,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 |------|----|
 | 환경 변수 | `CHARACTER_DATABASE_URL` |
 | 기본값 (`core/config.py`) | `postgresql+asyncpg://sesacthon:sesacthon@postgres-cluster.postgres.svc.cluster.local:5432/sesacthon` |
-| ConfigMap (`workloads/apis/character/base/configmap.yaml`) | 동일 값 |
+| ConfigMap (`workloads/domains/character/base/configmap.yaml`) | 동일 값 |
 | 클러스터 서비스 | `postgres-cluster.postgres.svc.cluster.local` (ClusterIP: `10.96.69.188`, Port `5432`) |
 
 **파드 내 유효성 체크**
@@ -73,11 +73,11 @@ kubectl exec -n character deploy/character-api -- \
    GitHub Actions (ci-services.yml)이 `services/character/Dockerfile` 로 이미지를 빌드 후 Docker Hub `docker.io/mng990/eco2` 에 푸시.
 
 2. **ConfigMap & Secret 적용**  
-   `workloads/apis/character/base/configmap.yaml` 에서 환경 변수 주입.
+   `workloads/domains/character/base/configmap.yaml` 에서 환경 변수 주입.
    Postgres URL 은 여기서 override 가능.
 
 3. **Deployment**  
-   `workloads/apis/character/base/deployment.yaml` (별도 참조) 에서 `dockerhub-secret` 으로 이미지 Pull.
+   `workloads/domains/character/base/deployment.yaml` (별도 참조) 에서 `dockerhub-secret` 으로 이미지 Pull.
    `envFrom`/`env` 섹션으로 ConfigMap 값을 컨테이너로 전달.
 
 4. **런타임 확인**  

@@ -76,7 +76,7 @@ async def init_db():
 
 ### 3. **Kubernetes ConfigMap**
 
-#### `workloads/apis/auth/base/configmap.yaml`
+#### `workloads/domains/auth/base/configmap.yaml`
 ```yaml
 # 추가됨
 AUTH_FRONTEND_URL: "https://frontend-beta-gray-c44lrfj3n1.vercel.app"
@@ -123,7 +123,7 @@ domain/
 
 ### C. 수정된 파일
 ```
-workloads/apis/auth/base/configmap.yaml    ✅ 프론트엔드 URL 추가
+workloads/domains/auth/base/configmap.yaml    ✅ 프론트엔드 URL 추가
 domain/auth/core/config.py                 ✅ oauth_failure_redirect_url 추가
 domain/auth/api/v1/endpoints/auth.py       ✅ OAuth 콜백 예외 처리
 domain/auth/models/user.py                 ✅ schema='auth' 추가
@@ -163,7 +163,7 @@ domain/auth/init_db.py                     ✅ CREATE SCHEMA 추가
 git add domain/
 git add DEPLOYMENT_CHECKLIST.md
 git add KUSTOMIZE_IMAGE_CHECK.md
-git add workloads/apis/auth/base/configmap.yaml
+git add workloads/domains/auth/base/configmap.yaml
 ```
 
 ### 삭제 확인 (이미 develop에서 삭제됨)
@@ -188,7 +188,7 @@ docker push docker.io/mng990/eco2-auth:dev-latest
 ### 2. Git 커밋 & 푸시
 ```bash
 git add domain/ DEPLOYMENT_CHECKLIST.md KUSTOMIZE_IMAGE_CHECK.md
-git add workloads/apis/auth/base/configmap.yaml
+git add workloads/domains/auth/base/configmap.yaml
 git commit -m "feat(auth): OAuth failure redirect and PostgreSQL schema setup
 
 - Add OAuth login failure redirect to frontend

@@ -24,12 +24,12 @@ kustomize build workloads/namespaces/dev
 kustomize build workloads/network-policies/prod
 
 # 특정 API (auth, dev)
-kustomize build workloads/apis/auth/dev
+kustomize build workloads/domains/auth/dev
 ```
 
 ## 새 API 도메인 추가 절차
-1. `workloads/apis/<domain>/base/` scaffolding 복사 → Deployment/Service/ConfigMap 작성  
-2. `workloads/apis/<domain>/{dev,prod}/kustomization.yaml`에서 base 참조 후 patch 추가  
+1. `workloads/domains/<domain>/base/` scaffolding 복사 → Deployment/Service/ConfigMap 작성  
+2. `workloads/domains/<domain>/{dev,prod}/kustomization.yaml`에서 base 참조 후 patch 추가  
 3. 필요한 NodeSelector/taint, Secret 참조(ExternalSecret), ConfigMap 등을 patch 파일에 정의  
 4. `clusters/{env}/apps/60-apis-appset.yaml` 또는 해당 ApplicationSet 리스트에 새 도메인 경로를 추가  
 5. `argocd app diff` → `argocd app sync`로 반영

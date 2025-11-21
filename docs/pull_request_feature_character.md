@@ -9,7 +9,7 @@
 1. `services/character/app/database/` 로 SQLAlchemy Base / Session / Models 이관
 2. `services/_shared/security/` JWT 모듈 재사용 및 Character 라우터 통합
 3. Dockerfile 헬스체크·비루트 구성, `services/character/README.md` 작성
-4. `workloads/apis/character/base/configmap.yaml` 등 GitOps 경로 및 가이드 업데이트
+4. `workloads/domains/character/base/configmap.yaml` 등 GitOps 경로 및 가이드 업데이트
 5. dev ArgoCD Applications 의 `targetRevision` 을 `develop` 으로 변경
 
 ## 🧪 테스트

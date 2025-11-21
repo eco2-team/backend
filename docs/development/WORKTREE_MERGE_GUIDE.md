@@ -22,7 +22,7 @@ cd /Users/mango/workspace/SeSACTHON/backend/worktrees/feature-auth
 
 # 변경사항 스테이징
 git add domain/
-git add workloads/apis/auth/base/configmap.yaml
+git add workloads/domains/auth/base/configmap.yaml
 git add DEPLOYMENT_CHECKLIST.md
 git add KUSTOMIZE_IMAGE_CHECK.md
 git add TODAY_CHANGES.md
@@ -253,7 +253,7 @@ cd /Users/mango/workspace/SeSACTHON/backend/worktrees/feature-auth
 git status
 
 # 2. 스테이징
-git add domain/ workloads/apis/auth/base/configmap.yaml *.md
+git add domain/ workloads/domains/auth/base/configmap.yaml *.md
 
 # 3. 커밋
 git commit -m "feat(auth): OAuth failure redirect and PostgreSQL schema setup"

@@ -103,7 +103,7 @@ Patch 파일은 overlay 디렉토리 루트에 두고, `kustomization.yaml`에 �
 
 1. **ArgoCD Application**  
    - `repoURL`: 이 저장소  
-   - `path`: `workloads/apis/auth/overlays/prod`  
+   - `path`: `workloads/domains/auth/overlays/prod`  
    - `annotations.argocd.argoproj.io/sync-wave`: 서비스 계층에 맞춰 설정
 
 2. **프로모션**  
@@ -111,7 +111,7 @@ Patch 파일은 overlay 디렉토리 루트에 두고, `kustomization.yaml`에 �
    - Base 변경 시 모든 overlay가 영향을 받으므로 PR 템플릿에 “Base 영향” 항목을 추가.
 
 3. **검증**  
-   - `kustomize build workloads/apis/auth/overlays/prod | kubectl apply --dry-run=client -f -`  
+   - `kustomize build workloads/domains/auth/overlays/prod | kubectl apply --dry-run=client -f -`  
    - CI에서 overlay별 build 를 수행해 Drift 감지.
 
 ---

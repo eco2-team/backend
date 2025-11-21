@@ -14,7 +14,7 @@
    - `playbooks/02-master-init.yml`: 기본 control-plane taint(legacy)를 제거하고 `role=control-plane:NoSchedule` 커스텀 taint로 교체.
    - `playbooks/tasks/cni-install.yml`: CoreDNS toleration 패치를 Calico 설치 이후 단계로 이동하고, `role=control-plane` 및 `domain=*` 기반으로만 toleration을 유지.
 3. **Workloads/Platform**
-   - API Deployments(`workloads/apis/*/base/deployment.yaml`): `nodeSelector.kubernetes.io/service=*` → `nodeSelector.domain=*` 변경.
+   - API Deployments(`workloads/domains/*/base/deployment.yaml`): `nodeSelector.kubernetes.io/service=*` → `nodeSelector.domain=*` 변경.
    - Data CRs:
      - `platform/cr/base/postgres-cluster.yaml`
      - `platform/cr/base/redis-{replication,sentinel}.yaml`

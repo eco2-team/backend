@@ -24,7 +24,7 @@
 ## 배포
 
 ```bash
-kubectl apply -k workloads/apis/auth/overlays/dev
+kubectl apply -k workloads/domains/auth/overlays/dev
 kubectl get pods -n auth
 ```
 

@@ -51,7 +51,7 @@ aws service-quotas get-service-quota \
 # 3. 노드 라벨/taint 동기화
 # - docs/infrastructure/k8s-label-annotation-system.md
 # - ansible/playbooks/fix-node-labels.yml
-# - workloads/apis/*/base/deployment.yaml
+# - workloads/domains/*/base/deployment.yaml
 
 # 4. Git 상태
 git status

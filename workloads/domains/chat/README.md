@@ -1,6 +1,6 @@
-# Info API Workload
+# Chat API Workload
 
-Info 도메인 API 서비스 Kustomize 구조.
+Chat 도메인 API 서비스 Kustomize 구조.
 
 ## 구조
 
@@ -21,5 +21,5 @@ Info 도메인 API 서비스 Kustomize 구조.
 ## 배포
 
 ```bash
-kubectl apply -k workloads/apis/info/overlays/dev
+kubectl apply -k workloads/domains/chat/overlays/dev
 ```

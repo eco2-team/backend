@@ -107,7 +107,7 @@ CI가 생성하는 태그는 GitOps 오버레이가 그대로 참조하도록 �
 
 - **Deployment 기본 이미지**: `dockerhub-secret`을 통해 풀하며 `docker.io/mng990/eco2:latest`를 기본값으로 두고 태그로 서비스/환경을 구분한다.
 
-```23:51:workloads/apis/auth/base/deployment.yaml
+```23:51:workloads/domains/auth/base/deployment.yaml
         - name: auth-api
           image: docker.io/mng990/eco2:latest
 ...
@@ -117,7 +117,7 @@ CI가 생성하는 태그는 GitOps 오버레이가 그대로 참조하도록 �
 
 - **환경별 오버레이**: dev/prod 각각 `name: docker.io/mng990/eco2`에 `newTag: <service>-<env>-latest`를 부여해 동일 리포 내 태그만 바꾸도록 했다.
 
-```1:14:workloads/apis/auth/prod/kustomization.yaml
+```1:14:workloads/domains/auth/prod/kustomization.yaml
 images:
 - name: docker.io/mng990/eco2
   newTag: auth-prod-latest

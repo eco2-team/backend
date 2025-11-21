@@ -8,7 +8,7 @@ on:
       - refactor/gitops-sync-wave
     paths:
       - "domains/**"
-      - "workloads/apis/**"
+      - "workloads/domains/**"
       - "scripts/**"
       - ".github/workflows/ci-services.yml"
   pull_request:
@@ -18,7 +18,7 @@ on:
       - refactor/gitops-sync-wave
     paths:
       - "domains/**"
-      - "workloads/apis/**"
+      - "workloads/domains/**"
       - "scripts/**"
       - ".github/workflows/ci-services.yml"
   workflow_dispatch:
@@ -106,7 +106,7 @@ jobs:
         with:
           files: |
             domains/**
-            workloads/apis/**
+            workloads/domains/**
 
       - name: Prepare service matrix
         id: prepare
@@ -153,8 +153,8 @@ jobs:
                       svc = parts[1]
                       if svc and svc in all_services and svc not in services:
                           services.append(svc)
-                  # workloads/apis/<service>/ 경로 감지
-                  elif len(parts) >= 3 and parts[0] == "workloads" and parts[1] == "apis":
+                  # workloads/domains/<service>/ 경로 감지
+                  elif len(parts) >= 3 and parts[0] == "workloads" and parts[1] == "domains":
                       svc = parts[2]
                       if svc and svc in all_services and svc not in services:
                           services.append(svc)

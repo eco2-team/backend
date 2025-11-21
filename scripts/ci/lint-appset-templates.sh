@@ -43,7 +43,7 @@ APPS = [
 
 services = sorted(
     p.name
-    for p in pathlib.Path("workloads/apis").iterdir()
+    for p in pathlib.Path("workloads/domains").iterdir()
     if p.is_dir()
 )
 
@@ -98,7 +98,7 @@ if errors:
         print(f"- {err}")
     sys.exit(1)
 
-print("✅ ApplicationSet service lists match workloads/apis/* directories.")
+print("✅ ApplicationSet service lists match workloads/domains/* directories.")
 PY
 
 python3 <<'PY'

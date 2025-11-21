@@ -46,7 +46,7 @@
 | 보안 | OAuth 2.0 PKCE, JWT HS256/RS256, TLS 1.3 | `redis` Blacklist, Refresh Rotation |
 | 확장성 | HPA 2~10 replicas, 500 RPS 목표 | `/metrics` 기반 HPA (CPU+RPS) |
 | 관측성 | 로그 추적률 95% | OpenTelemetry FastAPI 중간웨어 |
-| 배포 | GitOps 자동 승격 | `workloads/apis/<service>` ApplicationSet |
+| 배포 | GitOps 자동 승격 | `workloads/domains/<service>` ApplicationSet |
 
 ---
 
@@ -318,7 +318,7 @@ sequenceDiagram
 1. **서비스 코드 레이아웃**: `services/<domain>` 내 공통 FastAPI 스캐폴딩 (`app/main.py`, `app/api/v1/endpoints`, `app/services`, `app/schemas`). 모듈 공통 util은 `services/_shared/` (필요 시) 로 이동.
 2. **컨테이너**: `Dockerfile`은 multi-stage(uvicorn) 기반. 이미지 태그: `ghcr.io/sesacthon/<service>-api:{env}-{gitSha}`.
 3. **배포 매니페스트**:
-   - `workloads/apis/<service>/base/deployment.yaml` : HPA, Service, VirtualService(if Istio) 정의.
+   - `workloads/domains/<service>/base/deployment.yaml` : HPA, Service, VirtualService(if Istio) 정의.
    - `clusters/{env}/apps/<sync-wave>-<service>.yaml` 에 Application 리소스 등록.
    - Secrets: ExternalSecret (`workloads/secrets/external-secrets/{env}/service-*.yaml`) 연결, OAuth 키/ Kakao 키 / S3 키 관리.
 4. **Sync Wave 제안**:

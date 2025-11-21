@@ -18,7 +18,7 @@
 ## 3. Kustomize(workloads) 점검
 - [ ] 모든 경로가 `base/` + `{env}/` 오버레이 구조를 가지며, `kustomization.yaml`이 base를 참조한다.
 - [ ] Wave 표에 없는 중복 Application(dev에서 Wave 0/3에 동시에 선언 등)이 존재하지 않는다.
-- [ ] `workloads/apis/<service>/{env}` 디렉터리가 `60-apis-appset`의 generator 리스트와 1:1 대응한다.
+- [ ] `workloads/domains/<service>/{env}` 디렉터리가 `60-apis-appset`의 generator 리스트와 1:1 대응한다.
 - [ ] 민감 값은 ExternalSecret/ConfigMap을 통해 주입되고, Kustomize에 literal secrets가 남아있지 않다.
 
 ## 4. CRD / Secrets 선행 조건

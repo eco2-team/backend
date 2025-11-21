@@ -196,9 +196,9 @@
 ## 10. Workloads APIs Kustomize 생성 ✅
 
 ### 작업 항목
-- [x] `workloads/apis/auth/base/`: Deployment + Service + ConfigMap
-- [x] `workloads/apis/auth/overlays/dev/`: 환경변수, replicas, image tag
-- [x] `workloads/apis/auth/overlays/prod/`: 동일 구조
+- [x] `workloads/domains/auth/base/`: Deployment + Service + ConfigMap
+- [x] `workloads/domains/auth/overlays/dev/`: 환경변수, replicas, image tag
+- [x] `workloads/domains/auth/overlays/prod/`: 동일 구조
 - [x] 나머지 API: my, scan, character, location, info, chat (동일 패턴)
 - [x] 각 API 디렉터리에 README.md 추가 (7개)
 

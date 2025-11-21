@@ -36,7 +36,7 @@ spec:
       source:
         repoURL: https://github.com/eco2-team/backend.git
         targetRevision: develop
-        path: workloads/apis/{{name}}/dev
+        path: workloads/domains/{{name}}/dev
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{name}}"

@@ -61,7 +61,7 @@ k8s-api-auth   Ready    sesacthon.io/node-role=api,
 
 **Deployment가 요구하는 nodeSelector** (표준 manifest):
 ```yaml
-# workloads/apis/auth/base/deployment.yaml
+# workloads/domains/auth/base/deployment.yaml
 spec:
   template:
     spec:
@@ -89,7 +89,7 @@ spec:
 
 **API Services** (7개):
 ```yaml
-# workloads/apis/auth/base/deployment.yaml (수정 후)
+# workloads/domains/auth/base/deployment.yaml (수정 후)
 spec:
   template:
     spec:
@@ -145,13 +145,13 @@ spec:
 
 #### 2. 수정된 파일 목록
 
-- ✅ `workloads/apis/auth/base/deployment.yaml`
-- ✅ `workloads/apis/my/base/deployment.yaml`
-- ✅ `workloads/apis/scan/base/deployment.yaml`
-- ✅ `workloads/apis/character/base/deployment.yaml`
-- ✅ `workloads/apis/location/base/deployment.yaml`
-- ✅ `workloads/apis/info/base/deployment.yaml`
-- ✅ `workloads/apis/chat/base/deployment.yaml`
+- ✅ `workloads/domains/auth/base/deployment.yaml`
+- ✅ `workloads/domains/my/base/deployment.yaml`
+- ✅ `workloads/domains/scan/base/deployment.yaml`
+- ✅ `workloads/domains/character/base/deployment.yaml`
+- ✅ `workloads/domains/location/base/deployment.yaml`
+- ✅ `workloads/domains/info/base/deployment.yaml`
+- ✅ `workloads/domains/chat/base/deployment.yaml`
 - ✅ `platform/cr/base/postgres-cluster.yaml`
 - ✅ `platform/cr/dev/redis-dev-patch.yaml`
 - ✅ `docs/infrastructure/k8s-label-annotation-system.md`
@@ -1183,7 +1183,7 @@ Wave 60: API Applications
 **3개 문서가 항상 일치**해야 함:
 - `docs/infrastructure/k8s-label-annotation-system.md`: 노드 라벨 체계 정의
 - `ansible/playbooks/fix-node-labels.yml`: 실제 라벨 설정 코드
-- `workloads/apis/*/base/deployment.yaml`: nodeSelector 설정
+- `workloads/domains/*/base/deployment.yaml`: nodeSelector 설정
 
 ### 검증 스크립트
 

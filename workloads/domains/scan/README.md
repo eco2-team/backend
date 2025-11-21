@@ -21,5 +21,5 @@ Scan 도메인 API 서비스 Kustomize 구조.
 ## 배포
 
 ```bash
-kubectl apply -k workloads/apis/scan/overlays/dev
+kubectl apply -k workloads/domains/scan/overlays/dev
 ```

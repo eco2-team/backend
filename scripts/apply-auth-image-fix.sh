@@ -11,7 +11,7 @@ BACKEND_DIR="/Users/mango/workspace/SeSACTHON/backend"
 
 echo "📋 현재 코드 상태 확인..."
 echo ""
-cd "$BACKEND_DIR/workloads/apis/auth/dev"
+cd "$BACKEND_DIR/workloads/domains/auth/dev"
 
 echo "=== Kustomize 빌드 결과 (이미지 확인) ==="
 kustomize build . | grep "image: docker.io" | head -3
@@ -58,7 +58,7 @@ else
     echo ""
     echo "수동으로 적용하려면 다음 명령어를 실행하세요:"
     echo ""
-    echo "  cd $BACKEND_DIR/workloads/apis/auth/dev"
+    echo "  cd $BACKEND_DIR/workloads/domains/auth/dev"
     echo "  kubectl apply -k ."
     echo "  kubectl rollout restart deployment auth-api -n auth"
     echo "  kubectl delete job auth-db-bootstrap -n auth"

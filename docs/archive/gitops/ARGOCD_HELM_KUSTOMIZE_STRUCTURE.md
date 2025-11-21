@@ -120,7 +120,7 @@ Secrets/ConfigMap 선행 조건은 `SYNC_WAVE_SECRET_MATRIX.md`의 “필요한 
 | `workloads/ingress/overlays/(dev|prod)` | Host · Certificate 패치(JSON6902) | 70+ | `alb.ingress.kubernetes.io/certificate-arn`, `host` |
 | `workloads/secrets/external-secrets` | ExternalSecret CR (ASM/SSM) | 58 | `/sesacthon/{env}/*` Parameter |
 | `workloads/secrets/sops` | 암호화 Secret (선택) | 58 | `sops.yaml` 정책 |
-| `workloads/apis/{service}/overlays/{env}` | Deployment/Service/CM | 60+ | `sync-wave` per service 가능 |
+| `workloads/domains/{service}/overlays/{env}` | Deployment/Service/CM | 60+ | `sync-wave` per service 가능 |
 
 ### API Overlay 공통 항목
 - `kustomization.yaml`에 `namespace`, `commonLabels` (`tier=business-logic`, `domain=*`) 지정  

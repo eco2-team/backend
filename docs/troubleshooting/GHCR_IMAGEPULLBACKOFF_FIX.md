@@ -39,7 +39,7 @@ Events:
 
 ### 1. Deployment 설정 확인
 ```yaml
-# workloads/apis/auth/base/deployment.yaml
+# workloads/domains/auth/base/deployment.yaml
 spec:
   template:
     spec:
@@ -187,7 +187,7 @@ resources:
 
 ### Step 3: Deployment에서 imagePullSecrets 사용
 
-**파일**: `workloads/apis/auth/base/deployment.yaml` (이미 구현됨)
+**파일**: `workloads/domains/auth/base/deployment.yaml` (이미 구현됨)
 
 ```yaml
 spec:

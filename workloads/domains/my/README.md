@@ -21,5 +21,5 @@ My 도메인 API 서비스 Kustomize 구조.
 ## 배포
 
 ```bash
-kubectl apply -k workloads/apis/my/overlays/dev
+kubectl apply -k workloads/domains/my/overlays/dev
 ```

@@ -1,6 +1,6 @@
-# Location API Workload
+# Character API Workload
 
-Location 도메인 API 서비스 Kustomize 구조.
+Character 도메인 API 서비스 Kustomize 구조.
 
 ## 구조
 
@@ -21,5 +21,5 @@ Location 도메인 API 서비스 Kustomize 구조.
 ## 배포
 
 ```bash
-kubectl apply -k workloads/apis/location/overlays/dev
+kubectl apply -k workloads/domains/character/overlays/dev
 ```
