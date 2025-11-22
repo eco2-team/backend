@@ -9,14 +9,15 @@ from utils import (
 # ==========================================
 # 자연어 답변 생성 (GPT-5 Mini)
 # ==========================================
-def generate_answer(classification_result: dict, disposal_rules: dict, save_result: bool = True) -> dict:
+def generate_answer(classification_result: dict, disposal_rules: dict, save_result: bool = True, pipeline_type: str = "vision") -> dict:
     """
     분류 결과와 배출 규정을 기반으로 자연어 안내문을 생성
 
     Args:
-        classification_result: Vision API의 분류 결과 JSON
+        classification_result: Vision API 또는 텍스트 분류 결과 JSON
         disposal_rules: 매칭된 JSON 파일의 배출 규정
         save_result: 결과를 JSON 파일로 저장할지 여부 (기본값: True)
+        pipeline_type: 파이프라인 타입 ("vision" 또는 "text", 기본값: "vision")
 
     Returns:
         자연어 안내문 JSON (dict):
@@ -29,21 +30,12 @@ def generate_answer(classification_result: dict, disposal_rules: dict, save_resu
     # 시스템 프롬프트 로드
     system_prompt = load_prompt(ANSWER_GENERATION_PROMPT_PATH)
 
-    # disposal_rules에서 필요한 정보 추출
-    disposal_common = disposal_rules.get("배출방법_공통", {})
-    disposal_detail = disposal_rules.get("배출방법_세부", {})
-    disposal_forbidden = disposal_rules.get("배출불가_품목_안내", {})
-
     # user message 데이터 구성
     user_data = {
         "classification": classification_result.get("classification", {}),
         "situation_tags": classification_result.get("situation_tags", []),
         "meta": classification_result.get("meta", {}),
-        "lite_rag_result": {
-            "배출방법_공통": disposal_common,
-            "배출방법_세부": disposal_detail,
-            "배출불가_품목_안내": disposal_forbidden
-        }
+        "lite_rag_result": disposal_rules  # 전체 disposal_rules를 통째로 전달
     }
 
     # JSON 문자열로 변환
@@ -51,7 +43,8 @@ def generate_answer(classification_result: dict, disposal_rules: dict, save_resu
 
     # GPT-5 Mini 호출
     response = client.chat.completions.create(
-        model="gpt-5-mini",
+        # model="gpt-5-mini",
+        model="gpt-5.1",
         messages=[
             {
                 "role": "system",
@@ -76,7 +69,9 @@ def generate_answer(classification_result: dict, disposal_rules: dict, save_resu
             "disposal_rules": disposal_rules,
             "final_answer": answer_json
         }
-        saved_path = save_json_result(full_result, "answer")
-        print(f"✅ 결과가 저장되었습니다: {saved_path}")
+        # 파이프라인 타입에 따라 다른 폴더에 저장
+        subfolder = f"{pipeline_type}/answer"
+        saved_path = save_json_result(full_result, "final_answer", subfolder=subfolder)
+        print(f"✅ 최종 답변이 저장되었습니다: {saved_path}")
 
     return answer_json

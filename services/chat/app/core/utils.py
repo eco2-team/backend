@@ -18,6 +18,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 ITEM_CLASS_PATH = "item_class_list.yaml"
 SITUATION_TAG_PATH = "situation_tags.yaml"
 VISION_PROMPT_PATH = "prompts/vision_classification_prompt.txt"
+TEXT_CLASSIFICATION_PROMPT_PATH = "prompts/text_classification_prompt.txt"
 ANSWER_GENERATION_PROMPT_PATH = "prompts/answer_generation_prompt.txt"
 RESULTS_DIR = "results"
 
@@ -43,20 +44,25 @@ def get_openai_client():
     """OpenAI 클라이언트 반환"""
     return client
 
-def save_json_result(data: dict, filename_prefix: str = "result") -> str:
+def save_json_result(data: dict, filename_prefix: str = "result", subfolder: str = "") -> str:
     """
     JSON 데이터를 results/ 폴더에 타임스탬프와 함께 저장
 
     Args:
         data: 저장할 JSON 데이터 (dict)
         filename_prefix: 파일명 접두사 (기본값: "result")
+        subfolder: results/ 아래의 하위 폴더 경로 (예: "vision/classification")
 
     Returns:
         저장된 파일 경로 (문자열)
     """
-    # results 폴더 생성 (없으면)
-    results_dir = Path(RESULTS_DIR)
-    results_dir.mkdir(exist_ok=True)
+    # results 폴더 및 하위 폴더 생성 (없으면)
+    if subfolder:
+        results_dir = Path(RESULTS_DIR) / subfolder
+    else:
+        results_dir = Path(RESULTS_DIR)
+
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     # 타임스탬프 기반 파일명 생성
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
