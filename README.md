@@ -25,7 +25,7 @@ Tier 0 Monitoring  : Prometheus, Grafana, Alerter Manager, ArgoCD
 
 각 계층은 서로 독립적으로 기능하도록 설계되었으며, 모니터링 스택을 제외한 상위 계층의 의존성은 하위 단일 계층으로 제한됩니다. 
 프로덕션 환경을 전제로 한 Self-manged Kubernetes 기반 클러스터로 컨테이너화된 어플리케이션의 오케스트레이션을 지원합니다. 
-클러스터의 안정성과 성능을 보장하기 위해 모니터링 시스템을 도입, IaC(Infrastructure as Code) 및 GitOps 파이프라인을 구축해 단일 레포지토리가 SSOT(Single Source Of Truth)로 기능하도록 제작되었습니다. 
+클러스터의 안정성과 성능을 보장하기 위해 모니터링 시스템을 도입, IaC(Infrastructure as Code) 및 GitOps 파이프라인을 구축해 모노레포 기반 코드베이스가 SSOT(Single Source Of Truth)로 기능하도록 제작되었습니다. 
 이에 따라 리소스 증설, 고가용성(HA) 도입 등 다양한 요구사항에 따라 클러스터가 유연하게 변경 및 확장이 가능합니다.
 
 ---
@@ -72,7 +72,7 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 | Kustomize Workloads | `workloads/README.md`, `workloads/rbac-storage/README.md` |
 | 데이터 계층 (CRD/CR) | `platform/crds/README.md`, `platform/cr/README.md`, `docs/troubleshooting/2025-11-19-rabbitmq-redis.md` |
 | 서비스 & CI | `services/README.md`, `docs/ci/04-CI_CD_PIPELINE.md` |
-| CD/운영 가이드 | `docs/deployment/README.md`, `docs/troubleshooting/*.md` |
+| 배포/운영 가이드 | `docs/deployment/README.md`, `docs/troubleshooting/*.md` |
 
 ---
 
@@ -96,7 +96,7 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 | 28 | Redis Operator | `clusters/{env}/apps/28-redis-operator.yaml` · OT-Container-Kit Helm (`skipCrds`) |
 | 35 | Data Custom Resources | `platform/cr/{env}` · PostgresCluster / RedisReplication / RedisSentinel (RabbitMQ 일시 중단) |
 | 60 | Domain APIs | `clusters/{env}/apps/60-apis-appset.yaml` → `workloads/apis/<domain>/{env}` |
-| 70 | Ingress | `workloads/ingress/{env}` · API / Grafana / ArgoCD Ingress + ExternalDNS annotation |
+| 70 | Ingress | `workloads/ingress/{env}` · API / Grafana / API, ArgoCD, Grafana Ingress + ExternalDNS annotation |
 
 - ArgoCD Sync-wave로 의존성 순서를 보장하며, 패키지 의존성이 높은 플랫폼은 Helm-charts 기반 Opensource Operator+CRD로 관리·배포합니다.
 - AWS Load Balancer Controller·External Secrets·Postgres/Redis Operator는 upstream Helm chart를 `skipCrds: true`로 설치합니다.
