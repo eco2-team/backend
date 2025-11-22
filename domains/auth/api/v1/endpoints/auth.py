@@ -1,7 +1,10 @@
 from typing import Annotated, Optional
+import logging
 
 from fastapi import Cookie, Depends, Request, Response
 from fastapi.responses import RedirectResponse
+
+logger = logging.getLogger(__name__)
 
 from domains.auth.api.v1.router import (
     access_token_dependency,
@@ -87,8 +90,9 @@ async def google_callback(
             ip_address=request.client.host if request.client else None,
         )
         return LoginSuccessResponse(data=LoginData(user=user))
-    except Exception:
+    except Exception as e:
         # OAuth 실패 시 프론트엔드 로그인 페이지로 리다이렉트
+        logger.error(f"Google OAuth callback failed: {type(e).__name__}: {str(e)}", exc_info=True)
         settings = get_settings()
         return RedirectResponse(url=settings.oauth_failure_redirect_url)
 
@@ -115,8 +119,9 @@ async def kakao_callback(
             ip_address=request.client.host if request.client else None,
         )
         return LoginSuccessResponse(data=LoginData(user=user))
-    except Exception:
+    except Exception as e:
         # OAuth 실패 시 프론트엔드 로그인 페이지로 리다이렉트
+        logger.error(f"Kakao OAuth callback failed: {type(e).__name__}: {str(e)}", exc_info=True)
         settings = get_settings()
         return RedirectResponse(url=settings.oauth_failure_redirect_url)
 
@@ -143,8 +148,9 @@ async def naver_callback(
             ip_address=request.client.host if request.client else None,
         )
         return LoginSuccessResponse(data=LoginData(user=user))
-    except Exception:
+    except Exception as e:
         # OAuth 실패 시 프론트엔드 로그인 페이지로 리다이렉트
+        logger.error(f"Naver OAuth callback failed: {type(e).__name__}: {str(e)}", exc_info=True)
         settings = get_settings()
         return RedirectResponse(url=settings.oauth_failure_redirect_url)
 

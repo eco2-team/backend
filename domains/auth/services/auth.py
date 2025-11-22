@@ -28,6 +28,7 @@ ACCESS_COOKIE_NAME = "s_access"
 REFRESH_COOKIE_NAME = "s_refresh"
 COOKIE_PATH = "/"
 COOKIE_SAMESITE = "lax"
+COOKIE_DOMAIN = None  # None: 현재 도메인만, ".dev.growbin.app": 서브도메인 공유
 
 
 class AuthService:
@@ -261,17 +262,24 @@ class AuthService:
         )
 
     def _clear_session_cookies(self, response: Response) -> None:
-        response.delete_cookie(ACCESS_COOKIE_NAME, path=COOKIE_PATH)
-        response.delete_cookie(REFRESH_COOKIE_NAME, path=COOKIE_PATH)
+        cookie_kwargs = {"path": COOKIE_PATH}
+        if COOKIE_DOMAIN:
+            cookie_kwargs["domain"] = COOKIE_DOMAIN
+        response.delete_cookie(ACCESS_COOKIE_NAME, **cookie_kwargs)
+        response.delete_cookie(REFRESH_COOKIE_NAME, **cookie_kwargs)
 
     def _set_cookie(self, response: Response, name: str, value: str, expires_at: int) -> None:
         max_age = max(expires_at - int(now_utc().timestamp()), 1)
-        response.set_cookie(
-            key=name,
-            value=value,
-            max_age=max_age,
-            httponly=True,
-            secure=True,
-            samesite=COOKIE_SAMESITE,
-            path=COOKIE_PATH,
-        )
+        cookie_kwargs = {
+            "key": name,
+            "value": value,
+            "max_age": max_age,
+            "httponly": True,
+            "secure": True,
+            "samesite": COOKIE_SAMESITE,
+            "path": COOKIE_PATH,
+        }
+        # domain이 설정된 경우에만 추가 (None이면 현재 도메인에만 바인딩)
+        if COOKIE_DOMAIN:
+            cookie_kwargs["domain"] = COOKIE_DOMAIN
+        response.set_cookie(**cookie_kwargs)
