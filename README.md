@@ -72,7 +72,7 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 | Kustomize Workloads | `workloads/README.md`, `workloads/rbac-storage/README.md` |
 | 데이터 계층 (CRD/CR) | `platform/crds/README.md`, `platform/cr/README.md`, `docs/troubleshooting/2025-11-19-rabbitmq-redis.md` |
 | 서비스 & CI | `services/README.md`, `docs/ci/04-CI_CD_PIPELINE.md` |
-| 배포/운영 가이드 | `docs/deployment/README.md`, `docs/troubleshooting/TROUBLESHOOTING.md` |
+| CD/운영 가이드 | `docs/deployment/README.md`, `docs/troubleshooting/*.md` |
 
 ---
 
