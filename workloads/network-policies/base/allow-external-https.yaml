@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-https
+  namespace: auth
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+    # Allow HTTPS to external services (Google OAuth, etc.)
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
