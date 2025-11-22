@@ -1,8 +1,10 @@
+import json
 import yaml
 from utils import (
     load_yaml,
     load_prompt,
     get_openai_client,
+    save_json_result,
     ITEM_CLASS_PATH,
     SITUATION_TAG_PATH,
     VISION_PROMPT_PATH
@@ -20,13 +22,14 @@ situation_tags_text = yaml.dump(situation_tags_yaml, allow_unicode=True)
 # ==========================================
 # GPT-5.1 Vision 호출 (responses API)
 # ==========================================
-def analyze_images(user_input_text: str, image_urls: list[str]) -> str:
+def analyze_images(user_input_text: str, image_urls: list[str], save_result: bool = False) -> str:
     """
     이미지와 텍스트를 분석하여 폐기물 분류 결과를 반환
 
     Args:
         user_input_text: 사용자 입력 텍스트
         image_urls: 분석할 이미지 URL 리스트
+        save_result: 결과를 JSON 파일로 저장할지 여부 (기본값: False)
 
     Returns:
         분류 결과 JSON 문자열:
@@ -99,4 +102,15 @@ def analyze_images(user_input_text: str, image_urls: list[str]) -> str:
         ]
     )
 
-    return response.output_text
+    result_text = response.output_text
+
+    # 결과 저장 (선택적)
+    if save_result:
+        try:
+            result_json = json.loads(result_text)
+            saved_path = save_json_result(result_json, "vision_classification", subfolder="vision/classification")
+            print(f"✅ 이미지 분류 결과가 저장되었습니다: {saved_path}")
+        except json.JSONDecodeError:
+            print("⚠️  이미지 분류 결과 저장 실패: JSON 파싱 오류")
+
+    return result_text
