@@ -53,7 +53,7 @@ data:
 
 GitHub Repository Settings에서 webhook을 설정할 때:
 
-1. **Payload URL**: `https://argocd.dev.growbin.app/api/v1/webhook`
+1. **Payload URL**: `https://argocd.dev.growbin.app/api/webhook`
 2. **Content type**: `application/json`
 3. **Secret**: AWS SSM에 저장된 것과 동일한 값 입력
 4. **Events**: `Push events`
@@ -78,4 +78,3 @@ j51q8MvvksWL9QsqRldhTPOK2BkcyCQfIkF/IKXE0Hc=
 ```
 
 이 값을 AWS SSM과 GitHub webhook 설정에 모두 사용하세요.
-
