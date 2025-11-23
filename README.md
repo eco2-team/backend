@@ -59,7 +59,7 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
   COOKIE_DOMAIN 정책과 DNS 구성을 일치시켜 OAuth 성공 후 쿠키 손실 없이 프런트 리다이렉트가 동작합니다.
 
 - **플랫폼 토대 (v0.7.4) 유지**
-  GitOps Sync-wave(00~70) 재정렬, `platform/crds`/`platform/cr` 단일화, Docker Hub 단일 이미지 파이프라인, RBAC/Storage 안정화 등 v0.7.4 기반 구성은 그대로 유지되며 이번 버전에서 Auth/OAuth 영역만 추가로 강화되었습니다.
+  GitOps Sync-wave(00~70) 재정렬, `platform/crds`/`platform/cr` 단일화, Docker Hub 단일 이미지 파이프라인, RBAC/Storage 안정화 등 v0.7.4 기반 구성은 그대로 유지되며 이번 버전에서 Auth/OAuth 영역만 추가됐습니다.
 
 ---
 
