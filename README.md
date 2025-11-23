@@ -56,7 +56,6 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 
 - **DNS & 쿠키 도메인 전략 정비**
   Route53에 `frontend.growbin.app`, `frontend.dev.growbin.app` CNAME(Vercel) 레코드를 추가해 프런트 커스텀 도메인을 growbin 계층으로 편입했습니다.
-  COOKIE_DOMAIN 정책과 DNS 구성을 일치시켜 OAuth 성공 후 쿠키 손실 없이 프런트 리다이렉트가 동작합니다.
 
 - **AI 도메인 기능 고도화**
   Vision 인식(`ImageRecognition.py`, `vision.py`)과 Text/Intent 분류(`text_classifier.py`) 파이프라인을 정리하고, RAG 지식 베이스(`app/core/source/*.json`)를 확장했습니다.
