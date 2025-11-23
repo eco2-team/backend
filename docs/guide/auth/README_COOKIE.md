@@ -149,11 +149,6 @@ kubectl logs -n auth -l app=auth-api --tail=100 -f | grep -i cookie
    })
    ```
 
-2. **Domain 범위 밖**
-   - 쿠키가 `api.dev.growbin.app`에 바인딩
-   - 요청은 `prod.growbin.app`로 전송
-   - → 쿠키가 전송되지 않음
-
 ## 참고 자료
 
 - [MDN - Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)
