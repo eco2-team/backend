@@ -28,7 +28,7 @@ ACCESS_COOKIE_NAME = "s_access"
 REFRESH_COOKIE_NAME = "s_refresh"
 COOKIE_PATH = "/"
 COOKIE_SAMESITE = "lax"
-COOKIE_DOMAIN = None  # None: 현재 도메인만, ".dev.growbin.app": 서브도메인 공유
+COOKIE_DOMAIN = ".growbin.app"  # None: 현재 도메인만, ".dev.growbin.app": 서브도메인 공유
 
 
 class AuthService:
