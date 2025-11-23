@@ -2,8 +2,35 @@
 
 Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합니다.
 
-형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/)를 따르며,  
+형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/)를 따르며,
 버전 관리는 [Semantic Versioning](https://semver.org/lang/ko/)을 준수합니다.
+
+---
+
+## [0.8.0] - 2025-11-23
+
+### Added
+- **OAuth 안정화 구성 요소**
+  - Google/Kakao/Naver 콜백에 상세 로깅 추가 (`domains/auth/api/v1/endpoints/auth.py`)
+  - RedirectResponse 재사용으로 리다이렉트 후에도 `Set-Cookie` 유지 (`domains/auth/services/auth.py`)
+  - `cookie_domain=.growbin.app` 기본값 도입으로 dev/prod 서브도메인 간 세션 공유
+- **네트워크/보안**
+  - Auth 파드가 OAuth Provider와 통신할 수 있도록 `workloads/network-policies/base/allow-external-https.yaml` 추가
+  - ArgoCD GitHub webhook secret을 ExternalSecret + SSM 구조로 재작성 (`workloads/secrets/external-secrets/*/argocd-webhook-secret.yaml`)
+- **DNS**
+  - Route53에 `frontend.growbin.app`, `frontend.dev.growbin.app` CNAME(Vercel) 레코드 추가 → 프런트 커스텀 도메인 growbin 계층 편입
+- **AI 도메인 고도화**
+  - Vision 파이프라인(`ImageRecognition.py`, `vision.py`), Text/Intent 분류(`text_classifier.py`) 리팩토링
+  - `app/core/source/*.json` 기반 RAG 지식 베이스 확장 및 멀티 프롬프트(`answer_generation_prompt.txt`, `vision_classification_prompt.txt`, `text_classification_prompt.txt`) 정비
+
+### Changed
+- Pre-commit(Black, Ruff, 기본 hooks) 도입으로 lint/format 파이프라인 자동화
+- README v0.8.0 업데이트: OAuth/쿠키 정책, DNS 구조, AI 진행 상황 반영
+- Release/PR 문서(`.github/PULL_REQUESTS/PR_2025-11-22_AUTH_OAUTH_STABILIZATION.md`) 신규 작성
+
+### Fixed
+- Kakao OAuth `Invalid or expired state` / 쿠키 미전달 이슈 → state TTL 조정 + RedirectResponse cookie fix
+- ArgoCD webhook HMAC 검증 실패 원인: template 구문 오류 수정 및 `/api/webhook` endpoint로 통일
 
 ---
 
@@ -342,12 +369,12 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 - **MAJOR**: 호환성이 깨지는 대규모 변경
   - 아키텍처 전면 개편
   - API 하위 호환성 제거
-  
+
 - **MINOR**: 하위 호환 기능 추가
   - 새로운 서비스/기능 추가
   - 인프라 확장
   - 주요 문서 업데이트
-  
+
 - **PATCH**: 하위 호환 버그 수정
   - 설정 최적화
   - 문서 오류 수정
@@ -372,7 +399,6 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 
 ---
 
-**문서 버전**: 1.0.0  
-**최종 업데이트**: 2025-11-18  
+**문서 버전**: 1.0.0
+**최종 업데이트**: 2025-11-18
 **관리자**: Backend Platform Team
-

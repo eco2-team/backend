@@ -58,6 +58,10 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
   Route53에 `frontend.growbin.app`, `frontend.dev.growbin.app` CNAME(Vercel) 레코드를 추가해 프런트 커스텀 도메인을 growbin 계층으로 편입했습니다.
   COOKIE_DOMAIN 정책과 DNS 구성을 일치시켜 OAuth 성공 후 쿠키 손실 없이 프런트 리다이렉트가 동작합니다.
 
+- **AI 도메인 기능 고도화**
+  Vision 인식(`ImageRecognition.py`, `vision.py`)과 Text/Intent 분류(`text_classifier.py`) 파이프라인을 정리하고, RAG 지식 베이스(`app/core/source/*.json`)를 확장했습니다.
+  프롬프트(`answer_generation_prompt.txt`, `vision_classification_prompt.txt`, `text_classification_prompt.txt`)를 분리해 멀티모달 응답 품질을 높였고, FastAPI 챗봇 엔드포인트 `/api/v1/chat`이 이 흐름을 통합 처리합니다.
+
 - **플랫폼 토대 (v0.7.4) 유지**
   GitOps Sync-wave(00~70) 재정렬, `platform/crds`/`platform/cr` 단일화, Docker Hub 단일 이미지 파이프라인, RBAC/Storage 안정화 등 v0.7.4 기반 구성은 그대로 유지되며 이번 버전에서 Auth/OAuth 영역만 추가됐습니다.
 
