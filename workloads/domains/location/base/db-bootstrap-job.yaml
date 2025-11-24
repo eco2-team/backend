@@ -1,12 +1,12 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: auth-db-bootstrap
-  namespace: auth
+  name: location-db-bootstrap
+  namespace: location
   labels:
-    app: auth-api
+    app: location-api
     tier: business-logic
-    domain: auth
+    domain: location
   annotations:
     argocd.argoproj.io/hook: PostSync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded,HookFailed
@@ -15,31 +15,37 @@ spec:
   template:
     metadata:
       labels:
-        app: auth-api
+        app: location-api
         tier: business-logic
-        domain: auth
+        domain: location
     spec:
       restartPolicy: Never
       containers:
         - name: db-bootstrap
-          image: docker.io/mng990/eco2:auth-api-latest
+          image: docker.io/mng990/eco2:location-api-latest
           imagePullPolicy: Always
           command:
             - python
             - -m
-            - domains.auth.jobs.init_db
+            - domains.location.jobs.import_zero_waste_locations
+          env:
+            - name: LOCATION_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: location-secret
+                  key: LOCATION_DATABASE_URL
           envFrom:
             - configMapRef:
-                name: auth-config
+                name: location-config
             - secretRef:
-                name: auth-secret
+                name: location-secret
       imagePullSecrets:
         - name: dockerhub-secret
       nodeSelector:
-        domain: auth
+        domain: location
       tolerations:
         - key: domain
           operator: Equal
-          value: auth
+          value: location
           effect: NoSchedule
 

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>류지환 Resume</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            -webkit-print-color-adjust: exact;
+            background-color: #f3f4f6;
+        }
+        @media print {
+            body {
+                background-color: white;
+            }
+            .page {
+                margin: 0;
+                box-shadow: none;
+                width: 210mm;
+                min-height: 297mm;
+                padding: 20mm;
+                page-break-after: always;
+            }
+            .no-print {
+                display: none;
+            }
+        }
+        .page {
+            background: white;
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            margin: 20px auto;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const Resume = () => {
+            return (
+                <div className="resume-container font-sans text-gray-800 leading-relaxed">
+                    {/* 페이지 1 */}
+                    <div className="page bg-white mx-auto shadow-lg p-12 mb-8 relative">
+                        {/* Header */}
+                        <header className="border-b-2 border-gray-800 pb-8 mb-8">
+                            <div className="flex justify-between items-end mb-4">
+                                <div>
+                                    <h1 className="text-5xl font-bold text-gray-900 tracking-tight">류지환</h1>
+                                    <p className="text-2xl text-gray-600 mt-1 font-light">Data Engineer (AI)</p>
+                                </div>
+                                <div className="text-right text-sm text-gray-500">
+                                    <p>Last Updated: {new Date().toISOString().split('T')[0]}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-700 mt-6">
+                                <div className="flex items-center"><span className="font-semibold w-24 text-gray-900">Phone</span> 010-4008-0967</div>
+                                <div className="flex items-center"><span className="font-semibold w-24 text-gray-900">Email</span> ryoo0504@gmail.com</div>
+                                <div className="flex items-center"><span className="font-semibold w-24 text-gray-900">GitHub</span> <a href="https://github.com/mangowhoiscloud" target="_blank" className="text-blue-600 hover:text-blue-800 transition-colors">github.com/mangowhoiscloud</a></div>
+                                <div className="flex items-center"><span className="font-semibold w-24 text-gray-900">Blog</span> <a href="https://rooftopsnow.tistory.com/" target="_blank" className="text-blue-600 hover:text-blue-800 transition-colors">rooftopsnow.tistory.com</a></div>
+                                <div className="flex items-center"><span className="font-semibold w-24 text-gray-900">LinkedIn</span> <a href="https://www.linkedin.com/in/jihwan-ryu-b6b04a202/" target="_blank" className="text-blue-600 hover:text-blue-800 transition-colors">linkedin.com/in/jihwan-ryu</a></div>
+                                <div className="flex items-center"><span className="font-semibold w-24 text-gray-900">Location</span> 서울, 대한민국</div>
+                            </div>
+                        </header>
+
+                        {/* 지원 포지션 */}
+                        <section className="mb-8">
+                            <h2 className="text-2xl font-bold text-gray-900 border-b-2 border-gray-200 pb-2 mb-4 uppercase tracking-wider">Apply For</h2>
+                            <p className="text-gray-800 font-medium text-lg pl-2 border-l-4 border-blue-600 bg-blue-50 py-2 pr-4 rounded-r">
+                                토스증권 [주니어 집중 채용] Data Engineer (AI)
+                            </p>
+                        </section>
+
+                        {/* Summary */}
+                        <section className="mb-8">
+                            <h2 className="text-2xl font-bold text-gray-900 border-b-2 border-gray-200 pb-2 mb-4 uppercase tracking-wider">Summary</h2>
+                            <div className="bg-gray-50 p-6 rounded-lg border border-gray-100">
+                                <ul className="list-disc list-outside ml-5 text-sm text-gray-700 space-y-2 marker:text-blue-600">
+                                    <li><strong className="text-gray-900">Global Cloud Storage Development:</strong> 라쿠텐 심포니에서 글로벌 리전(독일, 일본)을 커버하는 Robin Storage 플랫폼의 백엔드와 인프라 개발 경험 보유.</li>
+                                    <li><strong className="text-gray-900">AI-Driven Infrastructure:</strong> AI 도입 수요를 확인하고, 약 30.6억 토큰(Claude/GPT)을 활용해 1인 개발로 서버와 선언형 GitOps 파이프라인 구축 및 생산성 검증.</li>
+                                    <li><strong className="text-gray-900">Agile & Growth:</strong> 토스증권의 빠른 실행 문화에 맞춰 인프라/백엔드 역량을 발휘하고자 하며, 개인 클러스터(Terraform/Ansible) 운영을 통해 지속적인 기술 실험 중.</li>
+                                </ul>
+                            </div>
+                        </section>
+
+                        {/* 핵심 역량 */}
+                        <section className="mb-8">
+                            <h2 className="text-2xl font-bold text-gray-900 border-b-2 border-gray-200 pb-2 mb-4 uppercase tracking-wider">Technical Skills</h2>
+                            <div className="grid grid-cols-1 gap-3 text-sm">
+                                <div className="flex"><span className="font-bold w-32 text-gray-900 shrink-0">Cloud & Infra</span> <span className="text-gray-700">AWS (EC2, S3, VPC), Kubernetes, Terraform, Ansible, Rakuten Cloud Platform</span></div>
+                                <div className="flex"><span className="font-bold w-32 text-gray-900 shrink-0">Data & AI</span> <span className="text-gray-700">ElasticSearch, RAG Pipeline, LLM (Prompt Engineering), Data Governance</span></div>
+                                <div className="flex"><span className="font-bold w-32 text-gray-900 shrink-0">Backend</span> <span className="text-gray-700">Java (Spring Boot), Python (FastAPI), C++, Solidity, REST/gRPC</span></div>
+                                <div className="flex"><span className="font-bold w-32 text-gray-900 shrink-0">DevOps</span> <span className="text-gray-700">Docker, GitHub Actions, ArgoCD (GitOps), NGINX</span></div>
+                            </div>
+                        </section>
+
+                        {/* 경력 */}
+                        <section>
+                            <h2 className="text-2xl font-bold text-gray-900 border-b-2 border-gray-200 pb-2 mb-4 uppercase tracking-wider">Experience</h2>
+                            
+                            <div className="mb-6">
+                                <div className="flex justify-between items-baseline mb-2">
+                                    <h3 className="text-xl font-bold text-gray-900">Rakuten Symphony Korea</h3>
+                                    <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded">2024.12 – 2025.08</span>
+                                </div>
+                                <p className="text-base text-blue-700 mb-3 font-medium">Cloud Engineer (Jr. Storage Dev)</p>
+                                <ul className="list-disc list-outside ml-5 text-sm text-gray-700 space-y-2 marker:text-gray-400">
+                                    <li><strong>Robin Storage (Block Storage) 개발:</strong>
+                                        <ul className="list-none ml-0 mt-1 space-y-1 pl-2 border-l-2 border-gray-200">
+                                            <li>- <span className="font-medium text-gray-900">RPC 프로시저 개발:</span> 스냅샷 로딩 시 Data Plane 상태 불일치 해결을 위해 비동기 RPC(<code>RDVM_VOL_CFG_UPDATE</code>) 신규 개발.</li>
+                                            <li>- <span className="font-medium text-gray-900">I/O 성능 최적화:</span> 스냅샷 반복 읽기 시 쓰기 락(Write Lock) 병목을 읽기 락(Read Lock)으로 전환하여 동시성 개선 및 <code>io_uring</code> 도입 제안.</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Rakuten OStore (Object Storage) 개발:</strong>
+                                        <ul className="list-none ml-0 mt-1 space-y-1 pl-2 border-l-2 border-gray-200">
+                                            <li>- <span className="font-medium text-gray-900">Auth 버그 수정:</span> 사용자 비활성화 시 Access Key 유실 문제 해결 및 인증 로직 개선.</li>
+                                            <li>- <span className="font-medium text-gray-900">Bootstrapping 개선:</span> 설치 시점에만 Root 사용자가 생성되도록 초기화 로직 설계 및 구현.</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Global Collaboration:</strong> 인도(리드), 미국(기획), 일본(QA) 엔지니어와 Jira/Confluence 기반 애자일 협업.</li>
+                                </ul>
+                            </div>
+                        </section>
+                    </div>
+
+                    {/* 페이지 2 */}
+                    <div className="page bg-white mx-auto shadow-lg p-12 mb-8 relative">
+                        {/* In-Progress */}
+                        <section className="mb-10">
+                            <h2 className="text-2xl font-bold text-gray-900 border-b-2 border-gray-200 pb-2 mb-4 uppercase tracking-wider">In-Progress Project</h2>
+                            
+                            <div className="mb-6">
+                                <div className="flex justify-between items-baseline mb-2">
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="text-xl font-bold text-gray-900">이코에코 (Eco²)</h3>
+                                        <a href="https://github.com/eco2-team/backend" target="_blank" className="text-xs text-blue-600 border border-blue-200 bg-blue-50 px-2 py-0.5 rounded hover:bg-blue-100 transition-colors">GitHub ↗</a>
+                                    </div>
+                                    <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded">2025.10 – Present</span>
+                                </div>
+                                <p className="text-sm text-gray-600 mb-2">RAG/LLM 기반 재활용 분류 및 캐릭터 생성 앱 | <span className="font-medium text-blue-700">Backend & DevOps (1인 개발)</span></p>
+                                <p className="text-sm text-gray-800 mb-3 italic border-l-4 border-gray-300 pl-3 py-1">
+                                    "공공 데이터(KECO) 연동 보상 거점 안내 및 AI 기반 폐기물 분류 서비스. Kubernetes 클러스터 기반의 확장 가능한 인프라 구축."
+                                </p>
+                                
+                                <ul className="list-disc list-outside ml-5 text-sm text-gray-700 space-y-2 marker:text-blue-600">
+                                    <li><strong>Infrastructure & GitOps:</strong>
+                                        <ul className="list-none ml-0 mt-1 space-y-1 pl-2 border-l-2 border-gray-200">
+                                            <li>- <strong>Terraform:</strong> AWS VPC, EC2(14개), ALB 등 60+ 리소스 코드 정의 (15분 내 구축).</li>
+                                            <li>- <strong>Ansible:</strong> K8s 클러스터 구성(OS 설정, CNI, Add-ons) 및 노드 조인 자동화.</li>
+                                            <li>- <strong>GitOps:</strong> ArgoCD + Kustomize + Sync Wave로 인프라→앱 배포 순서 제어.</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Architecture Strategy (4-Tier):</strong> ALB(Presentation) → APP(Business) → MQ(Integration) → DB(Storage) 계층 분리 및 Node Affinity 기반 격리.</li>
+                                    <li><strong>AI & Data:</strong> LangChain + ElasticSearch RAG 파이프라인, GPT-4o-mini 챗봇 서빙.</li>
+                                    <li><strong>AI-Driven Dev:</strong> Claude/GPT 모델 활용(약 30.6억 토큰)으로 1인 개발 생산성 극대화.</li>
+                                </ul>
+                            </div>
+                        </section>
+
+                        {/* 대표 프로젝트 */}
+                        <section className="mb-10">
+                            <h2 className="text-2xl font-bold text-gray-900 border-b-2 border-gray-200 pb-2 mb-4 uppercase tracking-wider">Projects</h2>
+                            
+                            <div className="mb-6">
+                                <div className="flex justify-between items-baseline mb-1">
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="text-lg font-bold text-gray-900">Aimo</h3>
+                                        <span className="text-xs text-gray-500 border px-1 rounded">LLM 갈등 중재</span>
+                                    </div>
+                                    <span className="text-sm text-gray-500">2024.10 – 2024.11</span>
+                                </div>
+                                <p className="text-sm text-gray-700 mb-2">Role: Backend Developer</p>
+                                <ul className="list-disc list-outside ml-5 text-sm text-gray-700 space-y-1 marker:text-gray-400">
+                                    <li>사용자 대화 분석 및 판례/법령 제공 LLM 서비스.</li>
+                                    <li>Spring 기반 백엔드 구축, REST API 및 동기식 모델 서빙 구조 설계.</li>
+                                </ul>
+                            </div>
+
+                            <div className="mb-6">
+                                <div className="flex justify-between items-baseline mb-1">
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="text-lg font-bold text-gray-900">Dream</h3>
+                                        <a href="https://github.com/KakaoTech-Hackathon-Dream" target="_blank" className="text-xs text-blue-600 border border-blue-200 bg-blue-50 px-2 py-0.5 rounded hover:bg-blue-100 transition-colors">GitHub ↗</a>
+                                    </div>
+                                    <span className="text-sm text-gray-500">2024.09.04 – 2024.09.07</span>
+                                </div>
+                                <p className="text-sm text-gray-700 mb-2">Role: DevOps & Cloud Engineer</p>
+                                <ul className="list-disc list-outside ml-5 text-sm text-gray-700 space-y-1 marker:text-gray-400">
+                                    <li>AWS EC2/S3/RDS 인프라 구축 및 GitHub Actions + CodeDeploy CI/CD 파이프라인.</li>
+                                    <li>NGINX 리버스 프록시/SSL 적용 및 Docker 기반 배포 환경 구성.</li>
+                                </ul>
+                            </div>
+
+                            <div className="mb-6">
+                                <div className="flex justify-between items-baseline mb-1">
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="text-lg font-bold text-gray-900">MultiToken Auction</h3>
+                                        <a href="https://github.com/mng990/ethereum_FisheriesMarket" target="_blank" className="text-xs text-blue-600 border border-blue-200 bg-blue-50 px-2 py-0.5 rounded hover:bg-blue-100 transition-colors">GitHub ↗</a>
+                                    </div>
+                                    <span className="text-sm text-gray-500">2022.03 – 2022.11</span>
+                                </div>
+                                <p className="text-sm text-gray-700 mb-2">Role: Backend Developer (Blockchain)</p>
+                                <ul className="list-disc list-outside ml-5 text-sm text-gray-700 space-y-1 marker:text-gray-400">
+                                    <li>Solidity(ERC-1155) 상품/경매 토큰 개발 및 스마트 컨트랙트 배포.</li>
+                                    <li>Geth/Ganache 활용 Private Network 구축, Web3.js/IPFS 연동 및 콜드체인 데이터 지원.</li>
+                                </ul>
+                            </div>
+                        </section>
+
+                        {/* 교육 & 자격 & 언어 */}
+                        <div className="grid grid-cols-2 gap-8">
+                            <section>
+                                <h2 className="text-xl font-bold text-gray-900 border-b-2 border-gray-200 pb-2 mb-4 uppercase tracking-wider">Education</h2>
+                                <ul className="list-disc list-outside ml-5 text-sm text-gray-700 space-y-2 marker:text-blue-600">
+                                    <li><strong>부산대학교</strong> 컴퓨터공학부 학사 <span className="text-gray-500 text-xs ml-1">(2017.03 - 2023.08)</span></li>
+                                    <li><strong>KakaoTech Bootcamp</strong> Backend/Cloud 수료 <span className="text-gray-500 text-xs ml-1">(2024.07 - 2024.11)</span></li>
+                                </ul>
+                            </section>
+                            <section>
+                                <h2 className="text-xl font-bold text-gray-900 border-b-2 border-gray-200 pb-2 mb-4 uppercase tracking-wider">CERTIFICATIONS</h2>
+                                <ul className="list-disc list-outside ml-5 text-sm text-gray-700 space-y-2 marker:text-blue-600">
+                                    <li><strong>정보처리기사</strong> (Engineer Information Processing)</li>
+                                    <li><strong>OPIc IH</strong> (Intermediate High)</li>
+                                    <li><strong>Language:</strong> Korean(Native), English(Pro)</li>
+                                </ul>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Resume />);
+    </script>
+</body>
+</html>

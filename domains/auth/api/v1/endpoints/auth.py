@@ -4,7 +4,7 @@ import logging
 from fastapi import Cookie, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 
-from domains.auth.api.v1.router import (
+from domains.auth.api.v1.routers import (
     access_token_dependency,
     auth_router,
     google_router,

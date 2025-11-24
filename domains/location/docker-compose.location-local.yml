@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16
+    container_name: location-local-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: location
+      POSTGRES_PASSWORD: location
+      POSTGRES_DB: location
+    ports:
+      - "5434:5432"
+    volumes:
+      - location-db-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: location-local-redis
+    command: ["redis-server", "--appendonly", "no"]
+    ports:
+      - "6381:6379"
+
+  api:
+    build:
+      context: ../..
+      dockerfile: domains/location/Dockerfile
+    container_name: location-local-api
+    environment:
+      LOCATION_DATABASE_URL: postgresql+asyncpg://location:location@db:5432/location
+      LOCATION_REDIS_URL: redis://redis:6379/5
+    ports:
+      - "8010:8000"
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  location-db-data:
+    driver: local
+

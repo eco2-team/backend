@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 
 def load_fastapi_app() -> FastAPI:
-    for module_name in ("app.main", "main"):
+    for module_name in ("domains.location.main", "location.main", "main"):
         try:
             module = importlib.import_module(module_name)
         except ModuleNotFoundError:

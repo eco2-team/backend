@@ -1,0 +1,2 @@
+"""Location repositories package."""
+
