@@ -4,33 +4,33 @@ metadata:
   name: dev-apis
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "60"
+    argocd.argoproj.io/sync-wave: '60'
 spec:
   generators:
-    - list:
-        elements:
-          - name: auth
-            phase: "1"
-          - name: my
-            phase: "1"
-          - name: scan
-            phase: "2"
-          - name: character
-            phase: "2"
-          - name: location
-            phase: "2"
-          - name: info
-            phase: "3"
-          - name: chat
-            phase: "3"
+  - list:
+      elements:
+      - name: auth
+        phase: '1'
+      - name: my
+        phase: '1'
+      - name: scan
+        phase: '2'
+      - name: character
+        phase: '2'
+      - name: location
+        phase: '2'
+      - name: info
+        phase: '3'
+      - name: chat
+        phase: '3'
   template:
     metadata:
       name: dev-api-{{name}}
       namespace: argocd
       labels:
         tier: business-logic
-        domain: "{{name}}"
-        phase: "{{phase}}"
+        domain: '{{name}}'
+        phase: '{{phase}}'
     spec:
       project: dev
       source:
@@ -39,11 +39,10 @@ spec:
         path: workloads/domains/{{name}}/dev
       destination:
         server: https://kubernetes.default.svc
-        namespace: "{{name}}"
+        namespace: '{{name}}'
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
         syncOptions:
-          - CreateNamespace=true
-
+        - CreateNamespace=true
