@@ -4,7 +4,7 @@ from domains.location.security import access_token_dependency
 from domains.location.services.location import LocationService
 from domains._shared.security import TokenPayload
 
-router = APIRouter(prefix="/location/metrics", tags=["metrics"])
+router = APIRouter(prefix="/locations/metrics", tags=["metrics"])
 
 
 @router.get("/", summary="Location service metrics")
