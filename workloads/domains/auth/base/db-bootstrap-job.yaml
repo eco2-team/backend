@@ -8,8 +8,9 @@ metadata:
     tier: business-logic
     domain: auth
   annotations:
-    argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: HookSucceeded,HookFailed
+    argocd.argoproj.io/sync-wave: '-30'
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
   backoffLimit: 3
   template:
@@ -21,25 +22,24 @@ spec:
     spec:
       restartPolicy: Never
       containers:
-        - name: db-bootstrap
-          image: docker.io/mng990/eco2:auth-api-latest
-          imagePullPolicy: Always
-          command:
-            - python
-            - -m
-            - domains.auth.jobs.init_db
-          envFrom:
-            - configMapRef:
-                name: auth-config
-            - secretRef:
-                name: auth-secret
+      - name: db-bootstrap
+        image: docker.io/mng990/eco2:auth-api-latest
+        imagePullPolicy: Always
+        command:
+        - python
+        - -m
+        - domains.auth.jobs.init_db
+        envFrom:
+        - configMapRef:
+            name: auth-config
+        - secretRef:
+            name: auth-secret
       imagePullSecrets:
-        - name: dockerhub-secret
+      - name: dockerhub-secret
       nodeSelector:
         domain: auth
       tolerations:
-        - key: domain
-          operator: Equal
-          value: auth
-          effect: NoSchedule
-
+      - key: domain
+        operator: Equal
+        value: auth
+        effect: NoSchedule
