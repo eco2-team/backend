@@ -52,6 +52,12 @@ jobs:
         id: detect
         run: |
           set -euo pipefail
+          if [ "${GITHUB_ACTOR}" = "github-actions[bot]" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=Triggered by github-actions bot (manifest bump)" >> "$GITHUB_OUTPUT"
+            echo "commit_type=bot" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           EVENT_NAME="${{ github.event_name }}"
           if [ "$EVENT_NAME" = "pull_request" ]; then
             REF_TEXT="${{ github.event.pull_request.title }}"
@@ -228,6 +234,7 @@ jobs:
       needs.detect-api-changes.outputs.has_changes == 'true'
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         service: ${{ fromJson(needs.detect-api-changes.outputs.services) }}
     steps:
@@ -271,13 +278,16 @@ jobs:
               echo "${IMAGE_REPO}:${SERVICE_SLUG}-latest"
               echo "TAGS"
             } >> "$GITHUB_OUTPUT"
+            echo "tag_name=${UNIQUE_TAG}" >> "$GITHUB_OUTPUT"
           else
+            DEV_TAG="${SERVICE_SLUG}-dev-${SHORT_SHA}"
             {
               echo "tags<<TAGS"
-              echo "${IMAGE_REPO}:${SERVICE_SLUG}-dev-${SHORT_SHA}"
+              echo "${IMAGE_REPO}:${DEV_TAG}"
               echo "${IMAGE_REPO}:${SERVICE_SLUG}-dev-latest"
               echo "TAGS"
             } >> "$GITHUB_OUTPUT"
+            echo "tag_name=${DEV_TAG}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build and push
@@ -287,5 +297,64 @@ jobs:
           file: domains/${{ matrix.service }}/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+
+      - name: Update dev manifest tag
+        if: >
+          github.ref == 'refs/heads/develop' &&
+          (matrix.service == 'auth' || matrix.service == 'location')
+        id: update_dev
+        env:
+          KUSTOMIZE_FILE: workloads/domains/${{ matrix.service }}/dev/kustomization.yaml
+          TAG_NAME: ${{ steps.meta.outputs.tag_name }}
+        run: |
+          python -m pip install --upgrade pip pyyaml
+          python scripts/ci/update_kustomize_image.py \
+            --file "$KUSTOMIZE_FILE" \
+            --image docker.io/mng990/eco2 \
+            --tag "$TAG_NAME"
+          if git diff --quiet -- "$KUSTOMIZE_FILE"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "file=$KUSTOMIZE_FILE" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update prod manifest tag
+        if: >
+          github.ref == 'refs/heads/main' &&
+          (matrix.service == 'auth' || matrix.service == 'location')
+        id: update_prod
+        env:
+          KUSTOMIZE_FILE: workloads/domains/${{ matrix.service }}/prod/kustomization.yaml
+          TAG_NAME: ${{ steps.meta.outputs.tag_name }}
+        run: |
+          python -m pip install --upgrade pip pyyaml
+          python scripts/ci/update_kustomize_image.py \
+            --file "$KUSTOMIZE_FILE" \
+            --image docker.io/mng990/eco2 \
+            --tag "$TAG_NAME"
+          if git diff --quiet -- "$KUSTOMIZE_FILE"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "file=$KUSTOMIZE_FILE" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit manifest updates
+        if: >
+          (steps.update_dev.outputs.changed == 'true') ||
+          (steps.update_prod.outputs.changed == 'true')
+        env:
+          DEV_FILE: ${{ steps.update_dev.outputs.file }}
+          PROD_FILE: ${{ steps.update_prod.outputs.file }}
+          TAG_NAME: ${{ steps.meta.outputs.tag_name }}
+          SERVICE: ${{ matrix.service }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "${DEV_FILE}" ]; then git add "${DEV_FILE}"; fi
+          if [ -n "${PROD_FILE}" ]; then git add "${PROD_FILE}"; fi
+          git commit -m "chore(${SERVICE}): bump image tag to ${TAG_NAME} [skip ci]"
+          git push origin HEAD:${GITHUB_REF_NAME}
 
 
