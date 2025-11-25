@@ -30,19 +30,20 @@ graph TD
 
 ```mermaid
 graph TD
-    Client["사용자(Client)"]:::client
-    Client -->|HTTPS 443| ALBData["ALB"]:::alb
+    ClientLeft["사용자(Client)"]:::client
+    ClientRight["사용자(Client)"]:::client
+
+    ClientLeft -->|HTTPS 443| ALBData["ALB"]:::alb
     ALBData -->|라우팅| TGData["Target Group"]:::tg
     TGData -->|NodePort 31666| IngressData["Ingress<br/>domain-ingress"]:::ing
 
     IngressData --> Node1["노드 A<br/>k8s-api-domain"]:::node
     Node1 -->|ClusterIP 8000| Pod1["domain-api Pod #1"]:::pod
-    Pod1 -->|응답| Client
+    Pod1 -->|응답| ClientLeft
 
     IngressData --> Node2["노드 B<br/>k8s-api-domain-2"]:::node
     Node2 -->|ClusterIP 8000| Pod2["domain-api Pod #2"]:::pod
-    Pod2 -->|응답| Client
-
+    Pod2 -->|응답| ClientRight
     classDef client fill:#BFDBFE,stroke:#1D4ED8,color:#111;
     classDef alb fill:#FECACA,stroke:#B91C1C,color:#111;
     classDef tg fill:#FBCFE8,stroke:#BE185D,color:#111;
