@@ -175,6 +175,7 @@ backend/
 - [이코에코 인프라 구축기 #3 GitOps: 네트워크 트러블슈팅](https://rooftopsnow.tistory.com/11)
 - [이코에코 인프라 구축기 #4 GitOps: Operator vs Helm-charts](https://rooftopsnow.tistory.com/12)
 - [이코에코 인프라 구축기 #5 GitOps: Sync-wave](https://rooftopsnow.tistory.com/13)
+- [이코에코 인프라 구축기 #6 Namespace/RBAC/NeworkPolicy](https://rooftopsnow.tistory.com/14)
 
 ---
 
