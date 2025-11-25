@@ -13,7 +13,7 @@ class LocationEntry(BaseModel):
     distance_km: Optional[float] = None
     distance_text: Optional[str] = None
     is_holiday: Optional[bool] = None
-    status: Optional[str] = None
+    is_open: Optional[bool] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     phone: Optional[str] = None

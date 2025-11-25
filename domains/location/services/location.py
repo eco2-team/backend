@@ -128,7 +128,7 @@ class LocationService:
             distance_km=distance_km,
             distance_text=LocationService._format_distance(distance_km),
             is_holiday=operating_hours.get("is_holiday") if operating_hours else None,
-            status=operating_hours.get("status") if operating_hours else None,
+            is_open=operating_hours.get("is_open") if operating_hours else None,
             start_time=operating_hours.get("start_time") if operating_hours else None,
             end_time=operating_hours.get("end_time") if operating_hours else None,
             phone=phone,
@@ -170,7 +170,7 @@ class LocationService:
         if "휴무" in day_value:
             return {
                 "is_holiday": True,
-                "status": "closed",
+                "is_open": False,
                 "start_time": None,
                 "end_time": None,
             }
@@ -179,7 +179,7 @@ class LocationService:
         start_display = start_str or day_value
         end_display = end_str
 
-        is_open = False
+        is_open: Optional[bool] = None
         if start_str and end_str:
             start_dt = LocationService._to_today_datetime(start_str)
             end_dt = LocationService._to_today_datetime(end_str)
@@ -187,10 +187,12 @@ class LocationService:
                 now = datetime.now(LocationService.TZ)
                 if start_dt <= now <= end_dt:
                     is_open = True
+                else:
+                    is_open = False
 
         return {
             "is_holiday": False,
-            "status": "open" if is_open else "closed",
+            "is_open": is_open,
             "start_time": start_display,
             "end_time": end_display,
         }
