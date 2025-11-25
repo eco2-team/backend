@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel
@@ -9,26 +8,23 @@ class Coordinates(BaseModel):
     longitude: float
 
 
-class LocationCategory(str, Enum):
-    REFILL_ZERO = "refill_zero"
-    CAFE_BAKERY = "cafe_bakery"
-    VEGAN_DINING = "vegan_dining"
-    UPCYCLE_RECYCLE = "upcycle_recycle"
-    BOOK_WORKSHOP = "book_workshop"
-    MARKET_MART = "market_mart"
-    LODGING = "lodging"
-    GENERAL = "general"
-    ADDRESS_ONLY = "address_only"
+class OperatingHours(BaseModel):
+    status: str
+    start: Optional[str] = None
+    end: Optional[str] = None
 
 
 class LocationEntry(BaseModel):
     id: int
     name: str
-    type: str
-    category: LocationCategory = LocationCategory.GENERAL
-    address: str
+    source: str
+    road_address: Optional[str] = None
     coordinates: Coordinates
     distance_km: Optional[float] = None
+    distance_text: Optional[str] = None
+    operating_hours: Optional[OperatingHours] = None
+    phone: Optional[str] = None
+    collection_items: Optional[list[str]] = None
 
 
 class GeoResponse(BaseModel):
