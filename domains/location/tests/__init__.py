@@ -1,0 +1,1 @@
+"""Location domain tests package."""
