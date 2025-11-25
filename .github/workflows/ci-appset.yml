@@ -107,11 +107,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ci-artifacts/appset
-          argocd appset generate clusters/dev/apps/60-apis-appset.yaml > ci-artifacts/appset/dev.yaml
-          argocd appset generate clusters/prod/apps/60-apis-appset.yaml > ci-artifacts/appset/prod.yaml
+          argocd appset generate clusters/dev/apps/60-apis-appset.yaml --offline > ci-artifacts/appset/dev.yaml
+          argocd appset generate clusters/prod/apps/60-apis-appset.yaml --offline > ci-artifacts/appset/prod.yaml
           find clusters -path "*/apps/*-appset.yaml" -print0 | while IFS= read -r -d '' file; do
             SAFE="$(echo "${file}" | tr '/.' '-')"
-            argocd appset generate "${file}" > "ci-artifacts/appset/${SAFE}.yaml"
+            argocd appset generate "${file}" --offline > "ci-artifacts/appset/${SAFE}.yaml"
           done
           ls -1 ci-artifacts/appset
 
