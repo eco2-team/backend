@@ -1,4 +1,4 @@
-# Pull Request · feature/location-service → develop
+# 🚀 Pull Request · v0.8.2 Location 개발 완료 및 배포
 
 ## 📋 변경 사항
 - Location 서비스 쿠키 기반 인증 전환 및 KST 타임존 설정
