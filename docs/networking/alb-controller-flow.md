@@ -19,11 +19,11 @@ graph TD
     AWSAPI -->|노드 IP:NodePort 등록| TG
     ALBCtrl -->|상태 확인| AWSAPI
 
-    classDef ing fill:#FDE68A,stroke:#C78200,color:#111;
-    classDef ctrl fill:#FBBF24,stroke:#92400E,color:#111;
-    classDef aws fill:#BFDBFE,stroke:#1D4ED8,color:#111;
-    classDef alb fill:#FDBA74,stroke:#C2410C,color:#111;
-    classDef tg fill:#F9A8D4,stroke:#BE185D,color:#111;
+    classDef ing fill:#FEF3C7,stroke:#D97706,color:#111;
+    classDef ctrl fill:#FCD34D,stroke:#B45309,color:#111;
+    classDef aws fill:#DBEAFE,stroke:#1D4ED8,color:#111;
+    classDef alb fill:#FECACA,stroke:#B91C1C,color:#111;
+    classDef tg fill:#FBCFE8,stroke:#BE185D,color:#111;
 ```
 
 ## 실시간 트래픽 경로
@@ -53,9 +53,9 @@ graph TD
     Pod2 -->|응답| Client
 
     classDef client fill:#BFDBFE,stroke:#1D4ED8,color:#111;
-    classDef alb fill:#FDBA74,stroke:#C2410C,color:#111;
-    classDef tg fill:#F9A8D4,stroke:#BE185D,color:#111;
-    classDef ing fill:#FDE68A,stroke:#C78200,color:#111;
+    classDef alb fill:#FECACA,stroke:#B91C1C,color:#111;
+    classDef tg fill:#FBCFE8,stroke:#BE185D,color:#111;
+    classDef ing fill:#FEF3C7,stroke:#D97706,color:#111;
     classDef node fill:#C7D2FE,stroke:#4338CA,color:#111;
     classDef pod fill:#A7F3D0,stroke:#047857,color:#111;
 ```
