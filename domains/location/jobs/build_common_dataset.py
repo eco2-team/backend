@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import json
 import unicodedata
 from pathlib import Path
@@ -227,9 +228,15 @@ def build_dataset(args: argparse.Namespace) -> list[dict[str, str]]:
     return records
 
 
+def _open_output(path: Path):
+    if path.suffix == ".gz":
+        return gzip.open(path, "wt", encoding="utf-8", newline="")
+    return path.open("w", encoding="utf-8", newline="")
+
+
 def write_csv(rows: list[dict[str, str]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as file_obj:
+    with _open_output(path) as file_obj:
         writer = csv.DictWriter(file_obj, fieldnames=COMMON_FIELD_ORDER)
         writer.writeheader()
         writer.writerows(rows)

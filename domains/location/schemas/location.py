@@ -3,30 +3,29 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class Coordinates(BaseModel):
-    latitude: float
-    longitude: float
-
-
-class OperatingHours(BaseModel):
-    status: str
-    start: Optional[str] = None
-    end: Optional[str] = None
-
-
 class LocationEntry(BaseModel):
     id: int
     name: str
     source: str
     road_address: Optional[str] = None
-    coordinates: Coordinates
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     distance_km: Optional[float] = None
     distance_text: Optional[str] = None
-    operating_hours: Optional[OperatingHours] = None
+    is_holiday: Optional[bool] = None
+    is_open: Optional[bool] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
     phone: Optional[str] = None
     collection_items: Optional[list[str]] = None
 
 
 class GeoResponse(BaseModel):
     address: str
-    coordinates: Coordinates
+    latitude: float
+    longitude: float
+
+
+class CoordinatesPayload(BaseModel):
+    latitude: float
+    longitude: float

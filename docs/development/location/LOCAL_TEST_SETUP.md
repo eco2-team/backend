@@ -21,13 +21,10 @@ docker compose -f domains/location/docker-compose.location-local.yml logs -f api
 
 ## 3. 데이터 적재
 
-CSV 데이터를 Postgres에 넣어야 반경 검색 API가 동작합니다. Job 스크립트를 컨테이너에서 실행하세요.
+정규화 CSV는 이미지에 포함되어 있으며 `normalized-import` 서비스가 자동으로 업서트합니다. 필요 시 수동 재실행:
 
 ```bash
-docker compose -f domains/location/docker-compose.location-local.yml run --rm api \
-  python -m domains.location.jobs.import_zero_waste_locations \
-  --csv-path domains/location/제로웨이스트\ 지도\ 데이터.csv \
-  --database-url postgresql+asyncpg://location:location@db:5432/location
+docker compose -f domains/location/docker-compose.location-local.yml run --rm normalized-import
 ```
 
 ## 4. API 확인
@@ -47,6 +44,7 @@ docker compose -f domains/location/docker-compose.location-local.yml down -v
 ```
 
 필요 시 `docker compose exec db psql -U location -d location` 으로 DB에 접속해 직접 데이터를 조회할 수 있습니다.
+
 
 
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from domains.location.domain.value_objects import PickupCategory, StoreCategory
-from domains.location.schemas.location import Coordinates, GeoResponse, LocationEntry
+from domains.location.schemas.location import CoordinatesPayload, GeoResponse, LocationEntry
 from domains.location.security import access_token_dependency
 from domains.location.services.location import LocationService
 from domains._shared.security import TokenPayload
@@ -59,7 +59,7 @@ async def geocode(
 
 @router.post("/reverse-geocode", response_model=GeoResponse, summary="Coordinates to address")
 async def reverse_geocode(
-    payload: Coordinates,
+    payload: CoordinatesPayload,
     _: TokenPayload = Depends(access_token_dependency),
     service: LocationService = Depends(),
 ):

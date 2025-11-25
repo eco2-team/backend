@@ -1,14 +1,16 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: location-keco-import
+  name: location-normalized-import
   namespace: location
   labels:
     app: location-api
     tier: business-logic
     domain: location
   annotations:
-    argocd.argoproj.io/sync-wave: '-40'
+    argocd.argoproj.io/sync-wave: '10'
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
   backoffLimit: 3
   template:
@@ -20,13 +22,15 @@ spec:
     spec:
       restartPolicy: Never
       containers:
-      - name: import-keco-sites
+      - name: normalized-import
         image: docker.io/mng990/eco2:location-api-latest
         imagePullPolicy: Always
         command:
         - python
         - -m
-        - domains.location.jobs.import_keco_sites
+        - domains.location.jobs.import_common_locations
+        - --csv-path
+        - /app/domains/location/data/location_common_dataset.csv.gz
         env:
         - name: LOCATION_DATABASE_URL
           valueFrom:

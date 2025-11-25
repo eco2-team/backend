@@ -7,15 +7,12 @@
 - [ ] 컨테이너 상태 확인: `location-local-postgres`, `location-local-redis`, `location-local-api` 정상 동작
 
 ## 2. 데이터 적재
-- [ ] CSV Import Job 실행  
+- [ ] `normalized-import` 서비스가 완료되었는지 확인 (Compose가 자동 실행). 필요 시 수동으로 재실행:
   ```bash
   cd domains/location
-  docker-compose -f docker-compose.location-local.yml run --rm api \
-    python -m domains.location.jobs.import_zero_waste_locations \
-    --csv-path domains/location/제로웨이스트\ 지도\ 데이터.csv \
-    --database-url postgresql+asyncpg://location:location@db:5432/location
+  docker-compose -f docker-compose.location-local.yml run --rm normalized-import
   ```
-- [ ] `location.location_zero_waste_sites` 테이블 레코드 존재 여부 확인 (임의 쿼리 or 로그)
+- [ ] `location.location_normalized_sites` 테이블 레코드 존재 여부 확인 (임의 쿼리 or 로그)
 
 ## 3. API 기능
 - [ ] `GET /api/v1/locations/centers?lat=37.5665&lon=126.9780&radius=5000`  

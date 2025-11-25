@@ -1,7 +1,7 @@
-# Bootstrap_DB - Location Zero Waste Data
+# Bootstrap_DB - Location Normalized Dataset
 
-`domains/location/jobs/import_zero_waste_locations.py` 스크립트를 이용해 제로웨이스트 지도 CSV 데이터를 Postgres에 적재하는 절차를 정리했습니다.  
-Auth 서비스 사용자 스키마 생성 로직과 동일하게 **스키마 보장 → 테이블 생성 → UPSERT** 순서로 동작합니다.
+정규화된 CSV(`domains/location/data/location_common_dataset.csv.gz`)를 DB에 직접 업서트하는 절차를 정리했습니다.  
+별도의 PVC나 Raw 테이블 없이 **정규화 CSV → `location_normalized_sites` 업서트** 단계만 수행합니다.
 
 ---
 
@@ -9,39 +9,30 @@ Auth 서비스 사용자 스키마 생성 로직과 동일하게 **스키마 보
 
 | 항목 | 설명 |
 |------|------|
-| CSV 파일 | `domains/location/제로웨이스트 지도 데이터.csv` (UTF-8, 헤더 포함) |
-| 컬럼 | `folderId, seq, favoriteType, color, memo, display1, display2, x, y, lon, lat, key, createdAt, updatedAt` |
-| 주기 | 필요 시 최신본으로 교체 후 재실행 (UPSERT) |
+| 정규화 CSV | `domains/location/data/location_common_dataset.csv.gz` |
+| 생성 스크립트 | `python -m domains.location.jobs.sync_common_dataset` (로컬에서 실행하여 CSV 갱신) |
+| Raw 자료 | `domains/location/data/keco_recycle_compensation_sites.csv`, `domains/location/data/제로웨이스트 지도 데이터.csv` |
+
+> Raw CSV가 갱신되면 `sync_common_dataset.py`를 다시 실행해 정규화 CSV를 만들고 커밋합니다.
 
 ---
 
 ## 2. 스키마 / 테이블
 
-스크립트는 실행 시 자동으로 `location` 스키마와 `location_zero_waste_sites` 테이블을 생성합니다.
-
-| 컬럼 | 타입 | 비고 |
-|------|------|------|
-| `seq` | `bigint` | **PK**, CSV `seq` |
-| `folder_id` | `bigint` | CSV `folderId` |
-| `favorite_type` | `varchar(16)` | CSV `favoriteType` |
-| `color` | `int` | CSV `color` |
-| `memo` / `display1` / `display2` | `text` | 설명 필드 |
-| `x`, `y`, `lon`, `lat` | `float` | TM 좌표 및 위경도 |
-| `place_key` | `varchar(64)` | CSV `key` |
-| `created_at`, `updated_at` | `timestamp with time zone` | CSV 일시 (`YYYY-MM-DD HH:MM:SS`) |
-
-`ON CONFLICT (seq) DO UPDATE` 로 동작하여 기존 레코드는 최신 값으로 덮어씁니다.
+- 테이블: `location.location_normalized_sites`
+- PK: `positn_sn`
+- Unique: `(source, source_pk)`
+- 좌표/운영시간/설명/메타데이터를 KECO 스키마에 맞춰 보관
+- Job은 `ON CONFLICT` 업서트로 동작하여 반복 실행 시에도 안전합니다.
 
 ---
 
 ## 3. 환경 변수
 
-| 변수 | 설명 | 예시 |
-|------|------|------|
-| `LOCATION_DATABASE_URL` | 우선 사용되는 DB 연결 문자열 (`postgresql+asyncpg://user:pass@host:5432/location`) | `postgresql+asyncpg://mango:pw@dev-postgres:5432/location` |
-| `DATABASE_URL` | `LOCATION_DATABASE_URL` 미설정 시 fallback | 동일 |
-
-※ CI/배포 환경에서는 `LOCATION_DATABASE_URL` 환경 변수로 location 전용 DB/스키마를 지정하세요.
+| 변수 | 설명 |
+|------|------|
+| `LOCATION_DATABASE_URL` | `postgresql+asyncpg://user:pw@host:5432/location` |
+| `DATABASE_URL` | 위 값이 없을 때 fallback |
 
 ---
 
@@ -51,35 +42,37 @@ Auth 서비스 사용자 스키마 생성 로직과 동일하게 **스키마 보
 cd /Users/mango/workspace/SeSACTHON/backend
 export LOCATION_DATABASE_URL="postgresql+asyncpg://user:pw@localhost:5432/location"
 
-python -m domains.location.jobs.import_zero_waste_locations \
-  --csv-path domains/location/제로웨이스트\ 지도\ 데이터.csv \
+python -m domains.location.jobs.import_common_locations \
+  --csv-path domains/location/data/location_common_dataset.csv.gz \
   --batch-size 500
 ```
 
 실행 결과:
+
 ```
-Imported 352 rows from /.../제로웨이스트 지도 데이터.csv into location_zero_waste_sites
+Imported 760 normalized rows from domains/location/data/location_common_dataset.csv.gz
 ```
 
 ### 주요 옵션
-- `--csv-path` : CSV 다른 버전을 지정할 때 사용
-- `--database-url` : 환경 변수 대신 CLI에서 직접 연결 문자열 지정
-- `--batch-size` : 대량 데이터 처리 시 Insert batch 크기 (기본 200)
+- `--csv-path`: gzip/평문 CSV 모두 지원 (기본은 레포 내 정규화 파일)
+- `--database-url`: CLI 인자로 DB 연결 문자열 지정
+- `--batch-size`: Insert batch 크기 (기본 200)
 
 ---
 
 ## 5. 자동화/배포 연계
 
-1. **Repository 내 저장**  
-   - CSV 최신본을 `domains/location/제로웨이스트 지도 데이터.csv` 위치에 갱신
-   - 위 스크립트 실행 후 `location_zero_waste_sites` 를 최신 상태로 맞춤
+1. **CSV 갱신 플로우**
+   - Raw CSV 최신본 반영 → `python -m domains.location.jobs.sync_common_dataset`
+   - 결과 `location_common_dataset.csv.gz`를 커밋
 
-2. **GitHub Actions / Cron**  
-   - 추후 필요 시 `python -m domains.location.jobs.import_zero_waste_locations` 명령을 포함하는 Workflow를 만들어 주기적으로 실행 가능
-   - K8s CronJob으로도 쉽게 전환 가능 (컨테이너 이미지에서 동일 명령 호출)
+2. **Kubernetes Job**
+   - `workloads/domains/location/base/normalized-import-job.yaml` 이 위 스크립트를 실행해 DB에 업서트
+   - Hook wave 10에서 실행되어 Deployment 전에 데이터가 준비됩니다.
 
-3. **서비스 참조**  
-   - Location API가 향후 DB 데이터를 직접 조회할 경우, 해당 테이블을 기준으로 Repository/Service 계층을 구성하면 됩니다.
+3. **로컬 Docker Compose**
+   - `normalized-import` 서비스가 동일 명령을 수행합니다.
+   - 필요 시 `docker-compose -f domains/location/docker-compose.location-local.yml run --rm normalized-import`
 
 ---
 
@@ -87,17 +80,17 @@ Imported 352 rows from /.../제로웨이스트 지도 데이터.csv into locatio
 
 | 증상 | 조치 |
 |------|------|
-| `Set LOCATION_DATABASE_URL or DATABASE_URL` 오류 | 환경 변수 또는 `--database-url` 옵션 확인 |
-| `FileNotFoundError` | `--csv-path` 경로, 파일명(한글 포함) 확인 |
-| `psycopg2.OperationalError` / 연결 실패 | DB 보안 그룹/포트/자격 증명 확인 |
-| 일부 열이 비어 있음 | CSV 원본에 공백/빈 문자열인 경우 `NULL`로 저장됨 (설계 의도) |
+| `Set LOCATION_DATABASE_URL or DATABASE_URL` | 환경 변수 또는 `--database-url` 옵션 확인 |
+| `CSV file not found` | 경로/파일명, gzip 여부 확인 |
+| `psycopg2.OperationalError` | DB 접속 정보/보안그룹 확인 |
+| 레코드 수 차이 | Raw CSV 업데이트 후 정규화 스크립트 재실행 |
 
 ---
 
 ## 7. 레퍼런스
 
-- Job 스크립트: `domains/location/jobs/import_zero_waste_locations.py`
-- CSV 원본: `domains/location/제로웨이스트 지도 데이터.csv`
-- Auth 사용자 업서트 레퍼런스: `domains/auth/models/user.py`, `domains/auth/repositories/user_repository.py`
-
+- 정규화 생성 스크립트: `domains/location/jobs/sync_common_dataset.py`
+- DB 업서트 스크립트: `domains/location/jobs/import_common_locations.py`
+- Kubernetes Job: `workloads/domains/location/base/normalized-import-job.yaml`
+- Docker Compose: `domains/location/docker-compose.location-local.yml`
 

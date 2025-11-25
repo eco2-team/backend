@@ -11,17 +11,11 @@ from domains.location.core.config import get_settings
 from domains.location.database.session import get_db_session
 from domains.location.domain.entities import NormalizedSite
 from domains.location.domain.value_objects import (
-    Coordinates as DomainCoordinates,
     PickupCategory,
     StoreCategory,
 )
 from domains.location.repositories.normalized_site_repository import NormalizedLocationRepository
-from domains.location.schemas.location import (
-    Coordinates,
-    GeoResponse,
-    LocationEntry,
-    OperatingHours,
-)
+from domains.location.schemas.location import CoordinatesPayload, GeoResponse, LocationEntry
 from domains.location.services.category_classifier import classify_categories
 from domains.location.services.zoom_policy import limit_from_zoom, radius_from_zoom
 
@@ -83,14 +77,15 @@ class LocationService:
 
     async def geocode(self, address: str) -> GeoResponse:
         # Placeholder: future integration with external geocoding provider
-        return GeoResponse(
-            address=address,
-            coordinates=Coordinates(latitude=37.5665, longitude=126.9780),
-        )
+        return GeoResponse(address=address, latitude=37.5665, longitude=126.9780)
 
-    async def reverse_geocode(self, coordinates: Coordinates) -> GeoResponse:
+    async def reverse_geocode(self, coordinates: CoordinatesPayload) -> GeoResponse:
         # Placeholder
-        return GeoResponse(address="Seoul City Hall", coordinates=coordinates)
+        return GeoResponse(
+            address="Seoul City Hall",
+            latitude=coordinates.latitude,
+            longitude=coordinates.longitude,
+        )
 
     async def metrics(self) -> dict:
         cache_key = "location:indexed_sites"
@@ -118,7 +113,7 @@ class LocationService:
             fallback="Zero Waste Spot",
         )
         road_address = LocationService._derive_road_address(site, metadata)
-        coordinates = site.coordinates() or DomainCoordinates(latitude=0.0, longitude=0.0)
+        coordinates = site.coordinates()
         operating_hours = LocationService._derive_operating_hours(site)
         phone = LocationService._derive_phone(site, metadata)
         collection_items = LocationService._derive_collection_items(site, metadata)
@@ -128,10 +123,14 @@ class LocationService:
             name=name,
             source=site.source,
             road_address=LocationService._sanitize_optional_text(road_address, source=site.source),
-            coordinates=Coordinates(latitude=coordinates.latitude, longitude=coordinates.longitude),
+            latitude=coordinates.latitude if coordinates else None,
+            longitude=coordinates.longitude if coordinates else None,
             distance_km=distance_km,
             distance_text=LocationService._format_distance(distance_km),
-            operating_hours=operating_hours,
+            is_holiday=operating_hours.get("is_holiday") if operating_hours else None,
+            is_open=operating_hours.get("is_open") if operating_hours else None,
+            start_time=operating_hours.get("start_time") if operating_hours else None,
+            end_time=operating_hours.get("end_time") if operating_hours else None,
             phone=phone,
             collection_items=collection_items,
         )
@@ -154,13 +153,13 @@ class LocationService:
         return f"{distance_km:.1f}km"
 
     @staticmethod
-    def _derive_operating_hours(site: NormalizedSite) -> Optional[OperatingHours]:
+    def _derive_operating_hours(site: NormalizedSite) -> Optional[dict[str, Any]]:
         if site.source == "zerowaste":
             # Zero-waste dataset rarely carries structured hours; avoid leaking memo text.
             return None
 
         today = datetime.now(LocationService.TZ)
-        attr, label = LocationService.WEEKDAY_LABELS[today.weekday()]
+        attr, _ = LocationService.WEEKDAY_LABELS[today.weekday()]
         day_value = LocationService._sanitize_optional_text(
             getattr(site, attr, None), source=site.source
         )
@@ -169,25 +168,34 @@ class LocationService:
             return None
 
         if "휴무" in day_value:
-            start_display, end_display = LocationService._extract_time_range(day_value)
-            return OperatingHours(
-                status="closed",
-                start=start_display or day_value,
-                end=end_display,
-            )
+            return {
+                "is_holiday": True,
+                "is_open": False,
+                "start_time": None,
+                "end_time": None,
+            }
 
         start_str, end_str = LocationService._extract_time_range(day_value)
         start_display = start_str or day_value
         end_display = end_str
 
+        is_open: Optional[bool] = None
         if start_str and end_str:
             start_dt = LocationService._to_today_datetime(start_str)
             end_dt = LocationService._to_today_datetime(end_str)
             if start_dt and end_dt:
                 now = datetime.now(LocationService.TZ)
                 if start_dt <= now <= end_dt:
-                    return OperatingHours(status="open", start=start_display, end=end_display)
-        return OperatingHours(status="closed", start=start_display, end=end_display)
+                    is_open = True
+                else:
+                    is_open = False
+
+        return {
+            "is_holiday": False,
+            "is_open": is_open,
+            "start_time": start_display,
+            "end_time": end_display,
+        }
 
     @staticmethod
     def _derive_phone(site: NormalizedSite, metadata: dict[str, Any]) -> Optional[str]:
