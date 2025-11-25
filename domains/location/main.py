@@ -9,9 +9,9 @@ def create_app() -> FastAPI:
         title="Location API",
         description="Geospatial lookup for recycling facilities",
         version="0.7.3",
-        docs_url="/api/v1/location/docs",
-        redoc_url="/api/v1/location/redoc",
-        openapi_url="/api/v1/location/openapi.json",
+        docs_url="/api/v1/locations/docs",
+        redoc_url="/api/v1/locations/redoc",
+        openapi_url="/api/v1/locations/openapi.json",
     )
 
     app.add_middleware(
