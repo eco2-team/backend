@@ -168,6 +168,12 @@ backend/
 
 ---
 
+## API Docs
+- [Auth](https://api.dev.growbin.app/api/v1/auth/docs)
+- [Locations](https://api.dev.growbin.app/api/v1/locations/docs)
+
+---
+
 ## Article
 
 - [이코에코 인프라 구축기 #1 클러스터 부트스트랩](https://rooftopsnow.tistory.com/8)
