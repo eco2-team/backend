@@ -49,20 +49,25 @@ graph TD
 
 ```mermaid
 graph TD
-    ClientLeft["사용자(Client)"]:::client
-    ClientRight["사용자(Client)"]:::client
+    Client["사용자(Client)"]:::client
 
-    ClientLeft -->|HTTPS 443| ALBData["ALB"]:::alb
+    Client -->|HTTPS 443| ALBData["ALB"]:::alb
     ALBData -->|라우팅| TGData["Target Group"]:::tg
     TGData -->|NodePort 31666| IngressData["Ingress<br/>domain-ingress"]:::ing
+    IngressData -->|ClusterIP 8000| Node1["노드 A<br/>k8s-api-domain"]:::node
+    IngressData -->|ClusterIP 8000| Node2["노드 B<br/>k8s-api-domain-2"]:::node
 
-    IngressData --> Node1["노드 A<br/>k8s-api-domain"]:::node
-    Node1 -->|ClusterIP 8000| Pod1["domain-api Pod #1"]:::pod
-    Pod1 -->|응답| ClientLeft
+    subgraph Node1Pods["노드 A 내부"]
+        Pod1["domain-api Pod #1"]:::pod
+    end
+    subgraph Node2Pods["노드 B 내부"]
+        Pod2["domain-api Pod #2"]:::pod
+    end
 
-    IngressData --> Node2["노드 B<br/>k8s-api-domain-2"]:::node
-    Node2 -->|ClusterIP 8000| Pod2["domain-api Pod #2"]:::pod
-    Pod2 -->|응답| ClientRight
+    Node1 --> Pod1
+    Node2 --> Pod2
+    Pod1 -->|응답| Client
+    Pod2 -->|응답| Client
 
     classDef client fill:#BFDBFE,stroke:#1D4ED8,color:#111;
     classDef alb fill:#FECACA,stroke:#B91C1C,color:#111;
