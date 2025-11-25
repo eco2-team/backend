@@ -5,8 +5,10 @@ graph TD
     subgraph "Kubernetes Cluster"
         Ingress[["Ingress<br/>domain-ingress"]]:::ing
         Service[["Service & Endpoints<br/>(location-api)"]]:::svc
-        Nodes[(노드 목록<br/>k8s-api-domain*)]:::node
-        Pods[(Pods<br/>domain-api)]:::pod
+        subgraph NodesGroup["노드 목록"]
+            Nodes[(k8s-api-domain*)]:::node
+            Pods[(domain-api Pods)]:::pod
+        end
         ALBCtrl{{"AWS Load Balancer Controller"}}:::ctrl
     end
 
