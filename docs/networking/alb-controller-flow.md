@@ -30,26 +30,17 @@ graph TD
 
 ```mermaid
 graph TD
-    subgraph "Data Plane"
-        Client["사용자(Client)"]:::client
-        ALBData["ALB"]:::alb
-        TGData["Target Group"]:::tg
-        IngressData["Ingress<br/>domain-ingress"]:::ing
-        Node1["노드 A<br/>k8s-api-domain"]:::node
-        Node2["노드 B<br/>k8s-api-domain-2"]:::node
-        Pod1["domain-api Pod #1"]:::pod
-        Pod2["domain-api Pod #2"]:::pod
-    end
+    Client["사용자(Client)"]:::client
+    Client -->|HTTPS 443| ALBData["ALB"]:::alb
+    ALBData -->|라우팅| TGData["Target Group"]:::tg
+    TGData -->|NodePort 31666| IngressData["Ingress<br/>domain-ingress"]:::ing
 
-    Client -->|HTTPS 443| ALBData
-    ALBData -->|라우팅| TGData
-    TGData -->|NodePort 31666| IngressData
-    IngressData --> Node1
-    IngressData --> Node2
-    Node1 -->|ClusterIP 8000| Pod1
-    Node2 -->|ClusterIP 8000| Pod2
-
+    IngressData --> Node1["노드 A<br/>k8s-api-domain"]:::node
+    Node1 -->|ClusterIP 8000| Pod1["domain-api Pod #1"]:::pod
     Pod1 -->|응답| Client
+
+    IngressData --> Node2["노드 B<br/>k8s-api-domain-2"]:::node
+    Node2 -->|ClusterIP 8000| Pod2["domain-api Pod #2"]:::pod
     Pod2 -->|응답| Client
 
     classDef client fill:#BFDBFE,stroke:#1D4ED8,color:#111;
