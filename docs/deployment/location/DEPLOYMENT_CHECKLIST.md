@@ -18,9 +18,8 @@
 1. `dev-postgresql` / `prod-postgresql` Application 동기화 (이미 동작 중이라면 건너뜀)
 2. `dev-ingresses` / `prod-ingresses` ApplicationSet에 `location` 인그레스가 포함되었는지 확인
 3. `dev-apis` / `prod-apis` ApplicationSet 동기화 → 다음 Job이 순차 실행
-   - `location-keco-import`
    - `location-db-bootstrap`
-   - `location-common-sync`
+   - `location-normalized-import`
 4. `location-api` Deployment 롤아웃 완료 대기
 
 ## 4. 배포 후 검증

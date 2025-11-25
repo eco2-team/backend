@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import csv
+import gzip
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -20,9 +21,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from domains.location.database.extensions import ensure_geospatial_extensions
-
-DEFAULT_CSV_BASENAME = "location_common_dataset.csv"
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+DEFAULT_CSV_CANDIDATES = [
+    "location_common_dataset.csv.gz",
+    "location_common_dataset.csv",
+]
 metadata = MetaData()
 
 normalized_table = Table(
@@ -69,6 +72,20 @@ normalized_table = Table(
 )
 
 
+def _resolve_default_csv() -> Path:
+    for filename in DEFAULT_CSV_CANDIDATES:
+        candidate = DATA_DIR / filename
+        if candidate.exists():
+            return candidate
+    return DATA_DIR / DEFAULT_CSV_CANDIDATES[0]
+
+
+def _open_csv(path: Path):
+    if path.suffix == ".gz":
+        return gzip.open(path, "rt", encoding="utf-8-sig", newline="")
+    return path.open("r", encoding="utf-8-sig", newline="")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Import KECO-style normalized dataset CSV into Postgres",
@@ -77,7 +94,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--csv-path",
         type=Path,
-        default=Path(__file__).resolve().parents[1] / "data" / DEFAULT_CSV_BASENAME,
+        default=_resolve_default_csv(),
         help="Path to normalized dataset CSV",
     )
     parser.add_argument(
@@ -154,7 +171,6 @@ def transform_row(row: dict[str, str]) -> dict[str, Any]:
 
 
 async def ensure_schema(engine: AsyncEngine) -> None:
-    await ensure_geospatial_extensions(engine)
     async with engine.begin() as conn:
         exists = await conn.scalar(
             text("SELECT 1 FROM information_schema.schemata " "WHERE schema_name = :schema_name"),
@@ -201,7 +217,7 @@ def resolve_database_url(cli_value: str | None) -> str:
 async def import_csv(engine: AsyncEngine, csv_path: Path, batch_size: int) -> int:
     total = 0
     pending: list[dict[str, Any]] = []
-    with csv_path.open("r", encoding="utf-8-sig", newline="") as file_obj:
+    with _open_csv(csv_path) as file_obj:
         reader: Iterable[dict[str, str]] = csv.DictReader(file_obj)
         for row in reader:
             mapped = transform_row(row)

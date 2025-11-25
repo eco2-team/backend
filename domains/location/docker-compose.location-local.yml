@@ -25,46 +25,18 @@ services:
     ports:
     - 6381:6379
 
-  import-keco:
+  normalized-import:
     build:
       context: ../..
       dockerfile: domains/location/Dockerfile
-    container_name: location-local-import-keco
+    container_name: location-local-normalized-import
     restart: no
-    command: [python, -m, domains.location.jobs.import_keco_sites, --csv-path, /app/domains/location/data/keco_recycle_compensation_sites.csv]
+    command: [python, -m, domains.location.jobs.import_common_locations, --csv-path, /app/domains/location/data/location_common_dataset.csv.gz]
     environment:
       LOCATION_DATABASE_URL: postgresql+asyncpg://location:location@db:5432/location
     depends_on:
       db:
         condition: service_healthy
-
-  bootstrap-zero-waste:
-    build:
-      context: ../..
-      dockerfile: domains/location/Dockerfile
-    container_name: location-local-bootstrap-zero-waste
-    restart: no
-    command: [python, -m, domains.location.jobs.import_zero_waste_locations, --csv-path, /app/domains/location/data/제로웨이스트 지도 데이터.csv]
-    environment:
-      LOCATION_DATABASE_URL: postgresql+asyncpg://location:location@db:5432/location
-    depends_on:
-      db:
-        condition: service_healthy
-      import-keco:
-        condition: service_completed_successfully
-
-  common-sync:
-    build:
-      context: ../..
-      dockerfile: domains/location/Dockerfile
-    container_name: location-local-common-sync
-    restart: no
-    command: [python, -m, domains.location.jobs.sync_common_dataset]
-    environment:
-      LOCATION_DATABASE_URL: postgresql+asyncpg://location:location@db:5432/location
-    depends_on:
-      bootstrap-zero-waste:
-        condition: service_completed_successfully
 
   api:
     build:
@@ -80,7 +52,7 @@ services:
     depends_on:
       redis:
         condition: service_started
-      common-sync:
+      normalized-import:
         condition: service_completed_successfully
 
 volumes:

@@ -21,7 +21,7 @@
 
 ### 2. PostgreSQL 확장 자동 설치
 - `domains/location/database/extensions.py`: `ensure_geospatial_extensions()` 헬퍼 함수 추가
-- `import_zero_waste_locations.py`, `import_keco_sites.py`, `import_common_locations.py`: 스키마 생성 전 `cube`, `earthdistance` 확장 자동 설치
+- `import_common_locations.py`: 스키마 생성 전 `cube`, `earthdistance` 확장 자동 설치
 - 지리 공간 쿼리(`ll_to_earth`, `earth_distance`) 정상 동작 보장
 
 ### 3. 운영시간 API 응답 구조 개선
@@ -33,9 +33,9 @@
 
 ### 4. Kubernetes Job 기반 DB 부트스트랩 파이프라인
 - `workloads/domains/location/base/`: Job 매니페스트
-  - `keco-import-job.yaml` (sync-wave: -40)
-  - `db-bootstrap-job.yaml` (sync-wave: -30)
-  - `common-dataset-sync-job.yaml` (sync-wave: 10) – 정규화 데이터셋 생성 후 즉시 DB 업서트
+  - `db-bootstrap-job.yaml` (sync-wave: -30) – cube/earthdistance 확장 설치 + location 스키마 생성
+  - `normalized-import-job.yaml` (sync-wave: 10) – 정규화 CSV(`location_common_dataset.csv.gz`) 업서트
+- 정규화 CSV는 Docker 이미지에 포함되며, Job은 DB 적재만 수행
 - `README.md`: 부트스트랩 Job 순서 및 재실행 가이드 문서화
 - ArgoCD sync-wave 설정으로 Deployment 이전 순차 실행 보장
 
@@ -111,8 +111,8 @@ curl -i "http://127.0.0.1:8010/api/v1/locations/centers?lat=37.5665&lon=126.9780
 
 ### 배포 순서
 1. ArgoCD에서 location 애플리케이션 sync
-2. Job 순차 실행 (약 2-3분 소요):
-   - keco-import → db-bootstrap → common-build → common-import
+2. Job 순차 실행 (약 1-2분 소요):
+   - db-bootstrap → normalized-import
 3. Job 완료 후 location-api Deployment 자동 롤아웃
 4. Health check 및 API 엔드포인트 검증
 

@@ -6,8 +6,7 @@ resources:
 - service.yaml
 - configmap.yaml
 - db-bootstrap-job.yaml
-- keco-import-job.yaml
-- common-dataset-sync-job.yaml
+- normalized-import-job.yaml
 labels:
 - includeSelectors: true
   pairs:
