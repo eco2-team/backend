@@ -147,8 +147,8 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 #### ALB가 Pod를 인지하는 경로
 ![CC86B4CB-7C2C-4602-BC10-B42B481948FD_4_5005_c](https://github.com/user-attachments/assets/ecbb091a-7310-4116-8d7a-f04d05e84aa4)
 
-Ingress는 `location-api` Service(NodePort 31666)를 통해 파드가 노출되고 있는 노드 IP와 포트 정보를 확인합니다.
-이 Endpoints 정보를 AWS Load Balancer Controller가 감지해 Target Group에 노드 IP + NodePort를 등록하고, ALB 리스너/규칙을 생성·업데이트합니다.
+- Ingress는 `location-api` Service(NodePort 31666)를 통해 파드가 노출되고 있는 노드 IP와 포트 정보를 확인합니다.
+- 이 Endpoints 정보를 AWS Load Balancer Controller가 감지해 Target Group에 노드 IP + NodePort를 등록하고, ALB 리스너/규칙을 생성·업데이트합니다.
 
 #### 왜 NodePort를 택했나?
 - 이코에코의 클러스터는 Calico VXLAN으로 구성된 **오버레이 네트워크**를 사용합니다.
@@ -159,8 +159,8 @@ Ingress는 `location-api` Service(NodePort 31666)를 통해 파드가 노출되�
 
 ![17DBA027-2EDF-459E-9B4D-4A3A0AB10F0C](https://github.com/user-attachments/assets/26e8128b-8b7f-4b46-93d1-c85553f4c853)
 
-얖서 구축한 TG와 Ingress를 바탕으로 Client → ALB → Target Group → Ingress → 각 노드 내부 파드 순서로 전달됩니다.
-Path by Route를 수행하며, RestFul한 트래픽 토폴로지를 제공합니다. 
+- 얖서 구축한 TG와 Ingress를 바탕으로 Client → ALB → Target Group → Ingress → 각 노드 내부 파드 순서로 전달됩니다.
+- Path by Route를 수행하며, RestFul한 트래픽 토폴로지를 제공합니다. 
 
 ---
 
