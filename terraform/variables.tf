@@ -64,9 +64,14 @@ variable "enable_irsa" {
   default     = false
 }
 
-variable "ghcr_token" {
-  description = "GitHub Container Registry Personal Access Token (read:packages 권한 필요). 민감 정보이므로 환경변수나 tfvars로 주입."
+variable "dockerhub_username" {
+  description = "Docker Hub 사용자명 (이미지 Pull용)"
+  type        = string
+  default     = "mng990"
+}
+
+variable "dockerhub_password" {
+  description = "Docker Hub Personal Access Token (민감정보)"
   type        = string
   sensitive   = true
-  default     = ""
 }

@@ -125,29 +125,29 @@ resource "aws_ssm_parameter" "acm_certificate_arn" {
 }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 5. GHCR (GitHub Container Registry) Credentials
+# 5. Docker Hub Credentials
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-resource "aws_ssm_parameter" "ghcr_username" {
-  name        = "/sesacthon/${var.environment}/ghcr/username"
+resource "aws_ssm_parameter" "dockerhub_username" {
+  name        = "/sesacthon/${var.environment}/dockerhub/username"
   type        = "String"
-  value       = "mangowhoiscloud"
-  description = "GitHub Container Registry Username"
+  value       = var.dockerhub_username
+  description = "Docker Hub username for private image pulls"
   tags = {
     ManagedBy   = "terraform"
-    Scope       = "ghcr"
+    Scope       = "dockerhub"
     Environment = var.environment
   }
 }
 
-resource "aws_ssm_parameter" "ghcr_token" {
-  name        = "/sesacthon/${var.environment}/ghcr/token"
+resource "aws_ssm_parameter" "dockerhub_password" {
+  name        = "/sesacthon/${var.environment}/dockerhub/password"
   type        = "SecureString"
-  value       = var.ghcr_token
-  description = "GitHub Container Registry Personal Access Token"
+  value       = var.dockerhub_password
+  description = "Docker Hub access token / PAT"
   tags = {
     ManagedBy   = "terraform"
-    Scope       = "ghcr"
+    Scope       = "dockerhub"
     Environment = var.environment
   }
 }
