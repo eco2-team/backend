@@ -119,7 +119,7 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 
 - “포지션(part-of) → 계층(tier) → 역할(role)” 순으로 라벨을 붙인 뒤 네임스페이스로 매핑합니다.
 - Taint/Tolerance를 활용해 라벨과 매칭되는 노드로 파드의 배치가 제한되며, 계층별 network policy 격리가 적용됩니다. (Monitoring 제외, 상위 계층은 단일 하위 계층만 의존)
-- 이코에코(Eco²)에서 라벨이 컨트롤 포인트를 맡으며, 도메인/역할/책임/계층 추상화를 통해 개발 및 운영 복잡도를 낮춥니다.
+- 이코에코(Eco²)에서 네임스페이스와 라벨은 컨트롤 포인트를 맡으며, 도메인/역할/책임/계층 추상화를 통해 개발 및 운영 복잡도를 낮춥니다.
 
 ### 상세 설명
 1. **app.kubernetes.io/part-of**  
