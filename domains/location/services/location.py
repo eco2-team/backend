@@ -71,6 +71,8 @@ class LocationService:
                     site=site,
                     distance_km=distance,
                     metadata=metadata,
+                    store_category=store_category,
+                    pickup_categories=pickup_categories,
                 )
             )
         return entries
@@ -101,7 +103,11 @@ class LocationService:
 
     @staticmethod
     def _to_entry(
-        site: NormalizedSite, distance_km: float, metadata: dict[str, Any]
+        site: NormalizedSite,
+        distance_km: float,
+        metadata: dict[str, Any],
+        store_category: StoreCategory,
+        pickup_categories: list[PickupCategory],
     ) -> LocationEntry:
         name = LocationService._first_non_empty(
             metadata.get("display1"),
@@ -116,7 +122,6 @@ class LocationService:
         coordinates = site.coordinates()
         operating_hours = LocationService._derive_operating_hours(site)
         phone = LocationService._derive_phone(site, metadata)
-        collection_items = LocationService._derive_collection_items(site, metadata)
 
         entry = LocationEntry(
             id=int(site.id),
@@ -127,12 +132,14 @@ class LocationService:
             longitude=coordinates.longitude if coordinates else None,
             distance_km=distance_km,
             distance_text=LocationService._format_distance(distance_km),
+            store_category=store_category.value,
+            pickup_categories=[category.value for category in pickup_categories]
+            or [PickupCategory.GENERAL.value],
             is_holiday=operating_hours.get("is_holiday") if operating_hours else None,
             is_open=operating_hours.get("is_open") if operating_hours else None,
             start_time=operating_hours.get("start_time") if operating_hours else None,
             end_time=operating_hours.get("end_time") if operating_hours else None,
             phone=phone,
-            collection_items=collection_items,
         )
         return entry
 
@@ -220,26 +227,6 @@ class LocationService:
         )
 
     @staticmethod
-    def _derive_collection_items(
-        site: NormalizedSite, metadata: dict[str, Any]
-    ) -> Optional[list[str]]:
-        raw = metadata.get("clctItemCn") or metadata.get("clct_item_cn") or site.clct_item_cn
-        if not raw:
-            return None
-
-        if isinstance(raw, (list, tuple, set)):
-            tokens = list(raw)
-        else:
-            text = str(raw).replace("\r", "\n")
-            tokens = re.split(r"[\n,]+", text)
-
-        cleaned: list[str] = []
-        for token in tokens:
-            normalized = LocationService._sanitize_optional_text(token, source=site.source)
-            if normalized:
-                cleaned.append(normalized)
-        return cleaned or None
-
     @staticmethod
     def _sanitize_optional_text(value: Optional[str], *, source: str | None) -> Optional[str]:
         if value is None:

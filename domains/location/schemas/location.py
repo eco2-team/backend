@@ -12,12 +12,13 @@ class LocationEntry(BaseModel):
     longitude: Optional[float] = None
     distance_km: Optional[float] = None
     distance_text: Optional[str] = None
+    store_category: str
+    pickup_categories: list[str]
     is_holiday: Optional[bool] = None
     is_open: Optional[bool] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     phone: Optional[str] = None
-    collection_items: Optional[list[str]] = None
 
 
 class GeoResponse(BaseModel):
