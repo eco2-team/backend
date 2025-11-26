@@ -8,7 +8,7 @@ metadata:
     alb.ingress.kubernetes.io/target-type: instance
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
     # ACM Certificate ARN
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/4afcd696-4cc9-4e98-90d4-bfc1161316d2
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/fed2966c-7f9e-4849-ae20-0592ec04a373
     alb.ingress.kubernetes.io/group.name: ecoeco-main
     alb.ingress.kubernetes.io/group.order: '30'
     alb.ingress.kubernetes.io/backend-protocol: HTTP
