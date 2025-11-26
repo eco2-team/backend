@@ -30,6 +30,38 @@ Tier 0 Monitoring  : Prometheus, Grafana, Alerter Manager, ArgoCD
 
 ---
 
+
+## Services Snapshot
+
+| 서비스 | 설명 | 이미지/태그 |
+|--------|------|-------------|
+| auth | JWT 인증/인가 | `docker.io/mng990/eco2:auth-{env}-latest` |
+| my | 사용자 정보·포인트 | `docker.io/mng990/eco2:my-{env}-latest` |
+| scan | AI 폐기물 분류 | `docker.io/mng990/eco2:scan-{env}-latest` |
+| character | 캐릭터 분석 | `docker.io/mng990/eco2:character-{env}-latest` |
+| location | 지도/수거함 검색 | `docker.io/mng990/eco2:location-{env}-latest` |
+| info | 재활용 정보/FAQ | `docker.io/mng990/eco2:info-{env}-latest` |
+| chat | GPT-4o-mini 챗봇 | `docker.io/mng990/eco2:chat-{env}-latest` |
+
+각 도메인은 공통 FastAPI 템플릿·Dockerfile·테스트를 공유하고, Kustomize overlay에서 이미지 태그와 ConfigMap/Secret만 분기합니다.
+
+---
+
+## AI Domain Progress
+
+| 항목 | 진행 내용 (2025-11 기준) |
+|------|-------------------------|
+| Vision 인식 파이프라인 | `domains/chat/app/core/ImageRecognition.py`, `vision.py`에서 Azure Vision → OpenAI GPT-4o-mini 조합으로 폐기물 이미지를 분류. `item_class_list.yaml`, `situation_tags.yaml`에 카테고리/상황 태그 정의 후 Prompt에 자동 삽입. |
+| Text/Intent 분류 | `text_classifier.py`, `prompts/text_classification_prompt.txt` 기반으로 사용자 질의를 intent/priority로 자동 분류하여 답변 라우팅. |
+| RAG/지식 베이스 | `app/core/source/*.json`에 음식물/재활용 품목별 처리 지침을 다수의 JSON으로 축적하고, `rag.py`가 검색·요약해 답변에 인용. |
+| 답변 생성 Prompt | `prompts/answer_generation_prompt.txt`, `vision_classification_prompt.txt`를 통해 다중 소스 결과를 하나의 친절한 응답으로 구성. multi-turn 컨텍스트와 tone을 prompt 레벨에서 제어. |
+| API 구조 | `domains/chat/app` → FastAPI + `chat/app/core/*` 서비스 계층으로 분리. `/api/v1/chat` 엔드포인트는 text/vision 요청을 자동 판별하고 OpenAI 호출을 추상화. |
+| 테스트/운영 | `tests/test_app.py`로 API 레벨 smoke test, `requirements.txt`에 OpenAI/Azure SDK 고정.|
+
+다음 단계: 멀티모달 입력(텍스트+이미지) 동시 처리, 사용자별 히스토리 저장, ELK 기반 대화 로그 분석.
+
+---
+
 ## Bootstrap Overview
 
 ```yaml
@@ -43,39 +75,11 @@ Domains  : auth, my, scan, character, location, info, chat
 Data     : PostgreSQL, Redis, RabbitMQ (paused), Monitoring stack
 Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 ```
-
-## Release Highlights (v0.8.0)
-
-- **OAuth 플로우 안정화 (2025-11-20 ~ 2025-11-23)**
-  Google/Kakao/Naver 콜백에 상세 로깅을 추가하고 RedirectResponse를 재사용해 리다이렉트 이후에도 `Set-Cookie`가 유지되도록 수정했습니다.
-  쿠키 `domain`을 `.growbin.app`으로 확장해 `api.dev.growbin.app`, `frontend.dev.growbin.app` 등 growbin 서브도메인 간 세션을 공유할 수 있습니다.
-
-- **네트워크 & 보안 보강**
-  `allow-external-https` NetworkPolicy를 추가해 Auth 파드가 OAuth Provider(HTTPS)와 안정적으로 통신하도록 했으며, ArgoCD GitHub webhook secret을 ExternalSecret + SSM 구조로 재작성했습니다.
-  Pre-commit(Black, Ruff, 기본 hooks)을 도입해 lint/format 파이프라인을 커밋 단계에서 자동화했습니다.
-
-- **DNS & 쿠키 도메인 전략 정비**
-  Route53에 `frontend.growbin.app`, `frontend.dev.growbin.app` CNAME(Vercel) 레코드를 추가해 프런트 커스텀 도메인을 growbin 계층으로 편입했습니다.
-
-- **AI 도메인 기능 고도화**
-  Vision 인식(`ImageRecognition.py`, `vision.py`)과 Text/Intent 분류(`text_classifier.py`) 파이프라인을 정리하고, RAG 지식 베이스(`app/core/source/*.json`)를 확장했습니다.
-  프롬프트(`answer_generation_prompt.txt`, `vision_classification_prompt.txt`, `text_classification_prompt.txt`)를 분리해 멀티모달 응답 품질을 높였고, FastAPI 챗봇 엔드포인트 `/api/v1/chat`이 이 흐름을 통합 처리합니다.
-
-- **플랫폼 토대 (v0.7.4) 유지**
-  GitOps Sync-wave(00~70) 재정렬, `platform/crds`/`platform/cr` 단일화, Docker Hub 단일 이미지 파이프라인, RBAC/Storage 안정화 등 v0.7.4 기반 구성은 그대로 유지되며 이번 버전에서 Auth/OAuth 영역만 추가됐습니다.
-
----
-
-## Quick Links
-
-| 카테고리 | 문서 |
-|----------|------|
-| 아키텍처 허브 | `docs/architecture/README.md`, `docs/architecture/CLUSTER_METADATA_REFERENCE.md` |
-| GitOps & Sync Waves | `clusters/README.md`, `docs/gitops/ARGOCD_HELM_KUSTOMIZE_STRUCTURE.md` |
-| Kustomize Workloads | `workloads/README.md`, `workloads/rbac-storage/README.md` |
-| 데이터 계층 (CRD/CR) | `platform/crds/README.md`, `platform/cr/README.md`, `docs/troubleshooting/2025-11-19-rabbitmq-redis.md` |
-| 서비스 & CI | `services/README.md`, `docs/ci/04-CI_CD_PIPELINE.md` |
-| 배포/운영 가이드 | `docs/deployment/README.md`, `docs/troubleshooting/*.md` |
+1. Terraform으로 AWS 인프라를 구축합니다.
+2. Ansible로 구축된 AWS 인프라를 엮어 K8s 클러스터를 구성하고, ArgoCD root-app을 설치합니다.
+3. 모든 컴포넌트는 ArgoCD root-app과 sync된 상태이며, root-app은 develop 브랜치를 바라봅니다.
+4. develop 브랜치에 push가 발생하면 CI 파이프라인을 거쳐 테스트, 도커 이미지 패키징, 허브 업로드까지 수행합니다.
+5. ArgoCD root-app은 develop 브랜치의 변경사항이 감지되면 해당 파트를 업데이트해 코드 변경이 클러스터로 반영됩니다.
 
 ---
 
@@ -109,34 +113,25 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 
 ---
 
-## Services Snapshot
+### Network Topology
 
-| 서비스 | 설명 | 이미지/태그 |
-|--------|------|-------------|
-| auth | JWT 인증/인가 | `docker.io/mng990/eco2:auth-{env}-latest` |
-| my | 사용자 정보·포인트 | `docker.io/mng990/eco2:my-{env}-latest` |
-| scan | AI 폐기물 분류 | `docker.io/mng990/eco2:scan-{env}-latest` |
-| character | 캐릭터 분석 | `docker.io/mng990/eco2:character-{env}-latest` |
-| location | 지도/수거함 검색 | `docker.io/mng990/eco2:location-{env}-latest` |
-| info | 재활용 정보/FAQ | `docker.io/mng990/eco2:info-{env}-latest` |
-| chat | GPT-4o-mini 챗봇 | `docker.io/mng990/eco2:chat-{env}-latest` |
+#### ALB가 Pod를 인지하는 경로
+![CC86B4CB-7C2C-4602-BC10-B42B481948FD_4_5005_c](https://github.com/user-attachments/assets/ecbb091a-7310-4116-8d7a-f04d05e84aa4)
 
-각 도메인은 공통 FastAPI 템플릿·Dockerfile·테스트를 공유하고, Kustomize overlay에서 이미지 태그와 ConfigMap/Secret만 분기합니다.
+Ingress는 `location-api` Service(NodePort 31666)를 통해 파드가 노출되고 있는 노드 IP와 포트 정보를 확인합니다.
+이 Endpoints 정보를 AWS Load Balancer Controller가 감지해 Target Group에 노드 IP + NodePort를 등록하고, ALB 리스너/규칙을 생성·업데이트하는 과정을 이 다이어그램 하나로 보여줍니다.
 
----
+> 왜 NodePort를 택했을까?
+> 이코에코의 클러스터는 Calico VXLAN으로 구성된 **오버레이 네트워크**에서 통신을 수행합니다.
+> Ingress가 어떤 노드/파드로 라우팅할지 알아야 하는데, ClusterIP Service만 쓰면 외부에서 이 정보를 직접 얻기 어려워서 별도 프록시가 요구됩니다.
+> NodePort로 파드를 노출하면 노드 IP:포트 조합만으로 ALB → Target Group → NodePort → Pod로 이어지며, 중간 레이어 및 hop을 최소화할 수 있습니다.
 
-## AI Domain Progress
+#### Client <-> Pod 트래픽 경로
 
-| 항목 | 진행 내용 (2025-11 기준) |
-|------|-------------------------|
-| Vision 인식 파이프라인 | `domains/chat/app/core/ImageRecognition.py`, `vision.py`에서 Azure Vision → OpenAI GPT-4o-mini 조합으로 폐기물 이미지를 분류. `item_class_list.yaml`, `situation_tags.yaml`에 카테고리/상황 태그 정의 후 Prompt에 자동 삽입. |
-| Text/Intent 분류 | `text_classifier.py`, `prompts/text_classification_prompt.txt` 기반으로 사용자 질의를 intent/priority로 자동 분류하여 답변 라우팅. |
-| RAG/지식 베이스 | `app/core/source/*.json`에 음식물/재활용 품목별 처리 지침을 다수의 JSON으로 축적하고, `rag.py`가 검색·요약해 답변에 인용. |
-| 답변 생성 Prompt | `prompts/answer_generation_prompt.txt`, `vision_classification_prompt.txt`를 통해 다중 소스 결과를 하나의 친절한 응답으로 구성. multi-turn 컨텍스트와 tone을 prompt 레벨에서 제어. |
-| API 구조 | `domains/chat/app` → FastAPI + `chat/app/core/*` 서비스 계층으로 분리. `/api/v1/chat` 엔드포인트는 text/vision 요청을 자동 판별하고 OpenAI 호출을 추상화. |
-| 테스트/운영 | `tests/test_app.py`로 API 레벨 smoke test, `requirements.txt`에 OpenAI/Azure SDK 고정.|
+![17DBA027-2EDF-459E-9B4D-4A3A0AB10F0C](https://github.com/user-attachments/assets/26e8128b-8b7f-4b46-93d1-c85553f4c853)
 
-다음 단계: 멀티모달 입력(텍스트+이미지) 동시 처리, 사용자별 히스토리 저장, ELK 기반 대화 로그 분석.
+얖서 구축한 TG와 Ingress를 바탕으로 Client → ALB → Target Group → NodePort 31666 → 각 노드 내부 파드 순서로 전달됩니다.
+Path by Routing을 수행하며, RestFul한 트래픽 토폴로지를 제공합니다. 
 
 ---
 
@@ -165,6 +160,28 @@ backend/
 ├── services/            # FastAPI 도메인 코드
 └── docs/                # Architecture / Deployment / Troubleshooting
 ```
+
+---
+
+## Release Highlights (v0.8.0)
+
+- **OAuth 플로우 안정화 (2025-11-20 ~ 2025-11-23)**
+  Google/Kakao/Naver 콜백에 상세 로깅을 추가하고 RedirectResponse를 재사용해 리다이렉트 이후에도 `Set-Cookie`가 유지되도록 수정했습니다.
+  쿠키 `domain`을 `.growbin.app`으로 확장해 `api.dev.growbin.app`, `frontend.dev.growbin.app` 등 growbin 서브도메인 간 세션을 공유할 수 있습니다.
+
+- **네트워크 & 보안 보강**
+  `allow-external-https` NetworkPolicy를 추가해 Auth 파드가 OAuth Provider(HTTPS)와 안정적으로 통신하도록 했으며, ArgoCD GitHub webhook secret을 ExternalSecret + SSM 구조로 재작성했습니다.
+  Pre-commit(Black, Ruff, 기본 hooks)을 도입해 lint/format 파이프라인을 커밋 단계에서 자동화했습니다.
+
+- **DNS & 쿠키 도메인 전략 정비**
+  Route53에 `frontend.growbin.app`, `frontend.dev.growbin.app` CNAME(Vercel) 레코드를 추가해 프런트 커스텀 도메인을 growbin 계층으로 편입했습니다.
+
+- **AI 도메인 기능 고도화**
+  Vision 인식(`ImageRecognition.py`, `vision.py`)과 Text/Intent 분류(`text_classifier.py`) 파이프라인을 정리하고, RAG 지식 베이스(`app/core/source/*.json`)를 확장했습니다.
+  프롬프트(`answer_generation_prompt.txt`, `vision_classification_prompt.txt`, `text_classification_prompt.txt`)를 분리해 멀티모달 응답 품질을 높였고, FastAPI 챗봇 엔드포인트 `/api/v1/chat`이 이 흐름을 통합 처리합니다.
+
+- **플랫폼 토대 (v0.7.4) 유지**
+  GitOps Sync-wave(00~70) 재정렬, `platform/crds`/`platform/cr` 단일화, Docker Hub 단일 이미지 파이프라인, RBAC/Storage 안정화 등 v0.7.4 기반 구성은 그대로 유지되며 이번 버전에서 Auth/OAuth 영역만 추가됐습니다.
 
 ---
 
