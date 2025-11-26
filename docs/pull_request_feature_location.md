@@ -34,6 +34,33 @@
 - 제로웨이스트 데이터: `operating_hours: null`
 - KECO 데이터: 요일별 파싱 후 현재 시각 기준 상태 결정 (예: `{"status":"closed","start":"12:00","end":"18:00"}`)
 
+#### JSON 응답 변경 예시
+```json
+// Before
+{
+  "id": 101,
+  "name": "Zero Waste Lab",
+  "distance_km": 0.42,
+  "distance_text": "420m",
+  "hours": "화 11:00 ~ 14:00; 임시휴무 전체휴무",
+  "collection_items": ["투명 PET", "플라스틱"]
+}
+
+// After
+{
+  "id": 101,
+  "name": "Zero Waste Lab",
+  "distance_km": 0.42,
+  "distance_text": "420m",
+  "store_category": "refill_zero",
+  "pickup_categories": ["clear_pet", "plastic"],
+  "is_holiday": false,
+  "is_open": null,
+  "start_time": "11:00",
+  "end_time": "14:00"
+}
+```
+
 ### 4. Kubernetes Job 기반 DB 부트스트랩 파이프라인
 - `workloads/domains/location/base/`: Job 매니페스트
   - `db-bootstrap-job.yaml` (sync-wave: -30) – cube/earthdistance 확장 설치 + location 스키마 생성
@@ -131,7 +158,7 @@ curl -i "http://127.0.0.1:8010/api/v1/locations/centers?lat=37.5665&lon=126.9780
 ## ✅ 체크리스트
 - [x] feature/location-service 브랜치 4개 커밋으로 논리적 단위 분리
 - [x] GitHub에 브랜치 push 완료
-- [ ] GitHub PR 생성 후 리뷰 요청
+- [x] GitHub PR 생성 후 리뷰 요청
 - [ ] ArgoCD dev 환경 sync 및 Job 성공 확인
 - [ ] API 엔드포인트 스모크 테스트 (health, centers)
 
