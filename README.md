@@ -148,11 +148,11 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 ![CC86B4CB-7C2C-4602-BC10-B42B481948FD_4_5005_c](https://github.com/user-attachments/assets/ecbb091a-7310-4116-8d7a-f04d05e84aa4)
 
 - Ingress는 `location-api` Service(NodePort 31666)를 통해 파드가 노출되고 있는 노드 IP와 포트 정보를 확인합니다.
-- 이 Endpoints 정보를 AWS Load Balancer Controller가 감지해 Target Group에 노드 IP + NodePort를 등록하고, ALB 리스너/규칙을 생성·업데이트합니다.
+- Endpoints 정보를 AWS Load Balancer Controller가 감지해 Target Group에 노드 IP + NodePort를 등록하고, ALB 리스너/규칙을 생성·업데이트합니다.
 
-#### 왜 NodePort를 택했나?
-- 이코에코의 클러스터는 Calico VXLAN으로 구성된 **오버레이 네트워크**를 사용합니다.
-- Ingress가 어떤 노드/파드로 라우팅할지 알아야 하는데, ClusterIP Service만 쓰면 클러스터 외부에서 이 정보를 얻기 어려워서 별도 프록시가 요구됩니다.
+#### Cluster IP가 아닌 NodePort를 선택한 이유
+- 이코에코의 클러스터는 Calico VXLAN으로 터널링된 **L2 오버레이 네트워크**를 사용합니다.
+- Ingress가 어떤 노드/파드로 라우팅할지 알아야 하는데, ClusterIP Service를 사용하면 클러스터 외부에서 이를 인지할 수 없어 별도 프록시가 요구됩니다.
 - NodePort로 파드를 노출하면 노드 IP:포트 조합만으로 ALB → Target Group → Ingress → Pod 통신이 가능해지며, 중간 레이어 및 hop을 최소화합니다.
 
 #### Client <-> Pod 트래픽 경로
