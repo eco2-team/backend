@@ -2,6 +2,11 @@
 
 이 문서는 프론트엔드가 `/api/v1/images/chat` 업로드 파이프라인을 사용하는 방법을 정리합니다. presigned URL 발급 → S3 업로드 → 콜백 확정 → 챗 서버 전달 순서와 예시 코드를 포함합니다.
 
+> **필수 조건**
+> - 서비스 로그인 상태(쿠키 `s_access`)가 있어야 presigned 발급/콜백 모두 통과합니다.
+> - 요청 본문의 `uploader_id`를 전달하는 경우, 로그인한 사용자 ID와 반드시 일치해야 하며, 미입력 시 서버가 자동으로 쿠키 사용자 ID를 사용합니다.
+> - Swagger UI는 `https://api.dev.growbin.app/api/v1/images/docs` 에서 확인할 수 있습니다.
+
 ---
 
 ### 1. 전체 시퀀스 다이어그램
@@ -29,7 +34,7 @@ sequenceDiagram
 
 | 단계 | 메서드/URL | 필수 헤더 | 본문/설명 |
 | --- | --- | --- | --- |
-| 1 | `POST https://api.dev.growbin.app/api/v1/images/{channel}` | `Content-Type: application/json` | `filename`, `content_type`, `uploader_id`, `metadata`(object). |
+| 1 | `POST https://api.dev.growbin.app/api/v1/images/{channel}` | `Content-Type: application/json` | `filename`, `content_type`, `uploader_id`(optional), `metadata`(object). |
 | 2 | `PUT {upload_url}` | presigned에서 요구한 헤더(`Content-Type` 등) | 원본 이미지 바이너리. |
 | 3 | `POST https://api.dev.growbin.app/api/v1/images/{channel}/callback` | `Content-Type: application/json` | `key`, `etag`, `content_length`(선택), `checksum`(선택). |
 | 4 | `POST https://api.dev.growbin.app/api/v1/chat/...` | 프로젝트 규격 참고 | callback 응답에서 받은 `cdn_url`과 대화 텍스트를 전달. |
@@ -60,6 +65,7 @@ export async function uploadChatImage(file: File, sessionMeta: {
     body: JSON.stringify({
       filename: file.name,
       content_type: file.type || "application/octet-stream",
+      // 로그인 사용자와 동일한 UUID를 넣거나, 생략하면 서버가 쿠키 사용자 ID를 사용합니다.
       uploader_id: sessionMeta.userId,
       metadata: {
         chat_session_id: sessionMeta.chatSessionId,
