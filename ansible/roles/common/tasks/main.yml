@@ -1,6 +1,4 @@
----
 # Common OS 설정
----
 - name: 시스템 업데이트
   apt:
     update_cache: yes

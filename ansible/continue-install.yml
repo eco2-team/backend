@@ -1,6 +1,4 @@
----
 # 나머지 설치 작업 계속 진행
----
 - name: AWS EBS CSI Driver 및 StorageClass 설정
   hosts: masters
   become: yes

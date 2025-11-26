@@ -1,6 +1,4 @@
----
 # RabbitMQ를 제외한 나머지 설치
----
 - name: 'Redis 설치 (Tier 4: Persistence - Cache & State)'
   hosts: masters
   become: yes

@@ -1,9 +1,7 @@
----
 # Worker 노드 Provider ID 설정 (Master 노드에서 kubectl patch 실행)
 # ALB Controller가 Worker 노드를 Target Group에 등록하기 위해 필수
 # SSH 대신 AWS CLI로 Instance 정보 조회
 
----
 - name: AWS CLI로 Worker 노드 정보 수집
   block:
   - name: 모든 k8s Worker 노드 정보 조회 (AWS CLI) - 14 Nodes (Phase 1&2 8 nodes)

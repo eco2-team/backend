@@ -1,6 +1,4 @@
----
 # Master 노드 초기화 (에러 처리 포함)
----
 - name: Master 초기화 블록
   block:
   - name: 클러스터 초기화 여부 확인

@@ -58,42 +58,6 @@
 
 ## 2. Secret 분류 및 생성 절차
 
-### 2.1 인증 관련 Secrets (Wave 11)
-
-#### A. GHCR (GitHub Container Registry) Pull Secrets
-
-**대상 Namespace**: `auth`, `my`, `scan`, `character`, `location`, `info`, `chat` (7개)
-
-**SSM Parameters**:
-- `/sesacthon/dev/ghcr/username` (String)
-- `/sesacthon/dev/ghcr/password` (SecureString) ← GitHub PAT
-
-**생성 절차**:
-```bash
-# 1. GitHub PAT 생성 (read:packages 권한)
-gh auth status -t  # 기존 토큰 확인
-
-# 2. SSM Parameter 저장
-aws ssm put-parameter \
-  --name /sesacthon/dev/ghcr/username \
-  --value "mangowhoiscloud" \
-  --type String
-
-aws ssm put-parameter \
-  --name /sesacthon/dev/ghcr/password \
-  --value "gho_xxxxx" \
-  --type SecureString
-```
-
-**생성되는 Secret**:
-- Name: `ghcr-secret`
-- Type: `kubernetes.io/dockerconfigjson`
-- Usage: Pod의 `imagePullSecrets`로 자동 주입
-
-**ExternalSecret 파일**: `workloads/secrets/external-secrets/dev/ghcr-pull-secret.yaml`
-
----
-
 ### 2.2 데이터 계층 Secrets (Wave 11)
 
 #### A. PostgreSQL
@@ -137,31 +101,6 @@ aws ssm put-parameter \
 - Name: `redis-secret`
 - Keys: `password`, `redis-password`
 - Usage: Redis Operator 인스턴스 생성 시 참조
-
-#### C. RabbitMQ
-
-**대상 Namespace**: `rabbitmq`
-
-**SSM Parameters**:
-- `/sesacthon/dev/data/rabbitmq-password` (SecureString)
-
-**생성 절차**:
-```bash
-aws ssm put-parameter \
-  --name /sesacthon/dev/data/rabbitmq-password \
-  --value "$(openssl rand -base64 32)" \
-  --type SecureString \
-  --description "RabbitMQ default user password for dev"
-```
-
-**생성되는 Secret**:
-- Name: `rabbitmq-default-user`
-- Keys: `username`, `password`, `default_user.conf`
-- Usage: RabbitMQ Cluster Operator
-
-**ExternalSecret 파일**: `workloads/secrets/external-secrets/dev/data-secrets.yaml`
-
----
 
 ### 2.3 플랫폼 관리자 Secrets (Wave 11)
 
@@ -380,38 +319,6 @@ aws ssm put-parameter \
   --type SecureString
 ```
 
-### 4.3 ImagePullBackOff (GHCR Secret)
-
-**증상**:
-```bash
-kubectl get pods -n auth
-# STATUS: ImagePullBackOff
-```
-
-**원인**: `ghcr-secret`이 생성되지 않았거나 잘못된 자격증명
-
-**해결**:
-```bash
-# 1. Secret 존재 확인
-kubectl get secret ghcr-secret -n auth
-
-# 2. SSM Parameter 확인
-aws ssm get-parameter --name /sesacthon/dev/ghcr/username
-aws ssm get-parameter --name /sesacthon/dev/ghcr/password --with-decryption
-
-# 3. GitHub PAT 권한 확인 (read:packages 필요)
-gh auth status -t
-
-# 4. 토큰 재생성 및 SSM 업데이트
-aws ssm put-parameter \
-  --name /sesacthon/dev/ghcr/password \
-  --value "$(gh auth token)" \
-  --type SecureString \
-  --overwrite
-```
-
----
-
 ## 5. 운영 가이드
 
 ### 5.1 Secret 추가
@@ -504,10 +411,8 @@ kubectl logs -n platform-system -l app.kubernetes.io/name=external-secrets --tai
 
 | Secret 이름 | Namespace | SSM Parameter | 용도 | Type |
 |------------|-----------|---------------|------|------|
-| `ghcr-secret` | auth, my, scan, character, location, info, chat | `/sesacthon/dev/ghcr/*` | GHCR 이미지 풀 | `dockerconfigjson` |
 | `postgresql-secret` | postgres | `/sesacthon/dev/data/postgres-password` | PostgreSQL 관리자 비밀번호 | `Opaque` |
 | `redis-secret` | redis | `/sesacthon/dev/data/redis-password` | Redis 비밀번호 | `Opaque` |
-| `rabbitmq-default-user` | rabbitmq | `/sesacthon/dev/data/rabbitmq-password` | RabbitMQ 기본 사용자 | `Opaque` |
 | `grafana-admin` | grafana | `/sesacthon/dev/platform/grafana-admin-password` | Grafana 관리자 | `Opaque` |
 | `argocd-admin-secret` | argocd | `/sesacthon/dev/platform/argocd-admin-password` | ArgoCD 관리자 (선택적) | `Opaque` |
 | `alb-controller-values` | kube-system | `/sesacthon/dev/network/*` | ALB Controller 설정 | `Opaque` |

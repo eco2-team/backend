@@ -1,6 +1,4 @@
----
 # 공통 변수
----
 # Kubernetes 버전
 kubernetes_version: 1.28.4-1.1
 kubernetes_cni_version: 1.28.0-1.1

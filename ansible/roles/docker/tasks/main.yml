@@ -1,6 +1,4 @@
----
 # Docker 설치
----
 - name: Docker GPG 키 추가
   apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg

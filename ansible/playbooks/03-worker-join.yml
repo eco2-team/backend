@@ -1,6 +1,4 @@
----
 # Worker 노드 조인 (검증 강화 + 에러 처리)
----
 - name: Worker 조인 블록
   block:
     # Pre-flight 체크

@@ -1,6 +1,4 @@
----
 # Kubernetes 패키지 설치
----
 - name: Kubernetes APT 키 추가
   apt_key:
     url: https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key
