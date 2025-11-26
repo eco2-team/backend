@@ -162,8 +162,8 @@ Ingress는 `location-api` Service(NodePort 31666)를 통해 파드가 노출되�
 
 ![17DBA027-2EDF-459E-9B4D-4A3A0AB10F0C](https://github.com/user-attachments/assets/26e8128b-8b7f-4b46-93d1-c85553f4c853)
 
-얖서 구축한 TG와 Ingress를 바탕으로 Client → ALB → Target Group → NodePort 31666 → 각 노드 내부 파드 순서로 전달됩니다.
-Path by Routing을 수행하며, RestFul한 트래픽 토폴로지를 제공합니다. 
+얖서 구축한 TG와 Ingress를 바탕으로 Client → ALB → Target Group → Ingress → 각 노드 내부 파드 순서로 전달됩니다.
+Path by Route를 수행하며, RestFul한 트래픽 토폴로지를 제공합니다. 
 
 ---
 
