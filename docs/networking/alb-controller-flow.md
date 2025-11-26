@@ -69,13 +69,16 @@ graph TD
     subgraph Cluster["Kubernetes Cluster"]
         IngressData["Ingress<br/>domain-ingress"]:::ing
         ServiceData["Service/Endpoints<br/>location-api<br/>(NodePort 31666)"]:::svc
-        subgraph NodeA["노드 A"]
-            PodA1["domain-api Pod #1"]:::pod
-            PodA2["domain-api Pod #2"]:::pod
-        end
-        subgraph NodeB["노드 B"]
-            PodB1["domain-api Pod #3"]:::pod
-            PodB2["domain-api Pod #4"]:::pod
+        subgraph Nodes["노드 (NodePort 31666)"]
+            NodeBox((k8s worker node)):::node
+            Pod1["domain-api Pod #1"]:::pod
+            Pod2["domain-api Pod #2"]:::pod
+            Pod3["domain-api Pod #3"]:::pod
+            Pod4["domain-api Pod #4"]:::pod
+            NodeBox ---|targetPort 8000| Pod1
+            NodeBox ---|targetPort 8000| Pod2
+            NodeBox ---|targetPort 8000| Pod3
+            NodeBox ---|targetPort 8000| Pod4
         end
     end
 
@@ -83,17 +86,12 @@ graph TD
     ALBData -->|라우팅| TGData
     TGData -->|NodePort 31666| IngressData
     IngressData -->|service lookup| ServiceData
-    ServiceData -->|NodePort 31666| NodeA
-    ServiceData -->|NodePort 31666| NodeB
-    NodeA -->|targetPort 8000| PodA1
-    NodeA -->|targetPort 8000| PodA2
-    NodeB -->|targetPort 8000| PodB1
-    NodeB -->|targetPort 8000| PodB2
+    ServiceData -->|NodePort 31666| NodeBox
 
-    PodA1 -->|응답| Client
-    PodA2 -->|응답| Client
-    PodB1 -->|응답| Client
-    PodB2 -->|응답| Client
+    Pod1 -->|응답| Client
+    Pod2 -->|응답| Client
+    Pod3 -->|응답| Client
+    Pod4 -->|응답| Client
 
     classDef client fill:#BFDBFE,stroke:#1D4ED8,color:#111;
     classDef alb fill:#FECACA,stroke:#B91C1C,color:#111;
