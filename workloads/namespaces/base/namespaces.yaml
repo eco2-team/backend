@@ -92,15 +92,6 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: rabbitmq
-  labels:
-    app.kubernetes.io/part-of: ecoeco-backend
-    tier: integration
-    role: messaging
----
-apiVersion: v1
-kind: Namespace
-metadata:
   name: prometheus
   labels:
     app.kubernetes.io/part-of: ecoeco-backend

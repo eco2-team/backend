@@ -1,17 +1,3 @@
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: rabbitmq-cluster-operator-leader-election
-  namespace: rabbitmq-system
-  labels:
-    app.kubernetes.io/name: rabbitmq-cluster-operator
-    app.kubernetes.io/component: rabbitmq-operator
-    app.kubernetes.io/part-of: rabbitmq
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: rabbitmq-cluster-operator-leader-election
-subjects:
-- kind: ServiceAccount
-  name: rabbitmq-cluster-operator
-  namespace: rabbitmq-system
+#
+# Intentionally left blank. Namespaced rolebindings have been removed
+# after migrating away from RabbitMQ.

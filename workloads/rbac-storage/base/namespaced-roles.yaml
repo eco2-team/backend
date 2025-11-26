@@ -31,19 +31,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: data-ops
-  namespace: rabbitmq
-rules:
-- apiGroups: [rabbitmq.com]
-  resources: [rabbitmqclusters]
-  verbs: [get, list, watch, patch]
-- apiGroups: ['']
-  resources: [secrets]
-  verbs: [get, list, watch]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
   name: api-dev
   namespace: auth
 rules:
@@ -54,19 +41,3 @@ rules:
   resources: [configmaps, secrets, services]
   verbs: [get, list, watch, create, update, patch]
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: rabbitmq-cluster-operator-leader-election
-  namespace: rabbitmq-system
-  labels:
-    app.kubernetes.io/name: rabbitmq-cluster-operator
-    app.kubernetes.io/component: rabbitmq-operator
-    app.kubernetes.io/part-of: rabbitmq
-rules:
-- apiGroups: [coordination.k8s.io]
-  resources: [leases]
-  verbs: [get, list, watch, create, update, patch, delete]
-- apiGroups: ['']
-  resources: [events]
-  verbs: [create]
