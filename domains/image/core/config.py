@@ -25,6 +25,16 @@ class Settings(BaseSettings):
         le=7 * 24 * 60 * 60,
         validation_alias=AliasChoices("IMAGE_PRESIGN_EXPIRES"),
     )
+    redis_url: str = Field(
+        "redis://localhost:6379/6",
+        validation_alias=AliasChoices("IMAGE_REDIS_URL"),
+    )
+    upload_state_ttl: int = Field(
+        900,
+        ge=60,
+        le=24 * 60 * 60,
+        validation_alias=AliasChoices("IMAGE_UPLOAD_STATE_TTL"),
+    )
     allowed_targets: tuple[Literal["chat", "scan", "my"], ...] = ("chat", "scan", "my")
 
     model_config = SettingsConfigDict(

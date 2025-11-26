@@ -1,6 +1,8 @@
 from enum import Enum
 from pathlib import PurePosixPath
 
+from typing import Any, Dict, Optional
+
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
@@ -17,6 +19,8 @@ class ImageUploadRequest(BaseModel):
         min_length=1,
         max_length=255,
     )
+    uploader_id: str = Field(..., min_length=1, max_length=255)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("filename")
     @classmethod
@@ -33,3 +37,24 @@ class ImageUploadResponse(BaseModel):
     cdn_url: HttpUrl
     expires_in: int = Field(..., description="Presigned URL TTL (seconds)")
     required_headers: dict[str, str]
+
+
+class ImageUploadCallbackRequest(BaseModel):
+    key: str = Field(..., min_length=3, max_length=512)
+    etag: str = Field(..., min_length=1, max_length=128)
+    content_length: Optional[int] = Field(default=None, ge=0)
+    checksum: Optional[str] = Field(
+        default=None,
+        description="Client-reported checksum (e.g. SHA256)",
+        max_length=128,
+    )
+
+
+class ImageUploadFinalizeResponse(BaseModel):
+    key: str
+    channel: ImageChannel
+    cdn_url: HttpUrl
+    uploader_id: str
+    metadata: Dict[str, Any]
+    etag: str
+    content_type: str

@@ -7,3 +7,5 @@ data:
   LOG_LEVEL: INFO
   ENVIRONMENT: base
   IMAGE_PRESIGN_EXPIRES: '900'
+  IMAGE_UPLOAD_STATE_TTL: '900'
+  IMAGE_REDIS_URL: redis://redis.redis.svc.cluster.local:6379/6

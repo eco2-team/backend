@@ -1,17 +1,71 @@
 from __future__ import annotations
 
+import json
 import os
+from typing import Any, Dict, Optional
 from uuid import uuid4
 
 import boto3
 from botocore.client import BaseClient
+from pydantic import HttpUrl
+from redis.asyncio import Redis
 
 from domains.image.core import Settings, get_settings
+from domains.image.core.redis import get_upload_redis
 from domains.image.schemas.image import (
     ImageChannel,
+    ImageUploadCallbackRequest,
+    ImageUploadFinalizeResponse,
     ImageUploadRequest,
     ImageUploadResponse,
 )
+
+
+class PendingUpload:
+    def __init__(
+        self,
+        *,
+        channel: ImageChannel,
+        uploader_id: str,
+        metadata: Dict[str, Any],
+        content_type: str,
+        cdn_url: HttpUrl,
+    ) -> None:
+        self.channel = channel
+        self.uploader_id = uploader_id
+        self.metadata = metadata
+        self.content_type = content_type
+        self.cdn_url = str(cdn_url)
+
+    def to_json(self) -> str:
+        return json.dumps(
+            {
+                "channel": self.channel.value,
+                "uploader_id": self.uploader_id,
+                "metadata": self.metadata,
+                "content_type": self.content_type,
+                "cdn_url": self.cdn_url,
+            }
+        )
+
+    @classmethod
+    def from_json(cls, payload: str) -> "PendingUpload":
+        data = json.loads(payload)
+        return cls(
+            channel=ImageChannel(data["channel"]),
+            uploader_id=data["uploader_id"],
+            metadata=data.get("metadata") or {},
+            content_type=data["content_type"],
+            cdn_url=data["cdn_url"],
+        )
+
+
+class PendingUploadNotFoundError(Exception):
+    """Raised when the upload session does not exist or expired."""
+
+
+class PendingUploadChannelMismatchError(Exception):
+    """Raised when the callback channel and stored channel differ."""
 
 
 class ImageService:
@@ -19,12 +73,14 @@ class ImageService:
         self,
         settings: Settings | None = None,
         s3_client: BaseClient | None = None,
+        redis_client: Redis | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self._s3_client = s3_client or boto3.client(
             "s3",
             region_name=self.settings.aws_region,
         )
+        self._redis: Redis = redis_client or get_upload_redis()
 
     async def create_upload_url(
         self,
@@ -45,12 +101,44 @@ class ImageService:
         )
 
         cdn_url = self._compose_cdn_url(key)
+        pending = PendingUpload(
+            channel=channel,
+            uploader_id=request.uploader_id,
+            metadata=request.metadata,
+            content_type=request.content_type,
+            cdn_url=cdn_url,
+        )
+        await self._save_pending_upload(key, pending)
+
         return ImageUploadResponse(
             key=key,
             upload_url=upload_url,
             cdn_url=cdn_url,
             expires_in=self.settings.presign_expires_seconds,
             required_headers={"Content-Type": request.content_type},
+        )
+
+    async def finalize_upload(
+        self,
+        channel: ImageChannel,
+        request: ImageUploadCallbackRequest,
+    ) -> ImageUploadFinalizeResponse:
+        pending = await self._load_pending_upload(request.key)
+        if pending is None:
+            raise PendingUploadNotFoundError
+        if pending.channel != channel:
+            raise PendingUploadChannelMismatchError
+
+        await self._delete_pending_upload(request.key)
+
+        return ImageUploadFinalizeResponse(
+            key=request.key,
+            channel=channel,
+            cdn_url=pending.cdn_url,
+            uploader_id=pending.uploader_id,
+            metadata=pending.metadata,
+            etag=request.etag,
+            content_type=pending.content_type,
         )
 
     def _build_object_key(self, prefix: str, filename: str) -> str:
@@ -63,6 +151,25 @@ class ImageService:
     def _compose_cdn_url(self, key: str) -> str:
         cdn = str(self.settings.cdn_domain).rstrip("/")
         return f"{cdn}/{key}"
+
+    def _pending_key(self, object_key: str) -> str:
+        return f"image:pending:{object_key}"
+
+    async def _save_pending_upload(self, object_key: str, pending: PendingUpload) -> None:
+        await self._redis.setex(
+            self._pending_key(object_key),
+            self.settings.upload_state_ttl,
+            pending.to_json(),
+        )
+
+    async def _load_pending_upload(self, object_key: str) -> Optional[PendingUpload]:
+        payload = await self._redis.get(self._pending_key(object_key))
+        if not payload:
+            return None
+        return PendingUpload.from_json(payload)
+
+    async def _delete_pending_upload(self, object_key: str) -> None:
+        await self._redis.delete(self._pending_key(object_key))
 
     async def metrics(self) -> dict:
         return {

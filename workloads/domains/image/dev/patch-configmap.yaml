@@ -6,3 +6,4 @@ metadata:
 data:
   ENVIRONMENT: dev
   DEBUG: 'true'
+  IMAGE_REDIS_URL: redis://dev-redis-headless.redis.svc.cluster.local:6379/6
