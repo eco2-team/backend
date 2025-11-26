@@ -29,4 +29,3 @@ resource "aws_instance" "this" {
     ignore_changes = [user_data]
   }
 }
-

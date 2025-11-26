@@ -11,4 +11,3 @@ inventory/hosts.ini
 
 # Facts cache
 /tmp/ansible_facts/
-

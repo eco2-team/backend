@@ -6,4 +6,3 @@ resources:
 
 patches:
 - path: patch-ingress.yaml
-

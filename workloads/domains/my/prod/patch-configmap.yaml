@@ -4,6 +4,5 @@ metadata:
   name: my-config
   namespace: my
 data:
-  ENVIRONMENT: "prod"
-  DEBUG: "false"
-
+  ENVIRONMENT: prod
+  DEBUG: 'false'

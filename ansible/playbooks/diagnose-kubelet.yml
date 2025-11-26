@@ -1,69 +1,66 @@
----
 - name: Kubelet 진단
   hosts: all
   become: yes
   gather_facts: yes
-  
+
   tasks:
-    - name: kubelet 상태 확인
-      command: systemctl status kubelet
-      register: kubelet_status
-      failed_when: false
-      
-    - name: kubelet 상태 출력
-      debug:
-        msg: "{{ kubelet_status.stdout_lines }}"
-        
-    - name: kubelet 로그 확인 (최근 50줄)
-      command: journalctl -u kubelet -n 50 --no-pager
-      register: kubelet_logs
-      failed_when: false
-      
-    - name: kubelet 로그 출력
-      debug:
-        msg: "{{ kubelet_logs.stdout_lines }}"
-        
-    - name: containerd 상태 확인
-      command: systemctl status containerd
-      register: containerd_status
-      failed_when: false
-      
-    - name: containerd cgroup 드라이버 확인
-      shell: |
-        grep -i "SystemdCgroup" /etc/containerd/config.toml | head -5
-      register: containerd_cgroup
-      failed_when: false
-      
-    - name: containerd cgroup 설정 출력
-      debug:
-        msg: "{{ containerd_cgroup.stdout_lines }}"
-        
-    - name: kubelet 설정 파일 확인
-      shell: |
-        echo "=== /var/lib/kubelet/config.yaml ==="
-        cat /var/lib/kubelet/config.yaml 2>/dev/null || echo "파일 없음"
-        echo ""
-        echo "=== /var/lib/kubelet/kubeadm-flags.env ==="
-        cat /var/lib/kubelet/kubeadm-flags.env 2>/dev/null || echo "파일 없음"
-      register: kubelet_config
-      failed_when: false
-      
-    - name: kubelet 설정 출력
-      debug:
-        msg: "{{ kubelet_config.stdout_lines }}"
-        
-    - name: 커널 cgroup 확인
-      shell: |
-        echo "=== cgroup 버전 ==="
-        stat -fc %T /sys/fs/cgroup/
-        echo ""
-        echo "=== cgroup 마운트 ==="
-        mount | grep cgroup
-      register: cgroup_info
-      failed_when: false
-      
-    - name: cgroup 정보 출력
-      debug:
-        msg: "{{ cgroup_info.stdout_lines }}"
+  - name: kubelet 상태 확인
+    command: systemctl status kubelet
+    register: kubelet_status
+    failed_when: false
 
+  - name: kubelet 상태 출력
+    debug:
+      msg: '{{ kubelet_status.stdout_lines }}'
 
+  - name: kubelet 로그 확인 (최근 50줄)
+    command: journalctl -u kubelet -n 50 --no-pager
+    register: kubelet_logs
+    failed_when: false
+
+  - name: kubelet 로그 출력
+    debug:
+      msg: '{{ kubelet_logs.stdout_lines }}'
+
+  - name: containerd 상태 확인
+    command: systemctl status containerd
+    register: containerd_status
+    failed_when: false
+
+  - name: containerd cgroup 드라이버 확인
+    shell: |
+      grep -i "SystemdCgroup" /etc/containerd/config.toml | head -5
+    register: containerd_cgroup
+    failed_when: false
+
+  - name: containerd cgroup 설정 출력
+    debug:
+      msg: '{{ containerd_cgroup.stdout_lines }}'
+
+  - name: kubelet 설정 파일 확인
+    shell: |
+      echo "=== /var/lib/kubelet/config.yaml ==="
+      cat /var/lib/kubelet/config.yaml 2>/dev/null || echo "파일 없음"
+      echo ""
+      echo "=== /var/lib/kubelet/kubeadm-flags.env ==="
+      cat /var/lib/kubelet/kubeadm-flags.env 2>/dev/null || echo "파일 없음"
+    register: kubelet_config
+    failed_when: false
+
+  - name: kubelet 설정 출력
+    debug:
+      msg: '{{ kubelet_config.stdout_lines }}'
+
+  - name: 커널 cgroup 확인
+    shell: |
+      echo "=== cgroup 버전 ==="
+      stat -fc %T /sys/fs/cgroup/
+      echo ""
+      echo "=== cgroup 마운트 ==="
+      mount | grep cgroup
+    register: cgroup_info
+    failed_when: false
+
+  - name: cgroup 정보 출력
+    debug:
+      msg: '{{ cgroup_info.stdout_lines }}'

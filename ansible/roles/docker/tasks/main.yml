@@ -1,3 +1,4 @@
+---
 # Docker 설치
 ---
 - name: Docker GPG 키 추가
@@ -7,15 +8,15 @@
 
 - name: Docker repository 추가
   apt_repository:
-    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
     state: present
 
 - name: Docker 설치
   apt:
     name:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
     state: present
     update_cache: yes
 
@@ -49,13 +50,13 @@
   shell: |
     # SystemdCgroup 활성화 (중요!)
     sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
-    
+
     # disabled_plugins에서 cri 제거
     sed -i 's/^disabled_plugins = \["cri"\]/#disabled_plugins = ["cri"]/g' /etc/containerd/config.toml
-    
+
     # sandbox_image를 pause:3.9로 변경 (kubeadm 요구사항)
     sed -i 's|sandbox_image = .*|sandbox_image = "registry.k8s.io/pause:3.9"|g' /etc/containerd/config.toml
-    
+
     # 여러 번 발생 가능한 sandbox_image 모두 수정
     grep -n "sandbox_image" /etc/containerd/config.toml || echo "sandbox_image 없음"
   args:
@@ -98,4 +99,3 @@
     name: containerd
     state: started
     enabled: yes
-

@@ -33,5 +33,3 @@ echo ""
 
 # SSH 접속
 ssh -i "$SSH_KEY" $SSH_OPTS ubuntu@"$PUBLIC_IP"
-
-

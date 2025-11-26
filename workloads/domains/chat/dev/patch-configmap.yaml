@@ -4,6 +4,5 @@ metadata:
   name: chat-config
   namespace: chat
 data:
-  ENVIRONMENT: "dev"
-  DEBUG: "true"
-
+  ENVIRONMENT: dev
+  DEBUG: 'true'

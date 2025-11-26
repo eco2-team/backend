@@ -59,4 +59,3 @@ echo ""
 
 # 3단계: 상태 모니터링
 watch -n 3 "kubectl -n argocd get applications -l env=$ENV -o custom-columns='NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status,MESSAGE:.status.conditions[*].message'"
-

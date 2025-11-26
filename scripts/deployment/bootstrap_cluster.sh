@@ -152,9 +152,9 @@ log "tfvars 파일: ${TF_VARS_FILE}"
 # 사전 점검: 이전 배포 잔여물 확인
 if [[ "${SKIP_PREFLIGHT_CHECK}" != "true" ]]; then
   log "사전 점검 실행 중..."
-  
+
   has_remnants="false"
-  
+
   # Terraform state 확인
   if [[ -f "${TF_DIR}/terraform.tfstate" ]]; then
     pushd "${TF_DIR}" >/dev/null
@@ -165,19 +165,19 @@ if [[ "${SKIP_PREFLIGHT_CHECK}" != "true" ]]; then
       has_remnants="true"
     fi
   fi
-  
+
   # Ansible inventory 잔여물 확인
   if [[ -f "${ANSIBLE_INVENTORY_PATH}" ]]; then
     echo "${LOG_PREFIX} ⚠️  경고: 이전 Ansible inventory 파일이 존재합니다: ${ANSIBLE_INVENTORY_PATH}" >&2
     has_remnants="true"
   fi
-  
+
   # /tmp의 kubeadm join 스크립트 확인
   if [[ -f "/tmp/kubeadm_join_command.sh" ]]; then
     echo "${LOG_PREFIX} ⚠️  경고: 이전 kubeadm join 스크립트가 존재합니다: /tmp/kubeadm_join_command.sh" >&2
     has_remnants="true"
   fi
-  
+
   if [[ "${has_remnants}" == "true" ]]; then
     echo ""
     echo "${LOG_PREFIX} 💡 권장사항:" >&2

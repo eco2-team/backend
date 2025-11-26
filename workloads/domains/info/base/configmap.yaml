@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: info-config
-  namespace: info
-data:
-  LOG_LEVEL: "INFO"
-  ENVIRONMENT: "base"
-

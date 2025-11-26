@@ -231,4 +231,3 @@ resource "aws_ssm_parameter" "external_dns_role_arn" {
     Environment = var.environment
   }
 }
-

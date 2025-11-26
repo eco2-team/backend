@@ -57,5 +57,3 @@ echo "::group::kubeconform validation"
 echo "::endgroup::"
 
 ls -1 "${OUTPUT_DIR}"
-
-

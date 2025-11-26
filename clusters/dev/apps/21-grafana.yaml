@@ -4,7 +4,7 @@ metadata:
   name: dev-grafana
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "21"
+    argocd.argoproj.io/sync-wave: '21'
 spec:
   project: dev
   source:
@@ -40,21 +40,21 @@ spec:
         nodeSelector:
           infra-type: monitoring
         tolerations:
-          - key: domain
-            operator: Equal
-            value: observability
-            effect: NoSchedule
+        - key: domain
+          operator: Equal
+          value: observability
+          effect: NoSchedule
         datasources:
           datasources.yaml:
             apiVersion: 1
             datasources:
-              - name: Prometheus
-                type: prometheus
-                access: proxy
-                isDefault: true
-                url: http://kube-prometheus-stack-prometheus.prometheus:9090
-                jsonData:
-                  httpMethod: GET
+            - name: Prometheus
+              type: prometheus
+              access: proxy
+              isDefault: true
+              url: http://kube-prometheus-stack-prometheus.prometheus:9090
+              jsonData:
+                httpMethod: GET
   destination:
     server: https://kubernetes.default.svc
     namespace: grafana
@@ -63,4 +63,4 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
+    - CreateNamespace=true

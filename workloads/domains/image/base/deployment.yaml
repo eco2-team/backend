@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-api
+  namespace: image
+  labels:
+    app: image-api
+    tier: business-logic
+    domain: image
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: image-api
+  template:
+    metadata:
+      labels:
+        app: image-api
+        tier: business-logic
+        domain: image
+    spec:
+      containers:
+      - name: image-api
+        image: docker.io/mng990/eco2:image-api-latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: POSTGRES_HOST
+          value: postgresql.postgres.svc.cluster.local
+        - name: REDIS_HOST
+          value: redis.redis.svc.cluster.local
+        envFrom:
+        - configMapRef:
+            name: image-config
+        - secretRef:
+            name: image-secret
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: image
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: image
+        effect: NoSchedule

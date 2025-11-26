@@ -63,4 +63,3 @@ systemctl daemon-reload || true
 
 echo "✅ 기본 설정 완료: ${hostname}"
 echo "✅ SSM Agent 활성화됨"
-

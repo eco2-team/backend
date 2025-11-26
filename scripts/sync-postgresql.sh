@@ -29,4 +29,3 @@ kubectl -n argocd get application $APP_NAME
 echo ""
 echo "🔍 Pod 상태 모니터링:"
 kubectl -n postgres get pods -w
-

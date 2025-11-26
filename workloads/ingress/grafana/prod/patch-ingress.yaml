@@ -7,14 +7,13 @@ metadata:
     external-dns.alpha.kubernetes.io/managed-by: external-dns
 spec:
   rules:
-    - host: grafana.growbin.app
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: grafana
-                port:
-                  number: 80
-
+  - host: grafana.growbin.app
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 80

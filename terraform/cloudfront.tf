@@ -1,6 +1,6 @@
 # CloudFront CDN for S3 Images
 # CDN + S3 기반 이미지 처리 아키텍처
-# 
+#
 # ⚠️  주의: CloudFront 생성/삭제는 각각 10-15분 소요
 # 개발 환경에서는 enable_cloudfront = false 권장 (배포 시간 85% 단축)
 
@@ -33,7 +33,7 @@ resource "aws_cloudfront_distribution" "images" {
   default_cache_behavior {
     target_origin_id       = "S3-${aws_s3_bucket.images.id}"
     viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods         = ["GET", "HEAD", "OPTIONS"]
     compress               = true
 
@@ -103,7 +103,11 @@ resource "aws_s3_bucket_policy" "images_cdn" {
         Principal = {
           AWS = aws_cloudfront_origin_access_identity.images[0].iam_arn
         }
-        Action   = "s3:GetObject"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
         Resource = "${aws_s3_bucket.images.arn}/*"
       }
     ]
@@ -189,4 +193,3 @@ output "cdn_oai_iam_arn" {
   description = "CloudFront Origin Access Identity IAM ARN"
   value       = var.enable_cloudfront ? aws_cloudfront_origin_access_identity.images[0].iam_arn : "CloudFront disabled"
 }
-

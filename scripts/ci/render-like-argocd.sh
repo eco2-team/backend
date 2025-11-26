@@ -27,5 +27,3 @@ echo "Kustomize manifests: ${OUTPUT_DIR}/kustomize.yaml"
 echo "Combined manifest: ${OUTPUT_DIR}/combined.yaml"
 
 ls -1 "${OUTPUT_DIR}"
-
-

@@ -1,91 +1,92 @@
+---
 # Master 노드 초기화 (에러 처리 포함)
 ---
 - name: Master 초기화 블록
   block:
-    - name: 클러스터 초기화 여부 확인
-      stat:
-        path: /etc/kubernetes/admin.conf
-      register: kubeadm_init_stat
+  - name: 클러스터 초기화 여부 확인
+    stat:
+      path: /etc/kubernetes/admin.conf
+    register: kubeadm_init_stat
 
     # Pre-flight 체크
-    - name: Swap 비활성화 확인 (kubeadm 필수)
-      command: swapon -s
-      register: swap_check
-      changed_when: false
-      failed_when: swap_check.stdout != ""
+  - name: Swap 비활성화 확인 (kubeadm 필수)
+    command: swapon -s
+    register: swap_check
+    changed_when: false
+    failed_when: swap_check.stdout != ""
 
-    - name: containerd 실행 확인
-      command: systemctl is-active containerd
-      register: containerd_check
-      changed_when: false
-      failed_when: containerd_check.stdout != "active"
+  - name: containerd 실행 확인
+    command: systemctl is-active containerd
+    register: containerd_check
+    changed_when: false
+    failed_when: containerd_check.stdout != "active"
 
-    - name: CRI 소켓 존재 확인
-      stat:
-        path: /run/containerd/containerd.sock
-      register: cri_socket
-      failed_when: not cri_socket.stat.exists
+  - name: CRI 소켓 존재 확인
+    stat:
+      path: /run/containerd/containerd.sock
+    register: cri_socket
+    failed_when: not cri_socket.stat.exists
 
-    - name: kubeadm init 실행 (프로덕션 검증 설정)
-      command: >
-        kubeadm init
-        {% if cni_plugin == 'calico' %}--pod-network-cidr={{ pod_network_cidr }}{% endif %}
-        --service-cidr={{ service_cidr }}
-        --apiserver-advertise-address={{ private_ip }}
-        --control-plane-endpoint={{ private_ip }}:6443
-        --node-name={{ inventory_hostname }}
-        --cri-socket=unix:///run/containerd/containerd.sock
-        --upload-certs
-        --skip-phases=addon/kube-proxy
-        --v=5
-      register: kubeadm_init_output
-      when: not kubeadm_init_stat.stat.exists
-      async: 600
-      poll: 10
-  
+  - name: kubeadm init 실행 (프로덕션 검증 설정)
+    command: >
+      kubeadm init
+      {% if cni_plugin == 'calico' %}--pod-network-cidr={{ pod_network_cidr }}{% endif %}
+      --service-cidr={{ service_cidr }}
+      --apiserver-advertise-address={{ private_ip }}
+      --control-plane-endpoint={{ private_ip }}:6443
+      --node-name={{ inventory_hostname }}
+      --cri-socket=unix:///run/containerd/containerd.sock
+      --upload-certs
+      --skip-phases=addon/kube-proxy
+      --v=5
+    register: kubeadm_init_output
+    when: not kubeadm_init_stat.stat.exists
+    async: 600
+    poll: 10
+
   rescue:
-    - name: kubeadm init 실패 - 정리 작업
-      debug:
-        msg: "⚠️ kubeadm init 실패! 자동 정리 시작..."
-    
-    - name: kubeadm reset 실행
-      command: kubeadm reset -f --cri-socket=unix:///run/containerd/containerd.sock
-      ignore_errors: yes
-    
-    - name: Kubernetes 설정 삭제
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /etc/kubernetes
-        - /var/lib/etcd
-        - /var/lib/kubelet
-        - /etc/cni/net.d
-      ignore_errors: yes
-    
-    - name: containerd 재시작
-      systemd:
-        name: containerd
-        state: restarted
-    
-    - name: 에러 메시지 출력
-      fail:
-        msg: "kubeadm init 실패! 정리 완료. 재시도하세요."
+  - name: kubeadm init 실패 - 정리 작업
+    debug:
+      msg: ⚠️ kubeadm init 실패! 자동 정리 시작...
+
+  - name: kubeadm reset 실행
+    command: kubeadm reset -f --cri-socket=unix:///run/containerd/containerd.sock
+    ignore_errors: yes
+
+  - name: Kubernetes 설정 삭제
+    file:
+      path: '{{ item }}'
+      state: absent
+    loop:
+    - /etc/kubernetes
+    - /var/lib/etcd
+    - /var/lib/kubelet
+    - /etc/cni/net.d
+    ignore_errors: yes
+
+  - name: containerd 재시작
+    systemd:
+      name: containerd
+      state: restarted
+
+  - name: 에러 메시지 출력
+    fail:
+      msg: kubeadm init 실패! 정리 완료. 재시도하세요.
 
 - name: .kube 디렉토리 생성
   file:
-    path: "{{ kubectl_home }}/.kube"
+    path: '{{ kubectl_home }}/.kube'
     state: directory
-    owner: "{{ kubectl_user }}"
-    group: "{{ kubectl_user }}"
+    owner: '{{ kubectl_user }}'
+    group: '{{ kubectl_user }}'
     mode: '0755'
 
 - name: kubeconfig 복사
   copy:
     src: /etc/kubernetes/admin.conf
-    dest: "{{ kubectl_home }}/.kube/config"
-    owner: "{{ kubectl_user }}"
-    group: "{{ kubectl_user }}"
+    dest: '{{ kubectl_home }}/.kube/config'
+    owner: '{{ kubectl_user }}'
+    group: '{{ kubectl_user }}'
     mode: '0644'
     remote_src: yes
 
@@ -109,7 +110,7 @@
   until: api_health.rc == 0
   retries: 30
   delay: 10
-  become_user: "{{ kubectl_user }}"
+  become_user: '{{ kubectl_user }}'
   changed_when: false
 
 - name: Control Plane 모든 컴포넌트 확인
@@ -119,7 +120,7 @@
   until: control_plane_check.rc == 0
   retries: 20
   delay: 10
-  become_user: "{{ kubectl_user }}"
+  become_user: '{{ kubectl_user }}'
   changed_when: false
 
 - name: kubeadm으로 kube-proxy 설치 (addon phase)
@@ -138,7 +139,7 @@
 
 - name: kube-proxy phase 결과
   debug:
-    msg: "{{ kubeproxy_phase.stdout_lines }}"
+    msg: '{{ kubeproxy_phase.stdout_lines }}'
   when: kubeproxy_phase is defined and kubeproxy_phase.stdout_lines is defined
 
 - name: kubeadm join 명령어 추출
@@ -154,39 +155,38 @@
     content: |
       #!/bin/bash
       {{ join_command.stdout }}
-    dest: "/tmp/kubeadm_join_command.sh"
+    dest: /tmp/kubeadm_join_command.sh
     mode: '0755'
   delegate_to: localhost
   become: no
 
 - name: 클러스터 정보 확인
   command: kubectl get nodes
-  become_user: "{{ kubectl_user }}"
+  become_user: '{{ kubectl_user }}'
   register: nodes_output
   changed_when: false
 
 - name: 노드 정보 출력
   debug:
-    msg: "{{ nodes_output.stdout_lines }}"
+    msg: '{{ nodes_output.stdout_lines }}'
 
 - name: Control Plane 노드 라벨/테인트 표준화
-  become_user: "{{ kubectl_user }}"
+  become_user: '{{ kubectl_user }}'
   block:
-    - name: Control Plane 라벨 적용
-      command: >
-        kubectl label node {{ inventory_hostname }}
-        role=control-plane
-        domain=control-plane
-        service=platform-system
-        workload=control-plane
-        tier=platform
-        phase=0
-        --overwrite
-      register: control_plane_labels
-      changed_when: "'labeled' in (control_plane_labels.stdout | default(''))"
+  - name: Control Plane 라벨 적용
+    command: >
+      kubectl label node {{ inventory_hostname }}
+      role=control-plane
+      domain=control-plane
+      service=platform-system
+      workload=control-plane
+      tier=platform
+      phase=0
+      --overwrite
+    register: control_plane_labels
+    changed_when: "'labeled' in (control_plane_labels.stdout | default(''))"
 
-    - name: Control Plane taint 적용
-      command: kubectl taint nodes {{ inventory_hostname }} role=control-plane:NoSchedule --overwrite
-      register: control_plane_taint
-      changed_when: "'tainted' in (control_plane_taint.stdout | default(''))"
-
+  - name: Control Plane taint 적용
+    command: kubectl taint nodes {{ inventory_hostname }} role=control-plane:NoSchedule --overwrite
+    register: control_plane_taint
+    changed_when: "'tainted' in (control_plane_taint.stdout | default(''))"

@@ -12,4 +12,3 @@ exclude =
     .eggs,
     *.egg
 max-complexity = 10
-

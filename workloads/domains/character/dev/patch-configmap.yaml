@@ -4,6 +4,5 @@ metadata:
   name: character-config
   namespace: character
 data:
-  ENVIRONMENT: "dev"
-  DEBUG: "true"
-
+  ENVIRONMENT: dev
+  DEBUG: 'true'

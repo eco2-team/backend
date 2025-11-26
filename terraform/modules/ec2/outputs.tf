@@ -17,4 +17,3 @@ output "availability_zone" {
   description = "가용 영역"
   value       = aws_instance.this.availability_zone
 }
-

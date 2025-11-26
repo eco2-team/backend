@@ -1,19 +1,18 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../base
+- ../base
 
 patches:
-  - target:
-      kind: CustomResourceDefinition
-      name: clustersecretstores.external-secrets.io
-    path: patches/external-secrets-clustersecretstore-webhook.yaml
-  - target:
-      kind: CustomResourceDefinition
-      name: secretstores.external-secrets.io
-    path: patches/external-secrets-secretstore-webhook.yaml
-  - target:
-      kind: CustomResourceDefinition
-      name: externalsecrets.external-secrets.io
-    path: patches/external-secrets-externalsecret-webhook.yaml
-
+- target:
+    kind: CustomResourceDefinition
+    name: clustersecretstores.external-secrets.io
+  path: patches/external-secrets-clustersecretstore-webhook.yaml
+- target:
+    kind: CustomResourceDefinition
+    name: secretstores.external-secrets.io
+  path: patches/external-secrets-secretstore-webhook.yaml
+- target:
+    kind: CustomResourceDefinition
+    name: externalsecrets.external-secrets.io
+  path: patches/external-secrets-externalsecret-webhook.yaml

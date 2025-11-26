@@ -4,45 +4,45 @@
 
 repos:
   # Black - Python code formatter
-  - repo: https://github.com/psf/black
-    rev: 24.10.0
-    hooks:
-      - id: black
-        language_version: python3.14
-        args: [--line-length=100]
-        files: ^domains/.*\.py$
+- repo: https://github.com/psf/black
+  rev: 24.10.0
+  hooks:
+  - id: black
+    language_version: python3.14
+    args: [--line-length=100]
+    files: ^domains/.*\.py$
 
   # Ruff - Fast Python linter
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
-    hooks:
-      - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
-        files: ^domains/.*\.py$
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.8.4
+  hooks:
+  - id: ruff
+    args: [--fix, --exit-non-zero-on-fix]
+    files: ^domains/.*\.py$
 
   # Standard pre-commit hooks
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      - id: trailing-whitespace
-        exclude: ^\.github/|^docs/
-      - id: end-of-file-fixer
-        exclude: ^\.github/|^docs/
-      - id: check-yaml
-        args: [--unsafe]  # Allow custom YAML tags for Kubernetes
-      - id: check-added-large-files
-        args: [--maxkb=500]
-      - id: check-merge-conflict
-      - id: mixed-line-ending
-        args: [--fix=lf]
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+  - id: trailing-whitespace
+    exclude: ^\.github/|^docs/
+  - id: end-of-file-fixer
+    exclude: ^\.github/|^docs/
+  - id: check-yaml
+    args: [--unsafe]      # Allow custom YAML tags for Kubernetes
+  - id: check-added-large-files
+    args: [--maxkb=500]
+  - id: check-merge-conflict
+  - id: mixed-line-ending
+    args: [--fix=lf]
 
   # YAML formatter
-  - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-    rev: v2.14.0
-    hooks:
-      - id: pretty-format-yaml
-        args: [--autofix, --indent, '2']
-        exclude: ^(\.github/|docs/|.*helmfile\.yaml$|.*values.*\.yaml$)
+- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+  rev: v2.14.0
+  hooks:
+  - id: pretty-format-yaml
+    args: [--autofix, --indent, '2']
+    exclude: ^(\.github/|docs/|.*helmfile\.yaml$|.*values.*\.yaml$)
 
 # CI/CD configuration
 ci:
@@ -50,4 +50,3 @@ ci:
   autofix_prs: true
   autoupdate_commit_msg: 'chore: update pre-commit hooks'
   autoupdate_schedule: weekly
-

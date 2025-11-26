@@ -4,6 +4,5 @@ metadata:
   name: location-config
   namespace: location
 data:
-  ENVIRONMENT: "prod"
-  DEBUG: "false"
-
+  ENVIRONMENT: prod
+  DEBUG: 'false'

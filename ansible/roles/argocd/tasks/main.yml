@@ -1,3 +1,4 @@
+---
 # ArgoCD 설치
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -42,27 +43,27 @@
         template:
           spec:
             nodeSelector:
-              role: "control-plane"
+              role: control-plane
             tolerations:
-              - key: "node-role.kubernetes.io/control-plane"
-                operator: "Exists"
-                effect: "NoSchedule"
-              - key: "role"
-                operator: "Equal"
-                value: "control-plane"
-                effect: "NoSchedule"
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+              effect: NoSchedule
+            - key: role
+              operator: Equal
+              value: control-plane
+              effect: NoSchedule
   command: >
     kubectl -n {{ argocd_namespace }}
     patch {{ item.kind }} {{ item.name }}
     --type merge
     -p '{{ argocd_control_plane_patch | to_json }}'
   loop:
-    - { kind: deployment,  name: argocd-server }
-    - { kind: deployment,  name: argocd-repo-server }
-    - { kind: deployment,  name: argocd-dex-server }
-    - { kind: deployment,  name: argocd-redis }
-    - { kind: deployment,  name: argocd-notifications-controller }
-    - { kind: statefulset, name: argocd-application-controller }
+  - {kind: deployment, name: argocd-server}
+  - {kind: deployment, name: argocd-repo-server}
+  - {kind: deployment, name: argocd-dex-server}
+  - {kind: deployment, name: argocd-redis}
+  - {kind: deployment, name: argocd-notifications-controller}
+  - {kind: statefulset, name: argocd-application-controller}
   register: argocd_control_plane_result
   changed_when: "'patched' in argocd_control_plane_result.stdout"
   failed_when: >
@@ -84,8 +85,8 @@
   register: configmap_create
   changed_when: "'created' in configmap_create.stdout"
   when:
-    - argocd_install is succeeded
-    - configmap_check.rc != 0
+  - argocd_install is succeeded
+  - configmap_check.rc != 0
 
 - name: ArgoCD Server를 insecure 모드로 설정 (ALB HTTPS 종료 대응)
   command: >
@@ -96,8 +97,8 @@
   register: argocd_insecure_result
   changed_when: "'patched' in argocd_insecure_result.stdout or 'configured' in argocd_insecure_result.stdout"
   when:
-    - argocd_install is succeeded
-    - configmap_check.rc == 0
+  - argocd_install is succeeded
+  - configmap_check.rc == 0
 
 - name: ArgoCD Server 파드 재시작 (insecure 모드 적용)
   command: kubectl rollout restart deployment argocd-server -n {{ argocd_namespace }}
@@ -138,10 +139,10 @@
 - name: ArgoCD 정보 출력
   debug:
     msg:
-      - "ArgoCD가 성공적으로 설치되었습니다."
-      - "접속: kubectl port-forward svc/argocd-server -n argocd 8080:443"
-      - "Username: admin"
-      - "Password: {{ argocd_initial_password.stdout }}"
+    - ArgoCD가 성공적으로 설치되었습니다.
+    - '접속: kubectl port-forward svc/argocd-server -n argocd 8080:443'
+    - 'Username: admin'
+    - 'Password: {{ argocd_initial_password.stdout }}'
   when: argocd_initial_password is succeeded
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -204,72 +205,72 @@
   changed_when: "'created' in appproject_prod_created.stdout or 'configured' in appproject_prod_created.stdout"
 
 - block:
-    - name: AWS Access Key ID 입력
-      pause:
-        prompt: "AWS Access Key ID를 입력하세요"
-      register: aws_access_key_id_prompt
-      when: aws_access_key_id is not defined
-      no_log: true
-      run_once: true
+  - name: AWS Access Key ID 입력
+    pause:
+      prompt: AWS Access Key ID를 입력하세요
+    register: aws_access_key_id_prompt
+    when: aws_access_key_id is not defined
+    no_log: true
+    run_once: true
 
-    - name: AWS Access Key ID 설정
-      set_fact:
-        aws_access_key_id: "{{ aws_access_key_id_prompt.user_input }}"
-      when: aws_access_key_id is not defined
-      no_log: true
-      run_once: true
+  - name: AWS Access Key ID 설정
+    set_fact:
+      aws_access_key_id: '{{ aws_access_key_id_prompt.user_input }}'
+    when: aws_access_key_id is not defined
+    no_log: true
+    run_once: true
 
-    - name: AWS Secret Access Key 입력
-      pause:
-        prompt: "AWS Secret Access Key를 입력하세요"
-        echo: no
-      register: aws_secret_access_key_prompt
-      when: aws_secret_access_key is not defined
-      no_log: true
-      run_once: true
+  - name: AWS Secret Access Key 입력
+    pause:
+      prompt: AWS Secret Access Key를 입력하세요
+      echo: no
+    register: aws_secret_access_key_prompt
+    when: aws_secret_access_key is not defined
+    no_log: true
+    run_once: true
 
-    - name: AWS Secret Access Key 설정
-      set_fact:
-        aws_secret_access_key: "{{ aws_secret_access_key_prompt.user_input }}"
-      when: aws_secret_access_key is not defined
-      no_log: true
-      run_once: true
+  - name: AWS Secret Access Key 설정
+    set_fact:
+      aws_secret_access_key: '{{ aws_secret_access_key_prompt.user_input }}'
+    when: aws_secret_access_key is not defined
+    no_log: true
+    run_once: true
 
-    - name: aws-global-credentials Secret용 platform-system Namespace 생성
-      become_user: "{{ kubectl_user }}"
-      shell: |
-        set -euo pipefail
-        if ! kubectl get namespace platform-system >/dev/null 2>&1; then
-          kubectl create namespace platform-system
-        fi
-      args:
-        executable: /bin/bash
-      register: platform_system_namespace
-      changed_when: "'created' in (platform_system_namespace.stdout | default(''))"
-      run_once: true
+  - name: aws-global-credentials Secret용 platform-system Namespace 생성
+    become_user: '{{ kubectl_user }}'
+    shell: |
+      set -euo pipefail
+      if ! kubectl get namespace platform-system >/dev/null 2>&1; then
+        kubectl create namespace platform-system
+      fi
+    args:
+      executable: /bin/bash
+    register: platform_system_namespace
+    changed_when: "'created' in (platform_system_namespace.stdout | default(''))"
+    run_once: true
 
-    - name: aws-global-credentials Secret 생성
-      become_user: "{{ kubectl_user }}"
-      shell: |
-        set -euo pipefail
-        cat <<'EOF' | kubectl apply -f -
-        apiVersion: v1
-        kind: Secret
-        metadata:
-          name: aws-global-credentials
-          namespace: {{ item }}
-        type: Opaque
-        data:
-          aws_access_key_id: {{ aws_access_key_id | b64encode }}
-          aws_secret_access_key: {{ aws_secret_access_key | b64encode }}
-        EOF
-      loop:
-        - kube-system
-        - platform-system
-      no_log: true
-      run_once: true
-      args:
-        executable: /bin/bash
+  - name: aws-global-credentials Secret 생성
+    become_user: '{{ kubectl_user }}'
+    shell: |
+      set -euo pipefail
+      cat <<'EOF' | kubectl apply -f -
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: aws-global-credentials
+        namespace: {{ item }}
+      type: Opaque
+      data:
+        aws_access_key_id: {{ aws_access_key_id | b64encode }}
+        aws_secret_access_key: {{ aws_secret_access_key | b64encode }}
+      EOF
+    loop:
+    - kube-system
+    - platform-system
+    no_log: true
+    run_once: true
+    args:
+      executable: /bin/bash
   when: create_aws_credentials_secret | default(true)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -277,11 +278,11 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - name: Root App 경로 계산
   set_fact:
-    argocd_root_app_file: "{{ playbook_dir }}/../clusters/{{ argocd_root_env }}/root-app.yaml"
+    argocd_root_app_file: '{{ playbook_dir }}/../clusters/{{ argocd_root_env }}/root-app.yaml'
 
 - name: root-app.yaml 복사 (선택적)
   copy:
-    src: "{{ argocd_root_app_file }}"
+    src: '{{ argocd_root_app_file }}'
     dest: /tmp/root-app.yaml
 
 - name: ArgoCD Root App 배포
@@ -292,34 +293,33 @@
 - name: ArgoCD Root App 상태 확인
   debug:
     msg:
-      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      - "✅ ArgoCD Root App 배포 완료 (App of Apps)"
-      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      - ""
-      - "📍 배포된 Application:"
-      - "  - root-app (argocd/apps/* 관리)"
-      - ""
-      - "🔄 자동 배포 순서 (Sync Wave v0.7.4):"
-      - "  Wave  0 : CRD Seed (00-crds)"
-      - "  Wave  2 : Namespaces (02-namespaces)"
-      - "  Wave  3 : RBAC & Storage (03-rbac-storage)"
-      - "  Wave  5 : CNI - Calico (05-calico)"
-      - "  Wave  6 : NetworkPolicy (06-network-policies)"
-      - "  Wave 10 : External Secrets Operator (10-secrets-operator)"
-      - "  Wave 11 : ExternalSecret CR (11-secrets-cr)"
-      - "  Wave 15 : AWS Load Balancer Controller (15-alb-controller)"
-      - "  Wave 16 : ExternalDNS (16-external-dns)"
-      - "  Wave 20 : Monitoring Operator (20-monitoring-operator)"
-      - "  Wave 21 : Grafana (21-grafana)"
-      - "  Wave 25 : Data Operators (25-data-operators)"
-      - "  Wave 35 : Data Instances (35-data-cr)"
-      - "  Wave 60 : API ApplicationSet (60-apis-appset)"
-      - "  Wave 70 : Ingress / Edge Routing (70-ingress)"
-      - ""
-      - "🌐 ArgoCD WebUI에서 확인:"
-      - "  kubectl port-forward svc/argocd-server -n argocd 8080:443"
-      - "  https://localhost:8080"
-      - ""
-      - "📋 Application 목록 확인:"
-      - "  kubectl get applications -n argocd"
-
+    - ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    - ✅ ArgoCD Root App 배포 완료 (App of Apps)
+    - ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    - ''
+    - '📍 배포된 Application:'
+    - '  - root-app (argocd/apps/* 관리)'
+    - ''
+    - '🔄 자동 배포 순서 (Sync Wave v0.7.4):'
+    - '  Wave  0 : CRD Seed (00-crds)'
+    - '  Wave  2 : Namespaces (02-namespaces)'
+    - '  Wave  3 : RBAC & Storage (03-rbac-storage)'
+    - '  Wave  5 : CNI - Calico (05-calico)'
+    - '  Wave  6 : NetworkPolicy (06-network-policies)'
+    - '  Wave 10 : External Secrets Operator (10-secrets-operator)'
+    - '  Wave 11 : ExternalSecret CR (11-secrets-cr)'
+    - '  Wave 15 : AWS Load Balancer Controller (15-alb-controller)'
+    - '  Wave 16 : ExternalDNS (16-external-dns)'
+    - '  Wave 20 : Monitoring Operator (20-monitoring-operator)'
+    - '  Wave 21 : Grafana (21-grafana)'
+    - '  Wave 25 : Data Operators (25-data-operators)'
+    - '  Wave 35 : Data Instances (35-data-cr)'
+    - '  Wave 60 : API ApplicationSet (60-apis-appset)'
+    - '  Wave 70 : Ingress / Edge Routing (70-ingress)'
+    - ''
+    - '🌐 ArgoCD WebUI에서 확인:'
+    - '  kubectl port-forward svc/argocd-server -n argocd 8080:443'
+    - '  https://localhost:8080'
+    - ''
+    - '📋 Application 목록 확인:'
+    - '  kubectl get applications -n argocd'

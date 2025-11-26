@@ -24,7 +24,7 @@ k8s-api-character ansible_host=13.125.223.79 private_ip=10.0.1.218 domain=charac
 k8s-api-location ansible_host=43.203.115.35 private_ip=10.0.2.133 domain=location instance_type=t3.micro phase=2
 
 # Phase 3: Extended APIs (주석 처리)
-# k8s-api-info ansible_host=TBD private_ip=TBD domain=info instance_type=t3.micro phase=3
+# k8s-api-image ansible_host=TBD private_ip=TBD domain=image instance_type=t3.micro phase=3
 # k8s-api-chat ansible_host=TBD private_ip=TBD domain=chat instance_type=t3.small phase=3
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

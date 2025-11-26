@@ -4,6 +4,5 @@ metadata:
   name: scan-config
   namespace: scan
 data:
-  LOG_LEVEL: "INFO"
-  ENVIRONMENT: "base"
-
+  LOG_LEVEL: INFO
+  ENVIRONMENT: base

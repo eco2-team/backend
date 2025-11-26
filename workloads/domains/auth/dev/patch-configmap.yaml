@@ -4,6 +4,5 @@ metadata:
   name: auth-config
   namespace: auth
 data:
-  ENVIRONMENT: "dev"
-  DEBUG: "true"
-
+  ENVIRONMENT: dev
+  DEBUG: 'true'

@@ -76,11 +76,10 @@
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Note: 위 리소스들은 주석 처리됨
-# 
+#
 # 이유: Self-managed K8s에서는 IRSA가 아닌 일반 SA를 사용하므로,
 #       workloads/rbac-storage/base/service-accounts.yaml에서 생성하고
 #       annotation은 ExternalSecret으로 patch하는 방식 채택
 #
 # EKS 전환 시 주석 해제하고 kubectl provider 활성화
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-

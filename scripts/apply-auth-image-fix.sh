@@ -27,22 +27,22 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo ""
     echo "⚙️  변경사항 적용 중..."
     echo ""
-    
+
     # 1. Kustomize로 적용
     echo "1️⃣  kubectl apply -k . 실행..."
     kubectl apply -k .
     echo ""
-    
+
     # 2. Deployment 재시작
     echo "2️⃣  auth-api Deployment 재시작..."
     kubectl rollout restart deployment auth-api -n auth
     echo ""
-    
+
     # 3. Job 삭제 (ArgoCD가 재생성)
     echo "3️⃣  auth-db-bootstrap Job 삭제..."
     kubectl delete job auth-db-bootstrap -n auth 2>/dev/null || echo "   (Job이 이미 없거나 삭제됨)"
     echo ""
-    
+
     echo "✅ 적용 완료!"
     echo ""
     echo "📊 현재 Pod 상태:"
@@ -63,4 +63,3 @@ else
     echo "  kubectl rollout restart deployment auth-api -n auth"
     echo "  kubectl delete job auth-db-bootstrap -n auth"
 fi
-

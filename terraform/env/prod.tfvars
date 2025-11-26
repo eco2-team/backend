@@ -7,4 +7,3 @@ enable_cloudfront      = true
 cluster_name           = "sesacthon-prod"
 domain_name            = "growbin.app"
 create_wildcard_record = true
-

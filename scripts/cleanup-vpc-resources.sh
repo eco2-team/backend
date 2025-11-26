@@ -177,14 +177,14 @@ if [ -n "$SG_IDS" ]; then
       --group-id $SG_ID \
       --ip-permissions '[{"IpProtocol": "-1", "IpRanges": [{"CidrIp": "0.0.0.0/0"}]}]' \
       --region ${REGION} 2>/dev/null || true
-    
+
     # Ingress 규칙 제거
     aws ec2 revoke-security-group-ingress \
       --group-id $SG_ID \
       --source-group $SG_ID \
       --region ${REGION} 2>/dev/null || true
   done
-  
+
   # Security Group 삭제
   echo "  🗑️  Security Groups 삭제 중..."
   for SG_ID in $SG_IDS; do
@@ -252,7 +252,7 @@ if [ "$TOTAL_REMAINING" -eq 0 ]; then
 else
   echo "⚠️  일부 리소스가 남아있습니다 (총 ${TOTAL_REMAINING}개)"
   echo "💡 terraform destroy는 계속 진행되지만, VPC 삭제 실패 시 스크립트를 다시 실행하세요."
-  
+
   if [ "$REMAINING_ENI" -gt 0 ]; then
     echo ""
     echo "남아있는 ENI 목록:"
@@ -266,4 +266,3 @@ fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-

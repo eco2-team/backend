@@ -1,6 +1,4 @@
----
 # Prod 환경 전용 변수
 cluster_env: prod
 argocd_root_env: prod
 deploy_prod_project: true
-

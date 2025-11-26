@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.schemas.scan import (
     ClassificationRequest,
@@ -29,7 +29,13 @@ async def classify(
     summary="Fetch classification task result",
 )
 async def task(task_id: str, service: ScanService = Depends()):
-    return await service.task(task_id)
+    try:
+        return await service.task(task_id)
+    except LookupError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"task {task_id} not found",
+        )
 
 
 @router.get(

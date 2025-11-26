@@ -1,3 +1,4 @@
+---
 # Worker 노드 Provider ID 설정 (Master 노드에서 kubectl patch 실행)
 # ALB Controller가 Worker 노드를 Target Group에 등록하기 위해 필수
 # SSH 대신 AWS CLI로 Instance 정보 조회
@@ -5,33 +6,33 @@
 ---
 - name: AWS CLI로 Worker 노드 정보 수집
   block:
-    - name: "모든 k8s Worker 노드 정보 조회 (AWS CLI) - 14 Nodes (Phase 1&2 8 nodes)"
-      shell: |
-        aws ec2 describe-instances \
-          --region {{ aws_region | default('ap-northeast-2') }} \
-          --filters "Name=tag:Name,Values=k8s-api-*,k8s-worker-*,k8s-rabbitmq,k8s-postgresql,k8s-redis,k8s-monitoring" \
-                    "Name=instance-state-name,Values=running" \
-          --query 'Reservations[*].Instances[*].{Name:Tags[?Key==`Name`].Value|[0],InstanceId:InstanceId,AZ:Placement.AvailabilityZone}' \
-          --output json
-      register: worker_instances_raw
-      changed_when: false
-      delegate_to: localhost
-      become: no
+  - name: 모든 k8s Worker 노드 정보 조회 (AWS CLI) - 14 Nodes (Phase 1&2 8 nodes)
+    shell: |
+      aws ec2 describe-instances \
+        --region {{ aws_region | default('ap-northeast-2') }} \
+        --filters "Name=tag:Name,Values=k8s-api-*,k8s-worker-*,k8s-rabbitmq,k8s-postgresql,k8s-redis,k8s-monitoring" \
+                  "Name=instance-state-name,Values=running" \
+        --query 'Reservations[*].Instances[*].{Name:Tags[?Key==`Name`].Value|[0],InstanceId:InstanceId,AZ:Placement.AvailabilityZone}' \
+        --output json
+    register: worker_instances_raw
+    changed_when: false
+    delegate_to: localhost
+    become: no
 
-    - name: Worker 노드 정보 파싱
-      set_fact:
-        worker_instances: "{{ worker_instances_raw.stdout | from_json | flatten }}"
+  - name: Worker 노드 정보 파싱
+    set_fact:
+      worker_instances: '{{ worker_instances_raw.stdout | from_json | flatten }}'
 
 - name: Provider ID 설정
   block:
-    - name: Worker 노드별 Provider ID 설정
-      command: >
-        kubectl patch node {{ item.Name }}
-        -p '{"spec":{"providerID":"aws:///{{ item.AZ }}/{{ item.InstanceId }}"}}'
-      loop: "{{ worker_instances }}"
-      register: patch_results
-      changed_when: "'patched' in patch_results.stdout or 'no change' not in patch_results.stdout"
-      failed_when: patch_results.rc != 0 and 'not found' not in patch_results.stderr
+  - name: Worker 노드별 Provider ID 설정
+    command: >
+      kubectl patch node {{ item.Name }}
+      -p '{"spec":{"providerID":"aws:///{{ item.AZ }}/{{ item.InstanceId }}"}}'
+    loop: '{{ worker_instances }}'
+    register: patch_results
+    changed_when: "'patched' in patch_results.stdout or 'no change' not in patch_results.stdout"
+    failed_when: patch_results.rc != 0 and 'not found' not in patch_results.stderr
 
 - name: Provider ID 설정 확인
   command: kubectl get nodes -o custom-columns=NAME:.metadata.name,PROVIDER_ID:.spec.providerID --no-headers
@@ -41,12 +42,11 @@
 - name: Provider ID 설정 결과 출력
   debug:
     msg:
-      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      - "✅ Provider ID 설정 완료!"
-      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      - "{{ provider_ids.stdout_lines }}"
-      - "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      - ""
-      - "💡 ALB Controller가 이제 Worker 노드를 Target Group에 등록할 수 있습니다."
-      - "   Ingress 생성 후 2-3분 내에 Target이 healthy 상태가 됩니다."
-
+    - ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    - ✅ Provider ID 설정 완료!
+    - ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    - '{{ provider_ids.stdout_lines }}'
+    - ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    - ''
+    - 💡 ALB Controller가 이제 Worker 노드를 Target Group에 등록할 수 있습니다.
+    - '   Ingress 생성 후 2-3분 내에 Target이 healthy 상태가 됩니다.'

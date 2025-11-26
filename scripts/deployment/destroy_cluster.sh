@@ -157,7 +157,7 @@ popd >/dev/null
 # 정리 작업
 if [[ "${CLEANUP_ALL}" == "true" ]]; then
   log "로컬 잔여 파일 정리 시작..."
-  
+
   # 1. Ansible 관련 파일 정리
   if [[ -d "${ANSIBLE_DIR}" ]]; then
     log "Ansible 임시 파일 삭제"
@@ -165,20 +165,20 @@ if [[ "${CLEANUP_ALL}" == "true" ]]; then
     rm -f "${ANSIBLE_DIR}/inventory/hosts.tmp" 2>/dev/null || true
     rm -f /tmp/kubeadm_join_command.sh 2>/dev/null || true
   fi
-  
+
   # 2. Terraform 백업 파일 정리
   if [[ -d "${TF_DIR}" ]]; then
     log "Terraform 백업 파일 삭제"
     rm -f "${TF_DIR}/terraform.tfstate.backup" 2>/dev/null || true
     rm -f "${TF_DIR}/tfplan"* 2>/dev/null || true
   fi
-  
+
   # 3. 로그 파일 정리 (선택적)
   if [[ -d "${LOGS_DIR}" ]]; then
     log "로그 파일 정리 (7일 이상 된 파일)"
     find "${LOGS_DIR}" -type f -name "*.log" -mtime +7 -delete 2>/dev/null || true
   fi
-  
+
   # 4. 로컬 kubeconfig에서 클러스터 컨텍스트 제거 (안전하게)
   if [[ -f "${KUBECONFIG_PATH}" ]] && command -v kubectl >/dev/null 2>&1; then
     log "kubeconfig에서 클러스터 컨텍스트 제거 시도"
@@ -186,7 +186,7 @@ if [[ "${CLEANUP_ALL}" == "true" ]]; then
     kubectl config delete-cluster kubernetes 2>/dev/null || true
     kubectl config delete-user kubernetes-admin 2>/dev/null || true
   fi
-  
+
   log "로컬 파일 정리 완료"
 fi
 

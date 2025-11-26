@@ -10,6 +10,12 @@ spec:
       - name: auth
         namespace: auth
         path: workloads/ingress/auth/dev
+      - name: chat
+        namespace: chat
+        path: workloads/ingress/chat/dev
+      - name: image
+        namespace: image
+        path: workloads/ingress/image/dev
       - name: location
         namespace: location
         path: workloads/ingress/location/dev

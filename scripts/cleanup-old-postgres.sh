@@ -50,4 +50,3 @@ kubectl -n postgres get all
 echo ""
 echo "✅ 기존 PostgreSQL 리소스 삭제 완료!"
 echo "이제 새로운 Bitnami PostgreSQL Helm Chart를 배포할 수 있습니다."
-

@@ -36,4 +36,3 @@ kustomize build platform/cr/dev | kubectl apply -f -
 # prod 데이터 스택
 kustomize build platform/cr/prod | kubectl apply -f -
 ```
-

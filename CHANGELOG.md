@@ -2,7 +2,7 @@
 
 Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합니다.
 
-형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/)를 따르며,  
+형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/)를 따르며,
 버전 관리는 [Semantic Versioning](https://semver.org/lang/ko/)을 준수합니다.
 
 ---
@@ -342,12 +342,12 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 - **MAJOR**: 호환성이 깨지는 대규모 변경
   - 아키텍처 전면 개편
   - API 하위 호환성 제거
-  
+
 - **MINOR**: 하위 호환 기능 추가
   - 새로운 서비스/기능 추가
   - 인프라 확장
   - 주요 문서 업데이트
-  
+
 - **PATCH**: 하위 호환 버그 수정
   - 설정 최적화
   - 문서 오류 수정
@@ -372,7 +372,6 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 
 ---
 
-**문서 버전**: 1.0.0  
-**최종 업데이트**: 2025-11-18  
+**문서 버전**: 1.0.0
+**최종 업데이트**: 2025-11-18
 **관리자**: Backend Platform Team
-

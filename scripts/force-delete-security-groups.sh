@@ -27,16 +27,16 @@ check_sg_exists() {
 revoke_all_rules() {
   local SG_ID=$1
   local SG_NAME=$2
-  
+
   echo "🔧 ${SG_NAME} (${SG_ID}) 규칙 제거 중..."
-  
+
   # Ingress 규칙 가져오기
   INGRESS_RULES=$(aws ec2 describe-security-groups \
     --region ${REGION} \
     --group-ids ${SG_ID} \
     --query 'SecurityGroups[0].IpPermissions' \
     --output json 2>/dev/null)
-  
+
   if [ "$INGRESS_RULES" != "[]" ] && [ "$INGRESS_RULES" != "null" ]; then
     echo "  📥 Ingress 규칙 제거 중..."
     aws ec2 revoke-security-group-ingress \
@@ -46,14 +46,14 @@ revoke_all_rules() {
   else
     echo "  ✅ Ingress 규칙 없음"
   fi
-  
+
   # Egress 규칙 가져오기
   EGRESS_RULES=$(aws ec2 describe-security-groups \
     --region ${REGION} \
     --group-ids ${SG_ID} \
     --query 'SecurityGroups[0].IpPermissionsEgress' \
     --output json 2>/dev/null)
-  
+
   if [ "$EGRESS_RULES" != "[]" ] && [ "$EGRESS_RULES" != "null" ]; then
     echo "  📤 Egress 규칙 제거 중..."
     aws ec2 revoke-security-group-egress \
@@ -63,7 +63,7 @@ revoke_all_rules() {
   else
     echo "  ✅ Egress 규칙 없음"
   fi
-  
+
   echo ""
 }
 
@@ -71,9 +71,9 @@ revoke_all_rules() {
 delete_sg() {
   local SG_ID=$1
   local SG_NAME=$2
-  
+
   echo "🗑️  ${SG_NAME} (${SG_ID}) 삭제 중..."
-  
+
   if aws ec2 delete-security-group \
     --region ${REGION} \
     --group-id ${SG_ID} 2>/dev/null; then
@@ -161,4 +161,3 @@ else
   echo "💡 잠시 후 다시 시도하거나, terraform destroy를 계속 실행하세요."
   exit 1
 fi
-

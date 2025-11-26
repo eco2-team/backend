@@ -22,7 +22,7 @@ k8s-api-my ansible_host=${api_my_public_ip} private_ip=${api_my_private_ip} doma
 k8s-api-scan ansible_host=${api_scan_public_ip} private_ip=${api_scan_private_ip} domain=scan instance_type=t3.small phase=2
 k8s-api-character ansible_host=${api_character_public_ip} private_ip=${api_character_private_ip} domain=character instance_type=t3.micro phase=2
 k8s-api-location ansible_host=${api_location_public_ip} private_ip=${api_location_private_ip} domain=location instance_type=t3.micro phase=2
-k8s-api-info ansible_host=${api_info_public_ip} private_ip=${api_info_private_ip} domain=info instance_type=t3.micro phase=3
+k8s-api-image ansible_host=${api_image_public_ip} private_ip=${api_image_private_ip} domain=image instance_type=t3.micro phase=3
 k8s-api-chat ansible_host=${api_chat_public_ip} private_ip=${api_chat_private_ip} domain=chat instance_type=t3.small phase=3
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

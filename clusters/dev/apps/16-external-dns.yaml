@@ -4,7 +4,7 @@ metadata:
   name: dev-external-dns
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "16"
+    argocd.argoproj.io/sync-wave: '16'
 spec:
   project: dev
   source:
@@ -23,37 +23,37 @@ spec:
         txtOwnerId: sesacthon-dev
         txtPrefix: _externaldns-
         domainFilters:
-          - dev.growbin.app
+        - dev.growbin.app
         sources:
-          - ingress
-          - service
+        - ingress
+        - service
         nodeSelector:
           role: control-plane
         tolerations:
-          - key: node-role.kubernetes.io/control-plane
-            operator: Exists
-            effect: NoSchedule
-          - key: role
-            operator: Equal
-            value: control-plane
-            effect: NoSchedule
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: role
+          operator: Equal
+          value: control-plane
+          effect: NoSchedule
         extraArgs:
-          - --aws-zone-type=public
-          - --aws-prefer-cname
-          - '--annotation-filter=external-dns.alpha.kubernetes.io/managed-by in (external-dns)'
+        - --aws-zone-type=public
+        - --aws-prefer-cname
+        - --annotation-filter=external-dns.alpha.kubernetes.io/managed-by in (external-dns)
         env:
-          - name: AWS_REGION
-            value: ap-northeast-2
-          - name: AWS_ACCESS_KEY_ID
-            valueFrom:
-              secretKeyRef:
-                name: aws-global-credentials
-                key: aws_access_key_id
-          - name: AWS_SECRET_ACCESS_KEY
-            valueFrom:
-              secretKeyRef:
-                name: aws-global-credentials
-                key: aws_secret_access_key
+        - name: AWS_REGION
+          value: ap-northeast-2
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-global-credentials
+              key: aws_access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-global-credentials
+              key: aws_secret_access_key
         resources:
           requests:
             cpu: 50m
@@ -69,5 +69,4 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
-
+    - CreateNamespace=true

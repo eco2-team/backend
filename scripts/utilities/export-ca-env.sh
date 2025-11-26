@@ -26,4 +26,3 @@ export REQUESTS_CA_BUNDLE="${CA_BUNDLE}"
 export GIT_SSL_CAINFO="${CA_BUNDLE}"
 
 echo "[ca-env] Exported SSL_CERT_FILE, REQUESTS_CA_BUNDLE, and GIT_SSL_CAINFO -> ${CA_BUNDLE}"
-

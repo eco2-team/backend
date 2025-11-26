@@ -172,8 +172,10 @@ kubectl get applications -n argocd
 | scan | AI 폐기물 분류 | `docker.io/mng990/eco2:scan-{env}-latest` |
 | character | 캐릭터 분석 | `docker.io/mng990/eco2:character-{env}-latest` |
 | location | 지도/수거함 검색 | `docker.io/mng990/eco2:location-{env}-latest` |
-| info | 재활용 정보/FAQ | `docker.io/mng990/eco2:info-{env}-latest` |
+| image | 이미지 업로드/Presigned URL | `docker.io/mng990/eco2:image-{env}-latest` |
 | chat | GPT-4o-mini 챗봇 | `docker.io/mng990/eco2:chat-{env}-latest` |
+
+> 이미지 서비스는 기본적으로 **CloudFront CDN(https://images.<domain>)** 을 사용하도록 Terraform `enable_cloudfront=true`로 설정되어 있습니다. CloudFront는 GET/HEAD 뿐 아니라 PUT/POST 업로드도 프록시하므로, 프론트엔드/챗/스캔 서비스는 동일한 CDN 도메인으로 업로드·다운로드 흐름을 유지하면 됩니다. 배포 속도가 더 중요할 때만 `terraform apply -var="enable_cloudfront=false"`로 임시 비활성화하면 됩니다.
 
 각 도메인은 공통 FastAPI 템플릿·Dockerfile·테스트를 공유하고, Kustomize overlay에서 이미지 태그와 ConfigMap/Secret만 분기합니다.
 

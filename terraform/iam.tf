@@ -69,7 +69,9 @@ resource "aws_iam_policy" "s3_access" {
         ]
         Resource = [
           "arn:aws:s3:::ecoeco-*",
-          "arn:aws:s3:::ecoeco-*/*"
+          "arn:aws:s3:::ecoeco-*/*",
+          "arn:aws:s3:::${var.environment}-${var.cluster_name}-images",
+          "arn:aws:s3:::${var.environment}-${var.cluster_name}-images/*"
         ]
       }
     ]

@@ -1,177 +1,178 @@
+---
 # Worker 노드 조인 (검증 강화 + 에러 처리)
 ---
 - name: Worker 조인 블록
   block:
     # Pre-flight 체크
-    - name: Swap 비활성화 확인 (kubeadm 필수)
-      command: swapon -s
-      register: swap_check
-      changed_when: false
-      failed_when: swap_check.stdout != ""
+  - name: Swap 비활성화 확인 (kubeadm 필수)
+    command: swapon -s
+    register: swap_check
+    changed_when: false
+    failed_when: swap_check.stdout != ""
 
-    - name: containerd 실행 확인
-      command: systemctl is-active containerd
-      register: containerd_check
-      changed_when: false
-      failed_when: containerd_check.stdout != "active"
+  - name: containerd 실행 확인
+    command: systemctl is-active containerd
+    register: containerd_check
+    changed_when: false
+    failed_when: containerd_check.stdout != "active"
 
-    - name: CRI 소켓 존재 확인
-      stat:
-        path: /run/containerd/containerd.sock
-      register: cri_socket
-      failed_when: not cri_socket.stat.exists
+  - name: CRI 소켓 존재 확인
+    stat:
+      path: /run/containerd/containerd.sock
+    register: cri_socket
+    failed_when: not cri_socket.stat.exists
 
     # Join 여부 확인
-    - name: 이미 조인되었는지 확인
-      stat:
-        path: /etc/kubernetes/kubelet.conf
-      register: kubelet_conf
+  - name: 이미 조인되었는지 확인
+    stat:
+      path: /etc/kubernetes/kubelet.conf
+    register: kubelet_conf
 
-    - name: Kubernetes CA 파일 존재 여부 확인
-      stat:
-        path: /etc/kubernetes/pki/ca.crt
-      register: kube_ca_cert
+  - name: Kubernetes CA 파일 존재 여부 확인
+    stat:
+      path: /etc/kubernetes/pki/ca.crt
+    register: kube_ca_cert
 
-    - name: Kubelet 상태 확인 (이미 join된 경우)
-      command: systemctl is-active kubelet
-      register: kubelet_status
-      changed_when: false
-      failed_when: false
-      when: kubelet_conf.stat.exists
+  - name: Kubelet 상태 확인 (이미 join된 경우)
+    command: systemctl is-active kubelet
+    register: kubelet_status
+    changed_when: false
+    failed_when: false
+    when: kubelet_conf.stat.exists
 
-    - name: Join 상태 출력
-      debug:
-        msg: "{{ '✅ 이미 join됨' if kubelet_conf.stat.exists else '⚠️ Join 필요' }}"
+  - name: Join 상태 출력
+    debug:
+      msg: "{{ '✅ 이미 join됨' if kubelet_conf.stat.exists else '⚠️ Join 필요' }}"
 
-    - name: 이전 조인 흔적 사전 정리
-      block:
-        - name: kubelet 서비스 중지
-          systemd:
-            name: kubelet
-            state: stopped
-          failed_when: false
-
-        - name: kubeadm reset (사전 정리)
-          command: kubeadm reset -f --cri-socket=unix:///run/containerd/containerd.sock
-
-        - name: Kubernetes 잔여 디렉터리 삭제
-          file:
-            path: "{{ item }}"
-            state: absent
-          loop:
-            - /etc/kubernetes
-            - /var/lib/kubelet
-            - /etc/cni/net.d
-            - /var/lib/cni
-
-        - name: containerd 재시작 (사전 정리)
-          systemd:
-            name: containerd
-            state: restarted
-      when: not kubelet_conf.stat.exists and kube_ca_cert.stat.exists
-
-    # Join 실행
-    - name: join 명령어 파일 복사
-      copy:
-        src: /tmp/kubeadm_join_command.sh
-        dest: /tmp/join.sh
-        mode: '0755'
-      when: not kubelet_conf.stat.exists
-
-    - name: 클러스터 조인 (검증된 옵션)
-      shell: |
-        # Join 실행
-        bash /tmp/join.sh --cri-socket=unix:///run/containerd/containerd.sock --v=5
-        
-        # 성공 확인
-        if [ $? -eq 0 ]; then
-          echo "✅ Join 성공"
-          exit 0
-        else
-          echo "❌ Join 실패"
-          exit 1
-        fi
-      when: not kubelet_conf.stat.exists
-      register: join_result
-      async: 300
-      poll: 10
-
-    - name: Join 결과 출력
-      debug:
-        msg: "{{ join_result.stdout_lines }}"
-      when: not kubelet_conf.stat.exists and join_result is defined
-
-    - name: Kubelet 서비스 시작 확인
-      command: systemctl is-active kubelet
-      register: kubelet_active
-      changed_when: false
-      retries: 10
-      delay: 5
-      until: kubelet_active.stdout == "active"
-
-    # Provider ID 설정 (AWS ALB Controller 필수)
-    - name: AWS Instance ID 및 AZ 가져오기
-      shell: |
-        INSTANCE_ID=$(ec2-metadata --instance-id | cut -d ' ' -f 2)
-        AZ=$(ec2-metadata --availability-zone | cut -d ' ' -f 2)
-        echo "$INSTANCE_ID:$AZ"
-      register: aws_metadata
-      when: not kubelet_conf.stat.exists
-
-    - name: Provider ID 파싱
-      set_fact:
-        instance_id: "{{ aws_metadata.stdout.split(':')[0] }}"
-        availability_zone: "{{ aws_metadata.stdout.split(':')[1] }}"
-      when: not kubelet_conf.stat.exists and aws_metadata is defined
-
-    - name: kubelet Provider ID 설정
-      lineinfile:
-        path: /var/lib/kubelet/kubeadm-flags.env
-        regexp: '^KUBELET_KUBEADM_ARGS='
-        line: 'KUBELET_KUBEADM_ARGS="--container-runtime-endpoint=unix:///var/run/containerd/containerd.sock --cloud-provider=external --provider-id=aws:///{{ availability_zone }}/{{ instance_id }}"'
-        backup: yes
-      when: not kubelet_conf.stat.exists and instance_id is defined
-
-    - name: kubelet 재시작 (Provider ID 적용)
+  - name: 이전 조인 흔적 사전 정리
+    block:
+    - name: kubelet 서비스 중지
       systemd:
         name: kubelet
-        state: restarted
-      when: not kubelet_conf.stat.exists and instance_id is defined
+        state: stopped
+      failed_when: false
 
-    - name: kubelet 재시작 후 대기
-      pause:
-        seconds: 10
-      when: not kubelet_conf.stat.exists and instance_id is defined
-
-    - name: join 명령어 파일 삭제
-      file:
-        path: /tmp/join.sh
-        state: absent
-  
-  rescue:
-    - name: Worker join 실패 - 정리 작업
-      debug:
-        msg: "⚠️ Worker join 실패! 자동 정리 시작..."
-    
-    - name: kubeadm reset 실행
+    - name: kubeadm reset (사전 정리)
       command: kubeadm reset -f --cri-socket=unix:///run/containerd/containerd.sock
-      ignore_errors: yes
-    
-    - name: Kubernetes 설정 삭제
+
+    - name: Kubernetes 잔여 디렉터리 삭제
       file:
-        path: "{{ item }}"
+        path: '{{ item }}'
         state: absent
       loop:
-        - /etc/kubernetes
-        - /var/lib/kubelet
-        - /etc/cni/net.d
-      ignore_errors: yes
-    
-    - name: containerd 재시작
+      - /etc/kubernetes
+      - /var/lib/kubelet
+      - /etc/cni/net.d
+      - /var/lib/cni
+
+    - name: containerd 재시작 (사전 정리)
       systemd:
         name: containerd
         state: restarted
-    
-    - name: 에러 메시지 출력
-      fail:
-        msg: "Worker join 실패! 정리 완료. Master에서 새 join token 생성 후 재시도하세요."
+    when: not kubelet_conf.stat.exists and kube_ca_cert.stat.exists
+
+    # Join 실행
+  - name: join 명령어 파일 복사
+    copy:
+      src: /tmp/kubeadm_join_command.sh
+      dest: /tmp/join.sh
+      mode: '0755'
+    when: not kubelet_conf.stat.exists
+
+  - name: 클러스터 조인 (검증된 옵션)
+    shell: |
+      # Join 실행
+      bash /tmp/join.sh --cri-socket=unix:///run/containerd/containerd.sock --v=5
+
+      # 성공 확인
+      if [ $? -eq 0 ]; then
+        echo "✅ Join 성공"
+        exit 0
+      else
+        echo "❌ Join 실패"
+        exit 1
+      fi
+    when: not kubelet_conf.stat.exists
+    register: join_result
+    async: 300
+    poll: 10
+
+  - name: Join 결과 출력
+    debug:
+      msg: '{{ join_result.stdout_lines }}'
+    when: not kubelet_conf.stat.exists and join_result is defined
+
+  - name: Kubelet 서비스 시작 확인
+    command: systemctl is-active kubelet
+    register: kubelet_active
+    changed_when: false
+    retries: 10
+    delay: 5
+    until: kubelet_active.stdout == "active"
+
+    # Provider ID 설정 (AWS ALB Controller 필수)
+  - name: AWS Instance ID 및 AZ 가져오기
+    shell: |
+      INSTANCE_ID=$(ec2-metadata --instance-id | cut -d ' ' -f 2)
+      AZ=$(ec2-metadata --availability-zone | cut -d ' ' -f 2)
+      echo "$INSTANCE_ID:$AZ"
+    register: aws_metadata
+    when: not kubelet_conf.stat.exists
+
+  - name: Provider ID 파싱
+    set_fact:
+      instance_id: "{{ aws_metadata.stdout.split(':')[0] }}"
+      availability_zone: "{{ aws_metadata.stdout.split(':')[1] }}"
+    when: not kubelet_conf.stat.exists and aws_metadata is defined
+
+  - name: kubelet Provider ID 설정
+    lineinfile:
+      path: /var/lib/kubelet/kubeadm-flags.env
+      regexp: ^KUBELET_KUBEADM_ARGS=
+      line: KUBELET_KUBEADM_ARGS="--container-runtime-endpoint=unix:///var/run/containerd/containerd.sock --cloud-provider=external --provider-id=aws:///{{ availability_zone }}/{{ instance_id }}"
+      backup: yes
+    when: not kubelet_conf.stat.exists and instance_id is defined
+
+  - name: kubelet 재시작 (Provider ID 적용)
+    systemd:
+      name: kubelet
+      state: restarted
+    when: not kubelet_conf.stat.exists and instance_id is defined
+
+  - name: kubelet 재시작 후 대기
+    pause:
+      seconds: 10
+    when: not kubelet_conf.stat.exists and instance_id is defined
+
+  - name: join 명령어 파일 삭제
+    file:
+      path: /tmp/join.sh
+      state: absent
+
+  rescue:
+  - name: Worker join 실패 - 정리 작업
+    debug:
+      msg: ⚠️ Worker join 실패! 자동 정리 시작...
+
+  - name: kubeadm reset 실행
+    command: kubeadm reset -f --cri-socket=unix:///run/containerd/containerd.sock
+    ignore_errors: yes
+
+  - name: Kubernetes 설정 삭제
+    file:
+      path: '{{ item }}'
+      state: absent
+    loop:
+    - /etc/kubernetes
+    - /var/lib/kubelet
+    - /etc/cni/net.d
+    ignore_errors: yes
+
+  - name: containerd 재시작
+    systemd:
+      name: containerd
+      state: restarted
+
+  - name: 에러 메시지 출력
+    fail:
+      msg: Worker join 실패! 정리 완료. Master에서 새 join token 생성 후 재시도하세요.

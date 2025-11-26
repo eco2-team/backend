@@ -10,30 +10,27 @@ metadata:
     # ACM Certificate ARN
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:721622471953:certificate/4afcd696-4cc9-4e98-90d4-bfc1161316d2
     alb.ingress.kubernetes.io/group.name: ecoeco-main
-    alb.ingress.kubernetes.io/group.order: "30"
+    alb.ingress.kubernetes.io/group.order: '30'
     alb.ingress.kubernetes.io/backend-protocol: HTTP
     alb.ingress.kubernetes.io/healthcheck-path: /api/health
-    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
-    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
-    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
-    alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
-    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/success-codes: '200'
     external-dns.alpha.kubernetes.io/managed-by: external-dns
   labels:
     app.kubernetes.io/name: grafana-ingress
 spec:
   ingressClassName: alb
   rules:
-    - host: grafana.example.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: grafana
-                port:
-                  number: 80
-
-
-
+  - host: grafana.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 80

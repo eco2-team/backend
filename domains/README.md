@@ -1,6 +1,6 @@
 # Domain API Services
 
-`domain/` 디렉터리는 FastAPI 기반 마이크로서비스 7개(auth, my, scan, character, location, info, chat)를 담고 있습니다. 모든 서비스는 동일한 프로젝트 스캐폴딩과 테스트 규칙을 공유하며, 세부 코딩 스타일은 `docs/development/FASTAPI_ENDPOINT_STYLE.md` 를 따른다.
+`domain/` 디렉터리는 FastAPI 기반 마이크로서비스 7개(auth, my, scan, character, location, image, chat)를 담고 있습니다. 모든 서비스는 동일한 프로젝트 스캐폴딩과 테스트 규칙을 공유하며, 세부 코딩 스타일은 `docs/development/FASTAPI_ENDPOINT_STYLE.md` 를 따른다.
 
 ## 1. 디렉터리 개요
 
@@ -12,7 +12,7 @@ domain/
 ├── scan/        # 폐기물 이미지 분류
 ├── character/   # 성향/캐릭터 분석
 ├── location/    # 위치/지도 서비스
-├── info/        # 재활용 정보 큐레이션
+├── image/       # 이미지 업로드 & Presigned URL 교환
 └── chat/        # GPT-4o-mini 챗봇
 ```
 
@@ -40,7 +40,7 @@ domain/
 | `scan` | `scan` | 이미지 분류 작업(비동기 파이프라인 연동 예정) | `docker.io/mng990/eco2:scan-{env}-latest` |
 | `character` | `character` | 사용자 캐릭터 분석·히스토리 | `docker.io/mng990/eco2:character-{env}-latest` |
 | `location` | `location` | 근처 수거함·센터 탐색, 좌표 변환 | `docker.io/mng990/eco2:location-{env}-latest` |
-| `info` | `info` | 재활용 정보·FAQ 제공 | `docker.io/mng990/eco2:info-{env}-latest` |
+| `image` | `image` | 이미지 업로드·Presigned URL 발급 | `docker.io/mng990/eco2:image-{env}-latest` |
 | `chat` | `chat` | GPT-4o-mini 챗봇, 피드백 수집 | `docker.io/mng990/eco2:chat-{env}-latest` |
 
 모든 서비스는 `/api/v1/health` 와 `/api/v1/metrics` 를 노출하여 Prometheus(ServiceMonitor)에서 namespace 단위로 상태를 수집할 수 있도록 구성했다.

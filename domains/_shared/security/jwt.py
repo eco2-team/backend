@@ -26,7 +26,9 @@ class TokenPayload(BaseModel):
         return UUID(self.sub)
 
 
-def decode_jwt(token: str, *, secret: str, algorithm: str, audience: str, issuer: str) -> TokenPayload:
+def decode_jwt(
+    token: str, *, secret: str, algorithm: str, audience: str, issuer: str
+) -> TokenPayload:
     try:
         payload = jwt.decode(
             token,
@@ -44,5 +46,6 @@ def decode_jwt(token: str, *, secret: str, algorithm: str, audience: str, issuer
             provider=payload["provider"],
         )
     except JWTError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token") from exc
-
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
+        ) from exc

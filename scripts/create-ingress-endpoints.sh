@@ -11,17 +11,17 @@ SERVICES=("auth" "my" "scan" "character" "location" "info" "chat")
 
 for svc in "${SERVICES[@]}"; do
     echo "Processing $svc-api..."
-    
+
     # Pod IP 가져오기
     POD_IP=$(kubectl get pods -n $svc -l app=${svc}-api -o jsonpath='{.items[0].status.podIP}' 2>/dev/null)
-    
+
     if [ -z "$POD_IP" ]; then
         echo "  ⚠️  No pod found for $svc, skipping..."
         continue
     fi
-    
+
     echo "  Pod IP: $POD_IP"
-    
+
     # Headless Service 생성
     kubectl apply -f - <<EOF
 apiVersion: v1
@@ -54,7 +54,7 @@ subsets:
         protocol: TCP
         name: http
 EOF
-    
+
     echo "  ✅ ${svc}-api service and endpoint created"
     echo ""
 done
@@ -68,4 +68,3 @@ echo ""
 echo "Ingress 재시작:"
 echo "kubectl delete ingress api-ingress -n default"
 echo "kubectl apply -k workloads/ingress/dev"
-

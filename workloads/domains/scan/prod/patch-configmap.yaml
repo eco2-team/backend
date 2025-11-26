@@ -4,6 +4,5 @@ metadata:
   name: scan-config
   namespace: scan
 data:
-  ENVIRONMENT: "prod"
-  DEBUG: "false"
-
+  ENVIRONMENT: prod
+  DEBUG: 'false'

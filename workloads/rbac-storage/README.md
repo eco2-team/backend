@@ -37,4 +37,3 @@ kubectl apply -k workloads/rbac-storage/prod
 - `docs/architecture/operations/RBAC_NAMESPACE_POLICY.md`
 - `docs/troubleshooting/2025-11-19-rabbitmq-redis.md` (RabbitMQ data-ops Role 유지 배경)
 - `terraform/irsa-roles.tf`
-

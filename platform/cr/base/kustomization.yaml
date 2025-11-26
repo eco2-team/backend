@@ -4,5 +4,3 @@ kind: Kustomization
 # PostgreSQL은 Helm Chart로 관리 (clusters/dev/apps/27-postgresql.yaml)
 # 현재 이 디렉토리에는 Custom Resources가 없음
 resources: []
-
-

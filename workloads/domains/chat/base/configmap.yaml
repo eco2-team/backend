@@ -4,6 +4,6 @@ metadata:
   name: chat-config
   namespace: chat
 data:
-  LOG_LEVEL: "INFO"
-  ENVIRONMENT: "base"
-
+  LOG_LEVEL: INFO
+  ENVIRONMENT: base
+  OPENAI_CHAT_MODEL: gpt-4o-mini

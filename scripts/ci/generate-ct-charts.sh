@@ -55,4 +55,3 @@ done
 
 echo "Generated stub charts:"
 find "${OUTPUT_DIR}" -maxdepth 2 -name Chart.yaml -print
-

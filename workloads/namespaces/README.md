@@ -5,7 +5,7 @@
 ## 구조
 
 - `base/namespaces.yaml`: 15개 네임스페이스 정의
-  - Business Logic (7): auth, my, scan, character, location, info, chat
+  - Business Logic (7): auth, my, scan, character, location, image, chat
   - Data (2): postgres, redis
   - Integration (1): rabbitmq
   - Observability (2): prometheus, grafana
@@ -32,4 +32,3 @@ Wave 0에서 가장 먼저 적용됨 (`clusters/dev/apps/05-namespaces.yaml`).
 kubectl apply -k workloads/namespaces/overlays/dev
 kubectl get ns -l app.kubernetes.io/part-of=ecoeco-backend
 ```
-

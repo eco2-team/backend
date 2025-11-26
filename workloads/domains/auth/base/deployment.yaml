@@ -20,36 +20,35 @@ spec:
         domain: auth
     spec:
       containers:
-        - name: auth-api
-          image: docker.io/mng990/eco2:auth-api-latest
-          imagePullPolicy: Always
-          ports:
-            - containerPort: 8000
-              name: http
-          envFrom:
-            - configMapRef:
-                name: auth-config
-            - secretRef:
-                name: auth-secret
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 30
-            periodSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 10
-            periodSeconds: 5
+      - name: auth-api
+        image: docker.io/mng990/eco2:auth-api-latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        envFrom:
+        - configMapRef:
+            name: auth-config
+        - secretRef:
+            name: auth-secret
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
       imagePullSecrets:
-        - name: dockerhub-secret
+      - name: dockerhub-secret
       nodeSelector:
         domain: auth
       tolerations:
-        - key: domain
-          operator: Equal
-          value: auth
-          effect: NoSchedule
-
+      - key: domain
+        operator: Equal
+        value: auth
+        effect: NoSchedule

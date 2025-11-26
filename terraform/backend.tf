@@ -14,7 +14,7 @@ terraform {
 }
 
 # 초기 설정 (최초 1회만 실행):
-# 
+#
 # 1. S3 버킷 생성
 # aws s3api create-bucket \
 #   --bucket sesacthon-terraform-state \
@@ -35,4 +35,3 @@ terraform {
 #
 # 3. 로컬 State를 S3로 마이그레이션
 # terraform init -migrate-state
-

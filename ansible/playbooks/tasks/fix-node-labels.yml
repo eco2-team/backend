@@ -1,87 +1,84 @@
----
-- name: "노드 라벨/테인트 교정 및 kubelet drop-in 갱신"
+- name: 노드 라벨/테인트 교정 및 kubelet drop-in 갱신
   vars:
     node_labels:
-      k8s-api-auth: "--node-labels=role=api,domain=auth,service=auth,workload=api,tier=business-logic,phase=1 --register-with-taints=domain=auth:NoSchedule"
-      k8s-api-my: "--node-labels=role=api,domain=my,service=my,workload=api,tier=business-logic,phase=1 --register-with-taints=domain=my:NoSchedule"
-      k8s-api-scan: "--node-labels=role=api,domain=scan,service=scan,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=scan:NoSchedule"
-      k8s-api-character: "--node-labels=role=api,domain=character,service=character,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=character:NoSchedule"
-      k8s-api-location: "--node-labels=role=api,domain=location,service=location,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=location:NoSchedule"
-      k8s-api-info: "--node-labels=role=api,domain=info,service=info,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=info:NoSchedule"
-      k8s-api-chat: "--node-labels=role=api,domain=chat,service=chat,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=chat:NoSchedule"
-      k8s-worker-storage: "--node-labels=role=worker,domain=worker-storage,worker-type=storage,workload=worker-storage,tier=worker,phase=4"
-      k8s-worker-ai: "--node-labels=role=worker,domain=worker-ai,worker-type=ai,workload=worker-ai,tier=worker,phase=4"
-      k8s-rabbitmq: "--node-labels=role=infrastructure,domain=integration,infra-type=rabbitmq,workload=message-queue,tier=platform,phase=4 --register-with-taints=domain=integration:NoSchedule"
-      k8s-postgresql: "--node-labels=role=infrastructure,domain=data,infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
-      k8s-redis: "--node-labels=role=infrastructure,domain=data,infra-type=redis,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
-      k8s-monitoring: "--node-labels=role=infrastructure,domain=observability,infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule"
+      k8s-api-auth: --node-labels=role=api,domain=auth,service=auth,workload=api,tier=business-logic,phase=1 --register-with-taints=domain=auth:NoSchedule
+      k8s-api-my: --node-labels=role=api,domain=my,service=my,workload=api,tier=business-logic,phase=1 --register-with-taints=domain=my:NoSchedule
+      k8s-api-scan: --node-labels=role=api,domain=scan,service=scan,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=scan:NoSchedule
+      k8s-api-character: --node-labels=role=api,domain=character,service=character,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=character:NoSchedule
+      k8s-api-location: --node-labels=role=api,domain=location,service=location,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=location:NoSchedule
+      k8s-api-image: --node-labels=role=api,domain=image,service=image,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=image:NoSchedule
+      k8s-api-chat: --node-labels=role=api,domain=chat,service=chat,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=chat:NoSchedule
+      k8s-worker-storage: --node-labels=role=worker,domain=worker-storage,worker-type=storage,workload=worker-storage,tier=worker,phase=4
+      k8s-worker-ai: --node-labels=role=worker,domain=worker-ai,worker-type=ai,workload=worker-ai,tier=worker,phase=4
+      k8s-rabbitmq: --node-labels=role=infrastructure,domain=integration,infra-type=rabbitmq,workload=message-queue,tier=platform,phase=4 --register-with-taints=domain=integration:NoSchedule
+      k8s-postgresql: --node-labels=role=infrastructure,domain=data,infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule
+      k8s-redis: --node-labels=role=infrastructure,domain=data,infra-type=redis,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule
+      k8s-monitoring: --node-labels=role=infrastructure,domain=observability,infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule
   block:
-    - name: "{{ inventory_hostname }} → 예상 라벨"
+  - name: '{{ inventory_hostname }} → 예상 라벨'
+    ansible.builtin.debug:
+      msg: "{{ node_labels[inventory_hostname] | default('라벨 없음') }}"
+
+  - name: 기존 kubelet 라벨 설정 파일 백업
+    ansible.builtin.copy:
+      src: /etc/systemd/system/kubelet.service.d/10-node-labels.conf
+      dest: /etc/systemd/system/kubelet.service.d/10-node-labels.conf.bak
+      remote_src: yes
+    failed_when: false
+
+  - name: 올바른 노드 라벨로 kubelet drop-in 갱신
+    ansible.builtin.copy:
+      content: |
+        [Service]
+        Environment="KUBELET_EXTRA_ARGS={{ node_labels[inventory_hostname] }}"
+      dest: /etc/systemd/system/kubelet.service.d/10-node-labels.conf
+      mode: '0644'
+    when: node_labels[inventory_hostname] is defined
+    register: labels_updated
+
+  - name: kubelet 재조인을 위한 설정 정리
+    when:
+    - labels_updated is defined
+    - labels_updated.changed
+    block:
+    - name: kubelet 중지
+      ansible.builtin.systemd:
+        name: kubelet
+        state: stopped
+
+    - name: kubeadm reset
+      ansible.builtin.command: kubeadm reset -f --cri-socket=unix:///run/containerd/containerd.sock
+      register: reset_result
+
+    - name: Reset 결과 출력
       ansible.builtin.debug:
-        msg: "{{ node_labels[inventory_hostname] | default('라벨 없음') }}"
+        msg: '{{ reset_result.stdout_lines }}'
 
-    - name: 기존 kubelet 라벨 설정 파일 백업
-      ansible.builtin.copy:
-        src: /etc/systemd/system/kubelet.service.d/10-node-labels.conf
-        dest: /etc/systemd/system/kubelet.service.d/10-node-labels.conf.bak
-        remote_src: yes
-      failed_when: false
+    - name: Kubernetes 설정 디렉터리 제거
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: absent
+      loop:
+      - /etc/kubernetes
+      - /var/lib/kubelet
+      - /etc/cni/net.d
 
-    - name: 올바른 노드 라벨로 kubelet drop-in 갱신
-      ansible.builtin.copy:
-        content: |
-          [Service]
-          Environment="KUBELET_EXTRA_ARGS={{ node_labels[inventory_hostname] }}"
-        dest: /etc/systemd/system/kubelet.service.d/10-node-labels.conf
-        mode: '0644'
-      when: node_labels[inventory_hostname] is defined
-      register: labels_updated
+    - name: systemd daemon-reload
+      ansible.builtin.systemd:
+        daemon_reload: yes
 
-    - name: kubelet 재조인을 위한 설정 정리
-      when:
-        - labels_updated is defined
-        - labels_updated.changed
-      block:
-        - name: kubelet 중지
-          ansible.builtin.systemd:
-            name: kubelet
-            state: stopped
+    - name: containerd 재시작
+      ansible.builtin.systemd:
+        name: containerd
+        state: restarted
 
-        - name: kubeadm reset
-          ansible.builtin.command: kubeadm reset -f --cri-socket=unix:///run/containerd/containerd.sock
-          register: reset_result
+    - name: containerd 시작 대기
+      ansible.builtin.pause:
+        seconds: 5
 
-        - name: Reset 결과 출력
-          ansible.builtin.debug:
-            msg: "{{ reset_result.stdout_lines }}"
-
-        - name: Kubernetes 설정 디렉터리 제거
-          ansible.builtin.file:
-            path: "{{ item }}"
-            state: absent
-          loop:
-            - /etc/kubernetes
-            - /var/lib/kubelet
-            - /etc/cni/net.d
-
-        - name: systemd daemon-reload
-          ansible.builtin.systemd:
-            daemon_reload: yes
-
-        - name: containerd 재시작
-          ansible.builtin.systemd:
-            name: containerd
-            state: restarted
-
-        - name: containerd 시작 대기
-          ansible.builtin.pause:
-            seconds: 5
-
-    - name: 라벨 교정 완료 메시지
-      ansible.builtin.debug:
-        msg: "✅ {{ inventory_hostname }} 라벨 교정 완료"
+  - name: 라벨 교정 완료 메시지
+    ansible.builtin.debug:
+      msg: ✅ {{ inventory_hostname }} 라벨 교정 완료
   when: migrate_node_labels | default(false)
   tags:
-    - node-labels
-
-
+  - node-labels

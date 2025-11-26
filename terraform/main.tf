@@ -73,7 +73,7 @@ locals {
     "k8s-api-scan"       = "--node-labels=role=api,domain=scan,service=scan,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=scan:NoSchedule"
     "k8s-api-character"  = "--node-labels=role=api,domain=character,service=character,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=character:NoSchedule"
     "k8s-api-location"   = "--node-labels=role=api,domain=location,service=location,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=location:NoSchedule"
-    "k8s-api-info"       = "--node-labels=role=api,domain=info,service=info,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=info:NoSchedule"
+    "k8s-api-image"      = "--node-labels=role=api,domain=image,service=image,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=image:NoSchedule"
     "k8s-api-chat"       = "--node-labels=role=api,domain=chat,service=chat,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=chat:NoSchedule"
     "k8s-worker-storage" = "--node-labels=role=worker,domain=worker-storage,worker-type=storage,workload=worker-storage,tier=worker,phase=4"
     "k8s-worker-ai"      = "--node-labels=role=worker,domain=worker-ai,worker-type=ai,workload=worker-ai,tier=worker,phase=4"
@@ -287,11 +287,11 @@ module "api_location" {
 # Phase 3: Extended APIs (vCPU 32개로 증가 완료 - 2025-11-08 활성화)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# API-6: Recycle Information
-module "api_info" {
+# API-6: Image Delivery
+module "api_image" {
   source = "./modules/ec2"
 
-  instance_name        = "k8s-api-info"
+  instance_name        = "k8s-api-image"
   instance_type        = "t3.small" # 2GB
   ami_id               = data.aws_ami.ubuntu.id
   subnet_id            = module.vpc.public_subnet_ids[2]
@@ -303,14 +303,14 @@ module "api_info" {
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname           = "k8s-api-info"
-    kubelet_extra_args = local.kubelet_profiles["k8s-api-info"]
+    hostname           = "k8s-api-image"
+    kubelet_extra_args = local.kubelet_profiles["k8s-api-image"]
   })
 
   tags = {
     Role     = "worker"
-    Workload = "api-info"
-    Domain   = "info"
+    Workload = "api-image"
+    Domain   = "image"
     Phase    = "3"
   }
 }
@@ -450,7 +450,7 @@ module "postgresql" {
   source = "./modules/ec2"
 
   instance_name        = "k8s-postgresql"
-  instance_type        = "t3.large" # 8GB (도메인별 DB: auth, my, scan, character, location, info, chat)
+  instance_type        = "t3.large" # 8GB (도메인별 DB: auth, my, scan, character, location, image, chat)
   ami_id               = data.aws_ami.ubuntu.id
   subnet_id            = module.vpc.public_subnet_ids[0]
   security_group_ids   = [module.security_groups.cluster_sg_id]
@@ -536,4 +536,3 @@ resource "aws_eip" "master" {
     Name = "k8s-master-eip"
   }
 }
-

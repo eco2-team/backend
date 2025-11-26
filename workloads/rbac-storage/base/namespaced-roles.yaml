@@ -5,15 +5,15 @@ metadata:
   name: data-ops
   namespace: postgres
 rules:
-  - apiGroups: ["apps"]
-    resources: ["statefulsets"]
-    verbs: ["get", "list", "watch", "patch", "update"]
-  - apiGroups: [""]
-    resources: ["secrets", "configmaps"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
-  - apiGroups: ["batch"]
-    resources: ["jobs"]
-    verbs: ["create", "delete"]
+- apiGroups: [apps]
+  resources: [statefulsets]
+  verbs: [get, list, watch, patch, update]
+- apiGroups: ['']
+  resources: [secrets, configmaps]
+  verbs: [get, list, watch, create, update, patch]
+- apiGroups: [batch]
+  resources: [jobs]
+  verbs: [create, delete]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -21,12 +21,12 @@ metadata:
   name: data-ops
   namespace: redis
 rules:
-  - apiGroups: ["apps"]
-    resources: ["statefulsets"]
-    verbs: ["get", "list", "watch", "patch", "update"]
-  - apiGroups: [""]
-    resources: ["secrets", "configmaps"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: [apps]
+  resources: [statefulsets]
+  verbs: [get, list, watch, patch, update]
+- apiGroups: ['']
+  resources: [secrets, configmaps]
+  verbs: [get, list, watch, create, update, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -34,12 +34,12 @@ metadata:
   name: data-ops
   namespace: rabbitmq
 rules:
-  - apiGroups: ["rabbitmq.com"]
-    resources: ["rabbitmqclusters"]
-    verbs: ["get", "list", "watch", "patch"]
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get", "list", "watch"]
+- apiGroups: [rabbitmq.com]
+  resources: [rabbitmqclusters]
+  verbs: [get, list, watch, patch]
+- apiGroups: ['']
+  resources: [secrets]
+  verbs: [get, list, watch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -47,12 +47,12 @@ metadata:
   name: api-dev
   namespace: auth
 rules:
-  - apiGroups: ["apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch", "patch", "update"]
-  - apiGroups: [""]
-    resources: ["configmaps", "secrets", "services"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: [apps]
+  resources: [deployments]
+  verbs: [get, list, watch, patch, update]
+- apiGroups: ['']
+  resources: [configmaps, secrets, services]
+  verbs: [get, list, watch, create, update, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -64,10 +64,9 @@ metadata:
     app.kubernetes.io/component: rabbitmq-operator
     app.kubernetes.io/part-of: rabbitmq
 rules:
-  - apiGroups: ["coordination.k8s.io"]
-    resources: ["leases"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["create"]
-
+- apiGroups: [coordination.k8s.io]
+  resources: [leases]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: ['']
+  resources: [events]
+  verbs: [create]

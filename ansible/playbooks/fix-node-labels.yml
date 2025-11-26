@@ -1,4 +1,3 @@
----
 - name: Kubelet 노드 라벨 수정 (Kubernetes 1.24+ 호환)
   hosts: all
   become: yes
@@ -6,6 +5,5 @@
   vars:
     migrate_node_labels: true
   tasks:
-    - name: Sesacthon 표준 라벨/테인트 적용
-      ansible.builtin.import_tasks: tasks/fix-node-labels.yml
-
+  - name: Sesacthon 표준 라벨/테인트 적용
+    ansible.builtin.import_tasks: tasks/fix-node-labels.yml

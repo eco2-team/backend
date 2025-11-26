@@ -17,6 +17,7 @@ Chat 도메인 API 서비스 Kustomize 구조.
 
 - Wave 35: Data Clusters
 - Wave 58: `dockerhub-secret`
+- ExternalSecret: `chat-secret` (OPENAI_API_KEY – `/sesacthon/{env}/api/chat/openai-api-key`)
 
 ## 배포
 

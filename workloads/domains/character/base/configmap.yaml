@@ -4,7 +4,6 @@ metadata:
   name: character-config
   namespace: character
 data:
-  LOG_LEVEL: "INFO"
-  ENVIRONMENT: "base"
-  CHARACTER_DATABASE_URL: "postgresql+asyncpg://sesacthon:sesacthon@dev-postgresql.postgres.svc.cluster.local:5432/ecoeco"
-
+  LOG_LEVEL: INFO
+  ENVIRONMENT: base
+  CHARACTER_DATABASE_URL: postgresql+asyncpg://sesacthon:sesacthon@dev-postgresql.postgres.svc.cluster.local:5432/ecoeco

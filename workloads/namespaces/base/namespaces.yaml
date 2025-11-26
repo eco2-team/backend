@@ -52,12 +52,12 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: info
+  name: image
   labels:
     app.kubernetes.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
-    domain: info
+    domain: image
 ---
 apiVersion: v1
 kind: Namespace
@@ -142,4 +142,3 @@ metadata:
     app.kubernetes.io/part-of: ecoeco-platform
     tier: infrastructure
     role: operators
-

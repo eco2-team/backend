@@ -1,8 +1,5 @@
----
 - name: Workers 재조인
   hosts: workers,api_nodes,rabbitmq,postgresql,redis,monitoring
   become: yes
   tasks:
-    - import_tasks: 03-worker-join.yml
-
-
+  - import_tasks: 03-worker-join.yml

@@ -24,7 +24,9 @@ def build_access_token_dependency(
             blacklist=Depends(blacklist_dependency),
         ) -> TokenPayload:
             if not token:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing access token")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing access token"
+                )
             settings = get_settings()
             payload = decode_jwt(
                 token,
@@ -34,9 +36,13 @@ def build_access_token_dependency(
                 issuer=settings.jwt_issuer,
             )
             if payload.type is not TokenType.ACCESS:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token type mismatch")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Token type mismatch"
+                )
             if await blacklist.contains(payload.jti):
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token revoked")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Token revoked"
+                )
             return payload
 
         return dependency
@@ -45,7 +51,9 @@ def build_access_token_dependency(
         token: Optional[str] = Cookie(default=None, alias=cookie_alias),
     ) -> TokenPayload:
         if not token:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing access token")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing access token"
+            )
         settings = get_settings()
         payload = decode_jwt(
             token,
@@ -55,8 +63,9 @@ def build_access_token_dependency(
             issuer=settings.jwt_issuer,
         )
         if payload.type is not TokenType.ACCESS:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token type mismatch")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Token type mismatch"
+            )
         return payload
 
     return dependency
-

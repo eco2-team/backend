@@ -11,7 +11,6 @@ roleRef:
   kind: ClusterRole
   name: rabbitmq-cluster-operator-role
 subjects:
-  - kind: ServiceAccount
-    name: rabbitmq-cluster-operator
-    namespace: rabbitmq-system
-
+- kind: ServiceAccount
+  name: rabbitmq-cluster-operator
+  namespace: rabbitmq-system

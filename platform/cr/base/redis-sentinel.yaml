@@ -16,8 +16,7 @@ spec:
   nodeSelector:
     infra-type: redis
   tolerations:
-    - key: domain
-      operator: Equal
-      value: data
-      effect: NoSchedule
-
+  - key: domain
+    operator: Equal
+    value: data
+    effect: NoSchedule

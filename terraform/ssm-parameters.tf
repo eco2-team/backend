@@ -249,4 +249,3 @@ resource "aws_ssm_parameter" "grafana_admin_password" {
     Environment = var.environment
   }
 }
-

@@ -29,9 +29,9 @@ variable "public_key_path" {
 }
 
 variable "enable_cloudfront" {
-  description = "CloudFront CDN 활성화 여부 (개발 환경에서는 false 권장)"
+  description = "CloudFront CDN 활성화 여부 (기본값: true)"
   type        = bool
-  default     = false # 기본값: 비활성화 (배포 시간 단축)
+  default     = true
 }
 
 variable "cluster_name" {
@@ -70,4 +70,3 @@ variable "ghcr_token" {
   sensitive   = true
   default     = ""
 }
-

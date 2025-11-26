@@ -1,3 +1,4 @@
+---
 # Kubernetes 패키지 설치
 ---
 - name: Kubernetes APT 키 추가
@@ -8,7 +9,7 @@
 
 - name: Kubernetes repository 추가
   apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /"
+    repo: deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /
     state: present
     filename: kubernetes
 
@@ -20,15 +21,15 @@
 
 - name: 기존 패키지 버전 출력
   debug:
-    msg: "{{ existing_k8s_packages.stdout_lines }}"
+    msg: '{{ existing_k8s_packages.stdout_lines }}'
   when: existing_k8s_packages.stdout != ""
 
 - name: 기존 Kubernetes 패키지 제거 (버전 불일치 시)
   apt:
     name:
-      - kubelet
-      - kubeadm
-      - kubectl
+    - kubelet
+    - kubeadm
+    - kubectl
     state: absent
     purge: yes
     allow_change_held_packages: true
@@ -37,25 +38,24 @@
 - name: Kubernetes 패키지 설치
   apt:
     name:
-      - kubelet={{ kubernetes_version }}
-      - kubeadm={{ kubernetes_version }}
-      - kubectl={{ kubernetes_version }}
+    - kubelet={{ kubernetes_version }}
+    - kubeadm={{ kubernetes_version }}
+    - kubectl={{ kubernetes_version }}
     state: present
     update_cache: yes
     allow_downgrade: yes
 
 - name: Kubernetes 패키지 hold (자동 업그레이드 방지)
   dpkg_selections:
-    name: "{{ item }}"
+    name: '{{ item }}'
     selection: hold
   loop:
-    - kubelet
-    - kubeadm
-    - kubectl
+  - kubelet
+  - kubeadm
+  - kubectl
 
 - name: kubelet 서비스 시작
   systemd:
     name: kubelet
     enabled: yes
     state: started
-

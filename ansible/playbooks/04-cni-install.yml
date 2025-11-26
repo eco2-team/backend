@@ -1,253 +1,252 @@
 - name: CNI 플러그인 설치 및 클러스터 검증 (Calico VXLAN Always, BGP Off)
   hosts: masters
   become: yes
-  become_user: "{{ kubectl_user }}"
+  become_user: '{{ kubectl_user }}'
   gather_facts: no
   vars:
     calico_manifest_final_url: "{{ calico_manifest_url | default('https://raw.githubusercontent.com/projectcalico/calico/v3.27.3/manifests/calico.yaml') }}"
   tasks:
     # Step 1: kube-proxy 확인
-    - name: kube-proxy 상태 확인
-      command: kubectl get daemonset -n kube-system kube-proxy
-      register: kubeproxy_check
-      changed_when: false
-      retries: 5
-      delay: 10
-      until: kubeproxy_check.rc == 0
+  - name: kube-proxy 상태 확인
+    command: kubectl get daemonset -n kube-system kube-proxy
+    register: kubeproxy_check
+    changed_when: false
+    retries: 5
+    delay: 10
+    until: kubeproxy_check.rc == 0
 
-    - name: kube-proxy Ready 대기
-      shell: |
-        for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-          READY=$(kubectl get daemonset kube-proxy -n kube-system -o jsonpath='{.status.numberReady}' 2>/dev/null || echo "0")
-          DESIRED=$(kubectl get daemonset kube-proxy -n kube-system -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "0")
+  - name: kube-proxy Ready 대기
+    shell: |
+      for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        READY=$(kubectl get daemonset kube-proxy -n kube-system -o jsonpath='{.status.numberReady}' 2>/dev/null || echo "0")
+        DESIRED=$(kubectl get daemonset kube-proxy -n kube-system -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "0")
 
-          if [ "$DESIRED" -gt 0 ] && [ "$READY" -eq "$DESIRED" ]; then
-            echo "✅ kube-proxy Ready: $READY/$DESIRED"
-            exit 0
-          fi
+        if [ "$DESIRED" -gt 0 ] && [ "$READY" -eq "$DESIRED" ]; then
+          echo "✅ kube-proxy Ready: $READY/$DESIRED"
+          exit 0
+        fi
 
-          echo "kube-proxy: $READY/$DESIRED (attempt $i/20)"
-          sleep 10
-        done
-        exit 0
-      changed_when: false
+        echo "kube-proxy: $READY/$DESIRED (attempt $i/20)"
+        sleep 10
+      done
+      exit 0
+    changed_when: false
 
     # Step 2: Calico 설치 여부 확인
-    - name: Calico 설치 확인
-      command: kubectl get deployment -n kube-system calico-kube-controllers
-      register: calico_check
-      failed_when: false
-      changed_when: false
+  - name: Calico 설치 확인
+    command: kubectl get deployment -n kube-system calico-kube-controllers
+    register: calico_check
+    failed_when: false
+    changed_when: false
 
     # Step 3: Calico 설치 (VXLAN 전용, BGP 완전 비활성화)
-    - name: Calico 설치 - VXLAN 모드 (공식 문서 기반)
-      when: calico_check.rc != 0
-      block:
-        - name: Calico 기본 매니페스트 설치
-          shell: |
-            kubectl apply -f {{ calico_manifest_final_url }}
-          register: calico_manifest_apply
-          retries: 5
-          delay: 15
-          until: calico_manifest_apply.rc == 0
-
-        - name: Calico IPPool 리소스 존재 대기
-          command: kubectl get ippool default-ipv4-ippool
-          register: calico_ippool_ready
-          retries: 12
-          delay: 5
-          until: calico_ippool_ready.rc == 0
-          changed_when: false
-
-        - name: Calico VXLAN 전용 설정 (IPPool)
-          shell: |
-            kubectl patch ippool default-ipv4-ippool --type=merge --patch='
-            {
-              "spec": {
-                "ipipMode": "Never",
-                "vxlanMode": "Always",
-                "natOutgoing": true
-              }
-            }'
-          register: calico_ippool_patch
-          changed_when: "'patched' in (calico_ippool_patch.stdout | default(''))"
-          retries: 6
-          delay: 5
-          until: calico_ippool_patch.rc == 0
-
-        - name: BGPConfiguration 생성 (BGP 완전 비활성화)
-          shell: |
-            cat <<EOF | kubectl apply -f -
-            apiVersion: crd.projectcalico.org/v1
-            kind: BGPConfiguration
-            metadata:
-              name: default
-            spec:
-              nodeToNodeMeshEnabled: false
-              asNumber: 64512
-            EOF
-          register: calico_bgp_config
-          changed_when: "'configured' in (calico_bgp_config.stdout | default('')) or 'created' in (calico_bgp_config.stdout | default(''))"
-
-        - name: FelixConfiguration 생성 (VXLAN 모드 Only)
-          shell: |
-            cat <<EOF | kubectl apply -f -
-            apiVersion: crd.projectcalico.org/v1
-            kind: FelixConfiguration
-            metadata:
-              name: default
-            spec:
-              bpfEnabled: false
-              ipipEnabled: false
-              vxlanEnabled: true
-            EOF
-          register: calico_felix_config
-          changed_when: "'configured' in (calico_felix_config.stdout | default('')) or 'created' in (calico_felix_config.stdout | default(''))"
-
-        - name: Calico DaemonSet Probe 수정 (BIRD 제거)
-          shell: |
-            kubectl patch daemonset calico-node -n kube-system --type=json -p='[
-              {
-                "op": "replace",
-                "path": "/spec/template/spec/containers/0/livenessProbe/exec/command",
-                "value": ["/bin/calico-node", "-felix-live"]
-              },
-              {
-                "op": "replace",
-                "path": "/spec/template/spec/containers/0/readinessProbe/exec/command",
-                "value": ["/bin/calico-node", "-felix-ready"]
-              }
-            ]'
-          register: calico_probe_patch
-          changed_when: "'patched' in (calico_probe_patch.stdout | default(''))"
-          retries: 5
-          delay: 5
-          until: calico_probe_patch.rc == 0
-
-        - name: Calico DaemonSet 환경변수 설정 (VXLAN Always)
-          shell: |
-            kubectl set env daemonset/calico-node -n kube-system \
-              CLUSTER_TYPE=k8s \
-              CALICO_IPV4POOL_IPIP=Never \
-              CALICO_IPV4POOL_VXLAN=Always \
-              CALICO_IPV4POOL_CIDR={{ pod_network_cidr }} \
-              CALICO_IPV4POOL_NAT_OUTGOING=true \
-              FELIX_IPIPENABLED=false \
-              FELIX_VXLANENABLED=true \
-              FELIX_BGPENABLED=false
-          register: calico_env_patch
-          changed_when: "'configured' in (calico_env_patch.stdout | default('')) or 'updated' in (calico_env_patch.stdout | default('')) or 'set' in (calico_env_patch.stdout | default(''))"
-
-        - name: Calico Pod 재시작
-          shell: |
-            kubectl delete pods -n kube-system -l k8s-app=calico-node --wait=false
-            kubectl delete pods -n kube-system -l k8s-app=calico-kube-controllers --wait=false
-            echo "⏳ Calico Pod 재생성 시작"
-          when: calico_ippool_patch is changed or calico_bgp_config is changed or calico_felix_config is changed or calico_probe_patch is changed or calico_env_patch is changed
-
-    - name: Calico Node DaemonSet 대기 (안정화 시간 포함)
+  - name: Calico 설치 - VXLAN 모드 (공식 문서 기반)
+    when: calico_check.rc != 0
+    block:
+    - name: Calico 기본 매니페스트 설치
       shell: |
-        echo "Calico 초기 설치 대기 (60초)..."
-        sleep 60
+        kubectl apply -f {{ calico_manifest_final_url }}
+      register: calico_manifest_apply
+      retries: 5
+      delay: 15
+      until: calico_manifest_apply.rc == 0
 
-        for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60; do
-          DESIRED=$(kubectl get daemonset calico-node -n kube-system -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "0")
-          READY=$(kubectl get daemonset calico-node -n kube-system -o jsonpath='{.status.numberReady}' 2>/dev/null || echo "0")
-          CURRENT=$(kubectl get daemonset calico-node -n kube-system -o jsonpath='{.status.currentNumberScheduled}' 2>/dev/null || echo "0")
-
-          echo "Calico 상태: $READY/$CURRENT/$DESIRED (Ready/Current/Desired) - attempt $i/60"
-
-          if [ "$DESIRED" -gt 0 ] && [ "$READY" -ge 2 ]; then
-            echo "✅ Calico 대부분 Ready: $READY/$DESIRED nodes"
-            echo "⏳ 나머지 노드는 백그라운드로 안정화 진행"
-            exit 0
-          fi
-
-          sleep 10
-        done
-
-        echo "⚠️ Calico 일부만 준비됨: $READY/$DESIRED"
-        echo "   계속 진행 (백그라운드로 안정화 예상)"
-        exit 0
-      when: calico_check.rc != 0
+    - name: Calico IPPool 리소스 존재 대기
+      command: kubectl get ippool default-ipv4-ippool
+      register: calico_ippool_ready
+      retries: 12
+      delay: 5
+      until: calico_ippool_ready.rc == 0
       changed_when: false
 
-    - name: 모든 Worker가 클러스터에 등록될 때까지 대기 (Phase 1&2)
+    - name: Calico VXLAN 전용 설정 (IPPool)
       shell: |
-        # Phase 1&2: 7 Worker 노드 (5 API + 2 Infra)
-        # Phase 3&4: 12 Worker 노드 (7 API + 2 Worker + 3 Infra) - 추후 확장
-        EXPECTED_WORKERS=7  # Phase 1&2: 5 API (auth, my, scan, character, location) + 2 Infra (PostgreSQL, Redis)
+        kubectl patch ippool default-ipv4-ippool --type=merge --patch='
+        {
+          "spec": {
+            "ipipMode": "Never",
+            "vxlanMode": "Always",
+            "natOutgoing": true
+          }
+        }'
+      register: calico_ippool_patch
+      changed_when: "'patched' in (calico_ippool_patch.stdout | default(''))"
+      retries: 6
+      delay: 5
+      until: calico_ippool_patch.rc == 0
 
-        for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
-          # 전체 Worker 노드 수 (Master 제외)
-          WORKER_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | grep -v "control-plane" | wc -l)
-
-          echo "Worker 등록 상태: $WORKER_COUNT/$EXPECTED_WORKERS (Phase 1&2, attempt $i/30)"
-
-          if [ "$WORKER_COUNT" -ge "$EXPECTED_WORKERS" ]; then
-            echo "✅ 모든 Worker 등록됨! (Phase 1&2)"
-            kubectl get nodes
-            exit 0
-          fi
-
-          sleep 10
-        done
-
-        echo "❌ Timeout: Worker 노드가 $EXPECTED_WORKERS개 등록되지 않음 (현재: $WORKER_COUNT)"
-        echo ""
-        echo "현재 등록된 노드:"
-        kubectl get nodes
-        exit 1
-      register: workers_joined
-      changed_when: false
-      failed_when: workers_joined.rc != 0
-
-    - name: 모든 노드가 Ready 상태가 될 때까지 대기 (안정화 고려)
+    - name: BGPConfiguration 생성 (BGP 완전 비활성화)
       shell: |
-        EXPECTED_TOTAL_NODES=14  # 1 Master + 13 Workers (7 API + 2 Worker + 4 Infra)
+        cat <<EOF | kubectl apply -f -
+        apiVersion: crd.projectcalico.org/v1
+        kind: BGPConfiguration
+        metadata:
+          name: default
+        spec:
+          nodeToNodeMeshEnabled: false
+          asNumber: 64512
+        EOF
+      register: calico_bgp_config
+      changed_when: "'configured' in (calico_bgp_config.stdout | default('')) or 'created' in (calico_bgp_config.stdout | default(''))"
 
-        echo "노드 안정화 대기 중 (Pod 재시작 허용)..."
+    - name: FelixConfiguration 생성 (VXLAN 모드 Only)
+      shell: |
+        cat <<EOF | kubectl apply -f -
+        apiVersion: crd.projectcalico.org/v1
+        kind: FelixConfiguration
+        metadata:
+          name: default
+        spec:
+          bpfEnabled: false
+          ipipEnabled: false
+          vxlanEnabled: true
+        EOF
+      register: calico_felix_config
+      changed_when: "'configured' in (calico_felix_config.stdout | default('')) or 'created' in (calico_felix_config.stdout | default(''))"
 
-        for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90; do
-          TOTAL_NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
-          READY_NODES=$(kubectl get nodes --no-headers 2>/dev/null | grep -w "Ready" | wc -l | tr -d ' ')
+    - name: Calico DaemonSet Probe 수정 (BIRD 제거)
+      shell: |
+        kubectl patch daemonset calico-node -n kube-system --type=json -p='[
+          {
+            "op": "replace",
+            "path": "/spec/template/spec/containers/0/livenessProbe/exec/command",
+            "value": ["/bin/calico-node", "-felix-live"]
+          },
+          {
+            "op": "replace",
+            "path": "/spec/template/spec/containers/0/readinessProbe/exec/command",
+            "value": ["/bin/calico-node", "-felix-ready"]
+          }
+        ]'
+      register: calico_probe_patch
+      changed_when: "'patched' in (calico_probe_patch.stdout | default(''))"
+      retries: 5
+      delay: 5
+      until: calico_probe_patch.rc == 0
 
-          echo "노드 상태: $READY_NODES/$TOTAL_NODES Ready (attempt $i/90, elapsed: $((i*10))s)"
+    - name: Calico DaemonSet 환경변수 설정 (VXLAN Always)
+      shell: |
+        kubectl set env daemonset/calico-node -n kube-system \
+          CLUSTER_TYPE=k8s \
+          CALICO_IPV4POOL_IPIP=Never \
+          CALICO_IPV4POOL_VXLAN=Always \
+          CALICO_IPV4POOL_CIDR={{ pod_network_cidr }} \
+          CALICO_IPV4POOL_NAT_OUTGOING=true \
+          FELIX_IPIPENABLED=false \
+          FELIX_VXLANENABLED=true \
+          FELIX_BGPENABLED=false
+      register: calico_env_patch
+      changed_when: "'configured' in (calico_env_patch.stdout | default('')) or 'updated' in (calico_env_patch.stdout | default('')) or 'set' in (calico_env_patch.stdout | default(''))"
 
-          if [ "$TOTAL_NODES" -eq "$EXPECTED_TOTAL_NODES" ] && [ "$READY_NODES" -eq "$EXPECTED_TOTAL_NODES" ]; then
-            echo "✅ 모든 노드 Ready!"
-            kubectl get nodes -o wide
+    - name: Calico Pod 재시작
+      shell: |
+        kubectl delete pods -n kube-system -l k8s-app=calico-node --wait=false
+        kubectl delete pods -n kube-system -l k8s-app=calico-kube-controllers --wait=false
+        echo "⏳ Calico Pod 재생성 시작"
+      when: calico_ippool_patch is changed or calico_bgp_config is changed or calico_felix_config is changed or calico_probe_patch is changed or calico_env_patch is changed
 
-            # 추가 안정화 시간 (Pod 초기화 완료)
-            echo "⏳ 추가 안정화 대기 (30초)..."
-            sleep 30
-            exit 0
-          fi
+  - name: Calico Node DaemonSet 대기 (안정화 시간 포함)
+    shell: |
+      echo "Calico 초기 설치 대기 (60초)..."
+      sleep 60
 
-          sleep 10
-        done
+      for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60; do
+        DESIRED=$(kubectl get daemonset calico-node -n kube-system -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "0")
+        READY=$(kubectl get daemonset calico-node -n kube-system -o jsonpath='{.status.numberReady}' 2>/dev/null || echo "0")
+        CURRENT=$(kubectl get daemonset calico-node -n kube-system -o jsonpath='{.status.currentNumberScheduled}' 2>/dev/null || echo "0")
 
-        echo "❌ Timeout: 일부 노드가 Ready 상태가 아닙니다"
-        echo ""
-        echo "현재 노드 상태:"
-        kubectl get nodes -o wide
-        echo ""
-        echo "NotReady 노드 상세 정보:"
-        kubectl get nodes --no-headers | grep -v "Ready" | awk '{print $1}' | while read node; do
-          echo "=== $node ==="
-          kubectl describe node $node | grep -A 10 "Conditions:"
-        done
-        exit 1
-      register: nodes_ready
-      changed_when: false
-      failed_when: nodes_ready.rc != 0
+        echo "Calico 상태: $READY/$CURRENT/$DESIRED (Ready/Current/Desired) - attempt $i/60"
 
-    - name: 노드 상태 최종 확인
-      command: kubectl get nodes
-      register: nodes_status
-      changed_when: false
+        if [ "$DESIRED" -gt 0 ] && [ "$READY" -ge 2 ]; then
+          echo "✅ Calico 대부분 Ready: $READY/$DESIRED nodes"
+          echo "⏳ 나머지 노드는 백그라운드로 안정화 진행"
+          exit 0
+        fi
 
-    - name: 노드 상태 출력
-      debug:
-        msg: "{{ nodes_status.stdout_lines }}"
+        sleep 10
+      done
 
+      echo "⚠️ Calico 일부만 준비됨: $READY/$DESIRED"
+      echo "   계속 진행 (백그라운드로 안정화 예상)"
+      exit 0
+    when: calico_check.rc != 0
+    changed_when: false
+
+  - name: 모든 Worker가 클러스터에 등록될 때까지 대기 (Phase 1&2)
+    shell: |
+      # Phase 1&2: 7 Worker 노드 (5 API + 2 Infra)
+      # Phase 3&4: 12 Worker 노드 (7 API + 2 Worker + 3 Infra) - 추후 확장
+      EXPECTED_WORKERS=7  # Phase 1&2: 5 API (auth, my, scan, character, location) + 2 Infra (PostgreSQL, Redis)
+
+      for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
+        # 전체 Worker 노드 수 (Master 제외)
+        WORKER_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | grep -v "control-plane" | wc -l)
+
+        echo "Worker 등록 상태: $WORKER_COUNT/$EXPECTED_WORKERS (Phase 1&2, attempt $i/30)"
+
+        if [ "$WORKER_COUNT" -ge "$EXPECTED_WORKERS" ]; then
+          echo "✅ 모든 Worker 등록됨! (Phase 1&2)"
+          kubectl get nodes
+          exit 0
+        fi
+
+        sleep 10
+      done
+
+      echo "❌ Timeout: Worker 노드가 $EXPECTED_WORKERS개 등록되지 않음 (현재: $WORKER_COUNT)"
+      echo ""
+      echo "현재 등록된 노드:"
+      kubectl get nodes
+      exit 1
+    register: workers_joined
+    changed_when: false
+    failed_when: workers_joined.rc != 0
+
+  - name: 모든 노드가 Ready 상태가 될 때까지 대기 (안정화 고려)
+    shell: |
+      EXPECTED_TOTAL_NODES=14  # 1 Master + 13 Workers (7 API + 2 Worker + 4 Infra)
+
+      echo "노드 안정화 대기 중 (Pod 재시작 허용)..."
+
+      for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90; do
+        TOTAL_NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
+        READY_NODES=$(kubectl get nodes --no-headers 2>/dev/null | grep -w "Ready" | wc -l | tr -d ' ')
+
+        echo "노드 상태: $READY_NODES/$TOTAL_NODES Ready (attempt $i/90, elapsed: $((i*10))s)"
+
+        if [ "$TOTAL_NODES" -eq "$EXPECTED_TOTAL_NODES" ] && [ "$READY_NODES" -eq "$EXPECTED_TOTAL_NODES" ]; then
+          echo "✅ 모든 노드 Ready!"
+          kubectl get nodes -o wide
+
+          # 추가 안정화 시간 (Pod 초기화 완료)
+          echo "⏳ 추가 안정화 대기 (30초)..."
+          sleep 30
+          exit 0
+        fi
+
+        sleep 10
+      done
+
+      echo "❌ Timeout: 일부 노드가 Ready 상태가 아닙니다"
+      echo ""
+      echo "현재 노드 상태:"
+      kubectl get nodes -o wide
+      echo ""
+      echo "NotReady 노드 상세 정보:"
+      kubectl get nodes --no-headers | grep -v "Ready" | awk '{print $1}' | while read node; do
+        echo "=== $node ==="
+        kubectl describe node $node | grep -A 10 "Conditions:"
+      done
+      exit 1
+    register: nodes_ready
+    changed_when: false
+    failed_when: nodes_ready.rc != 0
+
+  - name: 노드 상태 최종 확인
+    command: kubectl get nodes
+    register: nodes_status
+    changed_when: false
+
+  - name: 노드 상태 출력
+    debug:
+      msg: '{{ nodes_status.stdout_lines }}'

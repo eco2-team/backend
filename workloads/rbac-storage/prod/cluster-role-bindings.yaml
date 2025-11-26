@@ -8,9 +8,9 @@ roleRef:
   kind: ClusterRole
   name: platform-admin
 subjects:
-  - kind: ServiceAccount
-    name: argocd-application-controller
-    namespace: argocd
+- kind: ServiceAccount
+  name: argocd-application-controller
+  namespace: argocd
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -21,9 +21,9 @@ roleRef:
   kind: ClusterRole
   name: observability-reader
 subjects:
-  - kind: ServiceAccount
-    name: prometheus
-    namespace: prometheus
+- kind: ServiceAccount
+  name: prometheus
+  namespace: prometheus
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -35,9 +35,9 @@ roleRef:
   kind: Role
   name: data-ops
 subjects:
-  - kind: ServiceAccount
-    name: postgres-operator
-    namespace: data-system
+- kind: ServiceAccount
+  name: postgres-operator
+  namespace: data-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -49,9 +49,9 @@ roleRef:
   kind: Role
   name: data-ops
 subjects:
-  - kind: ServiceAccount
-    name: redis-operator
-    namespace: data-system
+- kind: ServiceAccount
+  name: redis-operator
+  namespace: data-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -63,7 +63,6 @@ roleRef:
   kind: Role
   name: data-ops
 subjects:
-  - kind: ServiceAccount
-    name: rabbitmq-operator
-    namespace: messaging-system
-
+- kind: ServiceAccount
+  name: rabbitmq-operator
+  namespace: messaging-system

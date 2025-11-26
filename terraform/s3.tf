@@ -119,4 +119,3 @@ resource "aws_iam_role_policy_attachment" "s3_backend" {
   role       = aws_iam_role.k8s_node.name
   policy_arn = aws_iam_policy.s3_presigned_url.arn
 }
-

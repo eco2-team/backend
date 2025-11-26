@@ -131,5 +131,3 @@ if errors:
 
 print("✅ Argo Application patch files set spec.project per environment.")
 PY
-
-

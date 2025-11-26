@@ -4,7 +4,7 @@ metadata:
   name: prod-redis-operator
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "28"
+    argocd.argoproj.io/sync-wave: '28'
 spec:
   project: prod
   source:
@@ -16,19 +16,19 @@ spec:
       releaseName: prod-redis-operator
       valuesObject:
         redisOperator:
-          watchNamespace: ""
+          watchNamespace: ''
         service:
           namespace: data-system
         nodeSelector:
           role: control-plane
         tolerations:
-          - key: node-role.kubernetes.io/control-plane
-            operator: Exists
-            effect: NoSchedule
-          - key: role
-            operator: Equal
-            value: control-plane
-            effect: NoSchedule
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: role
+          operator: Equal
+          value: control-plane
+          effect: NoSchedule
   destination:
     server: https://kubernetes.default.svc
     namespace: data-system
@@ -37,5 +37,4 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
-
+    - CreateNamespace=true

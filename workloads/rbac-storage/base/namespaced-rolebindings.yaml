@@ -12,7 +12,6 @@ roleRef:
   kind: Role
   name: rabbitmq-cluster-operator-leader-election
 subjects:
-  - kind: ServiceAccount
-    name: rabbitmq-cluster-operator
-    namespace: rabbitmq-system
-
+- kind: ServiceAccount
+  name: rabbitmq-cluster-operator
+  namespace: rabbitmq-system

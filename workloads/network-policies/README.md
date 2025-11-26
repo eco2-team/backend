@@ -28,4 +28,3 @@ Calico 기반 네임스페이스 간 네트워크 격리 정책.
 
 - `docs/architecture/networking/NETWORK_ISOLATION_POLICY.md`
 - Wave 5에서 Calico 직후 배포됨
-

@@ -282,4 +282,3 @@ gh workflow run ci-services.yml -f target_services=auth
 # ArgoCD 수동 sync
 ./scripts/sync-argocd-all.sh
 ```
-

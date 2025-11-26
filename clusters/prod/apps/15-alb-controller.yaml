@@ -4,7 +4,7 @@ metadata:
   name: prod-alb-controller
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "15"
+    argocd.argoproj.io/sync-wave: '15'
 spec:
   project: prod
   source:
@@ -29,23 +29,23 @@ spec:
         defaultTargetType: instance
         controller:
           extraEnv:
-            - name: AWS_VPC_ID
-              valueFrom:
-                secretKeyRef:
-                  name: alb-controller-values
-                  key: vpcId
-            - name: AWS_REGION
-              value: ap-northeast-2
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: aws-global-credentials
-                  key: aws_access_key_id
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: aws-global-credentials
-                  key: aws_secret_access_key
+          - name: AWS_VPC_ID
+            valueFrom:
+              secretKeyRef:
+                name: alb-controller-values
+                key: vpcId
+          - name: AWS_REGION
+            value: ap-northeast-2
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: aws-global-credentials
+                key: aws_access_key_id
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: aws-global-credentials
+                key: aws_secret_access_key
           resources:
             limits:
               cpu: 200m
@@ -61,5 +61,4 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
-
+    - CreateNamespace=true

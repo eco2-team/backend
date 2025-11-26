@@ -12,4 +12,3 @@ variable "environment" {
   description = "환경"
   type        = string
 }
-

@@ -1,66 +1,66 @@
+---
 # 공통 변수
 ---
 # Kubernetes 버전
-kubernetes_version: "1.28.4-1.1"
-kubernetes_cni_version: "1.28.0-1.1"
+kubernetes_version: 1.28.4-1.1
+kubernetes_cni_version: 1.28.0-1.1
 
 # 네트워크 (Calico CNI 사용)
 # Calico는 Overlay Network로 VPC와 독립적인 Pod CIDR 사용
 # ALB는 target-type: instance + NodePort로 연결됨
-pod_network_cidr: "192.168.0.0/16"  # Calico Overlay Network
-service_cidr: "10.96.0.0/12"
-cni_plugin: "calico"  # vpc-cni 또는 calico
+pod_network_cidr: 192.168.0.0/16    # Calico Overlay Network
+service_cidr: 10.96.0.0/12
+cni_plugin: calico    # vpc-cni 또는 calico
 
 # Control Plane Endpoint (HA 확장 대비)
 # 현재: 단일 마스터지만 향후 HA 확장을 위해 설정
 # 실제 HA 구축 시 LB/NLB DNS로 변경
-control_plane_endpoint: "{{ private_ip }}:6443"
+control_plane_endpoint: '{{ private_ip }}:6443'
 
 # Docker
-docker_version: "24.0"
+docker_version: '24.0'
 
 # ArgoCD
-argocd_version: "stable"
-argocd_namespace: "argocd"
+argocd_version: stable
+argocd_namespace: argocd
 
 # AWS (ALB Controller용)
-aws_region: "ap-northeast-2"
-cluster_name: "sesacthon"
+aws_region: ap-northeast-2
+cluster_name: sesacthon
 vpc_id: "{{ lookup('pipe', 'cd ../../terraform && terraform output -raw vpc_id') }}"
 acm_certificate_arn: "{{ lookup('pipe', 'cd ../../terraform && terraform output -raw acm_certificate_arn') }}"
-domain_name: "growbin.app"
+domain_name: growbin.app
 
 # PostgreSQL (Tier 4: Data)
-postgres_namespace: "postgres"
-postgres_database: "sesacthon"
-postgres_username: "admin"
+postgres_namespace: postgres
+postgres_database: sesacthon
+postgres_username: admin
 postgres_password: "{{ lookup('env', 'POSTGRES_PASSWORD') | default('changeme', true) }}"
-postgres_persistence_size: "50Gi"
-postgres_version: "16"  # PostgreSQL 16
+postgres_persistence_size: 50Gi
+postgres_version: '16'  # PostgreSQL 16
 
 # Redis (Tier 4: Data)
-redis_namespace: "redis"
+redis_namespace: redis
 
 # RabbitMQ (Tier 3: Integration)
-rabbitmq_namespace: "rabbitmq"
-rabbitmq_username: "admin"
+rabbitmq_namespace: rabbitmq
+rabbitmq_username: admin
 rabbitmq_password: "{{ lookup('env', 'RABBITMQ_PASSWORD') | default('changeme', true) }}"
-rabbitmq_persistence_size: "10Gi"
+rabbitmq_persistence_size: 10Gi
 rabbitmq_replicas: 1  # 단일 Pod (HA 제거)
 
 # Monitoring (Tier 0: Observability)
-monitoring_namespace: "prometheus"
-grafana_namespace: "grafana"
-prometheus_retention: "7d"
+monitoring_namespace: prometheus
+grafana_namespace: grafana
+prometheus_retention: 7d
 grafana_admin_password: "{{ lookup('env', 'GRAFANA_PASSWORD') | default('admin123', true) }}"
 
 # Atlantis (Tier 0: Infrastructure)
-atlantis_namespace: "atlantis"
+atlantis_namespace: atlantis
 
 # 기타
-kubectl_user: "ubuntu"
-kubectl_home: "/home/ubuntu"
+kubectl_user: ubuntu
+kubectl_home: /home/ubuntu
 
 # Cert-manager (Let's Encrypt)
-letsencrypt_email: "admin@growbin.app"  # Let's Encrypt 인증서 이메일
-
+letsencrypt_email: admin@growbin.app    # Let's Encrypt 인증서 이메일

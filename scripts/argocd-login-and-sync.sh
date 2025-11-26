@@ -40,13 +40,13 @@ case $login_method in
         echo ""
         read -p "ArgoCD 서버 주소 [$ARGOCD_SERVER]: " input_server
         ARGOCD_SERVER=${input_server:-$ARGOCD_SERVER}
-        
+
         read -p "Username [admin]: " username
         username=${username:-admin}
-        
+
         read -sp "Password: " password
         echo ""
-        
+
         argocd login $ARGOCD_SERVER \
             --username $username \
             --password $password \
@@ -57,7 +57,7 @@ case $login_method in
         echo ""
         read -p "ArgoCD 서버 주소 [$ARGOCD_SERVER]: " input_server
         ARGOCD_SERVER=${input_server:-$ARGOCD_SERVER}
-        
+
         argocd login $ARGOCD_SERVER --sso --insecure
         ;;
     3)
@@ -65,10 +65,10 @@ case $login_method in
         echo ""
         read -p "ArgoCD 서버 주소 [$ARGOCD_SERVER]: " input_server
         ARGOCD_SERVER=${input_server:-$ARGOCD_SERVER}
-        
+
         read -sp "Token: " token
         echo ""
-        
+
         argocd login $ARGOCD_SERVER \
             --auth-token $token \
             --insecure
@@ -77,16 +77,16 @@ case $login_method in
         # Kubectl context (가장 간단)
         echo ""
         echo "현재 kubectl context 사용..."
-        
+
         # Port-forward로 ArgoCD 서버 접근
         echo "🔌 Port-forward 시작..."
         kubectl port-forward svc/argocd-server -n argocd 8080:443 &
         PF_PID=$!
         sleep 3
-        
+
         # 초기 admin 비밀번호 가져오기
         ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d)
-        
+
         if [ -z "$ARGOCD_PASSWORD" ]; then
             echo "⚠️  초기 admin 비밀번호를 찾을 수 없습니다."
             echo "수동으로 입력해주세요."
@@ -95,12 +95,12 @@ case $login_method in
         else
             echo "✅ 초기 admin 비밀번호 자동 획득"
         fi
-        
+
         argocd login localhost:8080 \
             --username admin \
             --password $ARGOCD_PASSWORD \
             --insecure
-        
+
         # Port-forward 종료
         kill $PF_PID 2>/dev/null || true
         ;;
@@ -149,19 +149,19 @@ APPS=(
 for app in "${APPS[@]}"; do
     echo ""
     echo "🔄 Syncing: $app"
-    
+
     # Application 존재 확인
     if ! argocd app get $app &> /dev/null; then
         echo "⚠️  $app이 존재하지 않습니다. 건너뜀."
         continue
     fi
-    
+
     # Sync 실행
     argocd app sync $app \
         --prune \
         --retry-limit 3 \
         --timeout 300
-    
+
     # Health 대기
     argocd app wait $app \
         --health \
@@ -172,7 +172,7 @@ for app in "${APPS[@]}"; do
             exit 1
         fi
     }
-    
+
     echo "✅ $app 완료"
     sleep 2
 done
@@ -181,4 +181,3 @@ echo ""
 echo "🎉 전체 동기화 완료!"
 echo ""
 argocd app list --selector env=$ENV
-

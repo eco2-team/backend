@@ -3,11 +3,11 @@
 `platform/crds/` 디렉터리는 Wave 00 시점에 필요한 **모든 CustomResourceDefinition**을 한 번에 적용하기 위한 Kustomize 번들입니다. Helm/Operator App에서는 `skipCrds: true` 또는 patch로 CRD 생성을 제거하고, 이 디렉터리만이 단일 진실(SSOT)이 되도록 유지합니다.
 
 ### 디렉터리 구조
-- `base/kustomization.yaml`  
-  - AWS Load Balancer Controller CRD  
-  - External Secrets Operator CRD  
-  - Redis Operator CRD (`redis`, `redisclusters`, `redisreplications`, `redissentinels`)  
-  - Postgres Operator CRD (`postgresql`, `operatorconfiguration`)  
+- `base/kustomization.yaml`
+  - AWS Load Balancer Controller CRD
+  - External Secrets Operator CRD
+  - Redis Operator CRD (`redis`, `redisclusters`, `redisreplications`, `redissentinels`)
+  - Postgres Operator CRD (`postgresql`, `operatorconfiguration`)
   - Prometheus Operator CRD (Alertmanager / ServiceMonitor / Thanos 등)
 - `{env}/kustomization.yaml` : base를 참조하고 환경별 CRD patch를 추가합니다.
 - `{env}/patches/external-secrets-*.yaml` : External Secrets conversion webhook가 해당 환경의 Helm Release 서비스명(`{env}-external-secrets-webhook`)을 바라보도록 덮어씁니다.
@@ -33,4 +33,3 @@ kubectl apply -k platform/crds/prod
 ```
 
 > External Secrets Operator는 conversion webhook 서비스명이 Helm Release 이름에 종속되므로, env patch를 누락하면 `conversion webhook failed` 오류가 발생합니다.
-

@@ -12,4 +12,3 @@ variable "azs" {
   description = "가용 영역 목록"
   type        = list(string)
 }
-

@@ -111,7 +111,7 @@ if [[ "$SHOW_EVENTS" == "true" ]]; then
   kubectl get events -A --sort-by=.lastTimestamp | tail -n 20 || true
 fi
 
-log_section "외부 리소스 (ExternalSecret / CRD)" 
+log_section "외부 리소스 (ExternalSecret / CRD)"
 if kubectl get externalsecret -A >/dev/null 2>&1; then
   kubectl get externalsecret -A --no-headers | head -n 10
 else

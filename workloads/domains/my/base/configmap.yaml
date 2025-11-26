@@ -4,6 +4,5 @@ metadata:
   name: my-config
   namespace: my
 data:
-  LOG_LEVEL: "INFO"
-  ENVIRONMENT: "base"
-
+  LOG_LEVEL: INFO
+  ENVIRONMENT: base

@@ -27,4 +27,3 @@
 kubectl apply -k workloads/domains/auth/overlays/dev
 kubectl get pods -n auth
 ```
-

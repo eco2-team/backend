@@ -2,14 +2,14 @@
 
 ## 🎯 **개요**
 
-CloudFront 생성/삭제는 각각 **10-15분**이 소요되어 배포 시간의 주요 병목입니다.  
+CloudFront 생성/삭제는 각각 **10-15분**이 소요되어 배포 시간의 주요 병목입니다.
 개발 환경에서는 CloudFront를 비활성화하여 **배포 시간을 85% 단축**할 수 있습니다.
 
 ---
 
 ## ⏱️ **배포 시간 비교**
 
-### CloudFront 활성화 (기본값: `enable_cloudfront = false`)
+### CloudFront 활성화 (기본값: `enable_cloudfront = true`)
 
 ```yaml
 배포 시간:
@@ -27,7 +27,7 @@ CloudFront 생성/삭제는 각각 **10-15분**이 소요되어 배포 시간의
   - 속도: 보통 (CDN 없음)
 ```
 
-### CloudFront 비활성화 (`enable_cloudfront = true`)
+### CloudFront 비활성화 (`enable_cloudfront = false`)
 
 ```yaml
 배포 시간:
@@ -55,30 +55,23 @@ CloudFront 생성/삭제는 각각 **10-15분**이 소요되어 배포 시간의
 
 ```hcl
 # terraform/terraform.tfvars
-enable_cloudfront = false  # CloudFront 비활성화 (개발 환경)
-# enable_cloudfront = true  # CloudFront 활성화 (프로덕션)
+enable_cloudfront = true   # CloudFront 활성화 (기본)
+# enable_cloudfront = false # 개발 환경에서 배포 속도가 더 중요할 때
 ```
 
 ### Option 2: 커맨드 라인에서 설정
 
 ```bash
-# CloudFront 비활성화 (빠른 배포)
-terraform apply -var="enable_cloudfront=false"
-
-# CloudFront 활성화 (프로덕션)
+# CloudFront 활성화 (기본)
 terraform apply -var="enable_cloudfront=true"
+
+# CloudFront 비활성화 (임시 조정)
+terraform apply -var="enable_cloudfront=false"
 ```
 
-### Option 3: `variables.tf`에서 기본값 변경
+### Option 3: `variables.tf`에서 기본값 변경 (이미 true)
 
-```hcl
-# terraform/variables.tf
-variable "enable_cloudfront" {
-  description = "CloudFront CDN 활성화 여부"
-  type        = bool
-  default     = false  # 이 값을 변경
-}
-```
+필요 시 다른 기본값을 사용하려면 직접 수정을 고려하세요.
 
 ---
 
@@ -87,19 +80,18 @@ variable "enable_cloudfront" {
 ### 개발 환경 (Development)
 
 ```hcl
-enable_cloudfront = false
+enable_cloudfront = true
 
 이유:
-  ✅ 빠른 배포/삭제 (85% 시간 단축)
-  ✅ 비용 절감
-  ✅ 이미지 트래픽 적음
-  ✅ 빈번한 인프라 재배포
+  ✅ CDN URL을 개발·테스트에서도 동일하게 사용
+  ✅ 이미지 경로/SSM 값 일관성
+  ⚠️ 배포 시간이 늘어나면 일시적으로 `false`로 조정
 ```
 
 ### 스테이징 환경 (Staging)
 
 ```hcl
-enable_cloudfront = false  # 또는 true
+enable_cloudfront = true  # 또는 false (속도 필요 시)
 
 이유:
   - 프로덕션 유사 환경 테스트 필요 시: true
@@ -166,11 +158,11 @@ CloudFront를 사용하지 않으면 S3 Bucket에 직접 접근해야 합니다:
 필요한 설정:
   1. S3 Bucket Public Access 허용
      - Block public access: OFF
-  
+
   2. S3 Bucket Policy 추가
      - Principal: "*"
      - Action: "s3:GetObject"
-  
+
   3. S3 CORS 설정
      - AllowedOrigins: ["*"]
      - AllowedMethods: ["GET", "HEAD"]
@@ -200,17 +192,17 @@ image_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{key}"
 개발 단계:
   1. 초기 개발: enable_cloudfront = false
      → 빠른 인프라 테스트
-  
+
   2. 기능 개발: enable_cloudfront = false
      → API 로직 개발 및 테스트
-  
+
   3. 통합 테스트: enable_cloudfront = false
      → 빠른 반복 테스트
 
 프로덕션 준비:
   4. 성능 테스트: enable_cloudfront = true
      → CloudFront 성능 확인
-  
+
   5. 프로덕션 배포: enable_cloudfront = true
      → 실제 서비스 운영
 
@@ -230,7 +222,7 @@ image_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{key}"
   - CloudFront 데이터 전송: $0.085/GB (첫 10TB)
   - CloudFront HTTP 요청: $0.0075/10,000 요청
   - S3 스토리지: $0.023/GB
-  
+
 예시 (100GB 전송, 1M 요청):
   - CloudFront: $8.50
   - S3 요청: $0.75
@@ -244,12 +236,12 @@ image_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{key}"
   - S3 데이터 전송: $0.126/GB (첫 10TB)
   - S3 GET 요청: $0.0004/1,000 요청
   - S3 스토리지: $0.023/GB
-  
+
 예시 (100GB 전송, 1M 요청):
   - S3 전송: $12.60
   - S3 요청: $0.40
   - 총: ~$13/월
-  
+
 차이: $3/월 (약 23% 증가)
 ```
 
@@ -269,7 +261,6 @@ image_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{key}"
 
 ---
 
-**Last Updated**: 2025-11-09  
-**Version**: 1.0  
+**Last Updated**: 2025-11-09
+**Version**: 1.0
 **Status**: ✅ Ready to use
-

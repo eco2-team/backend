@@ -58,4 +58,3 @@ AWS SSM → External Secrets Operator → Kubernetes Secret → Pod Environment 
 ```
 .env.local (ignored by git) → Docker Compose → Container Environment Variables
 ```
-

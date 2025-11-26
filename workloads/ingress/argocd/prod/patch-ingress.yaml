@@ -7,14 +7,13 @@ metadata:
     external-dns.alpha.kubernetes.io/managed-by: external-dns
 spec:
   rules:
-    - host: argocd.growbin.app
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: argocd-server
-                port:
-                  number: 443
-
+  - host: argocd.growbin.app
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: argocd-server
+            port:
+              number: 443

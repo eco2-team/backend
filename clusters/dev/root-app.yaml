@@ -22,12 +22,11 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
+    - CreateNamespace=true
   ignoreDifferences:
-    - group: argoproj.io
-      kind: Application
-      jsonPointers:
-        - /metadata/annotations/kubectl.kubernetes.io~1last-applied-configuration
-        - /metadata/managedFields
-        - /metadata/generation
-
+  - group: argoproj.io
+    kind: Application
+    jsonPointers:
+    - /metadata/annotations/kubectl.kubernetes.io~1last-applied-configuration
+    - /metadata/managedFields
+    - /metadata/generation

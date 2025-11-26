@@ -1,61 +1,62 @@
+---
 # Kubernetes 클러스터 전체 설정
 ---
 - name: Wait for SSH connection and cloud-init
   hosts: k8s_cluster
   gather_facts: no
   tasks:
-    - name: Wait for SSH port to be open
-      wait_for:
-        host: "{{ ansible_host }}"
-        port: 22
-        delay: 5
-        timeout: 300
-        state: started
-      delegate_to: localhost
-      become: no
-    
-    - name: Test SSH connectivity
-      ping:
-      retries: 5
-      delay: 10
-      until: ping_result is succeeded
-      register: ping_result
-    
-    - name: Wait for cloud-init to complete
-      command: cloud-init status --wait
-      changed_when: false
-      ignore_errors: yes
+  - name: Wait for SSH port to be open
+    wait_for:
+      host: '{{ ansible_host }}'
+      port: 22
+      delay: 5
+      timeout: 300
+      state: started
+    delegate_to: localhost
+    become: no
+
+  - name: Test SSH connectivity
+    ping:
+    retries: 5
+    delay: 10
+    until: ping_result is succeeded
+    register: ping_result
+
+  - name: Wait for cloud-init to complete
+    command: cloud-init status --wait
+    changed_when: false
+    ignore_errors: yes
 
 - name: Prerequisites - OS 설정
   hosts: k8s_cluster
   become: yes
   gather_facts: yes
   roles:
-    - common
+  - common
 
 - name: Docker 설치
   hosts: k8s_cluster
   become: yes
   roles:
-    - docker
+  - docker
 
 - name: Kubernetes 패키지 설치
   hosts: k8s_cluster
   become: yes
   roles:
-    - kubernetes
+  - kubernetes
 
 - name: Master 초기화
   hosts: masters
   become: yes
   tasks:
-    - import_tasks: playbooks/02-master-init.yml
+  - import_tasks: playbooks/02-master-init.yml
 
 - name: Workers 조인 (All Worker Nodes)
   hosts: workers,api_nodes,rabbitmq,postgresql,redis,monitoring
   become: yes
   tasks:
-    - import_tasks: playbooks/03-worker-join.yml
+  - import_tasks: playbooks/03-worker-join.yml
   # ⚠️ Worker join 실패 시 여기서 중단됨
 
 - name: Worker 노드 라벨 교정 (옵션)
@@ -64,63 +65,62 @@
   gather_facts: yes
   serial: 1
   tasks:
-    - name: Sesacthon 표준 라벨/테인트 적용
-      ansible.builtin.import_tasks: playbooks/tasks/fix-node-labels.yml
+  - name: Sesacthon 표준 라벨/테인트 적용
+    ansible.builtin.import_tasks: playbooks/tasks/fix-node-labels.yml
 
 - name: Worker 노드 Provider ID 설정 (ALB Controller 필수)
   hosts: masters
   become: yes
-  become_user: "{{ kubectl_user }}"
+  become_user: '{{ kubectl_user }}'
   tasks:
-    - import_tasks: playbooks/03-1-set-provider-id.yml
+  - import_tasks: playbooks/03-1-set-provider-id.yml
 
 - import_playbook: playbooks/04-cni-install.yml
 
 - name: ArgoCD 설치
   hosts: masters
   become: yes
-  become_user: "{{ kubectl_user }}"
+  become_user: '{{ kubectl_user }}'
   roles:
-    - argocd
+  - argocd
 
 - name: 클러스터 정보 출력
   hosts: masters
   become: yes
-  become_user: "{{ kubectl_user }}"
+  become_user: '{{ kubectl_user }}'
   tasks:
-    - name: Get nodes
-      command: kubectl get nodes -o wide
-      register: nodes_output
-    
-    - name: Display nodes
-      debug:
-        msg: "{{ nodes_output.stdout_lines }}"
-    
-    - name: etcd 상태 확인
-      shell: |
-        ETCDCTL_API=3 etcdctl endpoint health \
-          --endpoints=https://127.0.0.1:2379 \
-          --cacert=/etc/kubernetes/pki/etcd/ca.crt \
-          --cert=/etc/kubernetes/pki/etcd/server.crt \
-          --key=/etc/kubernetes/pki/etcd/server.key
-      register: etcd_health
-      changed_when: false
-      failed_when: false
-    
-    - name: etcd 상태 출력
-      debug:
-        msg: "{{ etcd_health.stdout_lines if etcd_health.rc == 0 else 'etcd health check failed' }}"
-    
-    - name: Get ArgoCD initial password
-      shell: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-      register: argocd_password
-      ignore_errors: yes
-    
-    - name: Display ArgoCD info
-      debug:
-        msg:
-          - "ArgoCD URL: https://{{ ansible_host }}:8080"
-          - "Username: admin"
-          - "Password: {{ argocd_password.stdout }}"
-      when: argocd_password is succeeded
+  - name: Get nodes
+    command: kubectl get nodes -o wide
+    register: nodes_output
 
+  - name: Display nodes
+    debug:
+      msg: '{{ nodes_output.stdout_lines }}'
+
+  - name: etcd 상태 확인
+    shell: |
+      ETCDCTL_API=3 etcdctl endpoint health \
+        --endpoints=https://127.0.0.1:2379 \
+        --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+        --cert=/etc/kubernetes/pki/etcd/server.crt \
+        --key=/etc/kubernetes/pki/etcd/server.key
+    register: etcd_health
+    changed_when: false
+    failed_when: false
+
+  - name: etcd 상태 출력
+    debug:
+      msg: "{{ etcd_health.stdout_lines if etcd_health.rc == 0 else 'etcd health check failed' }}"
+
+  - name: Get ArgoCD initial password
+    shell: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+    register: argocd_password
+    ignore_errors: yes
+
+  - name: Display ArgoCD info
+    debug:
+      msg:
+      - 'ArgoCD URL: https://{{ ansible_host }}:8080'
+      - 'Username: admin'
+      - 'Password: {{ argocd_password.stdout }}'
+    when: argocd_password is succeeded

@@ -105,20 +105,20 @@ output "api_location_private_ip" {
 # Phase 3: Extended APIs (2025-11-08 활성화)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# API-6: Info
-output "api_info_instance_id" {
-  description = "Info API Instance ID"
-  value       = module.api_info.instance_id
+# API-6: Image
+output "api_image_instance_id" {
+  description = "Image API Instance ID"
+  value       = module.api_image.instance_id
 }
 
-output "api_info_public_ip" {
-  description = "Info API Public IP"
-  value       = module.api_info.public_ip
+output "api_image_public_ip" {
+  description = "Image API Public IP"
+  value       = module.api_image.public_ip
 }
 
-output "api_info_private_ip" {
-  description = "Info API Private IP"
-  value       = module.api_info.private_ip
+output "api_image_private_ip" {
+  description = "Image API Private IP"
+  value       = module.api_image.private_ip
 }
 
 # API-7: Chat
@@ -264,8 +264,8 @@ output "ansible_inventory" {
     api_character_private_ip  = module.api_character.private_ip
     api_location_public_ip    = module.api_location.public_ip
     api_location_private_ip   = module.api_location.private_ip
-    api_info_public_ip        = module.api_info.public_ip
-    api_info_private_ip       = module.api_info.private_ip
+    api_image_public_ip       = module.api_image.public_ip
+    api_image_private_ip      = module.api_image.private_ip
     api_chat_public_ip        = module.api_chat.public_ip
     api_chat_private_ip       = module.api_chat.private_ip
     worker_storage_public_ip  = module.worker_storage.public_ip
@@ -296,7 +296,7 @@ output "ssh_commands" {
     api_scan       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_scan.public_ip}"
     api_character  = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_character.public_ip}"
     api_location   = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_location.public_ip}"
-    api_info       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_info.public_ip}"
+    api_image      = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_image.public_ip}"
     api_chat       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_chat.public_ip}"
     worker_storage = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_storage.public_ip}"
     worker_ai      = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_ai.public_ip}"
@@ -323,7 +323,7 @@ output "cluster_info" {
       module.api_scan.public_ip,
       module.api_character.public_ip,
       module.api_location.public_ip,
-      module.api_info.public_ip,
+      module.api_image.public_ip,
       module.api_chat.public_ip
     ]
     worker_ips = [
@@ -357,7 +357,7 @@ output "node_roles" {
     api_scan       = "Waste Scan API (t3.small, 2GB) - Phase 2"
     api_character  = "Character & Mission API (t3.micro, 1GB) - Phase 2"
     api_location   = "Location & Map API (t3.micro, 1GB) - Phase 2"
-    api_info       = "Recycle Information API (t3.micro, 1GB) - Phase 3"
+    api_image      = "Image Delivery API (t3.micro, 1GB) - Phase 3"
     api_chat       = "Chat LLM API (t3.small, 2GB) - Phase 3"
     worker_storage = "Storage Worker - I/O Bound (t3.small, 2GB) - Phase 4"
     worker_ai      = "AI Worker - Network Bound (t3.small, 2GB) - Phase 4"

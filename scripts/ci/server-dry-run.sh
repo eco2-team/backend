@@ -27,4 +27,3 @@ echo "::endgroup::"
 echo "::group::Server-side dry-run"
 kubectl apply --server-side --dry-run=server -f "${MANIFEST}"
 echo "::endgroup::"
-
