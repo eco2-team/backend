@@ -7,18 +7,20 @@
 graph TD
     subgraph "Kubernetes Cluster"
         Ingress[["Ingress<br/>domain-ingress"]]:::ing
-        Service[["Service & Endpoints<br/>(location-api, NodePort)"]]:::svc
-        subgraph NodesGroup["노드 & 파드"]
-            Node1Box((노드 A<br/>k8s-api-domain)):::node
+        Service[["Service/Endpoints<br/>location-api<br/>(type: NodePort)"]]:::svc
+        subgraph NodeAGroup["노드 A"]
+            Node1Box((k8s-api-domain)):::node
             Pod1((domain-api Pod #1)):::pod
             Pod2((domain-api Pod #2)):::pod
-            Node2Box((노드 B<br/>k8s-api-domain-2)):::node
+            Node1Box ---|targetPort 8000| Pod1
+            Node1Box ---|targetPort 8000| Pod2
+        end
+        subgraph NodeBGroup["노드 B"]
+            Node2Box((k8s-api-domain-2)):::node
             Pod3((domain-api Pod #3)):::pod
             Pod4((domain-api Pod #4)):::pod
-            Node1Box --- Pod1
-            Node1Box --- Pod2
-            Node2Box --- Pod3
-            Node2Box --- Pod4
+            Node2Box ---|targetPort 8000| Pod3
+            Node2Box ---|targetPort 8000| Pod4
         end
         ALBCtrl{{"AWS Load Balancer Controller"}}:::ctrl
     end
@@ -29,8 +31,9 @@ graph TD
         TG["Target Group<br/>instance 모드"]:::tg
     end
 
-    Ingress -->|Service 참조| Service
-    Service -->|Endpoints(NodePort 31666)| NodesGroup
+    Ingress -->|서비스 참조| Service
+    Service -->|NodePort 31666| Node1Box
+    Service -->|NodePort 31666| Node2Box
     Ingress -->|매니페스트 감시| ALBCtrl
     ALBCtrl -->|IAM Role로 API 호출<br/>(Create/Update Listener/Rules/TG)| AWSAPI
     AWSAPI -->|리스너/규칙 생성| ALB
@@ -60,8 +63,9 @@ graph TD
         TGData["Target Group"]:::tg
     end
 
-    subgraph Cluster["Kubernetes Cluster (NodePort 31666)"]
+    subgraph Cluster["Kubernetes Cluster"]
         IngressData["Ingress<br/>domain-ingress"]:::ing
+        ServiceData["Service/Endpoints<br/>location-api<br/>(NodePort 31666)"]:::svc
         subgraph NodeA["노드 A"]
             PodA1["domain-api Pod #1"]:::pod
             PodA2["domain-api Pod #2"]:::pod
@@ -75,10 +79,13 @@ graph TD
     Client -->|HTTPS 443| ALBData
     ALBData -->|라우팅| TGData
     TGData -->|NodePort 31666| IngressData
-    IngressData -->|ClusterIP 8000| PodA1
-    IngressData -->|ClusterIP 8000| PodA2
-    IngressData -->|ClusterIP 8000| PodB1
-    IngressData -->|ClusterIP 8000| PodB2
+    IngressData -->|service lookup| ServiceData
+    ServiceData -->|NodePort 31666| NodeA
+    ServiceData -->|NodePort 31666| NodeB
+    NodeA -->|targetPort 8000| PodA1
+    NodeA -->|targetPort 8000| PodA2
+    NodeB -->|targetPort 8000| PodB1
+    NodeB -->|targetPort 8000| PodB2
 
     PodA1 -->|응답| Client
     PodA2 -->|응답| Client
@@ -90,6 +97,7 @@ graph TD
     classDef tg fill:#FBCFE8,stroke:#BE185D,color:#111;
     classDef ing fill:#FEF3C7,stroke:#D97706,color:#111;
     classDef node fill:#C7D2FE,stroke:#4338CA,color:#111;
+    classDef svc fill:#FDE68A,stroke:#B45309,color:#111;
     classDef pod fill:#A7F3D0,stroke:#047857,color:#111;
 ```
 
