@@ -4,7 +4,7 @@ resources:
 - ../base
 images:
 - name: docker.io/mng990/eco2
-  newTag: auth-api-dev-latest
+  newTag: auth-api-dev-c38fb6
 labels:
 - includeSelectors: true
   pairs:
