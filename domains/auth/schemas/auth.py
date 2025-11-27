@@ -26,6 +26,7 @@ class OAuthAuthorizeParams(BaseModel):
     redirect_uri: Optional[HttpUrl] = None
     scope: Optional[str] = None
     device_id: Optional[str] = Field(default=None, max_length=120)
+    frontend_origin: Optional[HttpUrl] = Field(default=None, description="Frontend origin URL")
 
 
 class OAuthLoginRequest(BaseModel):

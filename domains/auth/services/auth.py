@@ -77,6 +77,7 @@ class AuthService:
             redirect_uri=str(redirect_uri),
             scope=params.scope,
             device_id=params.device_id,
+            frontend_origin=params.frontend_origin,
         )
 
         authorization_url = provider.build_authorization_url(

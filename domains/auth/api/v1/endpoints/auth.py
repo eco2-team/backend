@@ -62,8 +62,13 @@ def _get_request_origin(request: Request) -> Optional[str]:
     return f"{scheme}://{host}"
 
 
-def _build_frontend_redirect_url(request: Request, fallback_url: str) -> str:
-    origin = _get_request_origin(request)
+FRONTEND_ORIGIN_HEADER = "x-frontend-origin"
+
+
+def _build_frontend_redirect_url(
+    request: Request, fallback_url: str, frontend_origin: str | None
+) -> str:
+    origin = frontend_origin or _get_request_origin(request)
     if not origin:
         return fallback_url
 
@@ -89,8 +94,10 @@ def _build_frontend_redirect_url(request: Request, fallback_url: str) -> str:
     )
 
 
-def _build_frontend_redirect_response(request: Request, fallback_url: str) -> RedirectResponse:
-    redirect_url = _build_frontend_redirect_url(request, fallback_url)
+def _build_frontend_redirect_response(
+    request: Request, fallback_url: str, frontend_origin: str | None
+) -> RedirectResponse:
+    redirect_url = _build_frontend_redirect_url(request, fallback_url, frontend_origin)
     return RedirectResponse(url=redirect_url)
 
 
@@ -102,8 +109,12 @@ def _build_frontend_redirect_response(request: Request, fallback_url: str) -> Re
 async def authorize_google(
     params: Annotated[OAuthAuthorizeParams, Depends()],
     service: Annotated[AuthService, Depends()],
+    request: Request,
 ):
-    result = await service.authorize("google", params)
+    frontend_origin = params.frontend_origin or request.headers.get(FRONTEND_ORIGIN_HEADER)
+    result = await service.authorize(
+        "google", params.model_copy(update={"frontend_origin": frontend_origin})
+    )
     return AuthorizationSuccessResponse(data=result)
 
 
@@ -115,8 +126,12 @@ async def authorize_google(
 async def authorize_kakao(
     params: Annotated[OAuthAuthorizeParams, Depends()],
     service: Annotated[AuthService, Depends()],
+    request: Request,
 ):
-    result = await service.authorize("kakao", params)
+    frontend_origin = params.frontend_origin or request.headers.get(FRONTEND_ORIGIN_HEADER)
+    result = await service.authorize(
+        "kakao", params.model_copy(update={"frontend_origin": frontend_origin})
+    )
     return AuthorizationSuccessResponse(data=result)
 
 
@@ -128,8 +143,12 @@ async def authorize_kakao(
 async def authorize_naver(
     params: Annotated[OAuthAuthorizeParams, Depends()],
     service: Annotated[AuthService, Depends()],
+    request: Request,
 ):
-    result = await service.authorize("naver", params)
+    frontend_origin = params.frontend_origin or request.headers.get(FRONTEND_ORIGIN_HEADER)
+    result = await service.authorize(
+        "naver", params.model_copy(update={"frontend_origin": frontend_origin})
+    )
     return AuthorizationSuccessResponse(data=result)
 
 
@@ -146,7 +165,10 @@ async def google_callback(
 ):
     """Google OAuth 콜백을 처리하고 세션 쿠키를 설정합니다."""
     settings = get_settings()
-    success_response = _build_frontend_redirect_response(request, settings.frontend_url)
+    frontend_origin = request.headers.get(FRONTEND_ORIGIN_HEADER)
+    success_response = _build_frontend_redirect_response(
+        request, settings.frontend_url, frontend_origin
+    )
     try:
         payload = OAuthLoginRequest(code=code, state=state)
         await service.login_with_provider(
@@ -161,7 +183,9 @@ async def google_callback(
     except Exception as e:
         # OAuth 실패 시 프론트엔드 로그인 페이지로 리다이렉트
         logger.error(f"Google OAuth callback failed: {type(e).__name__}: {str(e)}", exc_info=True)
-        return _build_frontend_redirect_response(request, settings.oauth_failure_redirect_url)
+        return _build_frontend_redirect_response(
+            request, settings.oauth_failure_redirect_url, frontend_origin
+        )
 
 
 @kakao_router.get(
@@ -176,7 +200,10 @@ async def kakao_callback(
 ):
     """Kakao OAuth 콜백을 처리하고 세션 쿠키를 설정합니다."""
     settings = get_settings()
-    success_response = _build_frontend_redirect_response(request, settings.frontend_url)
+    frontend_origin = request.headers.get(FRONTEND_ORIGIN_HEADER)
+    success_response = _build_frontend_redirect_response(
+        request, settings.frontend_url, frontend_origin
+    )
     try:
         payload = OAuthLoginRequest(code=code, state=state)
         await service.login_with_provider(
@@ -191,7 +218,9 @@ async def kakao_callback(
     except Exception as e:
         # OAuth 실패 시 프론트엔드 로그인 페이지로 리다이렉트
         logger.error(f"Kakao OAuth callback failed: {type(e).__name__}: {str(e)}", exc_info=True)
-        return _build_frontend_redirect_response(request, settings.oauth_failure_redirect_url)
+        return _build_frontend_redirect_response(
+            request, settings.oauth_failure_redirect_url, frontend_origin
+        )
 
 
 @naver_router.get(
@@ -206,7 +235,10 @@ async def naver_callback(
 ):
     """Naver OAuth 콜백을 처리하고 세션 쿠키를 설정합니다."""
     settings = get_settings()
-    success_response = _build_frontend_redirect_response(request, settings.frontend_url)
+    frontend_origin = request.headers.get(FRONTEND_ORIGIN_HEADER)
+    success_response = _build_frontend_redirect_response(
+        request, settings.frontend_url, frontend_origin
+    )
     try:
         payload = OAuthLoginRequest(code=code, state=state)
         await service.login_with_provider(
@@ -221,7 +253,9 @@ async def naver_callback(
     except Exception as e:
         # OAuth 실패 시 프론트엔드 로그인 페이지로 리다이렉트
         logger.error(f"Naver OAuth callback failed: {type(e).__name__}: {str(e)}", exc_info=True)
-        return _build_frontend_redirect_response(request, settings.oauth_failure_redirect_url)
+        return _build_frontend_redirect_response(
+            request, settings.oauth_failure_redirect_url, frontend_origin
+        )
 
 
 @auth_router.post(

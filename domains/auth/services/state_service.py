@@ -33,6 +33,7 @@ class OAuthStateStore:
         redirect_uri: str,
         scope: Optional[str],
         device_id: Optional[str],
+        frontend_origin: Optional[str],
     ) -> tuple[str, str, str, int]:
         state = generate_state()
         code_verifier = generate_code_verifier()
@@ -44,6 +45,7 @@ class OAuthStateStore:
             "redirect_uri": redirect_uri,
             "scope": scope,
             "device_id": device_id,
+            "frontend_origin": frontend_origin,
             "code_verifier": code_verifier,
             "code_challenge": code_challenge,
             "expires_at": expires_at.isoformat(),
