@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auth-reset-user-data
+  namespace: auth
+  labels:
+    app: auth-api
+    tier: business-logic
+    domain: auth
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: auth-api
+        tier: business-logic
+        domain: auth
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: reset-user-data
+        image: docker.io/mng990/eco2:auth-api-latest
+        imagePullPolicy: Always
+        command:
+        - python
+        - -m
+        - domains.auth.jobs.reset_user_data
+        envFrom:
+        - configMapRef:
+            name: auth-config
+        - secretRef:
+            name: auth-secret
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: auth
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: auth
+        effect: NoSchedule

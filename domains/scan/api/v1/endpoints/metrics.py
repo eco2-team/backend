@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from domains.scan.app.services.scan import ScanService
+from domains.scan.services.scan import ScanService
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import httpx
+import logging
 from datetime import datetime, timezone
 from typing import Optional
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +26,8 @@ from domains.auth.services.token_blacklist import TokenBlacklist
 from domains.auth.services.token_service import TokenService, TokenType
 from domains.auth.services.user_token_store import UserTokenStore
 from domains._shared.security import TokenPayload
+
+logger = logging.getLogger(__name__)
 
 ACCESS_COOKIE_NAME = "s_access"
 REFRESH_COOKIE_NAME = "s_refresh"
@@ -50,6 +55,12 @@ class AuthService:
         self.user_repo = UserRepository(session)
         self.login_audit_repo = LoginAuditRepository(session)
         self.http_timeout = 10.0
+        self.character_default_endpoint = self._build_character_default_endpoint()
+        self.character_api_headers = (
+            {"Authorization": f"Bearer {self.settings.character_api_token}"}
+            if self.settings.character_api_token
+            else None
+        )
 
     async def authorize(
         self, provider_name: str, params: OAuthAuthorizeParams
@@ -127,7 +138,7 @@ class AuthService:
         except (httpx.HTTPError, OAuthProviderError) as exc:
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
-        user = await self.user_repo.upsert_from_profile(profile)
+        user, is_new_user = await self.user_repo.upsert_from_profile(profile)
 
         token_pair = self.token_service.issue_pair(user_id=user.id, provider=provider.name)
         access_payload = self.token_service.decode(token_pair.access_token)
@@ -152,6 +163,8 @@ class AuthService:
             user_agent=user_agent,
         )
         await self.session.commit()
+        if is_new_user:
+            await self._ensure_default_character(user.id)
 
         self._apply_session_cookies(response, token_pair, access_payload, refresh_payload)
         return User.model_validate(user)
@@ -241,6 +254,44 @@ class AuthService:
 
     async def get_metrics(self) -> dict:
         return {"providers": list(self.providers.providers.keys())}
+
+    async def _ensure_default_character(self, user_id: UUID) -> None:
+        if not self.settings.character_onboarding_enabled:
+            return
+        timeout = httpx.Timeout(self.settings.character_api_timeout_seconds)
+        payload = {"user_id": str(user_id)}
+        attempts = max(1, int(self.settings.character_onboarding_retry_attempts))
+        backoff = max(0.0, float(self.settings.character_onboarding_retry_backoff_seconds))
+        for attempt in range(1, attempts + 1):
+            try:
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    response = await client.post(
+                        self.character_default_endpoint,
+                        json=payload,
+                        headers=self.character_api_headers,
+                    )
+                    response.raise_for_status()
+                return
+            except Exception as exc:  # noqa: BLE001 - onboarding should not block login
+                logger.warning(
+                    "Default character grant failed for %s (attempt %s/%s): %s",
+                    user_id,
+                    attempt,
+                    attempts,
+                    exc,
+                )
+                if attempt == attempts:
+                    break
+                sleep_seconds = backoff * attempt
+                if sleep_seconds > 0:
+                    await asyncio.sleep(sleep_seconds)
+
+    def _build_character_default_endpoint(self) -> str:
+        base = self.settings.character_api_base_url.rstrip("/")
+        path = self.settings.character_default_grant_endpoint.strip()
+        if not path.startswith("/"):
+            path = f"/{path}"
+        return f"{base}{path}"
 
     def _get_provider(self, provider: str):
         try:

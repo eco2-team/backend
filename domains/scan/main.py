@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from domains.scan.app.api.v1.endpoints import api_router, health_router
+from domains.scan.api.v1.endpoints import api_router, health_router
 
 
 def create_app() -> FastAPI:

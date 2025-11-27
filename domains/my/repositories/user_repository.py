@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,13 +19,8 @@ class UserRepository:
         result = await self.session.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
-    async def get_by_provider_identity(self, provider: str, provider_user_id: str) -> User | None:
-        result = await self.session.execute(
-            select(User).where(
-                User.provider == provider,
-                User.provider_user_id == provider_user_id,
-            )
-        )
+    async def get_by_auth_user_id(self, auth_user_id: UUID) -> User | None:
+        result = await self.session.execute(select(User).where(User.auth_user_id == auth_user_id))
         return result.scalar_one_or_none()
 
     async def update_user(self, user: User, payload: dict[str, Any]) -> User:
@@ -39,11 +35,6 @@ class UserRepository:
 
     async def metrics(self) -> dict[str, Any]:
         total = await self.session.scalar(select(func.count(User.id)))
-        per_provider = await self.session.execute(
-            select(User.provider, func.count(User.id)).group_by(User.provider)
-        )
-        provider_counts = {provider: count for provider, count in per_provider.all()}
         return {
             "total_users": int(total or 0),
-            "by_provider": provider_counts,
         }

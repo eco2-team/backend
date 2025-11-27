@@ -1,1 +1,0 @@
-"""scan app/services package"""

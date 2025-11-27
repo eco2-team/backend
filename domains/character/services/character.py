@@ -31,6 +31,8 @@ DISQUALIFYING_TAGS = {
     "오염됨",
     "미분류_소분류",
 }
+DEFAULT_CHARACTER_NAME = "이코"
+DEFAULT_CHARACTER_SOURCE = "default-onboard"
 
 
 class CharacterService:
@@ -58,31 +60,20 @@ class CharacterService:
         ]
 
     async def acquire_character(self, payload: CharacterAcquireRequest) -> CharacterAcquireResponse:
-        character_name = payload.character_name.strip()
-        if not character_name:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Character name required",
-            )
-
-        character = await self.character_repo.get_by_name(character_name)
-        if character is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
-
-        existing = await self.ownership_repo.get_by_user_and_character(
+        return await self._grant_character_by_name(
             user_id=payload.user_id,
-            character_id=character.id,
-        )
-        if existing:
-            return CharacterAcquireResponse(acquired=False, character=self._to_summary(character))
-
-        await self.ownership_repo.upsert_owned(
-            user_id=payload.user_id,
-            character=character,
+            character_name=payload.character_name,
             source="api-acquire",
+            allow_empty=False,
         )
-        await self.session.commit()
-        return CharacterAcquireResponse(acquired=True, character=self._to_summary(character))
+
+    async def grant_default_character(self, user_id: UUID) -> CharacterAcquireResponse:
+        return await self._grant_character_by_name(
+            user_id=user_id,
+            character_name=DEFAULT_CHARACTER_NAME,
+            source=DEFAULT_CHARACTER_SOURCE,
+            allow_empty=True,
+        )
 
     async def metrics(self) -> dict:
         return {
@@ -153,6 +144,45 @@ class CharacterService:
             name=character.name,
             description=character.description,
         )
+
+    async def _grant_character_by_name(
+        self,
+        *,
+        user_id: UUID,
+        character_name: str,
+        source: str,
+        allow_empty: bool,
+    ) -> CharacterAcquireResponse:
+        normalized_name = character_name.strip()
+        if not normalized_name:
+            if allow_empty:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Default character name is not configured",
+                )
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Character name required",
+            )
+
+        character = await self.character_repo.get_by_name(normalized_name)
+        if character is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
+
+        existing = await self.ownership_repo.get_by_user_and_character(
+            user_id=user_id,
+            character_id=character.id,
+        )
+        if existing:
+            return CharacterAcquireResponse(acquired=False, character=self._to_summary(character))
+
+        await self.ownership_repo.upsert_owned(
+            user_id=user_id,
+            character=character,
+            source=source,
+        )
+        await self.session.commit()
+        return CharacterAcquireResponse(acquired=True, character=self._to_summary(character))
 
     @staticmethod
     def _has_disqualifying_tags(tags: Sequence[str]) -> bool:

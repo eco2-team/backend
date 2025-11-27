@@ -12,6 +12,7 @@ from domains.auth.core.config import get_settings
 from domains.auth.database.base import Base
 from domains.auth.models.login_audit import LoginAudit  # noqa: F401
 from domains.auth.models.user import User  # noqa: F401
+from domains.auth.models.user_social_account import UserSocialAccount  # noqa: F401
 
 
 async def init_db() -> int:

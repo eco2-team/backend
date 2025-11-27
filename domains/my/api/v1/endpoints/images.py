@@ -19,7 +19,6 @@ async def save_profile_image(
 ):
     profile_image_url = payload.profile_image_url.strip() if payload.profile_image_url else None
     return await service.update_profile_image(
-        provider=token.provider,
-        provider_user_id=str(token.user_id),
+        auth_user_id=token.user_id,
         profile_image_url=profile_image_url,
     )

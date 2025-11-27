@@ -5,6 +5,7 @@ from .character import (
     CharacterAcquireResponse,
     CharacterProfile,
     CharacterSummary,
+    DefaultCharacterGrantRequest,
 )
 from .reward import (
     CharacterRewardCandidate,
@@ -21,6 +22,7 @@ __all__ = [
     "CharacterAcquireResponse",
     "CharacterProfile",
     "CharacterSummary",
+    "DefaultCharacterGrantRequest",
     "CharacterRewardSource",
     "CharacterRewardRequest",
     "CharacterRewardResponse",

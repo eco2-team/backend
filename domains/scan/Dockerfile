@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 애플리케이션 코드 복사
 COPY domains/scan /app/domains/scan
 COPY domains/_shared /app/domains/_shared
+COPY domains/character /app/domains/character
 COPY data/waste_pipeline /app/data/waste_pipeline
 
 EXPOSE 8000
@@ -22,4 +23,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import httpx; httpx.get('http://localhost:8000/health')"
 
-CMD ["uvicorn", "domains.scan.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "domains.scan.main:app", "--host", "0.0.0.0", "--port", "8000"]

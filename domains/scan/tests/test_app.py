@@ -18,8 +18,9 @@ for extra_path in PATHS_TO_ADD:
 def load_fastapi_app() -> FastAPI:
     last_exc: ModuleNotFoundError | None = None
     module_candidates = (
-        "domains.scan.app.main",
-        "app.main",
+        "domains.scan.main",
+        "scan.main",
+        "main",
     )
     for module_name in module_candidates:
         try:

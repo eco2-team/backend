@@ -46,15 +46,29 @@ class LogoutSuccessResponse(SuccessResponse[LogoutData]):
     pass
 
 
+class SocialAccount(BaseModel):
+    provider: str
+    provider_user_id: str
+    email: Optional[EmailStr] = None
+    username: Optional[str] = None
+    nickname: Optional[str] = None
+    profile_image_url: Optional[HttpUrl] = None
+    last_login_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class User(BaseModel):
     id: UUID
-    provider: str
+    provider: Optional[str] = None
+    provider_user_id: Optional[str] = None
     email: Optional[EmailStr] = None
     username: Optional[str] = None
     nickname: Optional[str] = None
     profile_image_url: Optional[HttpUrl] = None
     created_at: datetime
     last_login_at: Optional[datetime] = None
+    social_accounts: list[SocialAccount] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

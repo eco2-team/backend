@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: my-reset-user-data
+  namespace: my
+  labels:
+    app: my-api
+    tier: business-logic
+    domain: my
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: my-api
+        tier: business-logic
+        domain: my
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: reset-user-data
+        image: docker.io/mng990/eco2:my-api-latest
+        imagePullPolicy: Always
+        command:
+        - python
+        - -m
+        - domains.my.jobs.reset_user_data
+        envFrom:
+        - configMapRef:
+            name: my-config
+        - secretRef:
+            name: my-secret
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: my
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: my
+        effect: NoSchedule

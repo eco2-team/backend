@@ -15,7 +15,7 @@ Swagger는 `https://api.dev.growbin.app/api/v1/scan/docs`, OpenAPI JSON은 `http
 ## 로컬 실행
 ```bash
 poetry install
-poetry run uvicorn domains.scan.app.main:app --reload --port 8000
+poetry run uvicorn domains.scan.main:app --reload --port 8000
 ```
 
 필수 환경 변수:

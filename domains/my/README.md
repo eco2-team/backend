@@ -1,6 +1,6 @@
 # My API
 
-유저 프로필 및 리워드 정보를 제공하는 FastAPI 마이크로서비스입니다. 소셜 로그인(Auth 서비스)에서 확보한 `provider`, `provider_user_id`, `email`, `username`, `name`, `profile_image_url` 데이터를 기반으로 사용자의 기본 정보를 읽고 업데이트합니다.
+유저 프로필 및 리워드 정보를 제공하는 FastAPI 마이크로서비스입니다. Auth 서비스의 **canonical user id**(`auth.users.id`)를 기준으로 사용자 기본 프로필을 관리하며, `auth.user_social_accounts`와 조인해 각 소셜(provider) 별 이메일/닉네임 정보를 읽고 업데이트합니다.
 
 ## 주요 기능
 

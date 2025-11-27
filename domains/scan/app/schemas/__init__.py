@@ -1,1 +1,0 @@
-"""scan app/schemas package"""

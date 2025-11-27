@@ -19,6 +19,10 @@ class CharacterAcquireRequest(BaseModel):
     character_name: str = Field(min_length=1, max_length=120)
 
 
+class DefaultCharacterGrantRequest(BaseModel):
+    user_id: UUID
+
+
 class CharacterSummary(BaseModel):
     name: str
     description: str | None = None
