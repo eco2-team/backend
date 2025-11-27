@@ -55,10 +55,11 @@ sequenceDiagram
 |  | `checksum` | `"sha256:..."` | ⭕️ | 필요 시 제공. 현재는 선택사항. |
 
 #### 지원하는 Content-type
+
 - image/png
 - image/jpeg
 - image/webp
-**PUT Presigned 요청 전 반드시 헤더에 올바른 Content-type이 들어갔는지 확인**
+- **PUT Presigned 요청 전 반드시 헤더에 올바른 Content-type이 들어갔는지 확인**
 
 #### 채널별 업로드 파이프라인 요약
 
