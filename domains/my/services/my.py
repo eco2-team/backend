@@ -48,6 +48,11 @@ class MyService:
         await self.repo.delete_user(user_id)
         await self.session.commit()
 
+    async def delete_current_user(self, provider: str, provider_user_id: str) -> None:
+        user = await self._get_user_by_identity(provider, provider_user_id)
+        await self.repo.delete_user(user.id)
+        await self.session.commit()
+
     async def metrics(self) -> dict:
         return await self.repo.metrics()
 
