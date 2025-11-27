@@ -26,6 +26,9 @@
 
 > Dev/Prod 클러스터에서는 ExternalSecret(`my-secret`)이 위 변수들을 생성합니다.
 
+캐릭터 도메인과의 연동 기능을 쓰려면 `CHARACTER_DATABASE_URL` 환경 변수도 필요합니다. 이 값은
+동일한 Postgres 클러스터(예: `postgresql+asyncpg://.../ecoeco`)를 바라보도록 설정하면 됩니다.
+
 ## 로컬 실행 방법
 
 ```bash
@@ -37,6 +40,19 @@ MY_DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5432/my" \
 MY_JWT_SECRET_KEY="local-secret" \
 $UVICORN_CMD
 ```
+
+## Docker Compose 로컬 실행
+
+`docker compose`를 통해 Postgres, 캐릭터 카탈로그 부트스트랩 잡, My API를 한 번에 올릴 수 있습니다.
+
+```bash
+cd domains/my
+docker compose -f docker-compose.my-local.yml up --build
+```
+
+`character-bootstrap` 서비스가 `domains.character.jobs.import_character_catalog` 잡을 실행해
+샘플 캐릭터 데이터를 주입하며, `api` 컨테이너는 `CHARACTER_DATABASE_URL`과 `MY_DATABASE_URL`을
+동일한 Postgres 인스턴스로 설정합니다.
 
 ## API 문서
 

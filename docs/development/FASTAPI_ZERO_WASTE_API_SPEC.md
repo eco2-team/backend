@@ -115,6 +115,18 @@
 | GET | `/api/v1/metrics/` | 캐릭터 서비스 메트릭 스냅샷 | Internal | `analyzed_users`, `catalog_size` 등 임시 카운터 |
 | GET | `/health`, `/ready` | 헬스/레디니스 체크 | Public | ALB/NLB 헬스체크용 |
 
+#### 3.3.1 Character `code` 생성 규칙
+- **소스 데이터**: `domains/character/data/character_catalog.csv`에는 `name,type,dialog` 열만 있다. 안정적인 식별자를 위해 CSV에 없는 `code` 값을 임포트 시점에 생성한다.
+- **생성 엔트리 포인트**: `domains/character/jobs/import_character_catalog.py` 스크립트가 CSV를 읽고 `build_code()`를 호출한다. 해당 잡은 `docker-compose.my-local.yml`의 `character-bootstrap` 서비스나 CI 배치에서 사용된다.
+- **수동 매핑 우선**: `MANUAL_CODE_OVERRIDES` 딕셔너리에 정의된 이름(예: `"페이피" → "char-paepy"` )은 그대로 사용한다. 이는 한글/중복 이름에 대한 안정성을 확보하기 위함이다.
+- **슬러그 규칙**:
+  1. `unicodedata.normalize("NFKD")` 후 ASCII 이외 문자는 제거한다.
+  2. `[a-z0-9]` 외 문자는 `-` 로 치환하고, 앞뒤 `-` 는 제거한다.
+  3. 결과가 비면 `uuid5(NAMESPACE_URL, name)` 해시의 앞 12자를 사용한다.
+  4. 최종 문자는 항상 `char-<slug>` 형태다. 예: `"메탈리"` → `char-metally`.
+- **DB 반영**: 생성된 `code` 는 `Character.code` 컬럼(String(64), unique)에 저장되며, `CharacterOwnership` 및 My 서비스(`UserCharacter.code`)에서 동일 값으로 참조한다.
+- **무결성**: Postgres `ON CONFLICT(code)` upsert를 사용해 동일 코드가 이미 존재하면 `name/metadata`만 업데이트하고 `updated_at`을 갱신한다.
+
 ### 3.4 My API
 - **책임**: 사용자 요약 페이지(캐릭터 수, 분리수거 횟수, 연속 참여일, 환경 영향 지표) 구성.
 - **데이터 출처**:

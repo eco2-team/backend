@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16
+    container_name: my-local-postgres
+    environment:
+      POSTGRES_USER: sesacthon
+      POSTGRES_PASSWORD: sesacthon
+      POSTGRES_DB: ecoeco
+    ports:
+    - 5435:5432
+    volumes:
+    - my-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U sesacthon -d ecoeco]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  character-bootstrap:
+    build:
+      context: ../..
+      dockerfile: domains/character/Dockerfile
+    container_name: my-local-character-bootstrap
+    command: [python, -m, domains.character.jobs.import_character_catalog, --database-url, postgresql+asyncpg://sesacthon:sesacthon@db:5432/ecoeco]
+    environment:
+      CHARACTER_DATABASE_URL: postgresql+asyncpg://sesacthon:sesacthon@db:5432/ecoeco
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: no
+
+  api:
+    build:
+      context: ../..
+      dockerfile: domains/my/Dockerfile
+    container_name: my-local-api
+    environment:
+      MY_DATABASE_URL: postgresql+asyncpg://sesacthon:sesacthon@db:5432/ecoeco
+      MY_JWT_SECRET_KEY: local-secret
+      CHARACTER_DATABASE_URL: postgresql+asyncpg://sesacthon:sesacthon@db:5432/ecoeco
+    ports:
+    - 8002:8000
+    depends_on:
+      db:
+        condition: service_healthy
+      character-bootstrap:
+        condition: service_completed_successfully
+
+volumes:
+  my-db-data:
+    driver: local
