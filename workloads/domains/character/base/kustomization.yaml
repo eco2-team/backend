@@ -6,7 +6,6 @@ resources:
 - service.yaml
 - configmap.yaml
 - db-bootstrap-job.yaml
-- catalog-import-job.yaml
 labels:
 - includeSelectors: true
   pairs:

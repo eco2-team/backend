@@ -8,10 +8,6 @@ Character 도메인 API 서비스 Kustomize 구조.
 - `overlays/dev/`: dev 환경 설정
 - `overlays/prod/`: prod 환경 설정
 
-## 데이터 시드
-
-- `catalog-import-job.yaml`: Sync 훅 Job이 `domains/character/data/character_catalog.csv` 내용을 DB에 업서트합니다.
-
 ## 환경 변수
 
 - `POSTGRES_HOST`: `postgresql.postgres.svc.cluster.local`
