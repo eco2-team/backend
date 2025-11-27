@@ -30,7 +30,11 @@ class UserCharacter(BaseModel):
     id: UUID
     code: str
     name: str
-    rarity: str
-    description: Optional[str] = None
-    metadata: Optional[dict] = None
+    type: str
+    dialog: str
     acquired_at: datetime
+
+
+class CharacterOwnershipStatus(BaseModel):
+    character_name: str
+    owned: bool

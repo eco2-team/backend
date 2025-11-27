@@ -2,6 +2,6 @@
 Pydantic schemas for the My domain.
 """
 
-from .user import UserCharacter, UserProfile, UserUpdate
+from .user import CharacterOwnershipStatus, UserCharacter, UserProfile, UserUpdate
 
-__all__ = ["UserProfile", "UserUpdate", "UserCharacter"]
+__all__ = ["UserProfile", "UserUpdate", "UserCharacter", "CharacterOwnershipStatus"]

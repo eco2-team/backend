@@ -20,8 +20,6 @@ from domains.character.models.character import Character
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 DEFAULT_CSV_PATH = DATA_DIR / "character_catalog.csv"
-DEFAULT_RARITY = "common"
-RARITY_OVERRIDES = {"이코": "legendary"}
 MANUAL_CODE_OVERRIDES = {
     "페이피": "char-paepy",
     "팩토리": "char-factory",
@@ -37,7 +35,6 @@ MANUAL_CODE_OVERRIDES = {
     "폼이": "char-foamy",
     "이코": "char-eco",
 }
-TOKEN_SPLIT_PATTERN = re.compile(r"[,\n/]+")
 
 
 @dataclass(frozen=True)
@@ -47,16 +44,10 @@ class CatalogEntry:
     dialogue: str
 
     @property
-    def material_types(self) -> list[str]:
-        normalized = self.type_label.replace("·", ",")
-        return [token.strip() for token in TOKEN_SPLIT_PATTERN.split(normalized) if token.strip()]
-
-    @property
     def metadata(self) -> dict:
         return {
-            "typeLabel": self.type_label,
-            "materialTypes": self.material_types,
-            "dialogue": self.dialogue,
+            "type": self.type_label,
+            "dialog": self.dialogue,
         }
 
 
@@ -133,15 +124,9 @@ def build_code(name: str) -> str:
 
 
 def build_payload(entry: CatalogEntry) -> dict:
-    rarity = RARITY_OVERRIDES.get(entry.name, DEFAULT_RARITY)
-    description = f"{entry.name}는 {entry.type_label} 배출을 도와요."
     return {
         "code": build_code(entry.name),
         "name": entry.name,
-        "description": description,
-        "rarity": rarity,
-        "element": None,
-        "thumbnail_url": None,
         "metadata": entry.metadata,
     }
 
@@ -167,11 +152,7 @@ async def upsert_batch(engine: AsyncEngine, batch: list[dict]) -> None:
     stmt = insert(table).values(batch)
     update_columns = {
         "name": stmt.excluded.name,
-        "description": stmt.excluded.description,
-        "rarity": stmt.excluded.rarity,
         "metadata": stmt.excluded.metadata,
-        "element": stmt.excluded.element,
-        "thumbnail_url": stmt.excluded.thumbnail_url,
         "updated_at": func.now(),
     }
     async with engine.begin() as conn:
