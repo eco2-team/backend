@@ -5,7 +5,7 @@ resources:
 - post-sync-reset-job.yaml
 images:
 - name: docker.io/mng990/eco2
-  newTag: auth-api-dev-77a5c6
+  newTag: auth-api-dev-13791b
 labels:
 - includeSelectors: true
   pairs:
