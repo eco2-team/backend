@@ -121,25 +121,36 @@ jobs:
           import json
           import os
           import sys
+          from collections import OrderedDict
 
           files = os.environ.get("CHANGED_FILES", "").split()
           any_changed = os.environ.get("ANY_CHANGED", "false").lower() == "true"
           event_name = os.environ.get("EVENT_NAME", "")
           force_all = os.environ.get("FORCE_ALL", "false").lower() == "true"
-          target_services = [
-              s.strip() for s in os.environ.get("TARGET_SERVICES", "").split(",") if s.strip()
+          alias_map = {
+              "info": "image",
+          }
+
+          def normalize(service: str) -> str:
+              return alias_map.get(service, service)
+
+          raw_targets = [
+              s.strip()
+              for s in os.environ.get("TARGET_SERVICES", "").split(",")
+              if s.strip()
           ]
+          target_services = [normalize(s) for s in raw_targets]
 
           services = []
           service_root = "domains"
-          all_services = sorted(
-              [
-                  entry
-                  for entry in os.listdir(service_root)
-                  if os.path.isdir(os.path.join(service_root, entry))
-                  and not entry.startswith("_")
-              ]
-          )
+          discovered = []
+          for entry in os.listdir(service_root):
+              if entry.startswith("_"):
+                  continue
+              if not os.path.isdir(os.path.join(service_root, entry)):
+                  continue
+              discovered.append(normalize(entry))
+          all_services = sorted(set(discovered))
 
           if event_name == "workflow_dispatch":
               if force_all:
@@ -149,19 +160,20 @@ jobs:
                   if invalid:
                       sys.stderr.write(f"Unknown services: {', '.join(invalid)}\n")
                       sys.exit(1)
-                  services = target_services
+                  # preserve order
+                  services = list(OrderedDict.fromkeys(target_services))
 
           if not services and any_changed:
               for path in files:
                   parts = path.split("/")
                   # domains/<service>/ 경로 감지
                   if len(parts) >= 2 and parts[0] == "domains":
-                      svc = parts[1]
+                      svc = normalize(parts[1])
                       if svc and svc in all_services and svc not in services:
                           services.append(svc)
                   # workloads/domains/<service>/ 경로 감지
                   elif len(parts) >= 3 and parts[0] == "workloads" and parts[1] == "domains":
-                      svc = parts[2]
+                      svc = normalize(parts[2])
                       if svc and svc in all_services and svc not in services:
                           services.append(svc)
 
