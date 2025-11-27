@@ -1,7 +1,18 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from domains.my.api.v1.routers import api_router, health_router
+try:  # pragma: no cover - exercised during runtime/CI in different layouts
+    from domains.my.api.v1.routers import api_router, health_router
+except ModuleNotFoundError:  # local/CI pytest runs with service dir on PYTHONPATH
+    current_dir = Path(__file__).resolve().parent
+    if str(current_dir) not in sys.path:
+        sys.path.append(str(current_dir))
+    from api.v1.routers import api_router, health_router
 
 
 def create_app() -> FastAPI:
