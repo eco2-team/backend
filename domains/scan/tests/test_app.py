@@ -19,9 +19,7 @@ def load_fastapi_app() -> FastAPI:
     last_exc: ModuleNotFoundError | None = None
     module_candidates = (
         "domains.scan.app.main",
-        "domains.scan.main",
         "app.main",
-        "main",
     )
     for module_name in module_candidates:
         try:
