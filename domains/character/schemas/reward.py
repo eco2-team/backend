@@ -28,7 +28,7 @@ class CharacterRewardFailureReason(str, Enum):
     UNSUPPORTED_SOURCE = "unsupported_source"
     UNSUPPORTED_CATEGORY = "unsupported_category"
     MISSING_RULES = "missing_disposal_rules"
-    DISQUALIFYING_TAGS = "disqualifying_tags_present"
+    INSUFFICIENT_EVIDENCE = "insufficiencies_present"
     NO_MATCH = "no_matching_character"
     CHARACTER_NOT_FOUND = "character_not_seeded"
 
@@ -40,6 +40,7 @@ class CharacterRewardRequest(BaseModel):
     classification: ClassificationSummary
     situation_tags: List[str] = Field(default_factory=list)
     disposal_rules_present: bool = True
+    insufficiencies_present: bool = True
 
 
 class CharacterRewardResult(BaseModel):

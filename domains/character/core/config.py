@@ -10,7 +10,10 @@ class Settings(BaseSettings):
     app_name: str = "Character API"
     environment: str = "local"
 
-    database_url: str = "sqlite+aiosqlite:///./character.db"
+    database_url: str = Field(
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/ecoeco",
+        description="PostgreSQL connection string for the shared ecoeco database.",
+    )
     database_echo: bool = False
 
     jwt_secret_key: str = Field(

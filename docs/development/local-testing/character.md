@@ -4,7 +4,7 @@
 
 - **기본 포트**: `8004`
 - **Swagger**: `http://localhost:8004/api/v1/character/docs`
-- **스토리지**: 기본 SQLite (`character.db`), 필요 시 Postgres
+- **스토리지**: 기본 Postgres (`ecoeco` DB 내 character 스키마)
 - **Auth 우회**: `CHARACTER_AUTH_DISABLED=true` (기본값 true)
 
 ## 1. 사전 준비
@@ -19,19 +19,17 @@ pytest domains/character/tests
 ### 주요 환경 변수
 
 ```bash
-export CHARACTER_DATABASE_URL=sqlite+aiosqlite:///./character.db  # 기본값
+export CHARACTER_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ecoeco
 export CHARACTER_AUTH_DISABLED=true
 ```
 
-필요하다면 Postgres URL(예: `postgresql+asyncpg://sesacthon:sesacthon@localhost:5435/ecoeco`)로 바꿀 수 있습니다.
+> `ecoeco` 데이터베이스의 `character` 스키마(또는 기본 `public`)를 사용합니다. 로컬에서도 Postgres만 지원하며 SQLite는 더 이상 사용하지 않습니다.
 
 ## 2. FastAPI 개발 서버 실행
 
 ```bash
 uvicorn domains.character.main:app --reload --port 8004
 ```
-
-> 최초 실행 시 SQLite 파일이 자동으로 생성됩니다.
 
 ## 3. 샘플 데이터 주입 (선택)
 
@@ -58,6 +56,6 @@ curl -s http://localhost:8004/api/v1/character/rewards | head
 
 | 증상 | 해결 방법 |
 | --- | --- |
-| `sqlite3.OperationalError: no such table` | Job이 실행되기 전에 API를 호출했습니다. 위 import job을 먼저 실행하거나 SQLite 파일을 삭제 후 다시 띄웁니다. |
+| `asyncpg.exceptions.UndefinedTableError` | Postgres에 캐릭터 스키마/테이블이 없으므로 `domains.character.jobs.import_character_catalog` 를 먼저 실행하세요. |
 | `/api/v1/internal/characters/rewards` 401 | Auth 우회가 꺼져 있습니다. 로컬 테스트라면 `CHARACTER_AUTH_DISABLED=true` 로 설정하세요. |
 

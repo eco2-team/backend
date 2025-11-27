@@ -9,7 +9,7 @@
 2. 파이프라인이 `status=completed`를 반환하고 아래 조건을 모두 충족하면 Character 보상 평가 API를 호출한다.
    - `classification_result.classification.major_category == "재활용폐기물"`
    - `disposal_rules` 존재 (Lite RAG 매칭 성공)
-   - `situation_tags`에 `내용물_있음`, `라벨_부착`, `미분류_소분류` 등 **DISQUALIFYING_TAGS** 미포함
+   - `final_answer.insufficiencies`가 **존재**하며, 모든 항목이 비어 있음(실패 사유 없음)
    - Vision middle/minor가 Character DB (`characters.match_label`)의 매칭 기준과 일치
 3. Scan 서비스가 Character 내부 API `POST /api/v1/internal/characters/rewards`를 호출하여 user_id, Scan task_id, classification 요약, situation_tags, disposal_rules 존재 여부를 전달.
 4. Character 서비스는 매핑/중복 여부를 검증하고, `CharacterRewardResponse` (candidates + result/acquired 여부) 반환.
@@ -28,7 +28,7 @@ sequenceDiagram
     Client->>ScanAPI: POST /api/v1/scan/classify (이미지, 토큰)
     ScanAPI->>Vision: process_waste_classification()
     Vision-->>ScanAPI: classification_result + situation_tags + disposal_rules
-    ScanAPI->>ScanAPI: 조건검사 (재활용폐기물, 규칙 존재, 태그 필터)
+    ScanAPI->>ScanAPI: 조건검사 (재활용폐기물, 규칙 존재, insufficiencies 비어 있음)
     alt 조건 충족
         ScanAPI->>CharacterAPI: POST /api/v1/internal/characters/rewards
         CharacterAPI->>CharacterDB: 캐릭터 조회 & 보유 여부 확인
@@ -56,7 +56,8 @@ sequenceDiagram
       "minor_category": "골판지류"
     },
     "situation_tags": ["깨끗함"],
-    "disposal_rules_present": true
+    "disposal_rules_present": true,
+    "insufficiencies_present": false
   }
   ```
 - Response (`CharacterRewardResponse`):
@@ -99,7 +100,7 @@ sequenceDiagram
 - `CharacterService.evaluate_reward()`는 `CharacterRewardRequest`를 입력받아 다음 순서로 처리한다.
   1. **소스 검증**: 현재는 `scan`만 허용, 다른 값이면 `UNSUPPORTED_SOURCE`.
   2. **분류/규칙 검증**: major가 `재활용폐기물`인지, `disposal_rules_present`가 true인지 검사.
-  3. **상황 태그 필터**: `DISQUALIFYING_TAGS` 집합(`내용물_있음`, `라벨_부착`, `미분류_소분류`, `오염됨`, `파손됨`)과 교집합이면 실패 처리.
+  3. **insufficiencies 확인**: `insufficiencies_present`가 true이면 즉시 실패(사유: `INSUFFICIENT_EVIDENCE`).
   4. **매핑 탐색**: Character DB의 `match_label` 값으로 후보 리스트를 만들고 `CharacterRewardCandidate`에 사유를 기록.
   5. **DB 반영**: 첫 유효 후보부터 캐릭터를 조회하고, `CharacterOwnershipRepository.upsert_owned()`로 저장. 이미 보유한 경우 `already_owned=true`.
   6. **결과 조립**: `CharacterRewardResult`에 지급 여부 또는 실패 사유(`CharacterRewardFailureReason`)를 명시한다.

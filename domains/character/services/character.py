@@ -25,13 +25,6 @@ from domains.character.schemas.reward import (
     ClassificationSummary,
 )
 
-DISQUALIFYING_TAGS = {
-    "내용물_있음",
-    "라벨_부착",
-    "뚜껑_있음",
-    "오염됨",
-    "미분류_소분류",
-}
 DEFAULT_CHARACTER_NAME = "이코"
 DEFAULT_CHARACTER_SOURCE = "default-onboard"
 
@@ -97,8 +90,8 @@ class CharacterService:
             failure_reason = CharacterRewardFailureReason.UNSUPPORTED_CATEGORY
         elif not payload.disposal_rules_present:
             failure_reason = CharacterRewardFailureReason.MISSING_RULES
-        elif self._has_disqualifying_tags(payload.situation_tags):
-            failure_reason = CharacterRewardFailureReason.DISQUALIFYING_TAGS
+        elif payload.insufficiencies_present:
+            failure_reason = CharacterRewardFailureReason.INSUFFICIENT_EVIDENCE
         else:
             matches = await self._match_characters(classification)
             candidates = [
@@ -178,11 +171,6 @@ class CharacterService:
         )
         await self.session.commit()
         return CharacterAcquireResponse(acquired=True, character=self._to_summary(character))
-
-    @staticmethod
-    def _has_disqualifying_tags(tags: Sequence[str]) -> bool:
-        normalized = {tag.strip() for tag in tags if isinstance(tag, str)}
-        return any(tag in DISQUALIFYING_TAGS for tag in normalized)
 
     async def _match_characters(self, classification: ClassificationSummary) -> list[Character]:
         match_label = self._resolve_match_label(classification)

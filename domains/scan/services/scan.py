@@ -29,13 +29,6 @@ from domains._shared.waste_pipeline.utils import ITEM_CLASS_PATH, load_yaml
 
 DEFAULT_SCAN_PROMPT = "이 폐기물을 어떻게 분리배출해야 하나요?"
 _TASK_STORE: Dict[str, ScanTask] = {}
-DISQUALIFYING_TAGS = {
-    "내용물_있음",
-    "라벨_부착",
-    "뚜껑_있음",
-    "오염됨",
-    "미분류_소분류",
-}
 logger = logging.getLogger(__name__)
 
 
@@ -160,6 +153,8 @@ class ScanService:
     def _should_attempt_reward(self, result: WasteClassificationResult) -> bool:
         if not self.settings.reward_feature_enabled:
             return False
+        if self._has_insufficiencies(result):
+            return False
         classification_payload = result.classification_result or {}
         classification = classification_payload.get("classification", {})
         major = (classification.get("major_category") or "").strip()
@@ -169,9 +164,6 @@ class ScanService:
         if major != "재활용폐기물":
             return False
         if not result.disposal_rules:
-            return False
-        situation_tags = classification_payload.get("situation_tags", [])
-        if any(tag in DISQUALIFYING_TAGS for tag in situation_tags if isinstance(tag, str)):
             return False
         return True
 
@@ -191,6 +183,7 @@ class ScanService:
         minor = (minor_raw or "").strip() or None
         situation_tags = classification_payload.get("situation_tags", [])
         normalized_tags = [str(tag).strip() for tag in situation_tags if isinstance(tag, str)]
+        insufficiencies_present = self._has_insufficiencies(result)
         return CharacterRewardRequest(
             source=CharacterRewardSource.SCAN,
             user_id=user_id,
@@ -202,6 +195,7 @@ class ScanService:
             ),
             situation_tags=normalized_tags,
             disposal_rules_present=bool(result.disposal_rules),
+            insufficiencies_present=insufficiencies_present,
         )
 
     async def _call_character_reward_api(
@@ -237,3 +231,17 @@ class ScanService:
         if not path.startswith("/"):
             path = f"/{path}"
         return f"{base}{path}"
+
+    @staticmethod
+    def _has_insufficiencies(result: WasteClassificationResult) -> bool:
+        final_answer = result.final_answer or {}
+        insufficiencies = final_answer.get("insufficiencies")
+        if insufficiencies is None:
+            return True
+        for entry in insufficiencies:
+            if isinstance(entry, str):
+                if entry.strip():
+                    return True
+            elif entry:
+                return True
+        return False
