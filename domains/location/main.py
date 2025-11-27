@@ -16,7 +16,10 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[
+            "https://frontend1.dev.growbin.app",
+            "https://frontend.dev.growbin.app",
+        ],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
