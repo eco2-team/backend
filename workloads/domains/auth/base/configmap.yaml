@@ -8,7 +8,7 @@ metadata:
 data:
   LOG_LEVEL: INFO
   ENVIRONMENT: base
-  AUTH_FRONTEND_URL: https://frontend.dev.growbin.app
+  AUTH_FRONTEND_URL: https://frontend1.dev.growbin.app
   AUTH_COOKIE_DOMAIN: .dev.growbin.app
   AUTH_JWT_ALGORITHM: HS256
   AUTH_JWT_ISSUER: sesacthon-auth

@@ -102,7 +102,7 @@ git push origin feature/auth
 
 ### OAuth 로그인 실패 리다이렉트
 - OAuth 로그인 실패 시 프론트엔드로 자동 리다이렉트
-- 경로: `https://frontend.dev.growbin.app/login?error=oauth_failed`
+- 경로: `https://frontend1.dev.growbin.app/login?error=oauth_failed`
 - 적용: Google, Kakao, Naver 3개 프로바이더
 
 ### PostgreSQL 스키마 설정

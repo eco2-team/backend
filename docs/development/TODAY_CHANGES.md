@@ -27,7 +27,7 @@
 #### `domain/auth/core/config.py`
 ```python
 # 추가됨
-frontend_url: str = "https://frontend.dev.growbin.app"
+frontend_url: str = "https://frontend1.dev.growbin.app"
 
 @property
 def oauth_failure_redirect_url(self) -> str:
@@ -79,7 +79,7 @@ async def init_db():
 #### `workloads/domains/auth/base/configmap.yaml`
 ```yaml
 # 추가됨
-AUTH_FRONTEND_URL: "https://frontend.dev.growbin.app"
+AUTH_FRONTEND_URL: "https://frontend1.dev.growbin.app"
 ```
 
 ### 4. **문서 추가**
@@ -137,7 +137,7 @@ domain/auth/init_db.py                     ✅ CREATE SCHEMA 추가
 
 ### 1. OAuth 로그인 실패 처리 ✅
 - **목적**: OAuth 로그인 실패 시 프론트엔드로 리다이렉트
-- **경로**: `https://frontend.dev.growbin.app/login?error=oauth_failed`
+- **경로**: `https://frontend1.dev.growbin.app/login?error=oauth_failed`
 - **적용 범위**: Google, Kakao, Naver 3개 프로바이더
 
 ### 2. PostgreSQL 스키마 분리 ✅

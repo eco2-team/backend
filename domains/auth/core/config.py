@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     refresh_token_exp_minutes: int = 60 * 24 * 30
 
     # Frontend / Cookie domains
-    frontend_url: str = "https://frontend.dev.growbin.app"
+    frontend_url: str = "https://frontend1.dev.growbin.app"
     cookie_domain: Optional[str] = ".dev.growbin.app"
 
     # Character service integration
