@@ -43,11 +43,13 @@ class UserCharacterService:
     def _to_schema(entry: CharacterOwnership) -> UserCharacter:
         character = entry.character
         metadata = getattr(character, "metadata_json", None) or {}
+        type_value = metadata.get("type") or metadata.get("typeLabel") or ""
+        dialog_value = metadata.get("dialog") or metadata.get("dialogue") or ""
         return UserCharacter(
             id=character.id,
             code=character.code,
             name=character.name,
-            type=str(metadata.get("type", "")),
-            dialog=str(metadata.get("dialog", "")),
+            type=str(type_value),
+            dialog=str(dialog_value),
             acquired_at=entry.acquired_at,
         )
