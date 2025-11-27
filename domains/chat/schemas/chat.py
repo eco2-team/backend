@@ -3,8 +3,6 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
-from domains._shared.schemas.waste import WasteClassificationResult
-
 
 class ChatMessage(BaseModel):
     role: str
@@ -20,13 +18,17 @@ class ChatMessageRequest(BaseModel):
     image_urls: Optional[List[HttpUrl]] = None
 
 
+class ChatPipelineResultDTO(BaseModel):
+    user_answer: str
+
+
 class ChatMessageResponse(BaseModel):
     session_id: str
     message: str
     suggestions: List[str]
     model: str
     latency_ms: Optional[int] = None
-    pipeline_result: Optional[WasteClassificationResult] = None
+    pipeline_result: Optional[ChatPipelineResultDTO] = None
 
 
 class ChatSession(BaseModel):

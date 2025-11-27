@@ -21,6 +21,7 @@ from domains.chat.schemas.chat import (
     ChatMessage,
     ChatMessageRequest,
     ChatMessageResponse,
+    ChatPipelineResultDTO,
     ChatSession,
 )
 from domains.chat.services.session_store import ChatSessionStore
@@ -84,7 +85,7 @@ class ChatService:
                     suggestions=self._default_suggestions(),
                     model="gpt-5-mini",
                     latency_ms=None,
-                    pipeline_result=pipeline_result,
+                    pipeline_result=ChatPipelineResultDTO(user_answer=message_text),
                 )
 
         if not self.client:
