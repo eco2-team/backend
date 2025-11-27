@@ -4,12 +4,15 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-SERVICE_ROOT = Path(__file__).resolve().parents[2]
-DOMAIN_ROOT = Path(__file__).resolve().parents[3]
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
-for path in (SERVICE_ROOT, DOMAIN_ROOT, PROJECT_ROOT):
-    if str(path) not in sys.path:
-        sys.path.append(str(path))
+PATHS_TO_ADD = (
+    Path(__file__).resolve().parents[1],  # domains/scan
+    Path(__file__).resolve().parents[2],  # domains
+    Path(__file__).resolve().parents[3],  # repo root (/backend)
+    Path(__file__).resolve().parents[4],  # workspace root (/work/backend)
+)
+for extra_path in PATHS_TO_ADD:
+    if str(extra_path) not in sys.path:
+        sys.path.append(str(extra_path))
 
 
 def load_fastapi_app() -> FastAPI:
