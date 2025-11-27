@@ -42,13 +42,17 @@ class CatalogEntry:
     name: str
     type_label: str
     dialogue: str
+    match_label: str | None
 
     @property
     def metadata(self) -> dict:
-        return {
+        payload = {
             "type": self.type_label,
             "dialog": self.dialogue,
         }
+        if self.match_label:
+            payload["match"] = self.match_label
+        return payload
 
 
 def parse_args() -> argparse.Namespace:
@@ -99,10 +103,18 @@ def load_catalog(csv_path: Path) -> list[CatalogEntry]:
             name = (row.get("name") or "").strip()
             type_label = (row.get("type") or "").strip()
             dialogue = (row.get("dialog") or "").strip()
+            match_label = (row.get("match") or "").strip()
             if not name or not type_label or not dialogue:
                 print(f"Skipping row {idx} due to empty fields")
                 continue
-            entries.append(CatalogEntry(name=name, type_label=type_label, dialogue=dialogue))
+            entries.append(
+                CatalogEntry(
+                    name=name,
+                    type_label=type_label,
+                    dialogue=dialogue,
+                    match_label=match_label or None,
+                )
+            )
     return entries
 
 
@@ -127,6 +139,7 @@ def build_payload(entry: CatalogEntry) -> dict:
     return {
         "code": build_code(entry.name),
         "name": entry.name,
+        "match_label": entry.match_label,
         "metadata": entry.metadata,
     }
 

@@ -6,8 +6,8 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domains.character.core.reward_mapping import CharacterReward, find_matching_characters
 from domains.character.database.session import get_db_session
+from domains.character.models import Character
 from domains.character.repositories import CharacterOwnershipRepository, CharacterRepository
 from domains.character.schemas.character import (
     CharacterAcquireRequest,
@@ -22,6 +22,7 @@ from domains.character.schemas.reward import (
     CharacterRewardResponse,
     CharacterRewardResult,
     CharacterRewardSource,
+    ClassificationSummary,
 )
 
 DISQUALIFYING_TAGS = {
@@ -99,17 +100,11 @@ class CharacterService:
         elif self._has_disqualifying_tags(payload.situation_tags):
             failure_reason = CharacterRewardFailureReason.DISQUALIFYING_TAGS
         else:
-            matches = find_matching_characters(
-                major=classification.major_category,
-                middle=classification.middle_category,
-                minor=classification.minor_category,
-            )
+            matches = await self._match_characters(classification)
             candidates = [
                 CharacterRewardCandidate(
                     name=match.name,
-                    match_reason=self._build_match_reason(
-                        classification.middle_category, classification.minor_category
-                    ),
+                    match_reason=self._build_match_reason(classification),
                 )
                 for match in matches
             ]
@@ -189,34 +184,51 @@ class CharacterService:
         normalized = {tag.strip() for tag in tags if isinstance(tag, str)}
         return any(tag in DISQUALIFYING_TAGS for tag in normalized)
 
+    async def _match_characters(self, classification: ClassificationSummary) -> list[Character]:
+        match_label = self._resolve_match_label(classification)
+        if not match_label:
+            return []
+        return await self.character_repo.list_by_match_label(match_label)
+
     @staticmethod
-    def _build_match_reason(middle: str, minor: str | None) -> str:
-        if minor:
+    def _resolve_match_label(classification: ClassificationSummary) -> str | None:
+        major = (classification.major_category or "").strip()
+        middle = (classification.middle_category or "").strip()
+        if major == "재활용폐기물":
+            return middle or None
+        return middle or major or None
+
+    @staticmethod
+    def _build_match_reason(classification: ClassificationSummary) -> str:
+        middle = (classification.middle_category or "").strip()
+        minor = (classification.minor_category or "").strip()
+        if middle and minor:
             return f"{middle}>{minor}"
-        return middle
+        if middle:
+            return middle
+        major = (classification.major_category or "").strip()
+        if major:
+            return major
+        return "미정의"
 
     async def _apply_reward(
         self,
         user_id: UUID,
-        matches: Sequence[CharacterReward],
+        matches: Sequence[Character],
     ) -> tuple[CharacterSummary | None, bool, CharacterRewardFailureReason | None]:
         for match in matches:
-            character = await self.character_repo.get_by_name(match.name)
-            if character is None:
-                continue
-
             existing = await self.ownership_repo.get_by_user_and_character(
-                user_id=user_id, character_id=character.id
+                user_id=user_id, character_id=match.id
             )
             if existing:
-                return self._to_summary(character), True, None
+                return self._to_summary(match), True, None
 
             await self.ownership_repo.upsert_owned(
                 user_id=user_id,
-                character=character,
+                character=match,
                 source="scan-reward",
             )
             await self.session.commit()
-            return self._to_summary(character), False, None
+            return self._to_summary(match), False, None
 
         return None, False, CharacterRewardFailureReason.CHARACTER_NOT_FOUND

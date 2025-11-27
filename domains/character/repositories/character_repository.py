@@ -34,5 +34,13 @@ class CharacterRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def list_by_match_label(self, match_label: str) -> list[Character]:
+        normalized = (match_label or "").strip()
+        if not normalized:
+            return []
+        stmt = select(Character).where(func.lower(Character.match_label) == func.lower(normalized))
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def add_many(self, characters: Iterable[Character]) -> None:
         self.session.add_all(list(characters))

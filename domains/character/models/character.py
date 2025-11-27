@@ -34,6 +34,7 @@ class Character(Base):
     rarity: Mapped[str] = mapped_column(String(32), nullable=False, default="common")
     element: Mapped[str | None] = mapped_column(String(32), nullable=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    match_label: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     metadata_json: Mapped[dict | None] = mapped_column(
         "metadata", JSON, nullable=True, default=dict
     )
