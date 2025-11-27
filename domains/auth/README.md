@@ -19,3 +19,8 @@ done
 ```
 
 `scripts/sync-argocd-all.sh`는 로컬에서 AWS CLI로 `k8s-$SSH_NODE` 인스턴스 Public IP를 조회한 뒤 해당 노드로 SSH 접속해 `kubectl` 동기화를 순차 실행합니다. 실행 환경에 SSH 키와 AWS 자격 증명이 준비되어 있어야 합니다.
+
+## CI 트리거 메모
+
+- `develop` 브랜치에 auth 관련 커밋을 올리면 GitHub Actions가 `auth-api-dev-<sha>` 이미지를 빌드하고 `workloads/domains/auth/dev/kustomization.yaml`의 `newTag`를 자동으로 갱신합니다.
+- 매니페스트 태그 업데이트가 필요할 때는 이 문서처럼 가벼운 변경이라도 커밋하면 파이프라인이 다시 실행됩니다.
