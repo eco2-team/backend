@@ -18,17 +18,8 @@ class ChatMessageRequest(BaseModel):
     image_urls: Optional[List[HttpUrl]] = None
 
 
-class ChatPipelineResultDTO(BaseModel):
-    user_answer: str
-
-
 class ChatMessageResponse(BaseModel):
-    session_id: str
-    message: str
-    suggestions: List[str]
-    model: str
-    latency_ms: Optional[int] = None
-    pipeline_result: Optional[ChatPipelineResultDTO] = None
+    user_answer: str
 
 
 class ChatSession(BaseModel):

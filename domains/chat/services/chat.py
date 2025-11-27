@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-import time
 from typing import List, Optional
 from uuid import uuid4
 
@@ -21,7 +20,6 @@ from domains.chat.schemas.chat import (
     ChatMessage,
     ChatMessageRequest,
     ChatMessageResponse,
-    ChatPipelineResultDTO,
     ChatSession,
 )
 from domains.chat.services.session_store import ChatSessionStore
@@ -79,24 +77,11 @@ class ChatService:
                         ChatMessage(role="assistant", content=assistant_message),
                     ],
                 )
-                return ChatMessageResponse(
-                    session_id=session_id,
-                    message=message_text,
-                    suggestions=self._default_suggestions(),
-                    model="gpt-5-mini",
-                    latency_ms=None,
-                    pipeline_result=ChatPipelineResultDTO(user_answer=message_text),
-                )
+                return ChatMessageResponse(user_answer=message_text)
 
         if not self.client:
             fallback = self._fallback_answer(payload.message)
-            response = ChatMessageResponse(
-                session_id=session_id,
-                message=fallback,
-                suggestions=self._default_suggestions(),
-                model=self.model,
-                latency_ms=None,
-            )
+            response = ChatMessageResponse(user_answer=fallback)
             await self.session_store.append_messages(
                 user_id,
                 session_id,
@@ -107,7 +92,6 @@ class ChatService:
             )
             return response
 
-        start = time.perf_counter()
         openai_messages = self._build_messages(history, payload.message)
         try:
             response: Response = await self.client.responses.create(
@@ -115,25 +99,17 @@ class ChatService:
                 input=openai_messages,
                 temperature=payload.temperature,
             )
-            latency_ms = int((time.perf_counter() - start) * 1000)
             content = response.output[0].content[0].text  # type: ignore[index]
         except Exception:  # pragma: no cover - network errors
             content = self._fallback_answer(payload.message)
-            latency_ms = None
 
-        response_payload = ChatMessageResponse(
-            session_id=session_id,
-            message=content,
-            suggestions=self._default_suggestions(),
-            model=self.model,
-            latency_ms=latency_ms,
-        )
+        response_payload = ChatMessageResponse(user_answer=content)
         await self.session_store.append_messages(
             user_id,
             session_id,
             [
                 ChatMessage(role="user", content=payload.message),
-                ChatMessage(role="assistant", content=response_payload.message),
+                ChatMessage(role="assistant", content=response_payload.user_answer),
             ],
         )
         return response_payload
