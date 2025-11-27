@@ -1,1 +1,0 @@
-"""Scan persistence helpers."""

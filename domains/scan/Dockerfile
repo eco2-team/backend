@@ -15,7 +15,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY domains/scan /app/domains/scan
 COPY domains/_shared /app/domains/_shared
 COPY domains/character /app/domains/character
-COPY data/waste_pipeline /app/data/waste_pipeline
 
 EXPOSE 8000
 

@@ -12,8 +12,8 @@ from openai import OpenAI
 
 load_dotenv()
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DATA_DIR = REPO_ROOT / "data" / "waste_pipeline"
+PACKAGE_ROOT = Path(__file__).resolve().parent
+DATA_DIR = PACKAGE_ROOT / "data"
 ITEM_CLASS_PATH = DATA_DIR / "item_class_list.yaml"
 SITUATION_TAG_PATH = DATA_DIR / "situation_tags.yaml"
 PROMPTS_DIR = DATA_DIR / "prompts"

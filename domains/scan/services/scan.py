@@ -85,7 +85,11 @@ class ScanService:
 
         reward = None
         if self._should_attempt_reward(pipeline_result):
-            reward_request = self._build_reward_request(user_id, task_id, pipeline_result)
+            reward_request = self._build_reward_request(
+                user_id,
+                task_id,
+                pipeline_result,
+            )
             if reward_request:
                 reward = await self._call_character_reward_api(reward_request)
 
@@ -179,11 +183,12 @@ class ScanService:
     ) -> CharacterRewardRequest | None:
         classification_payload = result.classification_result or {}
         classification = classification_payload.get("classification", {}) or {}
-        major = classification.get("major_category")
-        middle = classification.get("middle_category")
+        major = (classification.get("major_category") or "").strip()
+        middle = (classification.get("middle_category") or "").strip()
         if not major or not middle:
             return None
-        minor = classification.get("minor_category")
+        minor_raw = classification.get("minor_category")
+        minor = (minor_raw or "").strip() or None
         situation_tags = classification_payload.get("situation_tags", [])
         normalized_tags = [str(tag).strip() for tag in situation_tags if isinstance(tag, str)]
         return CharacterRewardRequest(
@@ -191,9 +196,9 @@ class ScanService:
             user_id=user_id,
             task_id=task_id,
             classification=ClassificationSummary(
-                major_category=str(major).strip(),
-                middle_category=str(middle).strip(),
-                minor_category=str(minor).strip() if minor else None,
+                major_category=major,
+                middle_category=middle,
+                minor_category=minor,
             ),
             situation_tags=normalized_tags,
             disposal_rules_present=bool(result.disposal_rules),
