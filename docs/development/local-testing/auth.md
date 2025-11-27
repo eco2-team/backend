@@ -27,17 +27,17 @@
    AUTH_CHARACTER_API_BASE_URL=http://host.docker.internal:8004
    AUTH_CHARACTER_API_TOKEN=local-character-token
 
-   # 실제 OAuth 앱 등록 값
-   AUTH_GOOGLE_CLIENT_ID=<google-client-id>
-   AUTH_GOOGLE_CLIENT_SECRET=<google-client-secret>
-   AUTH_GOOGLE_REDIRECT_URI=http://localhost:8000/api/v1/auth/google/callback
+  # 실제 OAuth 앱 등록 값 (모든 공급자에 localhost 콜백을 등록해 두었습니다)
+  AUTH_GOOGLE_CLIENT_ID=YOUR_LOCAL_GOOGLE_CLIENT_ID
+  AUTH_GOOGLE_CLIENT_SECRET=YOUR_LOCAL_GOOGLE_CLIENT_SECRET
+  AUTH_GOOGLE_REDIRECT_URI=http://localhost:5173/auth/google/callback
 
-   AUTH_KAKAO_CLIENT_ID=<kakao-rest-api-key>
-   AUTH_KAKAO_REDIRECT_URI=http://localhost:8000/api/v1/auth/kakao/callback
+  AUTH_KAKAO_CLIENT_ID=YOUR_LOCAL_KAKAO_REST_API_KEY
+  AUTH_KAKAO_REDIRECT_URI=http://localhost:5173/auth/kakao/callback
 
-   AUTH_NAVER_CLIENT_ID=<naver-client-id>
-   AUTH_NAVER_CLIENT_SECRET=<naver-client-secret>
-   AUTH_NAVER_REDIRECT_URI=http://localhost:8000/api/v1/auth/naver/callback
+  AUTH_NAVER_CLIENT_ID=YOUR_LOCAL_NAVER_CLIENT_ID
+  AUTH_NAVER_CLIENT_SECRET=YOUR_LOCAL_NAVER_CLIENT_SECRET
+  AUTH_NAVER_REDIRECT_URI=http://localhost:5173/auth/naver/callback
    EOF
    ```
    > OAuth 공급자와의 실 로그인까지 확인하려면 위 값에 실제 자격증명이 필수입니다.
