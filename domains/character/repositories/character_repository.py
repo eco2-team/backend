@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Iterable
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.character.models import Character
@@ -28,6 +28,11 @@ class CharacterRepository:
     async def list_all(self) -> list[Character]:
         result = await self.session.execute(select(Character))
         return list(result.scalars().all())
+
+    async def get_by_name(self, name: str) -> Character | None:
+        stmt = select(Character).where(func.lower(Character.name) == func.lower(name))
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def add_many(self, characters: Iterable[Character]) -> None:
         self.session.add_all(list(characters))

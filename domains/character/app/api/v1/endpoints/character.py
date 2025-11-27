@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends
 
 from app.schemas.character import (
+    CharacterAcquireRequest,
+    CharacterAcquireResponse,
     CharacterAnalysisRequest,
-    CharacterProfile,
     CharacterHistoryEntry,
+    CharacterProfile,
 )
 from app.services.character import CharacterService
 
@@ -34,3 +36,15 @@ async def history(user_id: str, service: CharacterService = Depends()):
 )
 async def catalog(service: CharacterService = Depends()):
     return await service.catalog()
+
+
+@router.post(
+    "/collect",
+    response_model=CharacterAcquireResponse,
+    summary="Acquire character for user",
+)
+async def acquire_character(
+    payload: CharacterAcquireRequest,
+    service: CharacterService = Depends(),
+):
+    return await service.acquire_character(payload)

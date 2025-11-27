@@ -9,6 +9,9 @@ def create_app() -> FastAPI:
         title="Character API",
         description="Character analysis and storytelling service",
         version="0.7.3",
+        docs_url="/api/v1/character/docs",
+        openapi_url="/api/v1/character/openapi.json",
+        redoc_url=None,
     )
 
     app.add_middleware(

@@ -5,6 +5,7 @@ resources:
 - deployment.yaml
 - service.yaml
 - configmap.yaml
+- catalog-import-job.yaml
 labels:
 - includeSelectors: true
   pairs:

@@ -59,6 +59,11 @@ class CharacterOwnershipRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_by_user_and_character(
+        self, user_id: UUID, character_id: UUID
+    ) -> CharacterOwnership | None:
+        return await self._get_internal(user_id=user_id, character_id=character_id)
+
     async def _get_internal(self, user_id: UUID, character_id: UUID) -> CharacterOwnership | None:
         stmt = (
             select(CharacterOwnership)

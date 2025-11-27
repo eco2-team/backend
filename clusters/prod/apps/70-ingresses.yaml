@@ -13,6 +13,9 @@ spec:
       - name: chat
         namespace: chat
         path: workloads/ingress/chat/prod
+      - name: character
+        namespace: character
+        path: workloads/ingress/character/prod
       - name: scan
         namespace: scan
         path: workloads/ingress/scan/prod
