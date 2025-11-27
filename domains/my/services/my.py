@@ -30,8 +30,7 @@ class MyService:
     async def get_current_user(
         self, auth_user_id: UUID, provider: str | None = None
     ) -> UserProfile:
-        user = await self._get_user_by_auth_id(auth_user_id)
-        accounts = await self.social_repo.list_by_user_id(auth_user_id)
+        user, accounts = await self._get_or_create_user_with_accounts(auth_user_id)
         return self._to_profile(user, accounts, preferred_provider=provider)
 
     async def update_user(self, user_id: int, payload: UserUpdate) -> UserProfile:
@@ -89,6 +88,16 @@ class MyService:
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         return user
+
+    async def _get_or_create_user_with_accounts(
+        self, auth_user_id: UUID
+    ) -> tuple[User, Sequence[AuthUserSocialAccount]]:
+        user = await self.repo.get_by_auth_user_id(auth_user_id)
+        accounts = await self.social_repo.list_by_user_id(auth_user_id)
+        if user is None:
+            user = await self.repo.create_from_auth(auth_user_id, accounts)
+            await self.session.commit()
+        return user, accounts
 
     async def _apply_update(self, user: User, payload: UserUpdate) -> User:
         update_data = payload.model_dump(exclude_unset=True)
