@@ -92,8 +92,69 @@ curl -s --cookie "s_access=<Set-Cookie 값>" http://localhost:8000/api/v1/auth/m
 
 ## 5. 다른 도메인과 함께 사용할 때
 
-- 다른 서비스에서 실제 JWT 검증을 테스트하려면, 각 도메인의 `*_AUTH_DISABLED` 값을 `false` 로 두고 위 Auth 스택을 실행한 상태에서 브라우저 로그인 → `s_access` 쿠키를 획득하면 됩니다.
-- JWT 시크릿은 `AUTH_JWT_SECRET_KEY` 이므로, 다른 서비스에서 동일한 값을 사용해야 검증이 통과합니다.
+실제 JWT 검증 + 세션 쿠키 흐름을 통합적으로 확인하려면 아래 순서를 그대로 따라 주세요.
+
+1. 위 섹션 2의 명령으로 Auth 스택을 띄워 둡니다.
+2. 브라우저 로그인으로 `s_access` 쿠키를 확보하고, 터미널 환경 변수로 저장합니다.
+3. 테스트하려는 도메인의 `*_AUTH_DISABLED` 값을 `false` 로 두고 재기동합니다.
+4. 모든 도메인이 동일한 `AUTH_JWT_SECRET_KEY` 값을 사용하도록 맞춥니다. (대부분의 서비스는 `AUTH_*` 이름을 alias 로 받아들이므로 별도의 `<DOMAIN>_JWT_SECRET_KEY` 를 설정할 필요가 없습니다.)
+5. 아래 명령 템플릿 중 필요한 것만 골라 실행하면, 쿠키를 포함한 실제 요청까지 한 번에 검증할 수 있습니다.
+
+```bash
+# 0) 공통: Auth 스택과 동일한 JWT 시크릿 + s_access 쿠키 저장
+export AUTH_JWT_SECRET_KEY=local-auth-secret
+export S_ACCESS_COOKIE='<브라우저에서 복사한 s_access 값>'
+
+# 1) My API (docker compose)
+cd /Users/mango/workspace/SeSACTHON/backend/domains/my
+MY_AUTH_DISABLED=false AUTH_JWT_SECRET_KEY=$AUTH_JWT_SECRET_KEY \
+  docker compose -f docker-compose.my-local.yml up --build -d
+curl -s --cookie "s_access=${S_ACCESS_COOKIE}" \
+  http://localhost:8002/api/v1/users/<보호된-엔드포인트> | jq
+
+# 2) Scan API (uvicorn)
+cd /Users/mango/workspace/SeSACTHON/backend
+SCAN_AUTH_DISABLED=false AUTH_JWT_SECRET_KEY=$AUTH_JWT_SECRET_KEY \
+  uvicorn domains.scan.main:app --reload --port 8003
+curl -s --cookie "s_access=${S_ACCESS_COOKIE}" \
+  "http://localhost:8003/api/v1/scan/classify" \
+  -H 'Content-Type: application/json' \
+  -d '{"image_urls":["https://..."],"user_input":"텍스트"}'
+
+# 3) Character API (uvicorn)
+cd /Users/mango/workspace/SeSACTHON/backend
+CHARACTER_AUTH_DISABLED=false AUTH_JWT_SECRET_KEY=$AUTH_JWT_SECRET_KEY \
+  uvicorn domains.character.main:app --reload --port 8004
+curl -s --cookie "s_access=${S_ACCESS_COOKIE}" \
+  http://localhost:8004/api/v1/character/rewards | jq
+
+# 4) Location API (docker compose)
+cd /Users/mango/workspace/SeSACTHON/backend/domains/location
+LOCATION_AUTH_DISABLED=false AUTH_JWT_SECRET_KEY=$AUTH_JWT_SECRET_KEY \
+  docker compose -f docker-compose.location-local.yml up --build -d
+curl -s --cookie "s_access=${S_ACCESS_COOKIE}" \
+  "http://localhost:8010/api/v1/location/search?query=강남" | jq
+
+# 5) Image API (docker compose)
+cd /Users/mango/workspace/SeSACTHON/backend/domains/image
+IMAGE_AUTH_DISABLED=false AUTH_JWT_SECRET_KEY=$AUTH_JWT_SECRET_KEY \
+  docker compose -f docker-compose.image-local.yml up --build -d
+curl -s --cookie "s_access=${S_ACCESS_COOKIE}" \
+  http://localhost:8020/api/v1/image/upload/init \
+  -H 'Content-Type: application/json' \
+  -d '{"target":"chat","mime_type":"image/png"}'
+
+# 6) Chat API (uvicorn)
+cd /Users/mango/workspace/SeSACTHON/backend
+CHAT_AUTH_DISABLED=false AUTH_JWT_SECRET_KEY=$AUTH_JWT_SECRET_KEY \
+  uvicorn domains.chat.main:app --reload --port 8030
+curl -s --cookie "s_access=${S_ACCESS_COOKIE}" \
+  http://localhost:8030/api/v1/chat/messages \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"페트병 어떻게 버려?"}' | jq
+```
+
+> 위 예시는 대표 도메인만 실어두었습니다. 나머지 서비스도 동일하게 `*_AUTH_DISABLED=false` 상태에서 Auth 스택이 발급한 `s_access` 쿠키를 `curl --cookie` 또는 브라우저/포스트맨에 첨부하면 됩니다.
 
 ## 6. Troubleshooting
 
