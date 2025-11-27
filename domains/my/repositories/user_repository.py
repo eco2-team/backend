@@ -40,6 +40,8 @@ class UserRepository:
             auth_user_id=auth_user_id,
             username=self._select_username(account),
             name=self._select_name(account),
+            nickname=account.nickname if account else None,
+            email=account.email if account else None,
             profile_image_url=account.profile_image_url if account else None,
         )
         self.session.add(user)

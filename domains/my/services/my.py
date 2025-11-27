@@ -122,11 +122,13 @@ class MyService:
         nickname = self._resolve_nickname(user, account, username)
         profile_image_url = self._resolve_profile_image_url(user, account)
         provider = account.provider if account else (preferred_provider or "unknown")
+        phone_number = getattr(user, "phone_number", None)
+        email = self._resolve_email(user, account)
         return UserProfile(
             username=username,
             nickname=nickname,
-            phone_number=None,
-            email=account.email if account else None,
+            phone_number=phone_number,
+            email=email,
             profile_image_url=profile_image_url,
             provider=provider,
             last_login_at=account.last_login_at if account else None,
@@ -166,6 +168,7 @@ class MyService:
         fallback: str,
     ) -> str:
         candidates = [
+            getattr(user, "nickname", None),
             account.nickname if account else None,
             account.username if account else None,
             user.username,
@@ -193,6 +196,21 @@ class MyService:
             if value:
                 return value
         return DEFAULT_PROFILE_IMAGE_URL
+
+    @staticmethod
+    def _resolve_email(
+        user: User,
+        account: AuthUserSocialAccount | None,
+    ) -> str | None:
+        candidates = [
+            getattr(user, "email", None),
+            account.email if account else None,
+        ]
+        for raw in candidates:
+            value = MyService._clean_text(raw)
+            if value:
+                return value
+        return None
 
     @staticmethod
     def _clean_text(value: str | None) -> str | None:
