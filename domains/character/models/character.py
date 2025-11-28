@@ -69,7 +69,7 @@ class CharacterOwnership(Base):
     id: Mapped[UUID] = mapped_column(default=uuid4, primary_key=True)
     user_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
     character_id: Mapped[UUID] = mapped_column(
-        ForeignKey("characters.id", ondelete="CASCADE"),
+        ForeignKey("character.characters.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
