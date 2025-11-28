@@ -8,10 +8,8 @@ from uuid import uuid4
 
 try:
     from openai import AsyncOpenAI  # type: ignore
-    from openai.types import Response  # type: ignore
 except Exception:  # pragma: no cover - optional dependency
     AsyncOpenAI = None  # type: ignore
-    Response = None  # type: ignore
 
 from domains._shared.schemas.waste import WasteClassificationResult
 from domains._shared.waste_pipeline import PipelineError, process_waste_classification
@@ -93,7 +91,7 @@ class ChatService:
 
         openai_messages = self._build_messages(history, payload.message)
         try:
-            response: Response = await self.client.responses.create(
+            response = await self.client.responses.create(
                 model=self.model,
                 input=openai_messages,
                 temperature=payload.temperature,
