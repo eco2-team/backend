@@ -1,7 +1,7 @@
 """
 Reset the My service user table for development environments.
 
-The script drops `my.users` (if it exists) and recreates it using the latest ORM
+The script drops `user_profile.users` (if it exists) and recreates it using the latest ORM
 definition so that breaking schema changes can be rolled out quickly.
 """
 

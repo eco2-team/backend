@@ -12,6 +12,7 @@ from domains.my.database.base import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = {"schema": "user_profile"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     auth_user_id: Mapped[uuid.UUID] = mapped_column(
