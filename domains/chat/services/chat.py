@@ -44,8 +44,6 @@ class ChatService:
         session_id = payload.session_id or str(uuid4())
         stored_history = await self.session_store.fetch_messages(user_id, session_id)
         history: List[ChatMessage] = list(stored_history)
-        if payload.history:
-            history.extend(payload.history)
         if len(history) > self.session_store.max_history:
             history = history[-self.session_store.max_history :]
         image_urls = [str(url) for url in (payload.image_urls or [])]
@@ -73,11 +71,11 @@ class ChatService:
                         ChatMessage(role="assistant", content=assistant_message),
                     ],
                 )
-                return ChatMessageResponse(user_answer=message_text)
+                return ChatMessageResponse(session_id=session_id, user_answer=message_text)
 
         if not self.client:
             fallback = self._fallback_answer(payload.message)
-            response = ChatMessageResponse(user_answer=fallback)
+            response = ChatMessageResponse(session_id=session_id, user_answer=fallback)
             await self.session_store.append_messages(
                 user_id,
                 session_id,
@@ -102,7 +100,7 @@ class ChatService:
             logger.exception("OpenAI responses.create failed; using fallback answer.")
             content = self._fallback_answer(payload.message)
 
-        response_payload = ChatMessageResponse(user_answer=content)
+        response_payload = ChatMessageResponse(session_id=session_id, user_answer=content)
         await self.session_store.append_messages(
             user_id,
             session_id,

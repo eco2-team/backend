@@ -14,9 +14,9 @@ class ChatMessageRequest(BaseModel):
     session_id: Optional[str] = None
     message: str
     temperature: float = 0.2
-    history: Optional[List[ChatMessage]] = None
     image_urls: Optional[List[HttpUrl]] = None
 
 
 class ChatMessageResponse(BaseModel):
+    session_id: str
     user_answer: str
