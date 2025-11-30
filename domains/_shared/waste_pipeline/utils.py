@@ -20,6 +20,7 @@ PROMPTS_DIR = DATA_DIR / "prompts"
 SOURCE_DIR = DATA_DIR / "source"
 RESULTS_DIR = DATA_DIR / "results"
 VISION_PROMPT_PATH = PROMPTS_DIR / "vision_classification_prompt.txt"
+TEXT_CLASSIFICATION_PROMPT_PATH = PROMPTS_DIR / "text_classification_prompt.txt"
 ANSWER_GENERATION_PROMPT_PATH = PROMPTS_DIR / "answer_generation_prompt.txt"
 
 _openai_client: OpenAI | None = None
