@@ -41,8 +41,8 @@ class MyService:
         profile_image_url: str | None,
     ) -> None:
         user = await self._get_user_by_auth_id(auth_user_id)
-        payload = UserUpdate(profile_image_url=profile_image_url)
-        await self._apply_update(user, payload)
+        await self.repo.update_user(user, {"profile_image_url": profile_image_url})
+        await self.session.commit()
 
     async def delete_current_user(self, auth_user_id: UUID) -> None:
         user = await self._get_user_by_auth_id(auth_user_id)

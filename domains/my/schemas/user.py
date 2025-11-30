@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict
 
 
 class ORMModel(BaseModel):
@@ -22,8 +22,6 @@ class UserProfile(ORMModel):
 class UserUpdate(BaseModel):
     nickname: Optional[str] = None
     phone_number: Optional[str] = None
-    email: Optional[EmailStr] = None
-    profile_image_url: Optional[str] = None
 
 
 class ProfileImageUpdateRequest(BaseModel):
