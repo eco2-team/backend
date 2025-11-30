@@ -5,7 +5,7 @@
 <img width="3840" height="2160" alt="515829337-6a4f523a-fa37-49de-b8e1-0a5befe26605" src="https://github.com/user-attachments/assets/e6c7d948-aa06-4bbb-b2fc-237aa7f01223" />
 
 
-- Self-managed Kubernetes, ArgoCD/Helm-charts/Kustomize 기반 GitOps Sync-wave로 운영하는 14-Node 마이크로서비스 플랫폼입니다.
+- Self-managed Kubernetes, ArgoCD/Helm-charts/Kustomize 기반 GitOps Sync-wave로 운영하는 14-Nodes 마이크로서비스 플랫폼입니다.
 - AI 폐기물 분류·근처 제로웨이스트샵 안내·챗봇 등 도메인 API와 데이터 계층, GitOps 파이프라인을 모노레포로 관리합니다.
 
 ---
@@ -36,12 +36,12 @@ Tier 0 Monitoring  : Prometheus, Grafana, Alerter Manager, ArgoCD
 | 서비스 | 설명 | 이미지/태그 |
 |--------|------|-------------|
 | auth | JWT 인증/인가 | `docker.io/mng990/eco2:auth-{env}-latest` |
-| my | 사용자 정보·포인트 | `docker.io/mng990/eco2:my-{env}-latest` |
-| scan | AI 폐기물 분류 | `docker.io/mng990/eco2:scan-{env}-latest` |
-| character | 캐릭터 분석 | `docker.io/mng990/eco2:character-{env}-latest` |
+| my | 사용자 정보 | `docker.io/mng990/eco2:my-{env}-latest` |
+| scan | Lite RAG + GPT 5.1 Vision 폐기물 분류 | `docker.io/mng990/eco2:scan-{env}-latest` |
+| chat | Lite RAG + GPT 5.1 챗봇 | `docker.io/mng990/eco2:chat-{env}-latest` |
+| character | 캐릭터 제공 | `docker.io/mng990/eco2:character-{env}-latest` |
 | location | 지도/수거함 검색 | `docker.io/mng990/eco2:location-{env}-latest` |
-| info | 재활용 정보/FAQ | `docker.io/mng990/eco2:info-{env}-latest` |
-| chat | GPT-4o-mini 챗봇 | `docker.io/mng990/eco2:chat-{env}-latest` |
+| images | 이미지 업로드 | `docker.io/mng990/eco2:image-{env}-latest` |
 
 각 도메인은 공통 FastAPI 템플릿·Dockerfile·테스트를 공유하고, Kustomize overlay에서 이미지 태그와 ConfigMap/Secret만 분기합니다.
 
