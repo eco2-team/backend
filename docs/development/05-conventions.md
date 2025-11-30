@@ -502,8 +502,7 @@ from app.domains.users.schemas import UserCreateRequest
 def create_user(
     email: str,
     password: str,
-    nickname: str,
-    phone_number: Optional[str] = None
+    nickname: str
 ) -> User:
     pass
 
@@ -521,7 +520,6 @@ class UserCreateRequest(BaseModel):
     password: str = Field(..., min_length=8, description="비밀번호")
     nickname: str = Field(..., min_length=2, max_length=20, description="닉네임")
     
-    phone_number: Optional[str] = Field(None, description="전화번호")
     profile_image_url: Optional[str] = Field(None, description="프로필 이미지 URL")
 ```
 

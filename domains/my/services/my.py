@@ -86,11 +86,9 @@ class MyService:
         username = self._resolve_username(user, account)
         nickname = self._resolve_nickname(user, account, username)
         provider = account.provider if account else (preferred_provider or "unknown")
-        phone_number = getattr(user, "phone_number", None)
         return UserProfile(
             username=username,
             nickname=nickname,
-            phone_number=phone_number,
             provider=provider,
             last_login_at=account.last_login_at if account else None,
         )
