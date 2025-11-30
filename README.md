@@ -1,6 +1,6 @@
 # Eco² Backend
 
-> **Version**: v0.8.0 | [Changelog](CHANGELOG.md)
+> **Version**: v0.9.0 | [Changelog](CHANGELOG.md)
 
 <img width="3840" height="2160" alt="515829337-6a4f523a-fa37-49de-b8e1-0a5befe26605" src="https://github.com/user-attachments/assets/e6c7d948-aa06-4bbb-b2fc-237aa7f01223" />
 
