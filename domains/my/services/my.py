@@ -73,6 +73,11 @@ class MyService:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="No changes provided",
             )
+        phone_value = update_data.get("phone_number")
+        if phone_value is not None:
+            normalized_phone = self._normalize_phone_number(phone_value)
+            update_data["phone_number"] = normalized_phone
+
         updated = await self.repo.update_user(user, update_data)
         if "phone_number" in update_data:
             await self.repo.update_auth_user_phone(
@@ -165,3 +170,19 @@ class MyService:
             return f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
 
         return value
+
+    @staticmethod
+    def _normalize_phone_number(value: str) -> str:
+        digits = re.sub(r"\D+", "", value or "")
+        if digits.startswith("82") and len(digits) >= 11:
+            digits = "0" + digits[2:]
+
+        if len(digits) == 11 and digits.startswith("010"):
+            return f"{digits[:3]}-{digits[3:7]}-{digits[7:]}"
+        if len(digits) == 10 and digits.startswith("01"):
+            return f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
+
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid phone number format",
+        )
