@@ -11,7 +11,7 @@ class Settings(BaseSettings):
         description="SQLAlchemy URL used for the My service database.",
     )
     schema_reset_enabled: bool = Field(
-        True,
+        False,
         validation_alias=AliasChoices("MY_SCHEMA_RESET_ENABLED"),
         description="Allow destructive reset jobs to drop/recreate tables.",
     )
