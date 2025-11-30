@@ -7,6 +7,32 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 
 ---
 
+## [0.9.0] - 2025-11-30
+
+### Added
+- **도메인 API 1차 완성**
+  - Scan API: `/api/v1/scan/classify`, `/task/{id}`, `/categories` 구현으로 Vision→RAG→Answer 파이프라인을 서비스화
+  - Character API: `/api/v1/character/catalog` 및 내부 보상/온보딩 엔드포인트 정비
+  - My 서비스에서 Character 소유권을 직접 조회할 수 있도록 Repository 계층 연동
+- **이미지/AI 워크플로우 통합**
+  - `_shared/waste_pipeline` 모듈을 각 도메인에서 공통으로 사용
+  - 서비스 간 presigned URL, CDN 정규화 전략 정립
+
+### Changed
+- **Auth 세션 정책 조정**
+  - Access Token 3일, Refresh Token 6일로 연장해 사용자 경험 개선
+  - App-of-Apps 기반 GitOps로 dev/prod에 자동 반영
+- **Document/Release 프로세스 개선**
+  - develop 전체를 main에 동기화하여 API 개발 결과물을 릴리스
+  - README는 main 버전을 유지해 배포 안내 일관성 확보
+
+### Security
+- **서비스 간 토큰 검증**
+  - Character 내부 엔드포인트(`/api/v1/internal/characters/**`)에 `Authorization: Bearer <CHARACTER_SERVICE_TOKEN_SECRET>` 검증 추가
+  - Scan ↔ Character 간 공유 토큰을 SSM Parameter + ExternalSecret으로 관리
+
+---
+
 ## [0.7.5] - 2025-11-19
 
 ### Fixed
