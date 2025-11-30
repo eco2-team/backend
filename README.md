@@ -244,8 +244,11 @@ backend/
 ## API Docs
 - [Auth](https://api.dev.growbin.app/api/v1/auth/docs)
 - [Locations](https://api.dev.growbin.app/api/v1/locations/docs)
-- [Chat](https://api.dev.growbin.app/api/v1/chat/docs#/)
+- [Scan](https://api.dev.growbin.app/api/v1/scan/docs)
+- [Chat](https://api.dev.growbin.app/api/v1/chat/docs)
 - [Images](https://api.dev.growbin.app/api/v1/images/docs)
+- [My](https://api.dev.growbin.app/api/v1/user/docs)
+- [Character](https://api.dev.growbin.app/api/v1/character/docs#/)
 
 ---
 
@@ -266,4 +269,4 @@ backend/
 - ✅ GitOps Sync-Wave 재정렬 (00~70) + upstream Helm/CRD 분리
 - ✅ Docker Hub 단일 이미지 파이프라인 + External Secrets 운영 안정화
 - ⚠️ RabbitMQ Operator/CR 장애로 Pending, MVP API 개발 이후 재도입 예정
-- 🚧 API 개발 중
+- ✅ API 개발 완료, 연동 테스트 진행중
