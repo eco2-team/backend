@@ -2,7 +2,7 @@ from typing import Annotated, Optional
 import logging
 from urllib.parse import urlparse, urlunparse
 
-from fastapi import Cookie, Depends, Request, Response
+from fastapi import Cookie, Depends, Request, Response, status
 from fastapi.responses import RedirectResponse
 
 from domains.auth.api.v1.routers import (
@@ -14,8 +14,6 @@ from domains.auth.api.v1.routers import (
 from domains.auth.core.config import get_settings
 from domains.auth.schemas.auth import (
     AuthorizationSuccessResponse,
-    LoginData,
-    LoginSuccessResponse,
     LogoutData,
     LogoutSuccessResponse,
     OAuthAuthorizeParams,
@@ -274,16 +272,17 @@ async def naver_callback(
 
 @auth_router.post(
     "/refresh",
-    response_model=LoginSuccessResponse,
     summary="Rotate session cookies",
+    status_code=status.HTTP_201_CREATED,
 )
 async def refresh_session(
     response: Response,
     service: Annotated[AuthService, Depends()],
     refresh_token: Annotated[Optional[str], Cookie(alias=REFRESH_COOKIE_NAME)] = None,
 ):
-    user = await service.refresh_session(refresh_token, response=response)
-    return LoginSuccessResponse(data=LoginData(user=user))
+    await service.refresh_session(refresh_token, response=response)
+    response.status_code = status.HTTP_201_CREATED
+    return None
 
 
 @auth_router.post(
