@@ -35,15 +35,6 @@ class MyService:
         accounts = await self.social_repo.list_by_user_id(auth_user_id)
         return self._to_profile(updated, accounts, preferred_provider=provider)
 
-    async def update_profile_image(
-        self,
-        auth_user_id: UUID,
-        profile_image_url: str | None,
-    ) -> None:
-        user = await self._get_user_by_auth_id(auth_user_id)
-        await self.repo.update_user(user, {"profile_image_url": profile_image_url})
-        await self.session.commit()
-
     async def delete_current_user(self, auth_user_id: UUID) -> None:
         user = await self._get_user_by_auth_id(auth_user_id)
         await self.repo.delete_user(user.id)
