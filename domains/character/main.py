@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from domains.character.api.v1.endpoints import api_router, health_router
+from domains.character.api.v1.routers import api_router, health_router
 
 
 def create_app() -> FastAPI:
