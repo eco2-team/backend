@@ -18,6 +18,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[
             "https://frontend1.dev.growbin.app",
+            "https://frontend2.dev.growbin.app",
             "https://frontend.dev.growbin.app",
             "http://localhost:5173",
             "https://localhost:5173",
