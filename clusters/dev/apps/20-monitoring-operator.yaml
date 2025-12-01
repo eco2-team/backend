@@ -76,6 +76,112 @@ spec:
             serviceMonitorSelectorNilUsesHelmValues: false
             additionalScrapeConfigsSecret:
               enabled: false
+          additionalServiceMonitors:
+          - name: auth-api
+            labels:
+              monitoring.sesacthon.dev/target: domain-api
+              monitoring.sesacthon.dev/domain: auth
+            namespaceSelector:
+              matchNames:
+              - auth
+            selector:
+              matchLabels:
+                app: auth-api
+            endpoints:
+            - port: http
+              path: /metrics/prometheus
+              interval: 30s
+              scrapeTimeout: 5s
+          - name: chat-api
+            labels:
+              monitoring.sesacthon.dev/target: domain-api
+              monitoring.sesacthon.dev/domain: chat
+            namespaceSelector:
+              matchNames:
+              - chat
+            selector:
+              matchLabels:
+                app: chat-api
+            endpoints:
+            - port: http
+              path: /metrics/prometheus
+              interval: 30s
+              scrapeTimeout: 5s
+          - name: character-api
+            labels:
+              monitoring.sesacthon.dev/target: domain-api
+              monitoring.sesacthon.dev/domain: character
+            namespaceSelector:
+              matchNames:
+              - character
+            selector:
+              matchLabels:
+                app: character-api
+            endpoints:
+            - port: http
+              path: /metrics/prometheus
+              interval: 30s
+              scrapeTimeout: 5s
+          - name: image-api
+            labels:
+              monitoring.sesacthon.dev/target: domain-api
+              monitoring.sesacthon.dev/domain: image
+            namespaceSelector:
+              matchNames:
+              - image
+            selector:
+              matchLabels:
+                app: image-api
+            endpoints:
+            - port: http
+              path: /metrics/prometheus
+              interval: 30s
+              scrapeTimeout: 5s
+          - name: location-api
+            labels:
+              monitoring.sesacthon.dev/target: domain-api
+              monitoring.sesacthon.dev/domain: location
+            namespaceSelector:
+              matchNames:
+              - location
+            selector:
+              matchLabels:
+                app: location-api
+            endpoints:
+            - port: http
+              path: /metrics/prometheus
+              interval: 30s
+              scrapeTimeout: 5s
+          - name: my-api
+            labels:
+              monitoring.sesacthon.dev/target: domain-api
+              monitoring.sesacthon.dev/domain: my
+            namespaceSelector:
+              matchNames:
+              - my
+            selector:
+              matchLabels:
+                app: my-api
+            endpoints:
+            - port: http
+              path: /metrics/prometheus
+              interval: 30s
+              scrapeTimeout: 5s
+          - name: scan-api
+            labels:
+              monitoring.sesacthon.dev/target: domain-api
+              monitoring.sesacthon.dev/domain: scan
+            namespaceSelector:
+              matchNames:
+              - scan
+            selector:
+              matchLabels:
+                app: scan-api
+            endpoints:
+            - port: http
+              path: /metrics/prometheus
+              interval: 30s
+              scrapeTimeout: 5s
   destination:
     server: https://kubernetes.default.svc
     namespace: prometheus
