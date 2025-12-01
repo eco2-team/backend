@@ -117,7 +117,7 @@ class ChatService:
                 "role": role,
                 "content": [
                     {
-                        "type": "text",
+                        "type": "input_text",
                         "text": text,
                     }
                 ],
