@@ -94,7 +94,7 @@ spec:
                       },
                       "targets": [
                         {
-                          "expr": "sum(rate(domain_http_requests_total{status_class=\\\"4xx\\\"}[5m])) by (domain)",
+                          "expr": "sum(rate(http_requests_total{status_class=\\\"4xx\\\"}[5m])) by (domain)",
                           "legendFormat": "{{domain}}"
                         }
                       ],
@@ -132,7 +132,7 @@ spec:
                       },
                       "targets": [
                         {
-                          "expr": "sum(rate(domain_http_requests_total{status_class=\\\"5xx\\\"}[5m])) by (domain)",
+                          "expr": "sum(rate(http_requests_total{status_class=\\\"5xx\\\"}[5m])) by (domain)",
                           "legendFormat": "{{domain}}"
                         }
                       ],
@@ -170,7 +170,7 @@ spec:
                       },
                       "targets": [
                         {
-                          "expr": "100 * sum(rate(domain_http_requests_total{status_class=\\\"5xx\\\"}[5m])) by (domain) / clamp_min(sum(rate(domain_http_requests_total[5m])) by (domain), 0.001)",
+                          "expr": "100 * sum(rate(http_requests_total{status_class=\\\"5xx\\\"}[5m])) by (domain) / clamp_min(sum(rate(http_requests_total[5m])) by (domain), 0.001)",
                           "legendFormat": "{{domain}}"
                         }
                       ],

@@ -20,6 +20,6 @@ def test_metrics_endpoint_emits_domain_labels():
     assert metrics_response.status_code == 200
     payload = metrics_response.content
 
-    assert b"domain_http_requests_total" in payload
+    assert b"http_requests_total" in payload
     assert b'domain="demo"' in payload
     assert b'status_class="2xx"' in payload

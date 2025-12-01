@@ -30,14 +30,14 @@ _DEFAULT_BUCKETS = (
 REGISTRY = CollectorRegistry(auto_describe=True)
 
 REQUEST_COUNTER = Counter(
-    "domain_http_requests_total",
+    "http_requests_total",
     "Domain API HTTP request count",
     ("domain", "service", "method", "path", "status_class", "status_code"),
     registry=REGISTRY,
 )
 
 REQUEST_LATENCY = Histogram(
-    "domain_http_request_duration_seconds",
+    "http_request_duration_seconds",
     "Domain API HTTP request latency in seconds",
     ("domain", "service", "method", "path"),
     registry=REGISTRY,
