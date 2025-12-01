@@ -1,0 +1,12 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowCloudFrontOAI",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity E28JR6PPGH2VAJ" },
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::dev-sesacthon-dev-images/*"
+    }
+  ]
+}
