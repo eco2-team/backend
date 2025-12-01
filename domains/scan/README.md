@@ -26,6 +26,7 @@ poetry run uvicorn domains.scan.main:app --reload --port 8000
 - 2025-12-01: Scan 패키징 재배포를 위해 README를 추가 갱신했습니다.
 - 2025-12-01: Vision 이미지 패키징 재구성을 위해 한 번 더 업데이트했습니다.
 - 2025-12-02: waste_pipeline 업데이트 복구본을 반영하기 위해 Scan 도커 이미지를 재빌드합니다.
+- 2025-12-02: waste_pipeline text/vision 조정분 반영을 위해 Scan 도커 이미지를 다시 패키징합니다.
 
 ## Remote ArgoCD Sync
 

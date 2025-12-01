@@ -8,6 +8,7 @@ CI 트리거용으로 본 문서를 재차 업데이트했습니다.
 ## CI 트리거 메모
 - 2025-12-01: 네 번째 트리거 - Vision 이미지 패키징
 - 2025-12-02: waste_pipeline 업데이트 복구 사항 반영으로 Chat 도커 이미지를 재빌드했습니다.
+- 2025-12-02: waste_pipeline text/vision 재정비 이후 Chat 이미지 재패키징
 
 ## Remote ArgoCD Sync
 
