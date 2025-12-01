@@ -113,11 +113,12 @@ class ChatService:
 
     def _build_messages(self, history: List[ChatMessage], current: str) -> list[dict]:
         def _to_message(role: str, text: str) -> dict:
+            content_type = "output_text" if role == "assistant" else "input_text"
             return {
                 "role": role,
                 "content": [
                     {
-                        "type": "input_text",
+                        "type": content_type,
                         "text": text,
                     }
                 ],

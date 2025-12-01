@@ -16,6 +16,6 @@ def test_build_messages_uses_text_content_for_all_roles():
     assert messages[0]["role"] == "system"
     assert messages[1]["content"][0]["type"] == "input_text"
     assert messages[2]["role"] == "assistant"
-    assert messages[2]["content"][0]["type"] == "input_text"
+    assert messages[2]["content"][0]["type"] == "output_text"
     assert messages[-1]["role"] == "user"
     assert messages[-1]["content"][0]["text"] == "두 번째 질문"
