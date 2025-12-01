@@ -16,3 +16,7 @@ done
 ```
 
 해당 스크립트는 AWS CLI로 `k8s-$SSH_NODE` 인스턴스의 Public IP를 조회하고, SSH 접속해 `kubectl` 동기화를 수행합니다. 실행 PC에는 적절한 AWS 자격 증명과 SSH 키가 준비되어 있어야 합니다.
+
+## Observability
+
+- Prometheus 스크레이프 엔드포인트: `/metrics/status` (HTTP 상태/지연 지표)

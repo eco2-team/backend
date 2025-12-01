@@ -13,3 +13,7 @@ done
 ```
 
 `scripts/sync-argocd-all.sh`는 로컬에서 AWS CLI로 `k8s-$SSH_NODE` 인스턴스의 Public IP를 조회한 뒤 해당 노드로 SSH 접속해 `kubectl` 동기화 명령을 실행합니다. 따라서 실행 환경에는 해당 노드에 접근 가능한 SSH 키와 AWS 자격 증명이 준비되어 있어야 합니다.
+
+## Observability
+
+- Prometheus 스크레이프 엔드포인트: `/metrics/status` (HTTP 상태/지연 지표)

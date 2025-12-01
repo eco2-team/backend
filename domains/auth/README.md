@@ -24,3 +24,7 @@ done
 
 - `develop` 브랜치에 auth 관련 커밋을 올리면 GitHub Actions가 `auth-api-dev-<sha>` 이미지를 빌드하고 `workloads/domains/auth/dev/kustomization.yaml`의 `newTag`를 자동으로 갱신합니다.
 - 매니페스트 태그 업데이트가 필요할 때는 이 문서처럼 가벼운 변경이라도 커밋하면 파이프라인이 다시 실행됩니다.
+
+## Observability
+
+- Prometheus 스크레이프 엔드포인트: `/metrics/status` (HTTP 상태/지연 지표)
