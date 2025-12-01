@@ -53,6 +53,8 @@ resource "aws_s3_bucket_cors_configuration" "images" {
     allowed_origins = [
       "https://${var.domain_name}",
       "https://www.${var.domain_name}",
+      "https://frontend.dev.${var.domain_name}",
+      "https://frontend1.dev.${var.domain_name}",
       "http://localhost:3000", # 개발용
       "http://localhost:5173"  # Vite 개발 서버
     ]

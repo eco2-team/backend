@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from domains._shared.observability import register_http_metrics
 from domains.location.api.v1.routers import api_router, health_router
 
 
@@ -30,6 +31,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(api_router)
+    register_http_metrics(app, domain="location", service="location-api")
     return app
 
 

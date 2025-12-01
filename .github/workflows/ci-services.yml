@@ -130,6 +130,9 @@ jobs:
           alias_map = {
               "info": "image",
           }
+          shared_triggers = {
+              "domains/_shared/waste_pipeline": ["chat", "scan"],
+          }
 
           def normalize(service: str) -> str:
               return alias_map.get(service, service)
@@ -165,6 +168,13 @@ jobs:
 
           if not services and any_changed:
               for path in files:
+                  # shared 경로에 대한 트리거
+                  for prefix, svc_list in shared_triggers.items():
+                      if path.startswith(prefix):
+                          for svc in svc_list:
+                              svc = normalize(svc)
+                              if svc in all_services and svc not in services:
+                                  services.append(svc)
                   parts = path.split("/")
                   # domains/<service>/ 경로 감지
                   if len(parts) >= 2 and parts[0] == "domains":

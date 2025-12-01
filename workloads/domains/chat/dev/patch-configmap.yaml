@@ -6,4 +6,3 @@ metadata:
 data:
   ENVIRONMENT: dev
   DEBUG: 'true'
-  CHAT_REDIS_URL: redis://dev-redis-node-0.dev-redis-headless.redis.svc.cluster.local:6379/7

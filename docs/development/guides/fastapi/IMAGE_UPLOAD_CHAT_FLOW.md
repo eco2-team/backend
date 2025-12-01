@@ -18,7 +18,7 @@ sequenceDiagram
     participant GPT as Chat API
 
     FE->>IMG: POST /api/v1/images/chat (filename, content_type,<br/>uploader_id, metadata)
-    IMG-->>FE: upload_url + cdn_url (pending 세션 저장)
+    IMG-->>FE: upload_url + cdn_url (pending 메타데이터 저장)
     FE->>S3: PUT {upload_url} (Content-Type 포함)
     S3-->>FE: 200 OK + ETag
     FE->>IMG: POST /api/v1/images/chat/callback<br/>(key, etag, content_length)
@@ -47,7 +47,7 @@ sequenceDiagram
 | Presigned 요청 (`POST /images/{channel}`) | `filename` | `"receipt.png"` | ✅ | S3 object key 결정에 사용. `"."` 포함 확장자 필수. |
 |  | `content_type` | `"image/png"` | ✅ | 허용 MIME: `image/png`, `image/jpeg`, `image/webp`. 기타는 `application/octet-stream`. |
 |  | `uploader_id` | `"0b6e...user-id"` | ⭕️ | 보내면 로그인 사용자와 동일해야 하며, 생략 시 서버가 쿠키 사용자 ID 사용. |
-|  | `metadata` | `{ "chat_session_id": "...", ... }` | ⭕️ | 채널 별 자유로운 JSON. 아래 표 참고. |
+|  | `metadata` | `{ "message_id": "...", "source": "web" }` | ⭕️ | 채널 별 자유로운 JSON. 아래 표 참고. |
 |  | `metadata.channel` | 자동 | - | 서버가 내부적으로 저장. 입력하지 않아도 됨. |
 | Callback (`POST /images/{channel}/callback`) | `key` | `"chat/2025/11/27/...png"` | ✅ | presigned 응답에서 받은 `key` 그대로 전달. |
 |  | `etag` | `"\"6d0c-...\""` | ⭕️ | 브라우저가 ETag를 못 읽으면 빈 문자열로 보내도 허용. |
@@ -64,7 +64,7 @@ sequenceDiagram
 
 | Channel | 주 소비자 | 주요 사용처 | 권장 메타데이터 | 비고 |
 | --- | --- | --- | --- | --- |
-| `chat` | Chat API (`POST /api/v1/chat/messages`) | 챗 UI에서 대화 중 첨부하는 이미지 | `chat_session_id`, `message_id`, `source`, `uploaded_at`, `camera_orientation` | 콜백 성공 시 `cdn_url`을 그대로 Chat API payload에 넣으면 됨. |
+| `chat` | Chat API (`POST /api/v1/chat/messages`) | 챗 UI에서 대화 중 첨부하는 이미지 | `message_id`, `source`, `uploaded_at`, `camera_orientation` | 콜백 성공 시 `cdn_url`을 그대로 Chat API payload에 넣으면 됨. |
 | `scan` | Scan 도메인 (`POST /api/v1/scan/.../callback`) | OCR·분류용 촬영 이미지 (예: 영수증, 바코드) | `scan_session_id`, `label`, `captured_at`, `device_type`, `geo`(선택) | 키(prefix)는 `scan/{yyyy}/{mm}/{dd}/...` 형식. `metadata.label`을 활용하면 백엔드에서 분류 힌트를 받을 수 있음. |
 | `my` *(예비)* | My 도메인 (향후 `POST /api/v1/user/images`) | 마이페이지 개인 보관용 | `folder`, `note`, `uploaded_at`, `visibility` | 아직 BE 컨슈머가 활성화되지 않았으므로 테스트 용도로만 사용. 플로우 자체는 chat/scan과 동일. |
 
@@ -83,8 +83,7 @@ type UploadInitResponse = {
   required_headers: Record<string, string>;
 };
 
-export async function uploadChatImage(file: File, sessionMeta: {
-  chatSessionId: string;
+export async function uploadChatImage(file: File, context: {
   messageId: string;
   userId: string;
 }) {
@@ -95,10 +94,9 @@ export async function uploadChatImage(file: File, sessionMeta: {
       filename: file.name,
       content_type: file.type || "application/octet-stream",
       // 로그인 사용자와 동일한 UUID를 넣거나, 생략하면 서버가 쿠키 사용자 ID를 사용합니다.
-      uploader_id: sessionMeta.userId,
+      uploader_id: context.userId,
       metadata: {
-        chat_session_id: sessionMeta.chatSessionId,
-        message_id: sessionMeta.messageId,
+        message_id: context.messageId,
         source: "web",
       },
     }),
@@ -136,7 +134,7 @@ export async function uploadChatImage(file: File, sessionMeta: {
 ### 4. 메타데이터 작성 가이드
 
 - 구조는 자유로운 JSON object. 다만 Key는 snake_case, Value는 문자열/숫자/불리언 같은 단순 타입 사용 권장.
-- 권장 필드: `chat_session_id`, `message_id`, `source`, `uploaded_at`, `camera_orientation` 등.
+- 권장 필드: `message_id`, `source`, `uploaded_at`, `camera_orientation` 등.
 - PII(주민번호, 전화번호 등)나 민감정보는 금지. 필요 시 내부 ID만 넣어두고 실제 개인정보는 BE에서 조회.
 - 동일한 `message_id`를 GPT 요청에도 사용하면 이미지-텍스트 매칭이 쉬워집니다.
 
@@ -163,7 +161,6 @@ export async function uploadChatImage(file: File, sessionMeta: {
       "type": "image",
       "url": "https://images.dev.growbin.app/chat/3d0c0d7a....png",
       "metadata": {
-        "chat_session_id": "sess-2025-001",
         "message_id": "msg-7788"
       }
     }

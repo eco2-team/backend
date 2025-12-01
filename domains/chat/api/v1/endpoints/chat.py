@@ -18,6 +18,6 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 async def send_message(
     payload: ChatMessageRequest,
     service: ChatService = Depends(get_chat_service),
-    token: TokenPayload = Depends(access_token_dependency),
+    _token: TokenPayload = Depends(access_token_dependency),
 ):
-    return await service.send_message(payload, user_id=str(token.user_id))
+    return await service.send_message(payload)

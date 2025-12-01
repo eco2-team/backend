@@ -23,7 +23,7 @@ async def centers(
         None,
         ge=1,
         le=20,
-        description="Kakao map zoom level (1=world, 14=street). Used when radius omitted.",
+        description="Kakao map zoom level (1=street, 14=world). Used when radius omitted.",
     ),
     store_category: str = Query(
         "all",

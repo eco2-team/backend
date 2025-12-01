@@ -8,9 +8,9 @@ python-multipart==0.0.6
 sqlalchemy==2.0.25
 asyncpg==0.29.0
 alembic==1.13.1
-redis==5.0.1
 httpx==0.26.0
 email-validator==2.1.0
 openai>=1.51.0
 python-dotenv>=1.0.1
 PyYAML>=6.0.2
+prometheus-client==0.20.0

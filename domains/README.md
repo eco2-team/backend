@@ -43,7 +43,7 @@ domain/
 | `image` | `image` | 이미지 업로드·Presigned URL 발급 | `docker.io/mng990/eco2:image-{env}-latest` |
 | `chat` | `chat` | GPT-4o-mini 챗봇, 피드백 수집 | `docker.io/mng990/eco2:chat-{env}-latest` |
 
-모든 서비스는 `/api/v1/health` 와 `/api/v1/metrics` 를 노출하여 Prometheus(ServiceMonitor)에서 namespace 단위로 상태를 수집할 수 있도록 구성했다.
+모든 서비스는 `/api/v1/health` 와 `/api/v1/metrics`(JSON 스냅샷) 를 제공하며, Prometheus 수집을 위해 루트 경로 `/metrics/status` 를 추가로 노출한다.
 
 ## 3. 개발 규칙
 

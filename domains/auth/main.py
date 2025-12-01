@@ -3,6 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
+from domains._shared.observability import register_http_metrics
 from domains.auth.api.v1.routers import api_router, health_probe_router
 from domains.auth.core.exceptions import (
     general_exception_handler,
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(health_probe_router)
     # API 엔드포인트는 /api/v1 prefix 사용
     app.include_router(api_router)
+    register_http_metrics(app, domain="auth", service="auth-api")
     return app
 
 

@@ -86,7 +86,7 @@ Ingress  : Route53 + CloudFront + ALB → SG (AWS Nodes) -> Calico NetworkPolicy
 ## GitOps Architecture
 ![9093CE45-C239-4549-B1FA-10D2800BAD58_1_105_c](https://github.com/user-attachments/assets/9942e5f0-19d8-4777-9875-79623c53f30f)
 
-Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, 모든 인프라·데이터·애플리케이션이 Git 선언(Argo ApplicationSet) → Sync Wave → PostSync Hook 순으로 자동화되어 있습니다. 
+Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, 모든 인프라·데이터·애플리케이션이 Git 선언(Argo ApplicationSet) → Sync Wave → PostSync Hook 순으로 자동화되어 있습니다.
 
 ### App-of-Apps + Sync Wave
 - 루트 앱이 여러 ApplicationSet을 생성하고, 각 AppSet 안의 실제 서비스/인프라가 argocd.argoproj.io/sync-wave 값으로 순서화된다.
@@ -96,7 +96,7 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 ### Sync Hook 활용
 - 일반 리소스는 Sync 단계에서 처리하고, DB 마이그레이션/점검은 PostSync Job으로 작성해 도메인 배포 직후 자동 실행합니다.
 - Hook 종류별 사용처: PreSync(사전 검증/ConfigMap), Sync(리소스 기본 적용), PostSync(DB 주입·헬스체크·슬랙 알림), SyncFail(롤백/에러 리포트).
-- 특히 도메인 API 배포 시 PostSync에서 스키마 주입/부트스트랩 잡을 실행해 “배포 → 마이그레이션” 순서를 보장합니다. 
+- 특히 도메인 API 배포 시 PostSync에서 스키마 주입/부트스트랩 잡을 실행해 “배포 → 마이그레이션” 순서를 보장합니다.
 
 ### Wave 설계 원칙
 - 인프라 레이어: CNI, NetworkPolicy, ALB Controller, ExternalDNS, Observability 등 공통 컴포넌트는 낮은 Wave에 배치합니다.
@@ -148,24 +148,24 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 - 이코에코(Eco²)에서 네임스페이스와 라벨은 컨트롤 포인트를 맡으며, 도메인/역할/책임/계층 추상화를 통해 개발 및 운영 복잡도를 낮춥니다.
 
 ### 상세 설명
-1. **app.kubernetes.io/part-of**  
-   - `ecoeco-backend`: 업무 도메인(API)와 그에 붙은 데이터/관측 리소스.  
+1. **app.kubernetes.io/part-of**
+   - `ecoeco-backend`: 업무 도메인(API)와 그에 붙은 데이터/관측 리소스.
    - `ecoeco-platform`: 플랫폼 자체를 관리하는 인프라/오퍼레이터 네임스페이스.
 
-2. **tier**  
-   - 백엔드 전용 네임스페이스는 대부분 `business-logic`.  
-   - 데이터 계층(`data`)과 관측(`observability`)도 같은 제품군(`ecoeco-backend`) 안에 포함.  
+2. **tier**
+   - 백엔드 전용 네임스페이스는 대부분 `business-logic`.
+   - 데이터 계층(`data`)과 관측(`observability`)도 같은 제품군(`ecoeco-backend`) 안에 포함.
    - 플랫폼 계층은 `infrastructure`.
 
-3. **role**  
-   - 비즈니스 로직 네임스페이스는 공통적으로 `role: api`.  
-   - 데이터 계층 내에서도 `database`, `cache`, `messaging`처럼 분리.  
-   - 관측 계층은 `metrics`, `dashboards`.  
+3. **role**
+   - 비즈니스 로직 네임스페이스는 공통적으로 `role: api`.
+   - 데이터 계층 내에서도 `database`, `cache`, `messaging`처럼 분리.
+   - 관측 계층은 `metrics`, `dashboards`.
    - 플랫폼 계층은 `platform-core` 혹은 `operators`.
 
-4. **domain / data-type**  
-   - `domain` 라벨로 실제 서비스(예: `auth`, `location`)를 식별.  
-   - 데이터 계층은 `data-type`으로 DB 종류까지 표기(`postgres`, `redis`).  
+4. **domain / data-type**
+   - `domain` 라벨로 실제 서비스(예: `auth`, `location`)를 식별.
+   - 데이터 계층은 `data-type`으로 DB 종류까지 표기(`postgres`, `redis`).
 
 ---
 
@@ -187,7 +187,7 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 ![17DBA027-2EDF-459E-9B4D-4A3A0AB10F0C](https://github.com/user-attachments/assets/26e8128b-8b7f-4b46-93d1-c85553f4c853)
 
 - 얖서 구축한 TG와 Ingress를 바탕으로 Client → ALB → Target Group → Ingress → 각 노드 내부 파드 순서로 전달됩니다.
-- Path by Route를 수행하며, RestFul한 트래픽 토폴로지를 제공합니다. 
+- Path by Route를 수행하며, RestFul한 트래픽 토폴로지를 제공합니다.
 
 ---
 

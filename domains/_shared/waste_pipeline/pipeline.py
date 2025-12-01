@@ -27,15 +27,12 @@ def process_waste_classification(
         print("STEP 1: 이미지 분석 및 분류")
         print("=" * 50)
 
-    result_text = analyze_images(user_input_text, image_url)
+    result_payload = analyze_images(user_input_text, image_url)
 
     if verbose:
-        print(f"\n분석 결과:\n{result_text}")
+        print(f"\n분석 결과:\n{result_payload}")
 
-    try:
-        classification_result = json.loads(result_text)
-    except json.JSONDecodeError as exc:
-        raise PipelineError(f"분류 결과 파싱에 실패했습니다: {exc}") from exc
+    classification_result = _to_dict(result_payload)
 
     if verbose:
         print("\n" + "=" * 50)
@@ -70,6 +67,17 @@ def process_waste_classification(
         "disposal_rules": disposal_rules,
         "final_answer": final_answer,
     }
+
+
+def _to_dict(payload: Any) -> dict[str, Any]:
+    if isinstance(payload, dict):
+        return payload
+    if isinstance(payload, str):
+        try:
+            return json.loads(payload)
+        except json.JSONDecodeError as exc:
+            raise PipelineError(f"분류 결과 파싱에 실패했습니다: {exc}") from exc
+    raise PipelineError("분류 결과 형식이 올바르지 않습니다.")
 
 
 def _run_cli() -> None:

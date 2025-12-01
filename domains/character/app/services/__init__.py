@@ -1,1 +1,0 @@
-"""character app/services package"""

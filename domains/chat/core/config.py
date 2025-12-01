@@ -6,22 +6,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "Chat API"
-    redis_url: str = Field(
-        "redis://localhost:6379/7",
-        validation_alias=AliasChoices("CHAT_REDIS_URL", "REDIS_URL"),
-    )
-    session_ttl_seconds: int = Field(
-        1800,
-        ge=60,
-        le=24 * 60 * 60,
-        validation_alias=AliasChoices("CHAT_SESSION_TTL_SECONDS"),
-    )
-    session_history_limit: int = Field(
-        6,
-        ge=1,
-        le=20,
-        validation_alias=AliasChoices("CHAT_SESSION_HISTORY_LIMIT"),
-    )
     auth_disabled: bool = Field(
         False,
         validation_alias=AliasChoices("CHAT_AUTH_DISABLED"),

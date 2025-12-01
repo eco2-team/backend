@@ -1,10 +1,19 @@
+import logging
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from domains._shared.observability import register_http_metrics
 from domains.scan.api.v1.endpoints import api_router, health_router
 
 
 def create_app() -> FastAPI:
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S%z",
+    )
     app = FastAPI(
         title="Scan API",
         description="Waste classification pipeline",
@@ -32,6 +41,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(api_router)
+    register_http_metrics(app, domain="scan", service="scan-api")
     return app
 
 

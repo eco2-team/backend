@@ -1,1 +1,0 @@
-"""info app/core package"""

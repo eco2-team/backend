@@ -1,1 +1,0 @@
-"""scan app/db package"""

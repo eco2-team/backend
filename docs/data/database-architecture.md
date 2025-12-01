@@ -269,7 +269,6 @@ growbin (단일 DB)
 ┌─────────────────────────────────────┐
 │ growbin_chat (LLM 채팅)             │
 ├─────────────────────────────────────┤
-│ - chat_sessions                     │
 │ - chat_messages                     │
 │ - llm_prompts                       │
 │ - feedback                          │

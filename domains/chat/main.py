@@ -1,14 +1,17 @@
 import logging
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from domains._shared.observability import register_http_metrics
 from domains.chat.api.v1.routers import api_router, health_router
 
 
 def create_app() -> FastAPI:
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
-        level=logging.INFO,
+        level=getattr(logging, log_level, logging.INFO),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
     )
@@ -38,6 +41,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(api_router, prefix="/api/v1")
+    register_http_metrics(app, domain="chat", service="chat-api")
     return app
 
 
