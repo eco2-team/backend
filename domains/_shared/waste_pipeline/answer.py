@@ -1,5 +1,5 @@
 import json
-from utils import load_prompt, get_openai_client, save_json_result, ANSWER_GENERATION_PROMPT_PATH
+from .utils import load_prompt, get_openai_client, save_json_result, ANSWER_GENERATION_PROMPT_PATH
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
