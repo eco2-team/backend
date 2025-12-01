@@ -1,13 +1,28 @@
+from domains._shared.schemas.waste import WasteClassificationResult
 from domains.chat.services.chat import ChatService
 
 
-def test_build_messages_returns_system_and_user_payload():
+def test_render_answer_prefers_user_answer():
     service = ChatService()
+    result = WasteClassificationResult(
+        classification_result={},
+        disposal_rules={},
+        final_answer={"user_answer": "직접 답변", "answer": "백업 답변"},
+    )
 
-    messages = service._build_messages("두 번째 질문")
+    text = service._render_answer(result, "질문")
 
-    assert len(messages) == 2
-    assert messages[0]["role"] == "system"
-    assert messages[1]["role"] == "user"
-    assert messages[1]["content"][0]["type"] == "input_text"
-    assert messages[1]["content"][0]["text"] == "두 번째 질문"
+    assert text == "직접 답변"
+
+
+def test_render_answer_falls_back_when_missing():
+    service = ChatService()
+    result = WasteClassificationResult(
+        classification_result={},
+        disposal_rules={},
+        final_answer={},
+    )
+
+    text = service._render_answer(result, "원문 질문")
+
+    assert "원문 질문" in text

@@ -6,7 +6,7 @@
 - **Swagger**: `http://localhost:8030/api/v1/chat/docs`
 - **세션 저장소**: 없음 (요청 단위 Stateless 처리)
 - **Auth 우회**: `CHAT_AUTH_DISABLED=true` (기본값 true)
-- **OpenAI**: `OPENAI_API_KEY` 를 설정하면 GPT 응답 사용, 없으면 기본 답변
+- **OpenAI**: `OPENAI_API_KEY` 가 필수 (분류/RAG/자연어 답변 전 단계에서 사용)
 
 ## 1. 사전 준비
 
@@ -21,7 +21,7 @@ pytest domains/chat/tests
 
 ```bash
 export CHAT_AUTH_DISABLED=true
-# (선택) export OPENAI_API_KEY=<key>  # 없으면 기본 답변 + 이미지 파이프라인만 사용
+export OPENAI_API_KEY=<key>  # Vision · Text 파이프라인 모두 GPT 호출
 ```
 
 ## 2. FastAPI 실행
@@ -42,10 +42,11 @@ curl -X POST http://localhost:8030/api/v1/chat/messages \
 curl -s http://localhost:8030/api/v1/chat/suggestions | jq
 ```
 
-## 4. 이미지 + Scan 파이프라인 연동
+## 4. 텍스트/이미지 파이프라인
 
-- `image_url` 필드를 포함해 호출하면 Scan 파이프라인을 내부적으로 실행합니다.
-- 이때 `OPENAI_API_KEY` 가 없어도 Scan 서비스에서 이미지를 처리할 수 있도록 별도로 띄워져 있어야 합니다.
+- 텍스트 요청: GPT-5.1 기반 텍스트 분류 → Lite RAG → 자연어 답변 생성 순으로 처리됩니다.
+- `image_url` 포함 시 Vision 분류부터 동일한 파이프라인을 실행합니다.
+- 모든 단계에서 `OPENAI_API_KEY` 가 필요하며, 실패 시에만 기본 답변으로 폴백합니다.
 
 ## 5. Auth 토글
 
@@ -56,6 +57,6 @@ curl -s http://localhost:8030/api/v1/chat/suggestions | jq
 
 | 증상 | 해결책 |
 | --- | --- |
-| 응답이 항상 동일 | `OPENAI_API_KEY` 가 없으면 fallback 답변만 반환합니다. |
+| 응답이 항상 동일 | OpenAI 키 누락 또는 파이프라인 오류 시 fallback 문구만 반환됩니다. |
 | 401 Unauthorized | Auth 우회 플래그를 true 로 돌리거나 실제 쿠키를 포함하세요. |
 
