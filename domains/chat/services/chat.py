@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -89,6 +90,13 @@ class ChatService:
             return response
 
         openai_input = self._build_messages(history, payload.message)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "OpenAI request payload (session=%s): %s",
+                session_id,
+                json.dumps(openai_input, ensure_ascii=False),
+            )
+
         try:
             response = await self.client.responses.create(
                 model=self.model,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 from time import perf_counter
@@ -62,10 +63,17 @@ class ScanService:
             user_id,
         )
         pipeline_started = perf_counter()
+        prompt_text = payload.user_input or DEFAULT_SCAN_PROMPT
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Scan prompt text (task_id=%s): %s",
+                task_id,
+                prompt_text,
+            )
         try:
             pipeline_payload = await asyncio.to_thread(
                 process_waste_classification,
-                payload.user_input or DEFAULT_SCAN_PROMPT,
+                prompt_text,
                 image_url,
                 save_result=False,
                 verbose=False,
@@ -94,6 +102,13 @@ class ScanService:
             task_id,
             elapsed_ms,
         )
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Scan pipeline raw payload (task_id=%s): %s",
+                task_id,
+                json.dumps(pipeline_payload, ensure_ascii=False),
+            )
 
         pipeline_result = WasteClassificationResult(**pipeline_payload)
         classification = pipeline_result.classification_result.get("classification", {})
