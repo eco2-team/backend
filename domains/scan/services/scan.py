@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
+from time import perf_counter
 from typing import Dict, List
 from uuid import UUID, uuid4
 
@@ -53,6 +54,14 @@ class ScanService:
             )
 
         task_id = str(uuid4())
+        started_at = datetime.now(timezone.utc)
+        logger.info(
+            "Scan pipeline started at %s (task_id=%s, user_id=%s)",
+            started_at.isoformat(),
+            task_id,
+            user_id,
+        )
+        pipeline_started = perf_counter()
         try:
             pipeline_payload = await asyncio.to_thread(
                 process_waste_classification,
@@ -62,12 +71,29 @@ class ScanService:
                 verbose=False,
             )
         except PipelineError as exc:
+            finished_at = datetime.now(timezone.utc)
+            elapsed_ms = (perf_counter() - pipeline_started) * 1000
+            logger.info(
+                "Scan pipeline finished at %s (task_id=%s, %.1f ms, success=False)",
+                finished_at.isoformat(),
+                task_id,
+                elapsed_ms,
+            )
             return ClassificationResponse(
                 task_id=task_id,
                 status="failed",
                 message="분류 파이프라인 처리에 실패했습니다.",
                 error=str(exc),
             )
+
+        finished_at = datetime.now(timezone.utc)
+        elapsed_ms = (perf_counter() - pipeline_started) * 1000
+        logger.info(
+            "Scan pipeline finished at %s (task_id=%s, %.1f ms, success=True)",
+            finished_at.isoformat(),
+            task_id,
+            elapsed_ms,
+        )
 
         pipeline_result = WasteClassificationResult(**pipeline_payload)
         classification = pipeline_result.classification_result.get("classification", {})

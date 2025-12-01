@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from datetime import datetime, timezone
 from typing import List
 from uuid import uuid4
 
@@ -144,11 +145,29 @@ class ChatService:
         user_input: str,
         image_url: str,
     ) -> WasteClassificationResult:
-        result = await asyncio.to_thread(
-            process_waste_classification,
-            user_input,
+        started_at = datetime.now(timezone.utc)
+        logger.info(
+            "Chat image pipeline started at %s (image_url=%s)",
+            started_at.isoformat(),
             image_url,
-            save_result=False,
-            verbose=False,
         )
-        return WasteClassificationResult(**result)
+        success = False
+        try:
+            result = await asyncio.to_thread(
+                process_waste_classification,
+                user_input,
+                image_url,
+                save_result=False,
+                verbose=False,
+            )
+            success = True
+            return WasteClassificationResult(**result)
+        finally:
+            finished_at = datetime.now(timezone.utc)
+            elapsed_ms = (finished_at - started_at).total_seconds() * 1000
+            logger.info(
+                "Chat image pipeline finished at %s (%.1f ms, success=%s)",
+                finished_at.isoformat(),
+                elapsed_ms,
+                success,
+            )

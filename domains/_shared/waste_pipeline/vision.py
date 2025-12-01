@@ -1,15 +1,23 @@
+import logging
+from datetime import datetime, timezone
+from time import perf_counter
+from typing import List, Optional
+
 import yaml
+from pydantic import BaseModel
+
 from .utils import (
-    load_yaml,
-    load_prompt,
-    get_openai_client,
-    save_json_result,
     ITEM_CLASS_PATH,
     SITUATION_TAG_PATH,
     VISION_PROMPT_PATH,
+    get_openai_client,
+    load_prompt,
+    load_yaml,
+    save_json_result,
 )
-from pydantic import BaseModel
-from typing import List, Optional
+
+
+logger = logging.getLogger(__name__)
 
 # ==========================================
 # YAML 데이터 로드 및 변환
@@ -63,42 +71,63 @@ def analyze_images(user_input_text: str, image_urls: list[str], save_result: boo
             }
         }
     """
+    started_at = datetime.now(timezone.utc)
+    timer = perf_counter()
+    success = False
     client = get_openai_client()
-
-    # 프롬프트 로드 및 변수 치환
-    raw_prompt = load_prompt(VISION_PROMPT_PATH)
-    system_prompt = raw_prompt.replace("{{ITEM_CLASS_YAML}}", item_class_text).replace(
-        "{{SITUATION_TAG_YAML}}", situation_tags_text
+    logger.info(
+        "Vision analyze_images started at %s (images=%d)",
+        started_at.isoformat(),
+        len(image_urls),
     )
 
-    content_items = []
-    system_items = []
-
-    system_items.append({"type": "input_text", "text": system_prompt})
-
-    # 사용자 메시지 구성
-    content_items.append({"type": "input_text", "text": user_input_text})
-
-    # 이미지 추가
-    for url in image_urls:
-        content_items.append({"type": "input_image", "image_url": url})
-
-    # Vision API 호출
-    response = client.responses.parse(
-        model="gpt-5.1",
-        input=[
-            {"role": "user", "content": content_items},
-            {"role": "system", "content": system_items},
-        ],
-        text_format=VisionResult,
-    )
-
-    parsed = response.output_parsed  # Pydantic 모델로 반환됨
-
-    if save_result:
-        saved_path = save_json_result(
-            parsed.model_dump(), "vision_classification", subfolder="vision/classification"
+    try:
+        # 프롬프트 로드 및 변수 치환
+        raw_prompt = load_prompt(VISION_PROMPT_PATH)
+        system_prompt = raw_prompt.replace("{{ITEM_CLASS_YAML}}", item_class_text).replace(
+            "{{SITUATION_TAG_YAML}}", situation_tags_text
         )
-        print(f"✅ 저장됨: {saved_path}")
 
-    return parsed.model_dump()
+        content_items = []
+        system_items = []
+
+        system_items.append({"type": "input_text", "text": system_prompt})
+
+        # 사용자 메시지 구성
+        content_items.append({"type": "input_text", "text": user_input_text})
+
+        # 이미지 추가
+        for url in image_urls:
+            content_items.append({"type": "input_image", "image_url": url})
+
+        # Vision API 호출
+        response = client.responses.parse(
+            model="gpt-5.1",
+            input=[
+                {"role": "user", "content": content_items},
+                {"role": "system", "content": system_items},
+            ],
+            text_format=VisionResult,
+        )
+
+        parsed = response.output_parsed  # Pydantic 모델로 반환됨
+        result_payload = parsed.model_dump()
+
+        if save_result:
+            saved_path = save_json_result(
+                result_payload, "vision_classification", subfolder="vision/classification"
+            )
+            print(f"✅ 저장됨: {saved_path}")
+
+        success = True
+        return result_payload
+    finally:
+        finished_at = datetime.now(timezone.utc)
+        elapsed_ms = (perf_counter() - timer) * 1000
+        logger.info(
+            "Vision analyze_images finished at %s (started_at=%s, %.1f ms, success=%s)",
+            finished_at.isoformat(),
+            started_at.isoformat(),
+            elapsed_ms,
+            success,
+        )
