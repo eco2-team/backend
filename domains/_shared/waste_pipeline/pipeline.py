@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from typing import Any
 
 from .answer import generate_answer
@@ -14,20 +15,19 @@ class PipelineError(RuntimeError):
 
 def process_waste_classification(
     user_input_text: str,
-    image_url: str,
+    image_url: str | Sequence[str],
     *,
     save_result: bool = False,
     verbose: bool = False,
 ) -> dict[str, Any]:
-    if not image_url:
-        raise PipelineError("이미지 URL은 필수입니다.")
+    image_urls = _normalize_image_urls(image_url)
 
     if verbose:
         print("\n" + "=" * 50)
         print("STEP 1: 이미지 분석 및 분류")
         print("=" * 50)
 
-    result_text = analyze_images(user_input_text, image_url)
+    result_text = analyze_images(user_input_text, image_urls)
 
     if verbose:
         print(f"\n분석 결과:\n{result_text}")
@@ -70,6 +70,20 @@ def process_waste_classification(
         "disposal_rules": disposal_rules,
         "final_answer": final_answer,
     }
+
+
+def _normalize_image_urls(image_input: str | Sequence[str]) -> list[str]:
+    if isinstance(image_input, str):
+        candidates = [image_input]
+    else:
+        candidates = list(image_input)
+
+    normalized = [url.strip() for url in candidates if isinstance(url, str) and url.strip()]
+
+    if not normalized:
+        raise PipelineError("이미지 URL은 필수입니다.")
+
+    return normalized
 
 
 def _run_cli() -> None:

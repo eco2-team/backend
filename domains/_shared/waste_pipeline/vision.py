@@ -120,6 +120,7 @@ def analyze_images(user_input_text: str, image_urls: list[str], save_result: boo
             print(f"✅ 저장됨: {saved_path}")
 
         success = True
+        print("vision analyze_images finished")
         return result_payload
     finally:
         finished_at = datetime.now(timezone.utc)
