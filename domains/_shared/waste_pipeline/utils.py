@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import hashlib
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -11,6 +13,8 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 DATA_DIR = PACKAGE_ROOT / "data"
@@ -48,7 +52,11 @@ def load_yaml(path: Path) -> Any:
 
 def load_prompt(path: Path) -> str:
     with path.open("r", encoding="utf-8") as file:
-        return file.read()
+        content = file.read()
+    digest = hashlib.sha1(content.encode("utf-8")).hexdigest()
+    logger.info("Loaded prompt from %s (len=%d, sha1=%s)", path, len(content), digest)
+    logger.debug("Prompt preview (%s): %s", path.name, content[:200])
+    return content
 
 
 def load_json_data(path: Path | str) -> Any:

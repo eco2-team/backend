@@ -1,3 +1,4 @@
+import logging
 import yaml
 from typing import List, Optional
 from pydantic import BaseModel
@@ -11,6 +12,8 @@ from .utils import (
     load_yaml,
     save_json_result,
 )
+
+logger = logging.getLogger(__name__)
 
 # ==========================================
 # YAML 데이터 로드 및 변환
@@ -68,9 +71,23 @@ def analyze_images(user_input_text: str, image_url: str, save_result: bool = Fal
 
     # 프롬프트 로드 및 변수 치환
     raw_prompt = load_prompt(VISION_PROMPT_PATH)
+    logger.info("Vision prompt raw length: %d chars", len(raw_prompt))
     system_prompt = raw_prompt.replace("{{ITEM_CLASS_YAML}}", item_class_text).replace(
         "{{SITUATION_TAG_YAML}}", situation_tags_text
     )
+    missing_tokens = [
+        token
+        for token in ("{{ITEM_CLASS_YAML}}", "{{SITUATION_TAG_YAML}}")
+        if token in system_prompt
+    ]
+    if missing_tokens:
+        logger.warning("Vision prompt still has unresolved tokens: %s", missing_tokens)
+    else:
+        logger.info(
+            "Vision prompt prepared (item_class=%d chars, situation_tags=%d chars)",
+            len(item_class_text),
+            len(situation_tags_text),
+        )
 
     content_items = []
     system_items = []

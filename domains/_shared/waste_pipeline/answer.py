@@ -73,6 +73,7 @@ def generate_answer(
     try:
         # 시스템 프롬프트 로드
         system_prompt = load_prompt(ANSWER_GENERATION_PROMPT_PATH)
+        logger.info("Answer prompt loaded (%d chars)", len(system_prompt))
 
         classification_json = json.dumps(
             classification_result.get("classification", {}), ensure_ascii=False, indent=2
@@ -103,6 +104,7 @@ def generate_answer(
         {rag_json}
         </context>
         """
+        logger.debug("Answer user message preview: %s", user_message[:500])
 
         # GPT-5.1 호출 (chat.completions.parse 사용)
         response = client.chat.completions.parse(
