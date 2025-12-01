@@ -32,10 +32,7 @@ class ChatService:
         )
 
     def _fallback_answer(self, message: str) -> str:
-        return (
-            "모델 연결이 설정되지 않아 기본 답변을 제공합니다. "
-            "질문: {question} → 페트병은 세척 후 라벨과 뚜껑을 분리하여 배출해주세요."
-        ).format(question=message)
+        return ("이미지가 인식되지 않았어요! 다시 시도해주세요.").format()
 
     async def _run_pipeline(
         self,
