@@ -88,6 +88,7 @@ def analyze_images(user_input_text: str, image_url: str, save_result: bool = Fal
             len(item_class_text),
             len(situation_tags_text),
         )
+    logger.debug("Vision system prompt content:\n%s", system_prompt)
 
     content_items = []
     system_items = []
@@ -99,6 +100,8 @@ def analyze_images(user_input_text: str, image_url: str, save_result: bool = Fal
 
     # 이미지 추가 (단일 URL)
     content_items.append({"type": "input_image", "image_url": image_url})
+    logger.debug("Vision system items: %s", system_items)
+    logger.debug("Vision content items: %s", content_items)
 
     # Vision API 호출
     response = client.responses.parse(
