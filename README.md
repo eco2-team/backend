@@ -7,7 +7,7 @@
 
 - Self-managed Kubernetes, ArgoCD/Helm-charts/Kustomize 기반 GitOps Sync-wave로 운영하는 14-Nodes 마이크로서비스 플랫폼입니다.
 - AI 폐기물 분류·근처 제로웨이스트샵 안내·챗봇 등 도메인 API와 데이터 계층, GitOps 파이프라인을 모노레포로 관리합니다.
-- [🌱🌏 정상 배포 중]
+- [🌱🌏 정상 배포 중](frontend.dev.growbin.app)
 ---
 
 ## Service Architecture
