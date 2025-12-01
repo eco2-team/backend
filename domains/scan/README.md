@@ -22,7 +22,8 @@ poetry run uvicorn domains.scan.main:app --reload --port 8000
 - `OPENAI_API_KEY` : ExternalSecret `scan-secret`이 주입하며, Chat 서비스와 동일한 SSM 값을 사용합니다.
 
 ## CI 트리거 메모
-2025-11-28 CI 재실행을 위해 문서를 한 차례 더 갱신했습니다.
+- 2025-11-28: CI 재실행을 위해 문서를 한 차례 더 갱신했습니다.
+- 2025-12-01: Scan 패키징 재배포를 위해 README를 추가 갱신했습니다.
 
 ## Remote ArgoCD Sync
 
