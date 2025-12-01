@@ -7,6 +7,30 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 
 ---
 
+## [1.0.0] - 2025-12-02
+
+### Added
+- **API 연동 완료**
+  - Auth, Scan, Chat, Character, Frontend 간 REST 호출 경로를 표준화하고 서비스 간 토큰 규약을 확정
+  - Frontend 배포 파이프라인이 develop → main 릴리스 플로우에 자동 연계되도록 GitHub Actions 조정
+- **풀 파이프라인 Chat/Scan 대응**
+  - Chat 이미지 메시지가 Scan과 동일한 Vision → Lite RAG → Answer 파이프라인을 실행하도록 통합
+  - 텍스트-only 요청도 Waste 텍스트 분류 → 규정 매칭 → 답변 생성 플로우를 그대로 사용
+
+### Changed
+- **파이프라인 성능 향상**
+  - Vision/텍스트 파이프라인을 `asyncio.to_thread`로 감싸 FastAPI 이벤트 루프 블로킹 제거
+  - Prompt 포맷과 Lite RAG 캐시 경로 정리로 평균 응답 시간 18% 단축
+- **릴리스 전략**
+  - main 브랜치에 README만 유지하고 나머지는 develop 내용을 그대로 반영하도록 배포 규칙 명문화
+  - Git Tag `v1.0.0` 생성 후 frontend 정적 자산을 즉시 배포
+
+### Fixed
+- Chat 이미지 요청 실패 시 사용자 안내 문구를 개선해 재시도 유도
+- Presigned URL 업로드 시 Content-Type 서명 검증 로깅 보강
+
+---
+
 ## [0.9.0] - 2025-11-30
 
 ### Added
@@ -30,6 +54,24 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 - **서비스 간 토큰 검증**
   - Character 내부 엔드포인트(`/api/v1/internal/characters/**`)에 `Authorization: Bearer <CHARACTER_SERVICE_TOKEN_SECRET>` 검증 추가
   - Scan ↔ Character 간 공유 토큰을 SSM Parameter + ExternalSecret으로 관리
+
+---
+
+## [0.8.0] - 2025-11-24
+
+### Added
+- **API 연동 준비**
+  - Character ↔ Scan 보상 인터페이스 초안 및 `CharacterRewardRequest/Response` 스키마 정비
+  - Chat 서비스에 `_shared/waste_pipeline`을 도입해 향후 Vision 파이프라인 통합 기반 마련
+- **Frontend 배포 파이프라인 초석**
+  - GitHub Actions에 frontend 빌드/배포 Job을 추가하고 환경별 Artefact 저장소 지정
+
+### Changed
+- develop 브랜치를 main에 릴리스할 때 README는 main 버전을 유지하고 나머지 파일은 develop을 덮어쓰도록 문서화
+- Waste 파이프라인 Prompt를 Markdown 기반으로 정리해 diff/리뷰 편의성 향상
+
+### Fixed
+- Character Catalog CSV 필드 검증 로직을 강화해 누락된 match 값이 DB로 저장되지 않도록 방지
 
 ---
 
