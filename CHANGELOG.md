@@ -12,8 +12,7 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 ### Added
 - **API 연동 완료**
   - Auth, Scan, Chat, Character, Frontend 간 REST 호출 경로를 표준화하고 서비스 간 토큰 규약을 확정
-  - Frontend 배포 파이프라인이 develop → main 릴리스 플로우에 자동 연계되도록 GitHub Actions 조정
-- **풀 파이프라인 Chat/Scan 대응**
+- **파이프라인 Chat/Scan 대응**
   - Chat 이미지 메시지가 Scan과 동일한 Vision → Lite RAG → Answer 파이프라인을 실행하도록 통합
   - 텍스트-only 요청도 Waste 텍스트 분류 → 규정 매칭 → 답변 생성 플로우를 그대로 사용
 
