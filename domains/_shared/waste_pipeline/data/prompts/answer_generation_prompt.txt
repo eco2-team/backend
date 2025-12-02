@@ -28,8 +28,7 @@
 - 절차가 1~2개뿐이면 해당 개수만 출력합니다.
 
 ## 2. insufficiencies (미흡 항목)
-- disposal_steps를 참고하여 해당 분리수거에 필요한 situation_tags를 선별합니다.
-- 선별된 situation_tags를 확인해 분리배출이 미흡한 부분만을 선별합니다.
+- 선별된 situation_tags중 disposal_steps를 위배하는 항목만을 선별합니다.
   예:
   - 내용물_있음 → "내용물을 비워야 합니다"
   - 라벨_부착 → "라벨을 제거해야 합니다"
