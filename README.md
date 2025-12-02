@@ -48,6 +48,7 @@ Tier 0 Monitoring  : Prometheus, Grafana, Alerter Manager, ArgoCD
 ---
 
 ## AI Domain Progress
+![ECA49AD6-EA0C-4957-8891-8C6FA12A2916](https://github.com/user-attachments/assets/52242701-3c5d-4cf3-9ab7-7c391215f17f)
 
 | 항목 | 진행 내용 (2025-11 기준) |
 |------|-------------------------|
