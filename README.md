@@ -180,8 +180,6 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 - **North-South**: ALB/Target Group은 노드 IP만 볼 수 있으므로 NodePort(Service type)로 파드를 노출하고, AWS Load Balancer Controller가 Endpoints → NodePort 정보를 읽어 Target Group을 구성합니다. 외부 요청은 ALB → NodePort → Ingress → Pod 순으로 흐르고, 중간에 별도 프록시 계층이 필요하지 않습니다.
 - **East-West**: 서비스 간 통신은 Calico VXLAN 오버레이(L2) 위에서 ClusterIP를 이용합니다. 예를 들어 Character `/internal/characters/rewards` 같은 API는 `character-api.character.svc.cluster.local` ClusterIP를 통해 호출되고, Calico가 Pod IP를 VXLAN 터널(UDP 4789)로 캡슐화해 전달하므로 외부 노출 경로와 완전히 분리됩니다. DB 부트스트랩 Job, CronJob 등 백그라운드 작업도 동일한 L2 오버레이 위에서 동작합니다.
 
-이 North-South/East-West 분리 사고방식은 Rakuten Cloud Network 팀에서 Kube-OVN을 도입하고 OVS/OVN 기반 SDN을 따라잡으면서 익힌 개념을 그대로 가져온 것이다. 외부 경로는 AWS 계층(Load Balancer, WAF, Route53)이 책임지고, 내부 경로는 VXLAN 오버레이 위에서만 흘러가게 설계하면 컨트롤 플레인이 명확해지고 장애 범위도 자연스럽게 나뉜다.
-
 #### Client <-> Pod 트래픽 경로
 
 ![17DBA027-2EDF-459E-9B4D-4A3A0AB10F0C](https://github.com/user-attachments/assets/26e8128b-8b7f-4b46-93d1-c85553f4c853)
