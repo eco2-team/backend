@@ -177,8 +177,8 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 - Endpoints 정보를 AWS Load Balancer Controller가 감지해 Target Group에 노드 IP + NodePort를 등록하고, ALB 리스너/규칙을 생성·업데이트합니다.
 
 #### ClusterIP가 아닌 NodePort를 선택한 이유
-- **북-남(North-South) 경로**: ALB/Target Group은 노드 IP만 볼 수 있으므로 NodePort(Service type)로 파드를 노출하고, AWS Load Balancer Controller가 Endpoints → NodePort 정보를 읽어 Target Group을 구성합니다. 덕분에 외부 요청은 ALB → NodePort → Ingress → Pod 순으로 단순하게 흐르고, 중간에 별도 프록시 계층이 필요하지 않습니다.
-- **동-서(East-West) 경로**: 서비스 간 통신은 Calico VXLAN 오버레이(L2) 위에서 ClusterIP를 이용합니다. Pod IP는 Calico가 VXLAN 터널(UDP 4789)로 캡슐화해 전달하므로, 내부 마이크로서비스나 DB 부트스트랩 Job은 L2 오버레이 위에서만 움직이고 외부 노출 경로와 분리됩니다.
+- **North-South**: ALB/Target Group은 노드 IP만 볼 수 있으므로 NodePort(Service type)로 파드를 노출하고, AWS Load Balancer Controller가 Endpoints → NodePort 정보를 읽어 Target Group을 구성합니다. 외부 요청은 ALB → NodePort → Ingress → Pod 순으로 흐르고, 중간에 별도 프록시 계층이 필요하지 않습니다.
+- **East-West**: 서비스 간 통신은 Calico VXLAN 오버레이(L2) 위에서 ClusterIP를 이용합니다. 예를 들어 Character `/internal/characters/rewards` 같은 API는 `character-api.character.svc.cluster.local` ClusterIP를 통해 호출되고, Calico가 Pod IP를 VXLAN 터널(UDP 4789)로 캡슐화해 전달하므로 외부 노출 경로와 완전히 분리됩니다. DB 부트스트랩 Job, CronJob 등 백그라운드 작업도 동일한 L2 오버레이 위에서 동작합니다.
 
 #### Client <-> Pod 트래픽 경로
 
