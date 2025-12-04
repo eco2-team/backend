@@ -194,7 +194,7 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 
 | 이슈 | 증상 & 해결 | 문서 |
 |------|------------|------|
-| **Auth OAuth 콜백 리다이렉트 실패** | OAuth 성공 시에도 JSON 응답에 머물러 세션이 확정되지 않음 → 프런트 오리진 헤더를 읽어 Location을 재계산하고 성공/실패 경로를 명시적으로 리다이렉트 | `docs/troubleshooting/2025-12-02-v1.0.0.md#6-auth-oauth-콜백이-프런트로-리다이렉트되지-않음` |
+| **Auth OAuth 콜백 리다이렉트 실패** | 프런트 배포 환경이 분리돼 쿠키가 동일 도메인에서만 발급되고, OAuth 성공 시에도 JSON 응답에 머물러 세션이 확정되지 않음 → `X-Frontend-Origin` 헤더로 실제 프런트 오리진을 받아 Location·쿠키 도메인을 재계산 | `docs/troubleshooting/2025-12-02-v1.0.0.md#6-auth-oauth-콜백이-프런트로-리다이렉트되지-않음` |
 | **OAuth Provider HTTPS egress 차단** | NetworkPolicy로 인해 Auth/Scan/Chat/Image 파드가 Google·Kakao 등 외부 OAuth 엔드포인트에 연결하지 못함 → `allow-external-https` 정책으로 TCP 443 egress 허용 | `docs/troubleshooting/2025-12-02-v1.0.0.md#7-oauth-provider-https-egress-차단` |
 | **pytest: Chat fallback 기대치 불일치** | `test_render_answer_falls_back_when_missing` 실패 → `_fallback_answer()` 문구와 테스트를 동기화 | `docs/troubleshooting/2025-12-02-v1.0.0.md#2-chat-pytest-실패-test_render_answer_falls_back_when_missing` |
 | **Chat 세션 저장소로 인해 Classification 오염/지연** | Redis + Postgres history 때문에 Vision/Text 파이프라인이 지연되고, 과거 답변이 prompt에 재삽입돼 AI 출력이 오염됨 → 세션 로직/DB 제거, stateless API로 전환하며 응답 시간도 단축 | `docs/troubleshooting/2025-12-02-v1.0.0.md#5-chat-세션-저장소-제거로-classification-파이프라인-복구` |
