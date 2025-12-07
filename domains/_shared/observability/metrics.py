@@ -16,19 +16,9 @@ from prometheus_client import (
 PROMETHEUS_METRICS_PATH = "/metrics/status"
 
 _FLAG_ATTR = "_observability_metrics_registered"
-_DEFAULT_BUCKETS = (
-    0.05,
-    0.1,
-    0.25,
-    0.5,
-    1.0,
-    2.5,
-    5.0,
-    7.5,
-    10.0,
-    12.5,
-    15.0,
-    20.0,
+_DEFAULT_BUCKETS = tuple(
+    [x / 100.0 for x in range(5, 500, 5)]  # 0.05 ~ 4.95 (0.05 step)
+    + [x / 10.0 for x in range(50, 301, 1)]  # 5.0 ~ 30.0 (0.1 step)
 )
 
 REGISTRY = CollectorRegistry(auto_describe=True)
