@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Optional
 
-from pydantic import HttpUrl, field_validator
+from pydantic import HttpUrl, field_validator, Field, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,7 +23,11 @@ class Settings(BaseSettings):
     oauth_redirect_template: str = "http://localhost:8000/api/v1/auth/{provider}/callback"
 
     jwt_secret_key: str = "change-me"
-    jwt_algorithm: str = "HS256"
+    jwt_private_key_pem: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("AUTH_RSA_PRIVATE_KEY", "JWT_PRIVATE_KEY"),
+    )
+    jwt_algorithm: str = "RS256"
     jwt_issuer: str = "sesacthon-auth"
     jwt_audience: str = "sesacthon-clients"
     access_token_exp_minutes: int = 60 * 3

@@ -12,7 +12,13 @@ from domains.auth.core.exceptions import (
 )
 
 
+from domains.auth.services.key_manager import KeyManager
+
+
 def create_app() -> FastAPI:
+    # Initialize KeyManager (Load RSA Key)
+    KeyManager.ensure_keys()
+
     app = FastAPI(
         title="Auth API",
         description="Authentication/Authorization service",

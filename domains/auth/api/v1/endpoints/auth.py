@@ -20,8 +20,14 @@ from domains.auth.schemas.auth import (
     OAuthLoginRequest,
 )
 from domains.auth.services.auth import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, AuthService
+from domains.auth.services.key_manager import KeyManager
 
 logger = logging.getLogger(__name__)
+
+
+@auth_router.get("/.well-known/jwks.json", summary="Get JWKS for token verification")
+async def get_jwks():
+    return KeyManager.get_jwks()
 
 
 def _is_default_port(scheme: str, port: str) -> bool:

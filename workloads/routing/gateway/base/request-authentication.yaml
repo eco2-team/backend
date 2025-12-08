@@ -1,0 +1,13 @@
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+  namespace: istio-system
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  jwtRules:
+  - issuer: sesacthon-auth
+    jwksUri: http://auth-api.auth.svc.cluster.local:8000/api/v1/auth/.well-known/jwks.json
+    forwardOriginalToken: true

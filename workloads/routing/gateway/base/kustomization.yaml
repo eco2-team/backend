@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
 - gateway.yaml
 - envoy-filter.yaml
+- request-authentication.yaml
