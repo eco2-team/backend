@@ -240,6 +240,21 @@ output "monitoring_public_ip" {
   value       = module.monitoring.public_ip
 }
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Phase 5: Network Nodes Outputs
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Ingress Gateway (Phase 5)
+output "ingress_gateway_instance_id" {
+  description = "Ingress Gateway Instance ID"
+  value       = module.ingress_gateway.instance_id
+}
+
+output "ingress_gateway_public_ip" {
+  description = "Ingress Gateway Public IP"
+  value       = module.ingress_gateway.public_ip
+}
+
 # output "rabbitmq_private_ip" {
 #   description = "RabbitMQ 노드 Private IP"
 #   value       = module.rabbitmq.private_ip
@@ -252,34 +267,36 @@ output "monitoring_public_ip" {
 output "ansible_inventory" {
   description = "Ansible Inventory 내용 (14-Node Architecture)"
   value = templatefile("${path.module}/templates/hosts.tpl", {
-    master_public_ip          = aws_eip.master.public_ip
-    master_private_ip         = module.master.private_ip
-    api_auth_public_ip        = module.api_auth.public_ip
-    api_auth_private_ip       = module.api_auth.private_ip
-    api_my_public_ip          = module.api_my.public_ip
-    api_my_private_ip         = module.api_my.private_ip
-    api_scan_public_ip        = module.api_scan.public_ip
-    api_scan_private_ip       = module.api_scan.private_ip
-    api_character_public_ip   = module.api_character.public_ip
-    api_character_private_ip  = module.api_character.private_ip
-    api_location_public_ip    = module.api_location.public_ip
-    api_location_private_ip   = module.api_location.private_ip
-    api_image_public_ip       = module.api_image.public_ip
-    api_image_private_ip      = module.api_image.private_ip
-    api_chat_public_ip        = module.api_chat.public_ip
-    api_chat_private_ip       = module.api_chat.private_ip
-    worker_storage_public_ip  = module.worker_storage.public_ip
-    worker_storage_private_ip = module.worker_storage.private_ip
-    worker_ai_public_ip       = module.worker_ai.public_ip
-    worker_ai_private_ip      = module.worker_ai.private_ip
-    postgresql_public_ip      = module.postgresql.public_ip
-    postgresql_private_ip     = module.postgresql.private_ip
-    redis_public_ip           = module.redis.public_ip
-    redis_private_ip          = module.redis.private_ip
-    rabbitmq_public_ip        = module.rabbitmq.public_ip
-    rabbitmq_private_ip       = module.rabbitmq.private_ip
-    monitoring_public_ip      = module.monitoring.public_ip
-    monitoring_private_ip     = module.monitoring.private_ip
+    master_public_ip           = aws_eip.master.public_ip
+    master_private_ip          = module.master.private_ip
+    api_auth_public_ip         = module.api_auth.public_ip
+    api_auth_private_ip        = module.api_auth.private_ip
+    api_my_public_ip           = module.api_my.public_ip
+    api_my_private_ip          = module.api_my.private_ip
+    api_scan_public_ip         = module.api_scan.public_ip
+    api_scan_private_ip        = module.api_scan.private_ip
+    api_character_public_ip    = module.api_character.public_ip
+    api_character_private_ip   = module.api_character.private_ip
+    api_location_public_ip     = module.api_location.public_ip
+    api_location_private_ip    = module.api_location.private_ip
+    api_image_public_ip        = module.api_image.public_ip
+    api_image_private_ip       = module.api_image.private_ip
+    api_chat_public_ip         = module.api_chat.public_ip
+    api_chat_private_ip        = module.api_chat.private_ip
+    worker_storage_public_ip   = module.worker_storage.public_ip
+    worker_storage_private_ip  = module.worker_storage.private_ip
+    worker_ai_public_ip        = module.worker_ai.public_ip
+    worker_ai_private_ip       = module.worker_ai.private_ip
+    postgresql_public_ip       = module.postgresql.public_ip
+    postgresql_private_ip      = module.postgresql.private_ip
+    redis_public_ip            = module.redis.public_ip
+    redis_private_ip           = module.redis.private_ip
+    rabbitmq_public_ip         = module.rabbitmq.public_ip
+    rabbitmq_private_ip        = module.rabbitmq.private_ip
+    monitoring_public_ip       = module.monitoring.public_ip
+    monitoring_private_ip      = module.monitoring.private_ip
+    ingress_gateway_public_ip  = module.ingress_gateway.public_ip
+    ingress_gateway_private_ip = module.ingress_gateway.private_ip
   })
 }
 

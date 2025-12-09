@@ -23,7 +23,7 @@ from domains.auth.services.state_service import OAuthStateStore
 from domains.auth.services.token_blacklist import TokenBlacklist
 from domains.auth.services.token_service import TokenService, TokenType
 from domains.auth.services.user_token_store import UserTokenStore
-from domains._shared.security import TokenPayload
+from domains.auth.core.jwt import TokenPayload
 
 logger = logging.getLogger(__name__)
 

@@ -116,7 +116,15 @@ class MyService:
             for account in accounts:
                 if account.provider == preferred_provider:
                     return account
-        return accounts[0]
+
+        # Fallback: Select the account with the most recent activity (login or creation)
+        return max(
+            accounts,
+            key=lambda acc: (
+                acc.last_login_at or acc.updated_at or acc.created_at,
+                acc.created_at,
+            ),
+        )
 
     @staticmethod
     def _resolve_username(user: User, account: AuthUserSocialAccount | None) -> str:

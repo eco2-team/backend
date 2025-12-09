@@ -8,7 +8,7 @@ metadata:
     tier: business-logic
     domain: image
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: image-api
   ports:

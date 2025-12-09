@@ -1,0 +1,47 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: cookie-to-header
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.lua
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+          inlineCode: |
+            function envoy_on_request(request_handle)
+              local cookie_header = request_handle:headers():get("cookie")
+              if cookie_header then
+                local function extract(name)
+                  local pattern = name .. "=([^;]+)"
+                  return string.match(cookie_header, pattern)
+                end
+
+                -- Access Token: s_access -> Authorization
+                local access_token = extract("s_access")
+                if access_token then
+                  request_handle:headers():replace("Authorization", "Bearer " .. access_token)
+                end
+
+                -- Refresh Token: s_refresh -> X-Refresh-Token (header-based refresh flow)
+                local refresh_token = extract("s_refresh")
+                if refresh_token then
+                  request_handle:headers():replace("X-Refresh-Token", "Bearer " .. refresh_token)
+                end
+              end
+            end

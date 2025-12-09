@@ -1,0 +1,12 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio-control-plane
+  namespace: istio-system
+spec:
+  meshConfig:
+    extensionProviders:
+    - name: eco2-ext-authz
+      envoyExtAuthzGrpc:
+        service: auth-api.auth.svc.cluster.local
+        port: '9001'

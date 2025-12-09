@@ -14,6 +14,7 @@
       k8s-postgresql: --node-labels=role=infrastructure,domain=data,infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule
       k8s-redis: --node-labels=role=infrastructure,domain=data,infra-type=redis,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule
       k8s-monitoring: --node-labels=role=infrastructure,domain=observability,infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule
+      k8s-ingress-gateway: --node-labels=role=ingress-gateway,domain=gateway,infra-type=istio,workload=gateway,tier=network,phase=5 --register-with-taints=role=ingress-gateway:NoSchedule
   block:
   - name: '{{ inventory_hostname }} → 예상 라벨'
     ansible.builtin.debug:
@@ -79,6 +80,6 @@
   - name: 라벨 교정 완료 메시지
     ansible.builtin.debug:
       msg: ✅ {{ inventory_hostname }} 라벨 교정 완료
-  when: migrate_node_labels | default(false)
+  when: (migrate_node_labels | default(false)) | bool
   tags:
   - node-labels

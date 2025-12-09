@@ -8,7 +8,7 @@ from redis.asyncio import Redis
 
 from domains.auth.core.redis import get_blacklist_redis
 from domains.auth.core.security import compute_ttl_seconds, now_utc
-from domains._shared.security import TokenPayload
+from domains.auth.core.jwt import TokenPayload
 
 
 class TokenBlacklist:

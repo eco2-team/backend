@@ -26,17 +26,13 @@ class TokenPayload(BaseModel):
         return UUID(self.sub)
 
 
-def decode_jwt(
-    token: str, *, secret: str, algorithm: str, audience: str, issuer: str
-) -> TokenPayload:
+def extract_token_payload(token: str) -> TokenPayload:
+    """
+    Decode JWT payload without signature verification.
+    Use this ONLY when the token is already verified by an external entity (e.g., Istio).
+    """
     try:
-        payload = jwt.decode(
-            token,
-            secret,
-            algorithms=[algorithm],
-            audience=audience,
-            issuer=issuer,
-        )
+        payload = jwt.get_unverified_claims(token)
         return TokenPayload(
             sub=payload["sub"],
             jti=payload["jti"],
@@ -47,5 +43,5 @@ def decode_jwt(
         )
     except JWTError as exc:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed token"
         ) from exc

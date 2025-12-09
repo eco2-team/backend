@@ -53,6 +53,10 @@ k8s-rabbitmq ansible_host=54.116.33.106 private_ip=10.0.2.220 workload=message-q
 [monitoring]
 k8s-monitoring ansible_host=15.164.238.60 private_ip=10.0.2.243 workload=monitoring instance_type=t3.medium phase=4
 
+# Ingress Gateway (Phase 5: Istio)
+[ingress_gateway]
+k8s-ingress-gateway ansible_host=FILL_ME private_ip=FILL_ME workload=gateway instance_type=t3.medium phase=5
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Group Definitions
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -65,3 +69,4 @@ postgresql
 redis
 rabbitmq
 monitoring
+ingress_gateway

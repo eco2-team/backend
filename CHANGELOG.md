@@ -7,6 +7,30 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 
 ---
 
+## [1.0.5] - 2025-12-09
+
+### Added
+- **Istio Service Mesh 전면 도입**
+  - **Ingress Gateway Migration:** 기존 ALB + K8s Ingress 구조에서 Istio Gateway + VirtualService 구조로 전환하여 L7 라우팅 및 보안 제어 강화
+  - **Auth Offloading:** 애플리케이션 레벨의 JWT 검증 로직을 제거하고, Istio `RequestAuthentication`과 `EnvoyFilter`로 위임하여 인증 구조 단순화
+  - **External Authorization (gRPC):** Istio의 `CUSTOM` Authorization 정책을 적용하여, `auth-api` gRPC 서버(Port 9001)를 통해 블랙리스트 및 만료 여부를 중앙 집중적으로 검사
+- **Observability Offloading**
+  - 애플리케이션 내부의 HTTP 메트릭 수집 미들웨어를 제거하고, Envoy Sidecar가 수집하는 표준 메트릭으로 전환하여 성능 부하 감소
+
+### Changed
+- **JWT 보안 알고리즘 강화**
+  - 서명 알고리즘을 `HS256` (대칭키)에서 `RS256` (비대칭키)으로 전환하고, `auth-api`에 JWKS (`/.well-known/jwks.json`) 엔드포인트 구현
+- **Secret 관리 최적화**
+  - `auth-api` 외 타 도메인 서비스들의 환경 변수 및 External Secret에서 불필요한 `JWT_SECRET_KEY` 제거
+- **인프라 프로비저닝 자동화**
+  - Istio Ingress Gateway를 위한 전용 노드(`k8s-ingress-gateway`, t3.medium)를 Terraform으로 프로비저닝하고, Ansible로 자동 조인 및 Taint 적용
+
+### Fixed
+- **사용자 정보 조회 오류 수정** (`user/me`)
+  - 다중 소셜 계정 연동 시 특정 상황에서 잘못된 Provider 정보를 반환하던 문제를 해결 (`last_login_at` 기준 최신 계정 우선 선택 로직 적용)
+
+---
+
 ## [1.0.0] - 2025-12-02
 
 ### Added

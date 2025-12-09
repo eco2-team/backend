@@ -5,8 +5,6 @@ resources:
 - deployment.yaml
 - service.yaml
 - configmap.yaml
-# ingress는 별도 관리를 위해 제외 (ALB 설정 복잡도 때문)
-# - ingress.yaml
 - db-bootstrap-job.yaml
 labels:
 - includeSelectors: true

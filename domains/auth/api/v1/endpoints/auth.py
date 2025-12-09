@@ -2,7 +2,7 @@ from typing import Annotated, Optional
 import logging
 from urllib.parse import urlparse, urlunparse
 
-from fastapi import Cookie, Depends, Request, Response, status
+from fastapi import Depends, Request, Response, Header, status
 from fastapi.responses import RedirectResponse
 
 from domains.auth.api.v1.routers import (
@@ -19,9 +19,15 @@ from domains.auth.schemas.auth import (
     OAuthAuthorizeParams,
     OAuthLoginRequest,
 )
-from domains.auth.services.auth import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, AuthService
+from domains.auth.services.auth import AuthService
+from domains.auth.services.key_manager import KeyManager
 
 logger = logging.getLogger(__name__)
+
+
+@auth_router.get("/.well-known/jwks.json", summary="Get JWKS for token verification")
+async def get_jwks():
+    return KeyManager.get_jwks()
 
 
 def _is_default_port(scheme: str, port: str) -> bool:
@@ -270,16 +276,28 @@ async def naver_callback(
         )
 
 
+def _parse_bearer(header_value: Optional[str]) -> Optional[str]:
+    if not header_value:
+        return None
+    scheme, _, token = header_value.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        return None
+    return token.strip()
+
+
 @auth_router.post(
     "/refresh",
-    summary="Rotate session cookies",
+    summary="Rotate session tokens (header-based)",
     status_code=status.HTTP_201_CREATED,
 )
 async def refresh_session(
     response: Response,
     service: Annotated[AuthService, Depends()],
-    refresh_token: Annotated[Optional[str], Cookie(alias=REFRESH_COOKIE_NAME)] = None,
+    authorization: Annotated[Optional[str], Header(alias="Authorization")] = None,
+    refresh_authorization: Annotated[Optional[str], Header(alias="X-Refresh-Token")] = None,
 ):
+    # EnvoyFilter가 refresh 쿠키를 헤더로 변환했다는 가정 하에 Authorization 또는 X-Refresh-Token에서 추출
+    refresh_token = _parse_bearer(refresh_authorization) or _parse_bearer(authorization)
     await service.refresh_session(refresh_token, response=response)
     response.status_code = status.HTTP_201_CREATED
     return None
@@ -291,8 +309,10 @@ async def refresh_session(
 async def logout(
     response: Response,
     service: Annotated[AuthService, Depends()],
-    access_token: Annotated[Optional[str], Cookie(alias=ACCESS_COOKIE_NAME)] = None,
-    refresh_token: Annotated[Optional[str], Cookie(alias=REFRESH_COOKIE_NAME)] = None,
+    authorization: Annotated[Optional[str], Header(alias="Authorization")] = None,
+    refresh_authorization: Annotated[Optional[str], Header(alias="X-Refresh-Token")] = None,
 ):
+    access_token = _parse_bearer(authorization)
+    refresh_token = _parse_bearer(refresh_authorization)
     await service.logout(access_token=access_token, refresh_token=refresh_token, response=response)
     return LogoutSuccessResponse(data=LogoutData())

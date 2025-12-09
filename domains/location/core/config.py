@@ -13,22 +13,6 @@ class Settings(BaseSettings):
         False,
         validation_alias=AliasChoices("LOCATION_AUTH_DISABLED"),
     )
-    jwt_secret_key: str = Field(
-        "change-me",
-        validation_alias=AliasChoices("LOCATION_JWT_SECRET_KEY", "AUTH_JWT_SECRET_KEY"),
-    )
-    jwt_algorithm: str = Field(
-        "HS256",
-        validation_alias=AliasChoices("LOCATION_JWT_ALGORITHM", "AUTH_JWT_ALGORITHM"),
-    )
-    jwt_issuer: str = Field(
-        "sesacthon-auth",
-        validation_alias=AliasChoices("LOCATION_JWT_ISSUER", "AUTH_JWT_ISSUER"),
-    )
-    jwt_audience: str = Field(
-        "sesacthon-clients",
-        validation_alias=AliasChoices("LOCATION_JWT_AUDIENCE", "AUTH_JWT_AUDIENCE"),
-    )
 
     model_config = SettingsConfigDict(
         env_prefix="LOCATION_",

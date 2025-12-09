@@ -1,9 +1,6 @@
 from fastapi import APIRouter
 
-from domains.auth.core.config import get_settings
-from domains.auth.services.auth import ACCESS_COOKIE_NAME
-from domains.auth.services.token_blacklist import TokenBlacklist
-from domains._shared.security import build_access_token_dependency
+from domains.auth.core.security_dependency import access_token_dependency
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 google_router = APIRouter(prefix="/auth/google", tags=["auth/google"])
@@ -13,13 +10,6 @@ metrics_router = APIRouter(prefix="/auth/metrics", tags=["metrics"])
 health_router = APIRouter(prefix="/auth", tags=["health"])
 health_probe_router = APIRouter(tags=["health"])
 
-access_token_dependency = build_access_token_dependency(
-    get_settings,
-    cookie_alias=ACCESS_COOKIE_NAME,
-    blacklist_dependency=TokenBlacklist,
-)
-
-# Import endpoints before including routers to ensure they're registered
 from domains.auth.api.v1.endpoints import auth as _auth_endpoints  # noqa: F401, E402, UP035
 from domains.auth.api.v1.endpoints import health as _health_endpoints  # noqa: F401, E402, UP035
 from domains.auth.api.v1.endpoints import metrics as _metrics_endpoints  # noqa: F401, E402, UP035
