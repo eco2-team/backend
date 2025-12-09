@@ -9,7 +9,7 @@ spec:
       elements:
       - name: gateway
         namespace: istio-system
-        path: workloads/routing/gateway/base
+        path: workloads/routing/gateway/dev
       - name: auth
         namespace: auth
         path: workloads/routing/auth/dev
