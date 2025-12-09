@@ -27,9 +27,21 @@ spec:
             function envoy_on_request(request_handle)
               local cookie_header = request_handle:headers():get("cookie")
               if cookie_header then
-                local token = string.match(cookie_header, "s_access=([^;]+)")
-                if token then
-                  request_handle:headers():add("Authorization", "Bearer " .. token)
+                local function extract(name)
+                  local pattern = name .. "=([^;]+)"
+                  return string.match(cookie_header, pattern)
+                end
+
+                -- Access Token: s_access -> Authorization
+                local access_token = extract("s_access")
+                if access_token then
+                  request_handle:headers():replace("Authorization", "Bearer " .. access_token)
+                end
+
+                -- Refresh Token: s_refresh -> X-Refresh-Token (header-based refresh flow)
+                local refresh_token = extract("s_refresh")
+                if refresh_token then
+                  request_handle:headers():replace("X-Refresh-Token", "Bearer " .. refresh_token)
                 end
               end
             end
