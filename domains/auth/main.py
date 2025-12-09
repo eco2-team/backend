@@ -33,6 +33,9 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    # Initialize KeyManager (Load RSA Key)
+    KeyManager.ensure_keys()
+
     app = FastAPI(
         title="Auth API",
         description="Authentication/Authorization service",
