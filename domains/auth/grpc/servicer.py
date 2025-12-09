@@ -1,32 +1,10 @@
 import logging
 from typing import Optional
 
-# 실제 환경에서는 grpcio-tools로 컴파일된 모듈을 임포트해야 합니다.
-# 개발 편의를 위해 Mock 처리하거나 실제 경로를 맞춰주세요.
-try:
-    from envoy.service.auth.v3 import external_auth_pb2
-    from envoy.service.auth.v3 import external_auth_pb2_grpc
-    from google.rpc import status_pb2
-    from google.rpc import code_pb2
-except ImportError:
-
-    class Mock:
-        pass
-
-    external_auth_pb2 = Mock()
-    external_auth_pb2_grpc = Mock()
-    external_auth_pb2_grpc.AuthorizationServicer = object
-    external_auth_pb2.CheckResponse = lambda **kwargs: kwargs
-    external_auth_pb2.OkHttpResponse = lambda **kwargs: kwargs
-    external_auth_pb2.DeniedHttpResponse = lambda **kwargs: kwargs
-    external_auth_pb2.HttpStatus = lambda **kwargs: kwargs
-    external_auth_pb2.HttpStatusCode = Mock()
-    external_auth_pb2.HttpStatusCode.Forbidden = 403
-    status_pb2 = Mock()
-    status_pb2.Status = lambda **kwargs: kwargs
-    code_pb2 = Mock()
-    code_pb2.OK = 0
-    code_pb2.PERMISSION_DENIED = 7
+from envoy.service.auth.v3 import external_auth_pb2
+from envoy.service.auth.v3 import external_auth_pb2_grpc
+from google.rpc import status_pb2, code_pb2
+from envoy.type.v3 import http_status_pb2
 
 from domains.auth.services.token_blacklist import TokenBlacklist
 
@@ -86,9 +64,7 @@ class AuthorizationServicer(external_auth_pb2_grpc.AuthorizationServicer):
         return external_auth_pb2.CheckResponse(
             status=status_pb2.Status(code=code_pb2.PERMISSION_DENIED, message=message),
             denied_response=external_auth_pb2.DeniedHttpResponse(
-                status=external_auth_pb2.HttpStatus(
-                    code=external_auth_pb2.HttpStatusCode.Forbidden
-                ),
+                status=http_status_pb2.HttpStatus(code=http_status_pb2.Forbidden),
                 body=message,
             ),
         )
