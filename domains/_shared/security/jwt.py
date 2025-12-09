@@ -29,6 +29,10 @@ class TokenPayload(BaseModel):
 def decode_jwt(
     token: str, *, secret: str, algorithm: str, audience: str, issuer: str
 ) -> TokenPayload:
+    """
+    Decode and verify JWT signature.
+    Use this when internal verification is needed (e.g., Refresh Token Flow in Auth Service).
+    """
     try:
         payload = jwt.decode(
             token,
