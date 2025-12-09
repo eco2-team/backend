@@ -30,7 +30,7 @@ metadata:
   name: dev-istiod
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: '4'
+    argocd.argoproj.io/sync-wave: '5'
 spec:
   project: dev
   source:
@@ -53,6 +53,9 @@ spec:
           nodeSelector:
             role: control-plane
           tolerations:
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule
           - key: role
             operator: Equal
             value: control-plane
@@ -75,7 +78,7 @@ metadata:
   name: dev-istio-ingressgateway
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: '5'
+    argocd.argoproj.io/sync-wave: '6'
 spec:
   project: dev
   source:
