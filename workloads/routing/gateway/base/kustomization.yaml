@@ -2,5 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - gateway.yaml
+- request-authentication.yaml
 - envoy-filter.yaml
+- request-authentication.yaml
 - request-authentication.yaml
