@@ -163,6 +163,56 @@ class AuthService:
         self._apply_session_cookies(response, token_pair, access_payload, refresh_payload)
         return User.model_validate(user)
 
+    async def refresh_session(
+        self,
+        refresh_token: Optional[str],
+        *,
+        response: Response,
+    ) -> User:
+        if not refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token"
+            )
+
+        payload = self.token_service.decode(refresh_token)
+        self.token_service.ensure_type(payload, TokenType.REFRESH)
+
+        if await self.blacklist.contains(payload.jti):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token revoked")
+
+        if not await self.user_token_store.contains(payload.user_id, payload.jti):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token not found"
+            )
+
+        metadata = await self.user_token_store.get_metadata(payload.jti)
+
+        user = await self.user_repo.get(payload.user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+        await self.user_token_store.remove(payload.user_id, payload.jti)
+        await self.blacklist.add(payload, reason="token_rotated")
+
+        token_pair = self.token_service.issue_pair(user_id=user.id, provider=payload.provider)
+        access_payload = self.token_service.decode(token_pair.access_token)
+        self.token_service.ensure_type(access_payload, TokenType.ACCESS)
+        refresh_payload = self.token_service.decode(token_pair.refresh_token)
+        self.token_service.ensure_type(refresh_payload, TokenType.REFRESH)
+
+        await self.user_token_store.register(
+            user_id=user.id,
+            jti=refresh_payload.jti,
+            issued_at=refresh_payload.iat,
+            expires_at=refresh_payload.exp,
+            device_id=metadata.device_id if metadata else None,
+            user_agent=metadata.user_agent if metadata else None,
+        )
+        await self.session.commit()
+
+        self._apply_session_cookies(response, token_pair, access_payload, refresh_payload)
+        return User.model_validate(user)
+
     async def logout(
         self,
         *,
