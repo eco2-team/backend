@@ -54,7 +54,6 @@ spec:
             limits:
               cpu: 500m
               memory: 1Gi
-          # Master 노드에 배치
           nodeSelector:
             role: control-plane
           tolerations:

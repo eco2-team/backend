@@ -1,6 +1,7 @@
 import grpc
 import logging
-from domains.auth.grpc.servicer import AuthorizationServicer, external_auth_pb2_grpc
+from domains.auth.grpc.servicer import AuthorizationServicer
+from envoy.service.auth.v3 import external_auth_pb2_grpc
 
 
 async def start_grpc_server(port: int = 9001):
