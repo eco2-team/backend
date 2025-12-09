@@ -21,10 +21,6 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("MY_AUTH_DISABLED"),
         description="When true, bypasses access-token validation for local development.",
     )
-    access_cookie_name: str = Field(
-        "s_access",
-        validation_alias=AliasChoices("MY_ACCESS_COOKIE_NAME", "AUTH_ACCESS_COOKIE_NAME"),
-    )
 
     model_config = SettingsConfigDict(
         env_prefix="MY_",

@@ -11,10 +11,6 @@ class Settings(BaseSettings):
         False,
         validation_alias=AliasChoices("IMAGE_AUTH_DISABLED"),
     )
-    access_cookie_name: str = Field(
-        "s_access",
-        validation_alias=AliasChoices("IMAGE_ACCESS_COOKIE_NAME", "AUTH_ACCESS_COOKIE_NAME"),
-    )
     aws_region: str = Field(
         "ap-northeast-2",
         validation_alias=AliasChoices("IMAGE_AWS_REGION", "AWS_REGION"),

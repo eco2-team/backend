@@ -10,10 +10,6 @@ class Settings(BaseSettings):
         False,
         validation_alias=AliasChoices("CHAT_AUTH_DISABLED"),
     )
-    access_cookie_name: str = Field(
-        "s_access",
-        validation_alias=AliasChoices("CHAT_ACCESS_COOKIE_NAME", "AUTH_ACCESS_COOKIE_NAME"),
-    )
 
     model_config = SettingsConfigDict(
         env_prefix="CHAT_",

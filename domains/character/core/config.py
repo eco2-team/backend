@@ -21,10 +21,6 @@ class Settings(BaseSettings):
     )
     database_echo: bool = False
 
-    access_cookie_name: str = Field(
-        "s_access",
-        validation_alias=AliasChoices("CHARACTER_ACCESS_COOKIE_NAME", "AUTH_ACCESS_COOKIE_NAME"),
-    )
     auth_disabled: bool = Field(
         False,
         validation_alias=AliasChoices("CHARACTER_AUTH_DISABLED"),

@@ -30,11 +30,6 @@ class Settings(BaseSettings):
         description="When true, skips token validation (use only for local dev).",
     )
 
-    access_cookie_name: str = Field(
-        "s_access",
-        validation_alias=AliasChoices("SCAN_ACCESS_COOKIE_NAME", "AUTH_ACCESS_COOKIE_NAME"),
-    )
-
     model_config = SettingsConfigDict(
         env_prefix="SCAN_",
         case_sensitive=False,
