@@ -16,3 +16,7 @@ spec:
     targetPort: 8000
     protocol: TCP
     name: http
+  - port: 9001
+    targetPort: 9001
+    protocol: TCP
+    name: grpc-authz

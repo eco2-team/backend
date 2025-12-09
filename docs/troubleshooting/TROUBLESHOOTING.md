@@ -119,3 +119,20 @@ kubectl get events -A --sort-by='.lastTimestamp'
 | 22:00 | 결론: Calico를 GitOps(Helm)에서 제거하고 Ansible Playbook(`04-cni-install.yml`)로만 설치·운영. GitOps 경로(`clusters/dev/apps/05-calico.yaml`, `platform/helm/calico/**`) 삭제. |
 
 > 📌 Calico/Tigera GitOps 충돌 사례, 전체 Application 리스트, 이벤트/describe 출력은 `docs/troubleshooting/CALICO_GITOPS_INCIDENT_2025-11-18.md` 문서에서 확인하세요. 여기서는 다른 증상 공통 절차만 유지합니다.
+
+---
+
+## 6. Incident Log – ALB 503 (TargetGroup empty) due to missing providerID (2025-12-09)
+
+| 시각(KST) | Action | 결과/메시지 |
+|-----------|--------|-------------|
+| ~10:00 | 외부 503 발생, `describe-target-health` 전부 `[]` | ALB에는 타겟 미등록 상태 |
+| 10:05~10:20 | 컨트롤러 로그 확인 | `Reconciler error … providerID is not specified for node: k8s-ingress-gateway` 반복 |
+| 10:20 | `kubectl get nodes -o custom-columns=NAME,PID` | `k8s-ingress-gateway`, `k8s-master`에 providerID 없음 확인 |
+| 10:25 | 노드 메타데이터로 patch | `kubectl patch node <node> -p '{"spec":{"providerID":"aws:///<az>/<instance-id>"}}'` |
+| 10:30 | ALB 컨트롤러 재시작 후 TG 확인 | Targets 등록, 503 해소 |
+
+요약 및 재발 방지
+- 원인: ALB 컨트롤러 타겟 타입 `instance` 사용 시, providerID 없는 노드가 하나라도 있으면 TGB 리콘실이 실패하여 타겟이 비어 503 발생.
+- 조치: 문제 노드(providerID 없음)를 `aws:///<AZ>/<INSTANCE_ID>`로 패치 후 컨트롤러 재시작. 필요 시 `scripts/utilities/fix-providerid.sh`로 일괄 적용.
+- 예방: Ansible `03-1-set-provider-id.yml`의 필터에 `k8s-ingress-gateway`(및 control-plane) 포함, 또는 Ingress `alb.ingress.kubernetes.io/target-type: ip`로 전환하여 providerID 의존도 제거(보안그룹은 Pod CIDR 고려).

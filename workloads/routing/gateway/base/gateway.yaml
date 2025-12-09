@@ -13,7 +13,9 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - '*'
+    - api.growbin.app
+    - argocd.growbin.app
+    - grafana.growbin.app
 ---
 # ALB Controller와 연동하기 위한 Bridge Ingress
 apiVersion: networking.k8s.io/v1
@@ -31,7 +33,7 @@ metadata:
     alb.ingress.kubernetes.io/backend-protocol: HTTP
     alb.ingress.kubernetes.io/healthcheck-path: /healthz/ready
     alb.ingress.kubernetes.io/success-codes: '200'
-    external-dns.alpha.kubernetes.io/hostname: api.dev.growbin.app
+    external-dns.alpha.kubernetes.io/hostname: api.growbin.app,argocd.growbin.app,grafana.growbin.app
 spec:
   ingressClassName: alb
   rules:

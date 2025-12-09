@@ -4,3 +4,4 @@ resources:
 - ../base
 patches:
 - path: patch-ingress.yaml
+- path: patch-gateway.yaml

@@ -5,7 +5,7 @@ metadata:
   namespace: chat
 spec:
   hosts:
-  - '*'
+  - api.growbin.app
   gateways:
   - istio-system/eco2-gateway
   http:

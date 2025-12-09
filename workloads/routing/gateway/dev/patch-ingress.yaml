@@ -1,8 +1,10 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: istio-ingress
+  name: dev-istio-ingress
   namespace: istio-system
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: api.dev.growbin.app,argocd.dev.growbin.app,grafana.dev.growbin.app
 spec:
   rules:
   - http:

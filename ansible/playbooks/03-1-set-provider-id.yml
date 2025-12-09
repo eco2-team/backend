@@ -8,7 +8,7 @@
     shell: |
       aws ec2 describe-instances \
         --region {{ aws_region | default('ap-northeast-2') }} \
-        --filters "Name=tag:Name,Values=k8s-api-*,k8s-worker-*,k8s-rabbitmq,k8s-postgresql,k8s-redis,k8s-monitoring" \
+        --filters "Name=tag:Name,Values=k8s-api-*,k8s-worker-*,k8s-rabbitmq,k8s-postgresql,k8s-redis,k8s-monitoring,k8s-ingress-gateway" \
                   "Name=instance-state-name,Values=running" \
         --query 'Reservations[*].Instances[*].{Name:Tags[?Key==`Name`].Value|[0],InstanceId:InstanceId,AZ:Placement.AvailabilityZone}' \
         --output json

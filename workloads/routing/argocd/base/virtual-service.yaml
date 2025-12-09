@@ -5,7 +5,7 @@ metadata:
   namespace: argocd
 spec:
   hosts:
-  - argocd.dev.growbin.app
+  - argocd.growbin.app
   gateways:
   - istio-system/eco2-gateway
   http:

@@ -1,5 +1,5 @@
 - name: Worker 및 Infrastructure 노드 레이블 수정
-  hosts: workers,api_nodes,postgresql,redis,rabbitmq,monitoring
+  hosts: workers,api_nodes,postgresql,redis,rabbitmq,monitoring,ingress_gateway
   become: yes
   gather_facts: yes
   vars:
@@ -17,6 +17,7 @@
       k8s-postgresql: --node-labels=role=infrastructure,domain=data,infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule
       k8s-redis: --node-labels=role=infrastructure,domain=data,infra-type=redis,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule
       k8s-monitoring: --node-labels=role=infrastructure,domain=observability,infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule
+      k8s-ingress-gateway: --node-labels=role=ingress-gateway,domain=gateway,infra-type=istio,workload=gateway,tier=network,phase=5 --register-with-taints=role=ingress-gateway:NoSchedule
 
   tasks:
   - name: '{{ inventory_hostname }} → 예상 라벨 출력'
