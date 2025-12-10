@@ -34,8 +34,6 @@ spec:
         envFrom:
         - configMapRef:
             name: image-config
-        - secretRef:
-            name: image-secret
         livenessProbe:
           httpGet:
             path: /health
