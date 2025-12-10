@@ -11,7 +11,7 @@ spec:
   http:
   - match:
     - uri:
-        prefix: /api/v1/my
+        prefix: /api/v1/user
     route:
     - destination:
         host: my-api.my.svc.cluster.local
