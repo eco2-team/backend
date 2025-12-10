@@ -37,7 +37,7 @@ import pathlib
 import sys
 
 APPS = [
-    ("dev", pathlib.Path("clusters/dev/apps/60-apis-appset.yaml")),
+    ("dev", pathlib.Path("clusters/dev/apps/40-apis-appset.yaml")),
     ("prod", pathlib.Path("clusters/prod/apps/60-apis-appset.yaml")),
 ]
 
