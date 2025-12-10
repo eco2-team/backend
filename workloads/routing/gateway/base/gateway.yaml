@@ -31,8 +31,9 @@ metadata:
     alb.ingress.kubernetes.io/group.name: ecoeco-main
     alb.ingress.kubernetes.io/group.order: '1'
     alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-port: '31021'
     alb.ingress.kubernetes.io/healthcheck-path: /healthz/ready
-    alb.ingress.kubernetes.io/success-codes: 200,404
+    alb.ingress.kubernetes.io/success-codes: '200'
     external-dns.alpha.kubernetes.io/hostname: api.growbin.app,argocd.growbin.app,grafana.growbin.app
 spec:
   ingressClassName: alb
