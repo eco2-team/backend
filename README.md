@@ -12,17 +12,107 @@
 ---
 
 ## Service Architecture
-![A18323CF-A487-42F9-A7FE-2317E8B5104D_1_105_c](https://github.com/user-attachments/assets/9206be51-429f-486e-aa02-45530b702927)
+
+```mermaid
+graph TD
+    %% External
+    User("User / Client") -->|HTTPS| R53[Route 53]
+    R53 -->|Alias| ALB[AWS ALB]
+
+    subgraph "AWS VPC"
+        ALB -->|Forward| TG["Target Group"]
+
+        subgraph "Kubernetes Cluster"
+
+            subgraph "Control Plane Layer"
+                subgraph "Istio CP"
+                    Istiod[["Istiod"]]
+                end
+
+                subgraph "Platform CP"
+                    ArgoCD[["ArgoCD"]]
+                    LBC["AWS LB Controller"]
+                    ExtDNS["ExternalDNS"]
+                    ESO["External Secrets"]
+                end
+            end
+
+            subgraph "Observability"
+                Prom["Prometheus Stack"]
+                Graf["Grafana"]
+            end
+
+            subgraph "Data Plane Layer"
+                subgraph "Ingress"
+                    TG -->|NodePort| IGW["Istio Ingress Gateway<br>(Envoy)"]
+                    VS["VirtualService Routing"]
+                end
+
+                subgraph "Service Mesh"
+                    Apps["Microservices (Domain APIs) Auth, My, Scan, Chat, Char, Locations (All with Envoy Sidecars)"]
+                end
+
+                subgraph "Data Infrastructure"
+                    PG[("PostgreSQL")]
+                    Redis[("Redis")]
+                end
+            end
+        end
+    end
+
+    %% Routing
+    IGW ==> VS
+    VS -->|mTLS| Apps
+    VS -.->|Route| Graf
+
+    %% Data Connections
+    Apps --> PG & Redis
+    Graf -->|Query| Prom
+
+    %% Config & Sync Flow (Simplified)
+    Istiod -.->|xDS| IGW & Apps
+    ArgoCD -.->|Sync| Istiod & Apps
+    Prom -.->|Scrape| IGW & Apps
+    ESO -.->|Secrets| Apps
+
+    %% AWS Interactions
+    LBC -.->|AWS API| ALB & TG
+    ExtDNS -.->|AWS API| R53
+
+    %% Styling
+    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:white;
+    classDef control fill:#326CE5,stroke:#fff,stroke-width:2px,color:white;
+    classDef platform fill:#326CE5,stroke:#fff,stroke-width:2px,color:white,stroke-dasharray: 5 5;
+    classDef ingress fill:#4D27AA,stroke:#fff,stroke-width:2px,color:white;
+    classDef service fill:#76B900,stroke:#333,stroke-width:1px,color:white;
+    classDef data fill:#336791,stroke:#fff,stroke-width:2px,color:white;
+    classDef observe fill:#E6522C,stroke:#fff,stroke-width:2px,color:white;
+    classDef user fill:#666,stroke:#333,stroke-width:2px,color:white;
+
+    class R53,ALB,TG aws;
+    class Istiod,ArgoCD control;
+    class LBC,ExtDNS,ESO platform;
+    class IGW,VS ingress;
+    class Apps service;
+    class PG,Redis data;
+    class Prom,Graf observe;
+    class User user;
+```
 
 
 ```yaml
-Tier 1 Presentation : ALB, Route 53, CloudFront
-Tier 2 Business Logic : auth, my, scan, character, location, info, chat
+Tier 1 Presentation : Route 53, AWS ALB, Istio Ingress Gateway
+Tier 2 Business Logic : auth, my, scan, character, location, info, chat (w/ Sidecar)
 Tier 3 Data : PostgreSQL, Redis, RabbitMQ(Pending), Celery(Pending)
-Tier 0 Monitoring  : Prometheus, Grafana, Alerter Manager, ArgoCD, Istio(Kiali/Jaeger)
+Tier 0 Monitoring & Control : Prometheus, Grafana, ArgoCD, Istiod, Controllers
 ```
 
 본 서비스는 4-Tier Layered Architecture로 구성되었습니다.
+
+**Tier 1 (Presentation)**: AWS ALB가 SSL Termination을 처리하고, 트래픽을 `Istio Ingress Gateway`로 전달합니다. Gateway는 `VirtualService` 규칙에 따라 API 및 Grafana 대시보드로 라우팅을 수행합니다.
+**Tier 2 (Business Logic)**: 모든 마이크로서비스는 **Istio Service Mesh** 내에서 동작하며, `Envoy Sidecar`를 통해 mTLS 통신, 트래픽 제어, 메트릭 수집을 수행합니다.
+**Tier 3 (Data)**: 서비스는 영속성을 위해 PostgreSQL 및 Redis를 사용하며, 이는 Helm Chart로 관리되는 독립적인 데이터 인프라입니다.
+**Tier 0 (Monitoring & Control)**: `Istiod`가 메시를 제어하고, `ArgoCD`가 GitOps 동기화를 담당하며, `Prometheus/Grafana`가 클러스터 상태를 관측합니다.
 
 각 계층은 서로 독립적으로 기능하도록 설계되었으며, 모니터링 스택을 제외한 상위 계층의 의존성은 단일 하위 계층으로 제한됩니다.
 프로덕션 환경을 전제로 한 Self-manged Kubernetes 기반 클러스터로 컨테이너화된 어플리케이션의 오케스트레이션을 지원합니다.
