@@ -4,3 +4,4 @@ resources:
 - gateway.yaml
 - request-authentication.yaml
 - envoy-filter.yaml
+- health-check-vs.yaml
