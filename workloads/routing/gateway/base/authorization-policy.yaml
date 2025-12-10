@@ -13,6 +13,7 @@ spec:
   rules:
   - to:
     - operation:
+        hosts: [api.dev.growbin.app, api.growbin.app]
         paths: [/api/v1/*]   # API 경로에 대해서만 검사
         notPaths:
         - /api/v1/auth/login
