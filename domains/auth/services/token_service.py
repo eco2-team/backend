@@ -52,7 +52,7 @@ class TokenService:
         # RS256 서명 (Key ID 포함)
         headers = {"kid": "eco2-auth-key-01"}
         token = jwt.encode(
-            payload, KeyManager.get_private_key(), algorithm="RS256", headers=headers
+            payload, KeyManager.get_private_key_pem(), algorithm="RS256", headers=headers
         )
         return token, jti, payload["exp"]
 

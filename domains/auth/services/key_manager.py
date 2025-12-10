@@ -45,6 +45,16 @@ class KeyManager:
         return cls._private_key
 
     @classmethod
+    def get_private_key_pem(cls) -> bytes:
+        """Return Private Key in PEM format (bytes) for python-jose compatibility."""
+        cls.ensure_keys()
+        return cls._private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+
+    @classmethod
     def get_public_key_pem(cls) -> str:
         cls.ensure_keys()
         pem = cls._public_key.public_bytes(
