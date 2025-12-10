@@ -258,7 +258,7 @@ backend/
 - [이코에코(Eco²) 2025 새싹톤 본선 진출 후일담](https://rooftopsnow.tistory.com/15)
 - [이코에코(Eco²) 2025 새싹톤 우수상 후기](https://rooftopsnow.tistory.com/16)
 - [이코에코(Eco²) Scan API 성능 측정](https://rooftopsnow.tistory.com/17)
-- [이코에코(Eco²) Istio Migration](https://rooftopsnow.tistory.com/19)
+- [이코에코(Eco²) Istio Sidecar Migration](https://rooftopsnow.tistory.com/19)
 
 ---
 
