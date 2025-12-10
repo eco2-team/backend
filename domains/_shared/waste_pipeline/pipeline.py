@@ -22,12 +22,18 @@ def process_waste_classification(
     if not image_url:
         raise PipelineError("이미지 URL은 필수입니다.")
 
+    from time import perf_counter
+
+    start_total = perf_counter()
+
     if verbose:
         print("\n" + "=" * 50)
         print("STEP 1: 이미지 분석 및 분류")
         print("=" * 50)
 
+    start_vision = perf_counter()
     result_payload = analyze_images(user_input_text, image_url)
+    duration_vision = perf_counter() - start_vision
 
     if verbose:
         print(f"\n분석 결과:\n{result_payload}")
@@ -39,9 +45,11 @@ def process_waste_classification(
         print("STEP 2: Lite RAG - 배출 규정 매칭")
         print("=" * 50)
 
+    start_rag = perf_counter()
     disposal_rules = get_disposal_rules(classification_result)
     if not disposal_rules:
         raise PipelineError("매칭되는 배출 규정을 찾지 못했습니다.")
+    duration_rag = perf_counter() - start_rag
 
     if verbose:
         cls = classification_result.get("classification", {})
@@ -53,11 +61,15 @@ def process_waste_classification(
         print("STEP 3: 자연어 답변 생성")
         print("=" * 50)
 
+    start_answer = perf_counter()
     final_answer = generate_answer(
         classification_result,
         disposal_rules,
         save_result=save_result,
     )
+    duration_answer = perf_counter() - start_answer
+
+    duration_total = perf_counter() - start_total
 
     if verbose:
         print("\n✅ 답변 생성 완료")
@@ -66,6 +78,12 @@ def process_waste_classification(
         "classification_result": classification_result,
         "disposal_rules": disposal_rules,
         "final_answer": final_answer,
+        "metadata": {
+            "duration_vision": duration_vision,
+            "duration_rag": duration_rag,
+            "duration_answer": duration_answer,
+            "duration_total": duration_total,
+        },
     }
 
 

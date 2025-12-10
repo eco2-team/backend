@@ -30,27 +30,6 @@ class Settings(BaseSettings):
         description="When true, skips token validation (use only for local dev).",
     )
 
-    jwt_secret_key: str = Field(
-        "change-me",
-        validation_alias=AliasChoices("SCAN_JWT_SECRET_KEY", "AUTH_JWT_SECRET_KEY"),
-    )
-    jwt_algorithm: str = Field(
-        "HS256",
-        validation_alias=AliasChoices("SCAN_JWT_ALGORITHM", "AUTH_JWT_ALGORITHM"),
-    )
-    jwt_issuer: str = Field(
-        "sesacthon-auth",
-        validation_alias=AliasChoices("SCAN_JWT_ISSUER", "AUTH_JWT_ISSUER"),
-    )
-    jwt_audience: str = Field(
-        "sesacthon-clients",
-        validation_alias=AliasChoices("SCAN_JWT_AUDIENCE", "AUTH_JWT_AUDIENCE"),
-    )
-    access_cookie_name: str = Field(
-        "s_access",
-        validation_alias=AliasChoices("SCAN_ACCESS_COOKIE_NAME", "AUTH_ACCESS_COOKIE_NAME"),
-    )
-
     model_config = SettingsConfigDict(
         env_prefix="SCAN_",
         case_sensitive=False,

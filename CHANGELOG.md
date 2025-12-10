@@ -7,12 +7,42 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 
 ---
 
+## [1.0.5] - 2025-12-11
+
+### Added
+- **Istio Service Mesh 전면 도입**
+  - **Ingress Gateway Migration:** 기존 ALB + K8s Ingress 구조에서 Istio Gateway + VirtualService 구조로 전환하여 L7 라우팅 및 보안 제어 강화
+  - **Auth Offloading:** 애플리케이션 레벨의 JWT 검증 로직을 제거하고, Istio `RequestAuthentication`과 `EnvoyFilter`로 위임하여 인증 구조 단순화
+  - **External Authorization (gRPC):** Istio의 `CUSTOM` Authorization 정책을 적용하여, `auth-api` gRPC 서버(Port 9001)를 통해 블랙리스트 및 만료 여부를 중앙 집중적으로 검사
+- **Observability Offloading**
+  - 애플리케이션 내부의 HTTP 메트릭 수집 미들웨어를 제거하고, Envoy Sidecar가 수집하는 표준 메트릭으로 전환하여 성능 부하 감소
+
+### Changed
+- **JWT 보안 알고리즘 강화**
+  - 서명 알고리즘을 `HS256` (대칭키)에서 `RS256` (비대칭키)으로 전환하고, `auth-api`에 JWKS (`/.well-known/jwks.json`) 엔드포인트 구현
+- **Secret 관리 최적화**
+  - `auth-api` 외 타 도메인 서비스들의 환경 변수 및 External Secret에서 불필요한 `JWT_SECRET_KEY` 제거
+- **인프라 프로비저닝 자동화**
+  - Istio Ingress Gateway를 위한 전용 노드(`k8s-ingress-gateway`, t3.medium)를 Terraform으로 프로비저닝하고, Ansible로 자동 조인 및 Taint 적용
+
+### Fixed
+- **사용자 정보 조회 오류 수정** (`user/me`)
+  - 다중 소셜 계정 연동 시 특정 상황에서 잘못된 Provider 정보를 반환하던 문제를 해결 (`last_login_at` 기준 최신 계정 우선 선택 로직 적용)
+- **배포 및 네트워크 안정성 확보**
+  - `my` 서비스의 DB 연결 오류(`ConnectionRefused`) 및 라우팅 경로(`404`) 문제 해결
+  - `image` 서비스의 불필요한 Secret 참조로 인한 배포 실패 수정
+  - `NetworkPolicy` 적용으로 인한 타 Namespace 서비스(DB, DNS) 접근 차단 문제 해결 (`Egress` 정책 확장)
+  - ArgoCD와 Istio 간의 리소스 상태 불일치(Sync Drift) 문제 해결 (`ignoreDifferences` 적용)
+
+---
+
 ## [1.0.0] - 2025-12-02
 
 ### Added
 - **API 연동 완료**
   - Auth, Scan, Chat, Character, Frontend 간 REST 호출 경로를 표준화하고 서비스 간 토큰 규약을 확정
-- **파이프라인 Chat/Scan 대응**
+  - Frontend 배포 파이프라인이 develop → main 릴리스 플로우에 자동 연계되도록 GitHub Actions 조정
+- **풀 파이프라인 Chat/Scan 대응**
   - Chat 이미지 메시지가 Scan과 동일한 Vision → Lite RAG → Answer 파이프라인을 실행하도록 통합
   - 텍스트-only 요청도 Waste 텍스트 분류 → 규정 매칭 → 답변 생성 플로우를 그대로 사용
 

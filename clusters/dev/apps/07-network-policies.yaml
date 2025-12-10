@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-network-policies
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '7'
+spec:
+  project: dev
+  source:
+    repoURL: https://github.com/eco2-team/backend.git
+    targetRevision: develop
+    path: workloads/network-policies/dev
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

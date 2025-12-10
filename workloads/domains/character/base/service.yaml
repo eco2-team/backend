@@ -8,7 +8,7 @@ metadata:
     tier: business-logic
     domain: character
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: character-api
   ports:

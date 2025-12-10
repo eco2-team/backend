@@ -1,0 +1,151 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-istio-base
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '4'
+spec:
+  project: dev
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts/
+    chart: base
+    targetRevision: 1.24.1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  ignoreDifferences:
+  - group: admissionregistration.k8s.io
+    kind: ValidatingWebhookConfiguration
+    jqPathExpressions:
+    - .webhooks[].clientConfig.caBundle
+    - .webhooks[].failurePolicy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-istiod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '5'
+spec:
+  project: dev
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts/
+    chart: istiod
+    targetRevision: 1.24.1
+    helm:
+      valuesObject:
+        meshConfig:
+          extensionProviders:
+          - name: eco2-ext-authz
+            envoyExtAuthzGrpc:
+              service: auth-api.auth.svc.cluster.local
+              port: '9001'
+              timeout: 0.25s
+              failOpen: false
+              includeHeadersInCheck:
+              - authorization
+              - x-refresh-token
+              - x-request-id
+              - x-b3-traceid
+              - x-b3-spanid
+        pilot:
+          autoscaleEnabled: false
+          replicaCount: 1
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          nodeSelector:
+            role: control-plane
+          tolerations:
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule
+          - key: role
+            operator: Equal
+            value: control-plane
+            effect: NoSchedule
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  ignoreDifferences:
+  - group: admissionregistration.k8s.io
+    kind: ValidatingWebhookConfiguration
+    jqPathExpressions:
+    - .webhooks[].clientConfig.caBundle
+    - .webhooks[].failurePolicy
+  - group: apps
+    kind: Deployment
+    jqPathExpressions:
+    - .spec.template.spec.containers[].env[].valueFrom.resourceFieldRef.divisor
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
+    - Replace=true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-ingressgateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '6'
+spec:
+  project: dev
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts/
+    chart: gateway
+    targetRevision: 1.24.1
+    helm:
+      valuesObject:
+        service:
+          type: NodePort
+          ports:
+          - name: status-port
+            port: 15021
+            protocol: TCP
+            targetPort: 15021
+          - name: http2
+            port: 80
+            protocol: TCP
+            targetPort: 80
+          - name: https
+            port: 443
+            protocol: TCP
+            targetPort: 443
+        nodeSelector:
+          role: ingress-gateway
+        tolerations:
+        - key: role
+          operator: Equal
+          value: ingress-gateway
+          effect: NoSchedule
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true

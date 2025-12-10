@@ -26,6 +26,13 @@ spec:
         ports:
         - containerPort: 8000
           name: http
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
         envFrom:
         - configMapRef:
             name: auth-config

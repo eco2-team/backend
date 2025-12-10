@@ -11,10 +11,6 @@ class Settings(BaseSettings):
         False,
         validation_alias=AliasChoices("IMAGE_AUTH_DISABLED"),
     )
-    access_cookie_name: str = Field(
-        "s_access",
-        validation_alias=AliasChoices("IMAGE_ACCESS_COOKIE_NAME", "AUTH_ACCESS_COOKIE_NAME"),
-    )
     aws_region: str = Field(
         "ap-northeast-2",
         validation_alias=AliasChoices("IMAGE_AWS_REGION", "AWS_REGION"),
@@ -44,22 +40,6 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("IMAGE_UPLOAD_STATE_TTL"),
     )
     allowed_targets: tuple[Literal["chat", "scan", "my"], ...] = ("chat", "scan", "my")
-    jwt_secret_key: str = Field(
-        "change-me",
-        validation_alias=AliasChoices("IMAGE_JWT_SECRET_KEY", "AUTH_JWT_SECRET_KEY"),
-    )
-    jwt_algorithm: str = Field(
-        "HS256",
-        validation_alias=AliasChoices("IMAGE_JWT_ALGORITHM", "AUTH_JWT_ALGORITHM"),
-    )
-    jwt_issuer: str = Field(
-        "sesacthon-auth",
-        validation_alias=AliasChoices("IMAGE_JWT_ISSUER", "AUTH_JWT_ISSUER"),
-    )
-    jwt_audience: str = Field(
-        "sesacthon-clients",
-        validation_alias=AliasChoices("IMAGE_JWT_AUDIENCE", "AUTH_JWT_AUDIENCE"),
-    )
 
     model_config = SettingsConfigDict(
         env_prefix="IMAGE_",

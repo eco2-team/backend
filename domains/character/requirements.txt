@@ -12,3 +12,5 @@ redis==5.0.1
 httpx==0.26.0
 email-validator==2.1.0
 prometheus-client==0.20.0
+grpcio==1.76.0
+protobuf==6.33.2

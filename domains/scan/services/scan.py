@@ -94,6 +94,22 @@ class ScanService:
                 error=str(exc),
             )
 
+        # Record metrics
+        from domains.scan.metrics import (
+            PIPELINE_STEP_LATENCY,
+            REWARD_MATCH_LATENCY,
+            REWARD_MATCH_COUNTER,
+        )
+
+        metadata = pipeline_payload.get("metadata", {})
+        if metadata:
+            PIPELINE_STEP_LATENCY.labels(step="vision").observe(metadata.get("duration_vision", 0))
+            PIPELINE_STEP_LATENCY.labels(step="rag").observe(metadata.get("duration_rag", 0))
+            PIPELINE_STEP_LATENCY.labels(step="answer").observe(metadata.get("duration_answer", 0))
+            PIPELINE_STEP_LATENCY.labels(step="total_pipeline").observe(
+                metadata.get("duration_total", 0)
+            )
+
         finished_at = datetime.now(timezone.utc)
         elapsed_ms = (perf_counter() - pipeline_started) * 1000
         logger.info(
@@ -117,13 +133,21 @@ class ScanService:
 
         reward = None
         if self._should_attempt_reward(pipeline_result):
-            reward_request = self._build_reward_request(
-                user_id,
-                task_id,
-                pipeline_result,
-            )
-            if reward_request:
-                reward = await self._call_character_reward_api(reward_request)
+            with REWARD_MATCH_LATENCY.time():
+                reward_request = self._build_reward_request(
+                    user_id,
+                    task_id,
+                    pipeline_result,
+                )
+                if reward_request:
+                    reward = await self._call_character_reward_api(reward_request)
+
+            if reward:
+                REWARD_MATCH_COUNTER.labels(status="success").inc()
+            else:
+                REWARD_MATCH_COUNTER.labels(status="failed").inc()
+        else:
+            REWARD_MATCH_COUNTER.labels(status="skipped").inc()
 
         task = ScanTask(
             task_id=task_id,
@@ -241,8 +265,9 @@ class ScanService:
         self, reward_request: CharacterRewardRequest
     ) -> CharacterRewardResponse | None:
         headers = {}
-        if self.settings.character_api_token:
-            headers["Authorization"] = f"Bearer {self.settings.character_api_token}"
+        # Istio sidecar handles mTLS authentication; no application-level token needed.
+        # if self.settings.character_api_token:
+        #     headers["Authorization"] = f"Bearer {self.settings.character_api_token}"
         timeout = httpx.Timeout(self.settings.character_api_timeout_seconds)
         payload = reward_request.model_dump(mode="json")
         try:

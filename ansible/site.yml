@@ -1,6 +1,4 @@
----
 # Kubernetes 클러스터 전체 설정
----
 - name: Wait for SSH connection and cloud-init
   hosts: k8s_cluster
   gather_facts: no
@@ -52,15 +50,12 @@
   tasks:
   - import_tasks: playbooks/02-master-init.yml
 
-- name: Workers 조인 (All Worker Nodes)
-  hosts: workers,api_nodes,rabbitmq,postgresql,redis,monitoring
-  become: yes
-  tasks:
-  - import_tasks: playbooks/03-worker-join.yml
-  # ⚠️ Worker join 실패 시 여기서 중단됨
+# Workers 조인 (모든 노드 대상 플레이북 포함)
+- import_playbook: playbooks/03-worker-join.yml
+# ⚠️ Worker join 실패 시 여기서 중단됨
 
 - name: Worker 노드 라벨 교정 (옵션)
-  hosts: workers,api_nodes,rabbitmq,postgresql,redis,monitoring
+  hosts: workers,api_nodes,rabbitmq,postgresql,redis,monitoring,ingress_gateway
   become: yes
   gather_facts: yes
   serial: 1

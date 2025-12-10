@@ -84,6 +84,17 @@ resource "aws_security_group_rule" "cluster_internal" {
   description       = "Cluster internal communication (etcd, kubelet, CNI, etc.)"
 }
 
+# Istio Pilot Webhook Validation (Explicit Rule)
+resource "aws_security_group_rule" "cluster_istio_webhook" {
+  type              = "ingress"
+  from_port         = 15017
+  to_port           = 15017
+  protocol          = "tcp"
+  self              = true
+  security_group_id = aws_security_group.k8s_cluster.id
+  description       = "Istio Pilot Webhook Validation (15017)"
+}
+
 # Egress: 모든 아웃바운드 허용
 resource "aws_security_group_rule" "cluster_egress" {
   type              = "egress"

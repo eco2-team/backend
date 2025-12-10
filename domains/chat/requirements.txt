@@ -14,3 +14,5 @@ openai>=1.51.0
 python-dotenv>=1.0.1
 PyYAML>=6.0.2
 prometheus-client==0.20.0
+grpcio==1.76.0
+protobuf==6.33.2

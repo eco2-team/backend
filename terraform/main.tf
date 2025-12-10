@@ -67,20 +67,21 @@ data "aws_ami" "ubuntu" {
 
 locals {
   kubelet_profiles = {
-    "k8s-master"         = "--node-labels=role=control-plane,domain=control-plane,service=platform-system,workload=control-plane,tier=platform,phase=0 --register-with-taints=role=control-plane:NoSchedule"
-    "k8s-api-auth"       = "--node-labels=role=api,domain=auth,service=auth,workload=api,tier=business-logic,phase=1 --register-with-taints=domain=auth:NoSchedule"
-    "k8s-api-my"         = "--node-labels=role=api,domain=my,service=my,workload=api,tier=business-logic,phase=1 --register-with-taints=domain=my:NoSchedule"
-    "k8s-api-scan"       = "--node-labels=role=api,domain=scan,service=scan,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=scan:NoSchedule"
-    "k8s-api-character"  = "--node-labels=role=api,domain=character,service=character,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=character:NoSchedule"
-    "k8s-api-location"   = "--node-labels=role=api,domain=location,service=location,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=location:NoSchedule"
-    "k8s-api-image"      = "--node-labels=role=api,domain=image,service=image,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=image:NoSchedule"
-    "k8s-api-chat"       = "--node-labels=role=api,domain=chat,service=chat,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=chat:NoSchedule"
-    "k8s-worker-storage" = "--node-labels=role=worker,domain=worker-storage,worker-type=storage,workload=worker-storage,tier=worker,phase=4"
-    "k8s-worker-ai"      = "--node-labels=role=worker,domain=worker-ai,worker-type=ai,workload=worker-ai,tier=worker,phase=4"
-    "k8s-rabbitmq"       = "--node-labels=role=infrastructure,domain=integration,infra-type=rabbitmq,workload=message-queue,tier=platform,phase=4 --register-with-taints=domain=integration:NoSchedule"
-    "k8s-postgresql"     = "--node-labels=role=infrastructure,domain=data,infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
-    "k8s-redis"          = "--node-labels=role=infrastructure,domain=data,infra-type=redis,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
-    "k8s-monitoring"     = "--node-labels=role=infrastructure,domain=observability,infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule"
+    "k8s-master"          = "--node-labels=role=control-plane,domain=control-plane,service=platform-system,workload=control-plane,tier=platform,phase=0 --register-with-taints=role=control-plane:NoSchedule"
+    "k8s-api-auth"        = "--node-labels=role=api,domain=auth,service=auth,workload=api,tier=business-logic,phase=1 --register-with-taints=domain=auth:NoSchedule"
+    "k8s-api-my"          = "--node-labels=role=api,domain=my,service=my,workload=api,tier=business-logic,phase=1 --register-with-taints=domain=my:NoSchedule"
+    "k8s-api-scan"        = "--node-labels=role=api,domain=scan,service=scan,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=scan:NoSchedule"
+    "k8s-api-character"   = "--node-labels=role=api,domain=character,service=character,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=character:NoSchedule"
+    "k8s-api-location"    = "--node-labels=role=api,domain=location,service=location,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=location:NoSchedule"
+    "k8s-api-image"       = "--node-labels=role=api,domain=image,service=image,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=image:NoSchedule"
+    "k8s-api-chat"        = "--node-labels=role=api,domain=chat,service=chat,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=chat:NoSchedule"
+    "k8s-worker-storage"  = "--node-labels=role=worker,domain=worker-storage,worker-type=storage,workload=worker-storage,tier=worker,phase=4"
+    "k8s-worker-ai"       = "--node-labels=role=worker,domain=worker-ai,worker-type=ai,workload=worker-ai,tier=worker,phase=4"
+    "k8s-rabbitmq"        = "--node-labels=role=infrastructure,domain=integration,infra-type=rabbitmq,workload=message-queue,tier=platform,phase=4 --register-with-taints=domain=integration:NoSchedule"
+    "k8s-postgresql"      = "--node-labels=role=infrastructure,domain=data,infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
+    "k8s-redis"           = "--node-labels=role=infrastructure,domain=data,infra-type=redis,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
+    "k8s-monitoring"      = "--node-labels=role=infrastructure,domain=observability,infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule"
+    "k8s-ingress-gateway" = "--node-labels=role=ingress-gateway,domain=gateway,infra-type=istio,workload=gateway,tier=network,phase=5 --register-with-taints=role=ingress-gateway:NoSchedule"
   }
 }
 
@@ -524,6 +525,37 @@ module "monitoring" {
     Role     = "worker"
     Workload = "monitoring"
     Phase    = "4"
+  }
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Phase 5: Network Nodes (New)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# EC2 Instances - Istio Ingress Gateway
+module "ingress_gateway" {
+  source = "./modules/ec2"
+
+  instance_name        = "k8s-ingress-gateway"
+  instance_type        = "t3.medium" # 2GB
+  ami_id               = data.aws_ami.ubuntu.id
+  subnet_id            = module.vpc.public_subnet_ids[0]
+  security_group_ids   = [module.security_groups.cluster_sg_id]
+  key_name             = aws_key_pair.k8s.key_name
+  iam_instance_profile = aws_iam_instance_profile.k8s.name
+
+  root_volume_size = 20
+  root_volume_type = "gp3"
+
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname           = "k8s-ingress-gateway"
+    kubelet_extra_args = local.kubelet_profiles["k8s-ingress-gateway"]
+  })
+
+  tags = {
+    Role     = "worker"
+    Workload = "gateway"
+    Phase    = "5"
   }
 }
 

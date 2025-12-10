@@ -77,3 +77,5 @@ docker run --rm -p 8080:8000 docker.io/mng990/eco2-auth:dev-latest
 - metrics/health 테스트 확대 (`services/**/tests/test_metrics.py`)
 - 공통 인증/로깅 모듈을 `_shared/` 패키지로 분리 검토
 - External Secrets / ConfigMap 연동 시 `app/core/config.py` 에 설정 추가
+
+- CI repackaging trigger: 2025-12-09

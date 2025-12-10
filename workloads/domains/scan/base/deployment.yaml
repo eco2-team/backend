@@ -31,17 +31,6 @@ spec:
           value: postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
           value: redis.redis.svc.cluster.local
-        - name: AUTH_JWT_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: scan-secret
-              key: AUTH_JWT_SECRET_KEY
-        - name: AUTH_JWT_ISSUER
-          value: sesacthon-auth
-        - name: AUTH_JWT_AUDIENCE
-          value: sesacthon-clients
-        - name: AUTH_ACCESS_COOKIE_NAME
-          value: s_access
         envFrom:
         - configMapRef:
             name: scan-config

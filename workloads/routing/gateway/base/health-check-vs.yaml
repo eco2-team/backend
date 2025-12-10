@@ -1,0 +1,23 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: gateway-health-check
+  namespace: istio-system
+spec:
+  gateways:
+  - eco2-gateway
+  hosts:
+  - '*'
+  http:
+  - match:
+    - uri:
+        exact: /healthz/ready
+    - uri:
+        exact: /
+      headers:
+        User-Agent:
+          regex: ELB-HealthChecker/.*
+    directResponse:
+      status: 200
+      body:
+        string: Healthy

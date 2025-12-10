@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: dev-apis
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '40'
+spec:
+  generators:
+  - list:
+      elements:
+      - name: auth
+        phase: '1'
+      - name: my
+        phase: '1'
+      - name: scan
+        phase: '2'
+      - name: character
+        phase: '2'
+      - name: location
+        phase: '2'
+      - name: image
+        phase: '3'
+      - name: chat
+        phase: '3'
+  template:
+    metadata:
+      name: dev-api-{{name}}
+      namespace: argocd
+      labels:
+        tier: business-logic
+        domain: '{{name}}'
+        phase: '{{phase}}'
+    spec:
+      project: dev
+      source:
+        repoURL: https://github.com/eco2-team/backend.git
+        targetRevision: develop
+        path: workloads/domains/{{name}}/dev
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{name}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true

@@ -25,7 +25,6 @@ if get_settings().auth_disabled:
 else:
     access_token_dependency = build_access_token_dependency(
         get_settings,
-        cookie_alias=ACCESS_COOKIE_NAME,
     )
 
 __all__ = ["access_token_dependency"]

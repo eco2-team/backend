@@ -4,6 +4,7 @@ kind: Namespace
 metadata:
   name: auth
   labels:
+    istio-injection: enabled
     app.kubernetes.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
@@ -14,6 +15,7 @@ kind: Namespace
 metadata:
   name: my
   labels:
+    istio-injection: enabled
     app.kubernetes.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
@@ -24,6 +26,7 @@ kind: Namespace
 metadata:
   name: scan
   labels:
+    istio-injection: enabled
     app.kubernetes.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
@@ -34,6 +37,7 @@ kind: Namespace
 metadata:
   name: character
   labels:
+    istio-injection: enabled
     app.kubernetes.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
@@ -44,6 +48,7 @@ kind: Namespace
 metadata:
   name: location
   labels:
+    istio-injection: enabled
     app.kubernetes.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
@@ -54,6 +59,7 @@ kind: Namespace
 metadata:
   name: image
   labels:
+    istio-injection: enabled
     app.kubernetes.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
@@ -64,6 +70,7 @@ kind: Namespace
 metadata:
   name: rabbitmq
   labels:
+    istio-injection: enabled
     app.kubernetes.io/part-of: ecoeco-backend
     tier: integration
     role: messaging
@@ -74,6 +81,7 @@ kind: Namespace
 metadata:
   name: chat
   labels:
+    istio-injection: enabled
     app.kubernetes.io/part-of: ecoeco-backend
     tier: business-logic
     role: api
@@ -84,6 +92,7 @@ kind: Namespace
 metadata:
   name: postgres
   labels:
+    istio-injection: enabled
     app.kubernetes.io/part-of: ecoeco-backend
     tier: data
     role: database
@@ -94,6 +103,7 @@ kind: Namespace
 metadata:
   name: redis
   labels:
+    istio-injection: enabled
     app.kubernetes.io/part-of: ecoeco-backend
     tier: data
     role: cache
@@ -104,6 +114,7 @@ kind: Namespace
 metadata:
   name: prometheus
   labels:
+    istio-injection: enabled
     app.kubernetes.io/part-of: ecoeco-backend
     tier: observability
     role: metrics
@@ -113,6 +124,7 @@ kind: Namespace
 metadata:
   name: grafana
   labels:
+    istio-injection: enabled
     app.kubernetes.io/part-of: ecoeco-backend
     tier: observability
     role: dashboards
