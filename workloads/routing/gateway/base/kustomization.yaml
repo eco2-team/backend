@@ -5,3 +5,4 @@ resources:
 - request-authentication.yaml
 - envoy-filter.yaml
 - health-check-vs.yaml
+- authorization-policy.yaml
