@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
 - authorization-policy.yaml
 - telemetry.yaml
+- external-services.yaml
