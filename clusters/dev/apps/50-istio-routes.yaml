@@ -10,6 +10,9 @@ spec:
       - name: gateway
         namespace: istio-system
         path: workloads/routing/gateway/dev
+      - name: global
+        namespace: istio-system
+        path: workloads/routing/global
       - name: auth
         namespace: auth
         path: workloads/routing/auth/dev

@@ -1,0 +1,10 @@
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: global-sampling
+  namespace: istio-system
+spec:
+  tracing:
+  - providers:
+    - name: envoy
+    randomSamplingPercentage: 100.00
