@@ -4,3 +4,4 @@ resources:
 - allow-dns.yaml
 - allow-database-access.yaml
 - allow-external-https.yaml
+- allow-istiod.yaml

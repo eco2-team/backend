@@ -50,6 +50,11 @@ jobs:
     steps:
       - name: Detect conventional commit type
         id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          GITHUB_ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
           if [ "${GITHUB_ACTOR}" = "github-actions[bot]" ]; then
@@ -58,14 +63,13 @@ jobs:
             echo "commit_type=bot" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          EVENT_NAME="${{ github.event_name }}"
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            REF_TEXT="${{ github.event.pull_request.title }}"
+            REF_TEXT="$PR_TITLE"
           else
-            REF_TEXT="${{ github.event.head_commit.message }}"
+            REF_TEXT="$COMMIT_MSG"
           fi
           REF_TEXT="${REF_TEXT:-none}"
-          TYPE=$(echo "$REF_TEXT" | sed -n 's/^\([A-Za-z0-9_-]\+\):.*/\1/p' | tr '[:upper:]' '[:lower:]')
+          TYPE=$(printf '%s\n' "$REF_TEXT" | sed -n 's/^\([A-Za-z0-9_-]\+\):.*/\1/p' | tr '[:upper:]' '[:lower:]')
           if [[ "$TYPE" =~ ^(docs)$ ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "reason=Commit type '$TYPE' is configured to bypass service CI" >> "$GITHUB_OUTPUT"

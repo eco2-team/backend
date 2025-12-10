@@ -4,5 +4,3 @@ resources:
 - gateway.yaml
 - request-authentication.yaml
 - envoy-filter.yaml
-- request-authentication.yaml
-- request-authentication.yaml
