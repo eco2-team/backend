@@ -40,6 +40,9 @@ spec:
       - name: kiali
         namespace: istio-system
         path: workloads/routing/kiali/dev
+      - name: jaeger
+        namespace: istio-system
+        path: workloads/routing/jaeger/dev
   template:
     metadata:
       name: dev-route-{{name}}
