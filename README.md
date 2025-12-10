@@ -196,7 +196,6 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 |------|------------|------|
 | **Istio Webhook Sync Error** | ArgoCD Sync 시 `istiod-default-validator`가 `OutOfSync` 및 `Deleting` 상태 반복 → `ignoreDifferences`에 `failurePolicy` 추가하여 Istio의 런타임 패치 무시 설정 | `docs/troubleshooting/istio-webhook-sync-error.md` |
 | **NetworkPolicy Egress 차단** | `allow-istiod` 정책 적용 후 `my`, `chat` 등 서비스가 DB/DNS 접속 실패 (`ConnectionRefused`, `i/o timeout`) → `allow-dns`, `allow-database-access` 정책을 모든 애플리케이션 네임스페이스로 확장 | `workloads/network-policies` |
-| **My 서비스 404 에러** | `/api/v1/user/me` 호출 시 404 발생 → VirtualService 경로가 `/api/v1/my`로 잘못 설정됨 → `/api/v1/user`로 수정하여 해결 | - |
 | **Auth OAuth 콜백 리다이렉트 실패** | OAuth 성공 후에도 API JSON 응답에서 멈추고 `.growbin.app` 외 서브도메인으로 쿠키가 전달되지 않음 → `X-Frontend-Origin` 헤더 기반 리다이렉트 분기 | `docs/troubleshooting/2025-12-02-v1.0.0.md` |
 | **OAuth Provider HTTPS egress 차단** | Auth/Scan/Chat 파드가 외부 OAuth 엔드포인트 연결 실패 → `allow-external-https` 정책으로 TCP 443 egress 허용 | `docs/troubleshooting/2025-12-02-v1.0.0.md` |
 | **ArgoCD Deployment CrashLoopBackOff** | Ansible의 Deployment 직접 패치 방식 충돌 → ConfigMap 기반 `server.insecure` 설정으로 전환 | `docs/troubleshooting/ARGOCD_DEPLOYMENT_ISSUES.md` |
