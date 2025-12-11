@@ -10,6 +10,10 @@ class Settings(BaseSettings):
         "http://character-api.character.svc.cluster.local:8000",
         description="Base URL for the Character service (no trailing slash).",
     )
+    character_grpc_target: str = Field(
+        "character-grpc.character.svc.cluster.local:50051",
+        description="gRPC target address for Character service (host:port).",
+    )
     character_reward_endpoint: str = Field(
         "/api/v1/internal/characters/rewards",
         description="Path for the character reward evaluation endpoint.",

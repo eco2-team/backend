@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-scan-to-character-grpc
+  namespace: character
+spec:
+  podSelector:
+    matchLabels:
+      app: character-grpc
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: scan
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+    ports:
+    - protocol: TCP
+      port: 50051

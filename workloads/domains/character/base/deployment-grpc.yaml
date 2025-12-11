@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: character-grpc
+  namespace: character
+  labels:
+    app: character-grpc
+    tier: business-logic
+    domain: character
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: character-grpc
+  template:
+    metadata:
+      labels:
+        app: character-grpc
+        tier: business-logic
+        domain: character
+    spec:
+      containers:
+      - name: character-grpc
+        image: docker.io/mng990/eco2:character-api-dev-latest
+        imagePullPolicy: Always
+        command: [python, -m, domains.character.rpc.server]
+        ports:
+        - containerPort: 50051
+          name: grpc
+        env:
+        - name: POSTGRES_HOST
+          value: postgresql.postgres.svc.cluster.local
+        - name: REDIS_HOST
+          value: redis.redis.svc.cluster.local
+        envFrom:
+        - configMapRef:
+            name: character-config
+        - secretRef:
+            name: character-secret
+        livenessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: character
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: character
+        effect: NoSchedule
