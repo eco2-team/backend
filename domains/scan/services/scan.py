@@ -280,6 +280,12 @@ class ScanService:
                 response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.warning("Character reward API call failed: %s", exc)
+            if hasattr(exc, "response") and exc.response is not None:
+                logger.warning(
+                    "Character API error details - Status: %s, Body: %s",
+                    exc.response.status_code,
+                    exc.response.text,
+                )
             return None
 
         try:

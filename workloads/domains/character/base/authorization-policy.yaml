@@ -20,7 +20,7 @@ spec:
   # 2. Scan 서비스에서 오는 트래픽 허용 (내부 API 접근)
   - from:
     - source:
-        principals: [cluster.local/ns/scan/sa/default]
+        namespaces: [scan]
     to:
     - operation:
         paths: [/api/v1/internal/characters/rewards]
