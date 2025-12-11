@@ -17,6 +17,7 @@ from domains.character.schemas.reward import (
     CharacterRewardSource,
     ClassificationSummary,
 )
+from domains.scan.metrics import GRPC_CALL_COUNTER, GRPC_CALL_LATENCY
 from domains.scan.schemas.scan import (
     ClassificationRequest,
     ClassificationResponse,
@@ -286,13 +287,14 @@ class ScanService:
             )
 
             # Call gRPC with timeout
-            response = await stub.GetCharacterReward(
-                grpc_req,
-                timeout=self.settings.character_api_timeout_seconds,
-            )
+            with GRPC_CALL_LATENCY.labels(service="character", method="GetCharacterReward").time():
+                response = await stub.GetCharacterReward(
+                    grpc_req,
+                    timeout=self.settings.character_api_timeout_seconds,
+                )
 
             # Convert Protobuf response to Pydantic model
-            return CharacterRewardResponse(
+            result = CharacterRewardResponse(
                 received=response.received,
                 already_owned=response.already_owned,
                 name=response.name if response.HasField("name") else None,
@@ -304,10 +306,28 @@ class ScanService:
                 type=response.type if response.HasField("type") else None,
             )
 
+            GRPC_CALL_COUNTER.labels(
+                service="character", method="GetCharacterReward", status="success"
+            ).inc()
+
+            logger.info(
+                "Character reward gRPC call success (task=%s): received=%s, name=%s",
+                reward_request.task_id,
+                result.received,
+                result.name,
+            )
+            return result
+
         except grpc.RpcError as e:
+            GRPC_CALL_COUNTER.labels(
+                service="character", method="GetCharacterReward", status="error"
+            ).inc()
             logger.warning(f"Character reward gRPC call failed: {e.code()} - {e.details()}")
             return None
         except Exception:
+            GRPC_CALL_COUNTER.labels(
+                service="character", method="GetCharacterReward", status="exception"
+            ).inc()
             logger.exception("Unexpected error during character gRPC call")
             return None
 
