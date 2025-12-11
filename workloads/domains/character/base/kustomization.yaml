@@ -5,6 +5,7 @@ resources:
 - deployment.yaml
 - service.yaml
 - configmap.yaml
+- authorization-policy.yaml
 labels:
 - includeSelectors: true
   pairs:
