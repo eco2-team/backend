@@ -23,7 +23,7 @@ spec:
         namespaces: [scan]
     to:
     - operation:
-        paths: [/api/v1/internal/characters/rewards*]
+        paths: ['*']
 
   # 3. Prometheus 메트릭 수집 허용 (보통 별도 SA나 포트로 접근)
   - from:
