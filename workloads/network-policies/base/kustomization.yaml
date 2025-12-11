@@ -5,3 +5,5 @@ resources:
 - allow-database-access.yaml
 - allow-external-https.yaml
 - allow-istiod.yaml
+- allow-scan-to-character.yaml
+- allow-scan-egress-to-character.yaml
