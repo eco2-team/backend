@@ -5,4 +5,4 @@ metadata:
   namespace: character
 spec:
   mtls:
-    mode: STRICT
+    mode: PERMISSIVE
