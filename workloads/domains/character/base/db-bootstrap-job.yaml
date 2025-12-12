@@ -12,6 +12,7 @@ metadata:
     argocd.argoproj.io/hook-wave: '-10'
     argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
+  ttlSecondsAfterFinished: 300
   backoffLimit: 2
   template:
     metadata:

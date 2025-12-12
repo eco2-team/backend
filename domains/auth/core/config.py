@@ -28,8 +28,8 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("AUTH_RSA_PRIVATE_KEY", "JWT_PRIVATE_KEY"),
     )
     jwt_algorithm: str = "RS256"
-    jwt_issuer: str = "sesacthon-auth"
-    jwt_audience: str = "sesacthon-clients"
+    jwt_issuer: str = "api.dev.growbin.app/api/v1/auth"
+    jwt_audience: str = "api"
     access_token_exp_minutes: int = 60 * 3
     refresh_token_exp_minutes: int = 60 * 24 * 30
 

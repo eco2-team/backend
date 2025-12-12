@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ext-authz
+  namespace: auth
+  labels:
+    app: ext-authz
+    tier: infrastructure
+    domain: ext-authz
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ext-authz
+  template:
+    metadata:
+      labels:
+        app: ext-authz
+        tier: infrastructure
+        domain: ext-authz
+    spec:
+      containers:
+      - name: ext-authz
+        image: docker.io/mng990/eco2:ext-authz
+        imagePullPolicy: Always
+        # Command is inherited from Dockerfile CMD ["/app/ext-authz"]
+        ports:
+        - containerPort: 50051
+          name: grpc
+        env:
+        - name: AUTH_REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_REDIS_URL
+        - name: AUTH_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_SECRET_KEY
+        - name: AUTH_ALGORITHM
+          valueFrom:
+            configMapKeyRef:
+              name: auth-config
+              key: AUTH_ALGORITHM
+        - name: AUTH_GRPC_PORT
+          value: '50051'
+        livenessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: auth
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: auth
+        effect: NoSchedule

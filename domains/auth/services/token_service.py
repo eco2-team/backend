@@ -44,6 +44,7 @@ class TokenService:
             "type": token_type.value,
             "exp": to_unix_timestamp(expires_at),
             "iat": to_unix_timestamp(now),
+            "nbf": to_unix_timestamp(now),
             "iss": self.settings.jwt_issuer,
             "aud": self.settings.jwt_audience,
             "provider": provider,
