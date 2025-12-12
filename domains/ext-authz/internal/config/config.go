@@ -22,8 +22,8 @@ func Load() *Config {
 		RedisURL:         getEnv("AUTH_REDIS_URL", "redis://localhost:6379/0"),
 		JWTSecretKey:     getEnv("AUTH_SECRET_KEY", "secret"),
 		JWTAlgorithm:     getEnv("AUTH_ALGORITHM", "HS256"),
-		JWTIssuer:        getEnv("AUTH_ISSUER", ""),
-		JWTAudience:      getEnv("AUTH_AUDIENCE", ""),
+		JWTIssuer:        getEnv("AUTH_ISSUER", "api.dev.growbin.app/api/v1/auth"),
+		JWTAudience:      getEnv("AUTH_AUDIENCE", "api"),
 		JWTClockSkewSec:  getEnvAsInt("AUTH_CLOCK_SKEW_SEC", 60),
 		JWTRequiredScope: getEnv("AUTH_REQUIRED_SCOPE", ""), // optional space-delimited scope required at gateway
 	}
