@@ -19,17 +19,46 @@ spec:
         # 로그인/리프레시/소셜 OAuth 콜백/JWKS 등은 ext-authz 우회 (logout 제외)
         - /api/v1/auth/kakao
         - /api/v1/auth/google
+        - /api/v1/auth/naver
         - /api/v1/auth/refresh
-        - /api/v1/auth/*/callback
+        - /api/v1/auth/kakao/callback
+        - /api/v1/auth/google/callback
+        - /api/v1/auth/naver/callback
         - /api/v1/auth/.well-known/jwks.json
         # 스웨거/문서
-        - /api/v1/docs
-        - /api/v1/*/docs
-        # 공통 헬스/메트릭스 우회
-        - /api/v1/health
-        - /api/v1/*/health
-        - /api/v1/*/ready
-        - /api/v1/*/metrics
+        - /api/v1/auth/docs
+        - /api/v1/my/docs
+        - /api/v1/scan/docs
+        - /api/v1/character/docs
+        - /api/v1/location/docs
+        - /api/v1/image/docs
+        - /api/v1/chat/docs
+        - /api/v1/ext-authz/docs
+        # 헬스/레디/메트릭스 (도메인별 명시)
+        - /api/v1/auth/health
+        - /api/v1/auth/ready
+        - /api/v1/auth/metrics
+        - /api/v1/my/health
+        - /api/v1/my/ready
+        - /api/v1/my/metrics
+        - /api/v1/scan/health
+        - /api/v1/scan/ready
+        - /api/v1/scan/metrics
+        - /api/v1/character/health
+        - /api/v1/character/ready
+        - /api/v1/character/metrics
+        - /api/v1/location/health
+        - /api/v1/location/ready
+        - /api/v1/location/metrics
+        - /api/v1/image/health
+        - /api/v1/image/ready
+        - /api/v1/image/metrics
+        - /api/v1/chat/health
+        - /api/v1/chat/ready
+        - /api/v1/chat/metrics
+        - /api/v1/ext-authz/health
+        - /api/v1/ext-authz/ready
+        - /api/v1/ext-authz/metrics
         - /health
         - /ready
         - /metrics
