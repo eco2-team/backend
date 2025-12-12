@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: scan-ingress
+  namespace: scan
+spec:
+  rules:
+  - host: api.growbin.app
+    http:
+      paths:
+      - path: /api/v1/scan/
+        pathType: Prefix
+        backend:
+          service:
+            name: scan-api
+            port:
+              number: 8000
