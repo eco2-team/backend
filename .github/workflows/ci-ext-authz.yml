@@ -1,0 +1,138 @@
+name: CI Ext-Authz (Go)
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "domains/ext-authz/**"
+      - ".github/workflows/ci-ext-authz.yml"
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "domains/ext-authz/**"
+      - ".github/workflows/ci-ext-authz.yml"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  test:
+    name: 🧪 Go Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: domains/ext-authz/go.sum
+
+      - name: Test
+        working-directory: domains/ext-authz
+        run: |
+          go mod download
+          go test -v ./...
+
+  build-push:
+    name: 📦 Build & Push Image
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Prepare tags
+        id: meta
+        run: |
+          SHORT_SHA=$(git rev-parse --short=6 HEAD)
+          IMAGE_NAME="docker.io/mng990/eco2:ext-authz"
+          
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            TAG="${IMAGE_NAME}-prod-${SHORT_SHA}"
+            LATEST="${IMAGE_NAME}-prod-latest"
+          else
+            TAG="${IMAGE_NAME}-dev-${SHORT_SHA}"
+            LATEST="${IMAGE_NAME}-dev-latest"
+          fi
+          
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "latest=${LATEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: domains/ext-authz
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.latest }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Kustomize Manifest Update (Auto Deploy)
+      - name: Update Manifest
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          # Determine kustomize path
+          if [ "$BRANCH_NAME" = "main" ]; then
+            KUSTOMIZE_FILE="workloads/domains/auth/prod/kustomization.yaml"
+          else
+            KUSTOMIZE_FILE="workloads/domains/auth/dev/kustomization.yaml"
+          fi
+          
+          # Setup git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Fetch latest manifest
+          git fetch origin "$BRANCH_NAME"
+          git checkout "$BRANCH_NAME"
+          git pull --rebase origin "$BRANCH_NAME"
+          
+          # Update kustomization.yaml using kustomize edit or sed/python script
+          # Using python script from existing CI utilities if available, or simple sed/yq
+          # Assuming we want to update the 'auth-grpc' deployment image specifically.
+          # But wait, auth-grpc was using the same image as auth-api in the previous setup.
+          # Now it uses a different image: eco2:ext-authz
+          
+          # We need to make sure kustomization.yaml has an entry for this new image name
+          
+          # Simple sed replacement for demonstration (Improve with proper kustomize tool if needed)
+          # Check if the image entry exists, if not we might need to add it manually first or handle it differently.
+          # For now, let's assume we will update the Kustomize file manually once to switch image name,
+          # and then this CI will keep updating the tag.
+          
+          python -m pip install pyyaml
+          python scripts/ci/update_kustomize_image.py \
+            --file "$KUSTOMIZE_FILE" \
+            --image "docker.io/mng990/eco2:ext-authz" \
+            --tag "$IMAGE_TAG"
+            
+          # Commit & Push if changed
+          if git diff --quiet -- "$KUSTOMIZE_FILE"; then
+            echo "No changes to manifest"
+          else
+            git add "$KUSTOMIZE_FILE"
+            git commit -m "chore(ext-authz): bump image tag to $IMAGE_TAG [skip ci]"
+            git push origin "$BRANCH_NAME"
+          fi
