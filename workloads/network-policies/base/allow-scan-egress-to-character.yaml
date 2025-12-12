@@ -17,5 +17,3 @@ spec:
     ports:
     - protocol: TCP
       port: 8000
-    - protocol: TCP
-      port: 50051

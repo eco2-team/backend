@@ -2,13 +2,12 @@ from fastapi import APIRouter, Depends
 
 from domains.character.schemas import CharacterRewardRequest, CharacterRewardResponse
 from domains.character.services.character import CharacterService
+from domains.character.api.dependencies import service_token_dependency
 
 router = APIRouter(
     prefix="/internal/characters",
     tags=["character-rewards"],
-    # Istio sidecar handles mTLS authentication.
-    # We rely on AuthorizationPolicy to restrict access to this endpoint.
-    dependencies=[],
+    dependencies=[Depends(service_token_dependency)],
 )
 
 

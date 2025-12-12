@@ -22,18 +22,3 @@ REWARD_MATCH_COUNTER = Counter(
     labelnames=["status"],  # success, failed, skipped
     registry=REGISTRY,
 )
-
-GRPC_CALL_LATENCY = Histogram(
-    "scan_grpc_call_duration_seconds",
-    "Duration of gRPC calls to external services",
-    labelnames=["service", "method"],
-    registry=REGISTRY,
-    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5),
-)
-
-GRPC_CALL_COUNTER = Counter(
-    "scan_grpc_call_total",
-    "Total count of gRPC calls",
-    labelnames=["service", "method", "status"],
-    registry=REGISTRY,
-)

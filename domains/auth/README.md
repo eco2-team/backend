@@ -31,5 +31,3 @@ done
 - Grafana 패널: *Domain API Error Overview* (4xx/5xx 오류율)
 
 - CI repackaging trigger: 2025-12-09
-
-<!-- Trigger CI: 2025-12-11T11:39:17.975707 -->

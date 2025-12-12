@@ -11,9 +11,6 @@ on:
       - "workloads/domains/**"
       - "scripts/**"
       - ".github/workflows/ci-services.yml"
-    paths-ignore:
-      - "domains/ext-authz/**"
-      - "workloads/domains/ext-authz/**"
   pull_request:
     branches:
       - main
@@ -24,9 +21,6 @@ on:
       - "workloads/domains/**"
       - "scripts/**"
       - ".github/workflows/ci-services.yml"
-    paths-ignore:
-      - "domains/ext-authz/**"
-      - "workloads/domains/ext-authz/**"
   workflow_dispatch:
     inputs:
       force_all:
@@ -344,7 +338,8 @@ jobs:
 
       - name: Sync manifest branch
         if: >
-          (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+          (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') &&
+          (matrix.service == 'auth' || matrix.service == 'location')
         env:
           BRANCH_NAME: ${{ github.ref_name }}
         run: |
@@ -355,7 +350,8 @@ jobs:
 
       - name: Update dev manifest tag
         if: >
-          github.ref == 'refs/heads/develop'
+          github.ref == 'refs/heads/develop' &&
+          (matrix.service == 'auth' || matrix.service == 'location')
         id: update_dev
         env:
           KUSTOMIZE_FILE: workloads/domains/${{ matrix.service }}/dev/kustomization.yaml
@@ -375,7 +371,8 @@ jobs:
 
       - name: Update prod manifest tag
         if: >
-          github.ref == 'refs/heads/main'
+          github.ref == 'refs/heads/main' &&
+          (matrix.service == 'auth' || matrix.service == 'location')
         id: update_prod
         env:
           KUSTOMIZE_FILE: workloads/domains/${{ matrix.service }}/prod/kustomization.yaml
