@@ -27,20 +27,28 @@ spec:
         - /api/v1/auth/.well-known/jwks.json
         # 스웨거/문서
         - /api/v1/auth/docs
-        - /api/v1/my/docs
+        - /api/v1/auth/openapi.json
+        - /api/v1/user/docs
+        - /api/v1/user/openapi.json
         - /api/v1/scan/docs
+        - /api/v1/scan/openapi.json
         - /api/v1/character/docs
+        - /api/v1/character/openapi.json
         - /api/v1/location/docs
+        - /api/v1/location/openapi.json
         - /api/v1/image/docs
+        - /api/v1/image/openapi.json
         - /api/v1/chat/docs
+        - /api/v1/chat/openapi.json
         - /api/v1/ext-authz/docs
+        - /api/v1/ext-authz/openapi.json
         # 헬스/레디/메트릭스 (도메인별 명시)
         - /api/v1/auth/health
         - /api/v1/auth/ready
         - /api/v1/auth/metrics
-        - /api/v1/my/health
-        - /api/v1/my/ready
-        - /api/v1/my/metrics
+        - /api/v1/user/health
+        - /api/v1/user/ready
+        - /api/v1/user/metrics
         - /api/v1/scan/health
         - /api/v1/scan/ready
         - /api/v1/scan/metrics
