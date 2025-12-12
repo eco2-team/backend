@@ -6,18 +6,26 @@ import (
 )
 
 type Config struct {
-	GRPCPort      int
-	RedisURL      string
-	JWTSecretKey  string
-	JWTAlgorithm  string
+	GRPCPort         int
+	RedisURL         string
+	JWTSecretKey     string
+	JWTAlgorithm     string
+	JWTIssuer        string
+	JWTAudience      string
+	JWTClockSkewSec  int
+	JWTRequiredScope string
 }
 
 func Load() *Config {
 	return &Config{
-		GRPCPort:      getEnvAsInt("AUTH_GRPC_PORT", 50051), // Default to match Character gRPC port
-		RedisURL:      getEnv("AUTH_REDIS_URL", "redis://localhost:6379/0"),
-		JWTSecretKey:  getEnv("AUTH_SECRET_KEY", "secret"),
-		JWTAlgorithm:  getEnv("AUTH_ALGORITHM", "HS256"),
+		GRPCPort:         getEnvAsInt("AUTH_GRPC_PORT", 50051), // Default to match Character gRPC port
+		RedisURL:         getEnv("AUTH_REDIS_URL", "redis://localhost:6379/0"),
+		JWTSecretKey:     getEnv("AUTH_SECRET_KEY", "secret"),
+		JWTAlgorithm:     getEnv("AUTH_ALGORITHM", "HS256"),
+		JWTIssuer:        getEnv("AUTH_ISSUER", ""),
+		JWTAudience:      getEnv("AUTH_AUDIENCE", ""),
+		JWTClockSkewSec:  getEnvAsInt("AUTH_CLOCK_SKEW_SEC", 60),
+		JWTRequiredScope: getEnv("AUTH_REQUIRED_SCOPE", ""), // optional space-delimited scope required at gateway
 	}
 }
 

@@ -9,7 +9,10 @@ import (
 
 func TestVerifier_Verify(t *testing.T) {
 	secret := "secret"
-	verifier := NewVerifier(secret)
+	issuer := "eco2"
+	audience := "eco2-api"
+	scope := "read"
+	verifier := NewVerifier(secret, "HS256", issuer, audience, time.Minute, scope)
 
 	tests := []struct {
 		name    string
@@ -20,9 +23,12 @@ func TestVerifier_Verify(t *testing.T) {
 			name: "Valid Token",
 			token: func() string {
 				token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-					"sub": "user123",
-					"jti": "jti123",
-					"exp": time.Now().Add(time.Hour).Unix(),
+					"sub":   "user123",
+					"jti":   "jti123",
+					"exp":   time.Now().Add(time.Hour).Unix(),
+					"iss":   issuer,
+					"aud":   audience,
+					"scope": "read write",
 				})
 				s, _ := token.SignedString([]byte(secret))
 				return "Bearer " + s
@@ -33,8 +39,12 @@ func TestVerifier_Verify(t *testing.T) {
 			name: "Expired Token",
 			token: func() string {
 				token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-					"sub": "user123",
-					"exp": time.Now().Add(-time.Hour).Unix(),
+					"sub":   "user123",
+					"jti":   "jti123",
+					"exp":   time.Now().Add(-time.Hour).Unix(),
+					"iss":   issuer,
+					"aud":   audience,
+					"scope": scope,
 				})
 				s, _ := token.SignedString([]byte(secret))
 				return "Bearer " + s
@@ -44,6 +54,37 @@ func TestVerifier_Verify(t *testing.T) {
 		{
 			name:    "Invalid Signature",
 			token:   "Bearer " + "invalid.token.string",
+			wantErr: true,
+		},
+		{
+			name: "Missing Sub",
+			token: func() string {
+				token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+					"jti":   "jti123",
+					"exp":   time.Now().Add(time.Hour).Unix(),
+					"iss":   issuer,
+					"aud":   audience,
+					"scope": scope,
+				})
+				s, _ := token.SignedString([]byte(secret))
+				return "Bearer " + s
+			}(),
+			wantErr: true,
+		},
+		{
+			name: "Missing Required Scope",
+			token: func() string {
+				token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+					"sub":   "user123",
+					"jti":   "jti123",
+					"exp":   time.Now().Add(time.Hour).Unix(),
+					"iss":   issuer,
+					"aud":   audience,
+					"scope": "write",
+				})
+				s, _ := token.SignedString([]byte(secret))
+				return "Bearer " + s
+			}(),
 			wantErr: true,
 		},
 	}

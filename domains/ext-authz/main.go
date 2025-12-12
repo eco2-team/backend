@@ -34,7 +34,14 @@ func main() {
 	}
 	defer redisStore.Close()
 
-	verifier := jwt.NewVerifier(cfg.JWTSecretKey)
+	verifier := jwt.NewVerifier(
+		cfg.JWTSecretKey,
+		cfg.JWTAlgorithm,
+		cfg.JWTIssuer,
+		cfg.JWTAudience,
+		time.Duration(cfg.JWTClockSkewSec)*time.Second,
+		cfg.JWTRequiredScope,
+	)
 	authServer := server.New(verifier, redisStore)
 
 	// 3. Start gRPC Server
