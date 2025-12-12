@@ -16,9 +16,16 @@ spec:
         hosts: [api.dev.growbin.app, api.growbin.app]
         paths: [/api/v1/*]   # API 경로에 대해서만 검사
         notPaths:
-        # 로그인/리프레시/소셜 OAuth 콜백 등은 ext-authz 우회
-        - /api/v1/auth/*
+        # 로그인/리프레시/소셜 OAuth 콜백/JWKS 등은 ext-authz 우회 (logout 제외)
+        - /api/v1/auth/login
+        - /api/v1/auth/refresh
+        - /api/v1/auth/*/callback
+        - /api/v1/auth/.well-known/jwks.json
+        # 공통 헬스/메트릭스 우회
         - /api/v1/health
+        - /api/v1/*/health
+        - /api/v1/*/ready
+        - /api/v1/*/metrics
         - /health
-        - /metrics
         - /ready
+        - /metrics
