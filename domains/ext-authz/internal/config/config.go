@@ -24,7 +24,7 @@ func Load() *Config {
 		JWTAlgorithm:     getEnv("AUTH_ALGORITHM", "HS256"),
 		JWTIssuer:        getEnv("AUTH_ISSUER", "api.dev.growbin.app/api/v1/auth"),
 		JWTAudience:      getEnv("AUTH_AUDIENCE", "api"),
-		JWTClockSkewSec:  getEnvAsInt("AUTH_CLOCK_SKEW_SEC", 60),
+		JWTClockSkewSec:  getEnvAsInt("AUTH_CLOCK_SKEW_SEC", 5),
 		JWTRequiredScope: getEnv("AUTH_REQUIRED_SCOPE", ""), // optional space-delimited scope required at gateway
 	}
 }
