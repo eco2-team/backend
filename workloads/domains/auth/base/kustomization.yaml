@@ -3,9 +3,7 @@ kind: Kustomization
 namespace: auth
 resources:
 - deployment.yaml
-- deployment-grpc.yaml
 - service.yaml
-- service-grpc.yaml
 - configmap.yaml
 - hpa.yaml
 labels:
