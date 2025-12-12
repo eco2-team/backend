@@ -367,22 +367,6 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 
 ---
 
-## Repository Layout
-
-```text
-backend/
-├── terraform/           # Terraform (Atlantis) IaC
-├── ansible/             # kubeadm, Calico, bootstrap playbooks
-├── scripts/deployment/  # bootstrap_cluster.sh / destroy_cluster.sh
-├── clusters/            # Argo CD Root Apps + Wave별 Application 목록
-├── workloads/           # Kustomize (namespaces, rbac, network, apis, routing 등 K8s 리소스)
-├── platform/            # Upstream CRD & CR bundles (Istio, AWS LB, External Secrets 등)
-├── services/            # FastAPI 도메인 코드
-└── docs/                # Architecture / Deployment / Troubleshooting
-```
-
----
-
 ## Release Summary (v1.0.5)
 
 - **Istio Service Mesh Migration**
