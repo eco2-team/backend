@@ -13,23 +13,16 @@ from domains.auth.core.exceptions import (
 )
 
 from domains.auth.services.key_manager import KeyManager
-from domains.auth.grpc.server import start_grpc_server
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     KeyManager.ensure_keys()
-
-    # gRPC 서버 시작 (Non-blocking)
-    # create_task로 실행하여 이벤트 루프를 공유함
-    grpc_server = await start_grpc_server(port=9001)
-
     yield
 
     # Shutdown
-    # gRPC 서버 종료 (Graceful Shutdown)
-    await grpc_server.stop(grace=5)
+    # 현재 별도 gRPC 서버 없음 (ext-authz Go 전환)
 
 
 def create_app() -> FastAPI:
