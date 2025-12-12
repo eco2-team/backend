@@ -8,9 +8,8 @@ from time import perf_counter
 from typing import Dict, List
 from uuid import UUID, uuid4
 
-import httpx
+import grpc
 from fastapi import Depends
-from pydantic import ValidationError
 
 from domains.character.schemas.reward import (
     CharacterRewardRequest,
@@ -18,6 +17,7 @@ from domains.character.schemas.reward import (
     CharacterRewardSource,
     ClassificationSummary,
 )
+from domains.scan.metrics import GRPC_CALL_COUNTER, GRPC_CALL_LATENCY
 from domains.scan.schemas.scan import (
     ClassificationRequest,
     ClassificationResponse,
@@ -25,6 +25,8 @@ from domains.scan.schemas.scan import (
     ScanTask,
 )
 from domains.scan.core.config import Settings, get_settings
+from domains.scan.core.grpc_client import get_character_stub
+from domains.scan.proto import character_pb2
 from domains._shared.schemas.waste import WasteClassificationResult
 from domains._shared.waste_pipeline import PipelineError, process_waste_classification
 from domains._shared.waste_pipeline.utils import ITEM_CLASS_PATH, load_yaml
@@ -39,7 +41,6 @@ class ScanService:
 
     def __init__(self, settings: Settings = Depends(get_settings)):
         self.settings = settings
-        self._reward_endpoint = self._build_reward_endpoint()
 
     async def classify(
         self, payload: ClassificationRequest, user_id: UUID
@@ -264,37 +265,71 @@ class ScanService:
     async def _call_character_reward_api(
         self, reward_request: CharacterRewardRequest
     ) -> CharacterRewardResponse | None:
-        headers = {}
-        # Istio sidecar handles mTLS authentication; no application-level token needed.
-        # if self.settings.character_api_token:
-        #     headers["Authorization"] = f"Bearer {self.settings.character_api_token}"
-        timeout = httpx.Timeout(self.settings.character_api_timeout_seconds)
-        payload = reward_request.model_dump(mode="json")
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(
-                    self._reward_endpoint,
-                    json=payload,
-                    headers=headers or None,
+            stub = await get_character_stub()
+
+            # Create Protobuf request
+            classification_msg = character_pb2.ClassificationSummary(
+                major_category=reward_request.classification.major_category,
+                middle_category=reward_request.classification.middle_category,
+            )
+            if reward_request.classification.minor_category:
+                classification_msg.minor_category = reward_request.classification.minor_category
+
+            grpc_req = character_pb2.RewardRequest(
+                source=reward_request.source.value,
+                user_id=str(reward_request.user_id),
+                task_id=reward_request.task_id,
+                classification=classification_msg,
+                situation_tags=reward_request.situation_tags,
+                disposal_rules_present=reward_request.disposal_rules_present,
+                insufficiencies_present=reward_request.insufficiencies_present,
+            )
+
+            # Call gRPC with timeout
+            with GRPC_CALL_LATENCY.labels(service="character", method="GetCharacterReward").time():
+                response = await stub.GetCharacterReward(
+                    grpc_req,
+                    timeout=self.settings.character_api_timeout_seconds,
                 )
-                response.raise_for_status()
-        except httpx.HTTPError as exc:
-            logger.warning("Character reward API call failed: %s", exc)
-            return None
 
-        try:
-            data = response.json()
-            return CharacterRewardResponse(**data)
-        except (ValueError, ValidationError) as exc:
-            logger.warning("Invalid character reward payload: %s", exc)
-            return None
+            # Convert Protobuf response to Pydantic model
+            result = CharacterRewardResponse(
+                received=response.received,
+                already_owned=response.already_owned,
+                name=response.name if response.HasField("name") else None,
+                dialog=response.dialog if response.HasField("dialog") else None,
+                match_reason=response.match_reason if response.HasField("match_reason") else None,
+                character_type=(
+                    response.character_type if response.HasField("character_type") else None
+                ),
+                type=response.type if response.HasField("type") else None,
+            )
 
-    def _build_reward_endpoint(self) -> str:
-        base = self.settings.character_api_base_url.rstrip("/")
-        path = self.settings.character_reward_endpoint
-        if not path.startswith("/"):
-            path = f"/{path}"
-        return f"{base}{path}"
+            GRPC_CALL_COUNTER.labels(
+                service="character", method="GetCharacterReward", status="success"
+            ).inc()
+
+            logger.info(
+                "Character reward gRPC call success (task=%s): received=%s, name=%s",
+                reward_request.task_id,
+                result.received,
+                result.name,
+            )
+            return result
+
+        except grpc.RpcError as e:
+            GRPC_CALL_COUNTER.labels(
+                service="character", method="GetCharacterReward", status="error"
+            ).inc()
+            logger.warning(f"Character reward gRPC call failed: {e.code()} - {e.details()}")
+            return None
+        except Exception:
+            GRPC_CALL_COUNTER.labels(
+                service="character", method="GetCharacterReward", status="exception"
+            ).inc()
+            logger.exception("Unexpected error during character gRPC call")
+            return None
 
     @staticmethod
     def _has_insufficiencies(result: WasteClassificationResult) -> bool:

@@ -11,7 +11,7 @@ spec:
   source:
     repoURL: https://github.com/eco2-team/backend.git
     targetRevision: develop
-    path: platform/crds/dev
+    path: workloads/crds/dev
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

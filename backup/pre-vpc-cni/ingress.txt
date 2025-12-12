@@ -1,5 +1,0 @@
-NAMESPACE    NAME              CLASS   HOSTS         ADDRESS                                                                       PORTS   AGE
-argocd       argocd-ingress    alb     growbin.app                                                                                 80      23m
-default      api-ingress       alb     growbin.app                                                                                 80      23m
-default      test-ingress      alb     growbin.app   k8s-default-testingr-15c84e0792-1257085276.ap-northeast-2.elb.amazonaws.com   80      23m
-monitoring   grafana-ingress   alb     growbin.app                                                                                 80      23m

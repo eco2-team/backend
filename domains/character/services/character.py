@@ -17,6 +17,7 @@ from domains.character.schemas.reward import (
     CharacterRewardSource,
     ClassificationSummary,
 )
+from domains.character.metrics import REWARD_EVALUATION_TOTAL, REWARD_GRANTED_TOTAL
 
 DEFAULT_CHARACTER_NAME = "이코"
 DEFAULT_CHARACTER_SOURCE = "default-onboard"
@@ -76,6 +77,26 @@ class CharacterService:
                 received = (
                     failure_reason is None and reward_profile is not None and not already_owned
                 )
+
+                # Record metrics
+                status_label = "success" if received else "failed"
+                if already_owned:
+                    status_label = "already_owned"
+                elif failure_reason:
+                    status_label = f"failed_{failure_reason.value}"
+
+                REWARD_EVALUATION_TOTAL.labels(
+                    status=status_label, source=payload.source.value
+                ).inc()
+
+                if received and reward_profile:
+                    REWARD_GRANTED_TOTAL.labels(
+                        character_name=reward_profile.name, type=reward_profile.type or "unknown"
+                    ).inc()
+            else:
+                REWARD_EVALUATION_TOTAL.labels(status="no_match", source=payload.source.value).inc()
+        else:
+            REWARD_EVALUATION_TOTAL.labels(status="skipped", source=payload.source.value).inc()
 
         return self._to_reward_response(reward_profile, already_owned, received, match_reason)
 

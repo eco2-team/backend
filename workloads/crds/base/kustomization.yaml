@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  # AWS Load Balancer Controller CRDs
+- https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.1/helm/aws-load-balancer-controller/crds/crds.yaml
+
+  # External Secrets Operator CRDs
+- https://raw.githubusercontent.com/external-secrets/external-secrets/v0.9.11/deploy/crds/bundle.yaml
+  # Postgres Operator CRDs
+- https://raw.githubusercontent.com/zalando/postgres-operator/v1.10.0/manifests/postgresql.crd.yaml
+- https://raw.githubusercontent.com/zalando/postgres-operator/v1.10.0/manifests/operatorconfiguration.crd.yaml
+
+  # Prometheus Operator CRDs
+- https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.73.1/example/prometheus-operator-crd/monitoring.coreos.com_alertmanagers.yaml
+- https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.73.1/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
+- https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.73.1/example/prometheus-operator-crd/monitoring.coreos.com_probes.yaml
+- https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.73.1/example/prometheus-operator-crd/monitoring.coreos.com_prometheuses.yaml
+- https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.73.1/example/prometheus-operator-crd/monitoring.coreos.com_prometheusrules.yaml
+- https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.73.1/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+- https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.73.1/example/prometheus-operator-crd/monitoring.coreos.com_thanosrulers.yaml

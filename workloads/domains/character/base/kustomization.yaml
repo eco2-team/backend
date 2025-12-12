@@ -3,10 +3,12 @@ kind: Kustomization
 namespace: character
 resources:
 - deployment.yaml
+- deployment-grpc.yaml
 - service.yaml
+- service-grpc.yaml
 - configmap.yaml
-- db-bootstrap-job.yaml
-- catalog-import-job.yaml
+# - authorization-policy.yaml
+# - peer-authentication.yaml
 labels:
 - includeSelectors: true
   pairs:

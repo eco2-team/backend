@@ -49,8 +49,8 @@ spec:
           extensionProviders:
           - name: eco2-ext-authz
             envoyExtAuthzGrpc:
-              service: auth-api.auth.svc.cluster.local
-              port: '9001'
+              service: ext-authz.auth.svc.cluster.local
+              port: '50051'
               timeout: 0.25s
               failOpen: false
               includeHeadersInCheck:
