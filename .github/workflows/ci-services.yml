@@ -6,7 +6,7 @@ on:
       - main
       - develop
       - refactor/gitops-sync-wave
-    paths:
+    paths: &fastapi_paths
       # FastAPI 서비스 (ext-authz는 Go이므로 ci-ext-authz.yml에서 처리)
       - "domains/auth/**"
       - "domains/character/**"
@@ -31,26 +31,7 @@ on:
       - main
       - develop
       - refactor/gitops-sync-wave
-    paths:
-      # FastAPI 서비스 (ext-authz는 Go이므로 ci-ext-authz.yml에서 처리)
-      - "domains/auth/**"
-      - "domains/character/**"
-      - "domains/chat/**"
-      - "domains/image/**"
-      - "domains/location/**"
-      - "domains/my/**"
-      - "domains/scan/**"
-      - "domains/_shared/waste_pipeline/**"
-      - "domains/_shared/schemas/**"
-      - "workloads/domains/auth/**"
-      - "workloads/domains/character/**"
-      - "workloads/domains/chat/**"
-      - "workloads/domains/image/**"
-      - "workloads/domains/location/**"
-      - "workloads/domains/my/**"
-      - "workloads/domains/scan/**"
-      - "scripts/**"
-      - ".github/workflows/ci-services.yml"
+    paths: *fastapi_paths
   workflow_dispatch:
     inputs:
       force_all:
