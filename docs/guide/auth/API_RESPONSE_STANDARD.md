@@ -132,7 +132,11 @@ GET /api/v1/auth/me
 
 **요청:**
 ```bash
-GET /api/v1/auth/callback/google?code=&state=abc
+POST /api/v1/auth/login/google
+{
+  "code": "",  // 빈 문자열 - min_length=1 위반
+  "state": "abc"  // 너무 짧음 - min_length=8 위반
+}
 ```
 
 **응답:**
@@ -143,7 +147,7 @@ GET /api/v1/auth/callback/google?code=&state=abc
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "String should have at least 1 character",
-    "field": "query.code"
+    "field": "body.code"
   }
 }
 ```
@@ -178,3 +182,4 @@ if (result.success) {
   console.error(result.error.code, result.error.message);
 }
 ```
+

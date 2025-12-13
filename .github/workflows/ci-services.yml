@@ -26,6 +26,9 @@ on:
       - "workloads/domains/scan/**"
       - "scripts/**"
       - ".github/workflows/ci-services.yml"
+    paths-ignore:
+      - "domains/ext-authz/**"
+      - "workloads/domains/ext-authz/**"
   pull_request:
     branches:
       - main

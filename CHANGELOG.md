@@ -77,6 +77,11 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 ### Fixed
 - **사용자 정보 조회 오류 수정** (`user/me`)
   - 다중 소셜 계정 연동 시 특정 상황에서 잘못된 Provider 정보를 반환하던 문제를 해결 (`last_login_at` 기준 최신 계정 우선 선택 로직 적용)
+- **배포 및 네트워크 안정성 확보**
+  - `my` 서비스의 DB 연결 오류(`ConnectionRefused`) 및 라우팅 경로(`404`) 문제 해결
+  - `image` 서비스의 불필요한 Secret 참조로 인한 배포 실패 수정
+  - `NetworkPolicy` 적용으로 인한 타 Namespace 서비스(DB, DNS) 접근 차단 문제 해결 (`Egress` 정책 확장)
+  - ArgoCD와 Istio 간의 리소스 상태 불일치(Sync Drift) 문제 해결 (`ignoreDifferences` 적용)
 
 ---
 

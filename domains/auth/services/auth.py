@@ -27,6 +27,8 @@ from domains.auth.core.jwt import TokenPayload
 
 logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
+
 ACCESS_COOKIE_NAME = "s_access"
 REFRESH_COOKIE_NAME = "s_refresh"
 COOKIE_PATH = "/"
