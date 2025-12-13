@@ -10,6 +10,12 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 ## [1.0.6] - 2025-12-13
 
 ### Added
+- **ext-authz Go gRPC 서버 구현 (Auth Offloading)**
+  - Envoy `ext_authz` 프로토콜 기반 외부 인가 서버
+  - JWT 검증 (HS256) + Redis 블랙리스트 조회
+  - 인증 성공 시 `x-user-id`, `x-auth-provider` 헤더 주입
+  - 환경 변수 기반 설정 (`config.go`)
+  - 의존성 역전 원칙(DIP) 적용: Redis 클라이언트 인터페이스 추상화
 - **ext-authz Go 서버 Prometheus 메트릭**
   - `ext_authz_request_duration_seconds`: 전체 요청 처리 시간 (Histogram)
   - `ext_authz_jwt_verify_duration_seconds`: JWT 검증 시간 (Histogram)
