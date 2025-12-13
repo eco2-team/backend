@@ -11,9 +11,6 @@ on:
       - "workloads/domains/**"
       - "scripts/**"
       - ".github/workflows/ci-services.yml"
-    paths-ignore:
-      - "domains/ext-authz/**"
-      - "workloads/domains/ext-authz/**"
   pull_request:
     branches:
       - main
@@ -24,9 +21,6 @@ on:
       - "workloads/domains/**"
       - "scripts/**"
       - ".github/workflows/ci-services.yml"
-    paths-ignore:
-      - "domains/ext-authz/**"
-      - "workloads/domains/ext-authz/**"
   workflow_dispatch:
     inputs:
       force_all:
