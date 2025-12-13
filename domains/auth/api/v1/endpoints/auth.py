@@ -142,7 +142,8 @@ async def ping_protected(
     """ext-authz 검증 후 주입된 헤더 확인용 엔드포인트."""
     if not x_user_id:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing x-user-id header"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing x-user-id header",
         )
 
     return AuthorizationSuccessResponse(
