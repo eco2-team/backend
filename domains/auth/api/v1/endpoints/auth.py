@@ -19,6 +19,8 @@ from domains.auth.schemas.auth import (
     OAuthAuthorizeParams,
     OAuthLoginRequest,
 )
+from domains.auth.core.security_dependency import access_token_dependency
+from domains.auth.core.jwt import TokenPayload
 from domains.auth.services.auth import AuthService
 from domains.auth.services.key_manager import KeyManager
 
@@ -122,6 +124,27 @@ async def authorize_google(
         "google", params.model_copy(update={"frontend_origin": frontend_origin})
     )
     return AuthorizationSuccessResponse(data=result)
+
+
+# ---------------------------------------------------------------------------
+# Protected ping endpoint (no DB I/O) for ext-authz/auth 테스트 용도
+# ---------------------------------------------------------------------------
+
+
+@auth_router.get(
+    "/ping",
+    summary="Protected ping (authz check only)",
+    response_model=AuthorizationSuccessResponse,
+)
+async def ping_protected(payload: Annotated["TokenPayload", Depends(access_token_dependency)]):
+    return AuthorizationSuccessResponse(
+        data={
+            "sub": payload.sub,
+            "jti": payload.jti,
+            "provider": payload.provider,
+            "type": payload.type.value,
+        }
+    )
 
 
 @kakao_router.get(

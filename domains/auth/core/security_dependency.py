@@ -2,7 +2,6 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status, Header
 from domains.auth.core.config import get_settings
 from domains.auth.core.jwt import TokenPayload, TokenType, decode_jwt
-from domains.auth.services.key_manager import KeyManager
 from domains.auth.services.token_blacklist import TokenBlacklist
 
 
@@ -23,8 +22,8 @@ async def access_token_dependency(
     settings = get_settings()
     payload = decode_jwt(
         jwt_token,
-        secret=KeyManager.get_public_key_pem(),
-        algorithm="RS256",
+        secret=settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
         audience=settings.jwt_audience,
         issuer=settings.jwt_issuer,
     )
