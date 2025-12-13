@@ -14,3 +14,7 @@ spec:
     targetPort: 50051
     protocol: TCP
     name: grpc
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics

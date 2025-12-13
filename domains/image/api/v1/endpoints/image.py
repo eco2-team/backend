@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from domains._shared.security import TokenPayload
-
 from domains.image.api.v1.dependencies import get_image_service
 from domains.image.schemas.image import (
     ImageChannel,
@@ -16,7 +14,7 @@ from domains.image.services.image import (
     PendingUploadNotFoundError,
     PendingUploadPermissionDeniedError,
 )
-from domains.image.security import access_token_dependency
+from domains.image.security import get_current_user, UserInfo
 
 router = APIRouter(prefix="/images", tags=["images"])
 
@@ -30,10 +28,10 @@ async def create_upload_url(
     channel: ImageChannel,
     payload: ImageUploadRequest,
     service: ImageService = Depends(get_image_service),
-    token: TokenPayload = Depends(access_token_dependency),
+    user: UserInfo = Depends(get_current_user),
 ):
-    token_user_id = str(token.user_id)
-    if payload.uploader_id and payload.uploader_id != token_user_id:
+    user_id = str(user.user_id)
+    if payload.uploader_id and payload.uploader_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Uploader mismatch",
@@ -41,7 +39,7 @@ async def create_upload_url(
     return await service.create_upload_url(
         channel,
         payload,
-        uploader_id=token_user_id,
+        uploader_id=user_id,
     )
 
 
@@ -54,13 +52,13 @@ async def finalize_upload(
     channel: ImageChannel,
     payload: ImageUploadCallbackRequest,
     service: ImageService = Depends(get_image_service),
-    token: TokenPayload = Depends(access_token_dependency),
+    user: UserInfo = Depends(get_current_user),
 ):
     try:
         return await service.finalize_upload(
             channel,
             payload,
-            uploader_id=str(token.user_id),
+            uploader_id=str(user.user_id),
         )
     except PendingUploadNotFoundError:
         raise HTTPException(

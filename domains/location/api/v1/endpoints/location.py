@@ -2,9 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from domains.location.domain.value_objects import PickupCategory, StoreCategory
 from domains.location.schemas.location import CoordinatesPayload, GeoResponse, LocationEntry
-from domains.location.security import access_token_dependency
+from domains.location.security import get_current_user, UserInfo
 from domains.location.services.location import LocationService
-from domains._shared.security import TokenPayload
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
@@ -33,7 +32,7 @@ async def centers(
         "all",
         description="Comma-separated PickupCategory values. Use 'all' (default) for no filtering.",
     ),
-    _: TokenPayload = Depends(access_token_dependency),
+    _: UserInfo = Depends(get_current_user),
     service: LocationService = Depends(),
 ):
     store_filter = _parse_store_category_param(store_category)
@@ -51,7 +50,7 @@ async def centers(
 @router.post("/geocode", response_model=GeoResponse, summary="Address to coordinates")
 async def geocode(
     address: str,
-    _: TokenPayload = Depends(access_token_dependency),
+    _: UserInfo = Depends(get_current_user),
     service: LocationService = Depends(),
 ):
     return await service.geocode(address)
@@ -60,7 +59,7 @@ async def geocode(
 @router.post("/reverse-geocode", response_model=GeoResponse, summary="Coordinates to address")
 async def reverse_geocode(
     payload: CoordinatesPayload,
-    _: TokenPayload = Depends(access_token_dependency),
+    _: UserInfo = Depends(get_current_user),
     service: LocationService = Depends(),
 ):
     return await service.reverse_geocode(payload)

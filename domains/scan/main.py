@@ -3,8 +3,8 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from domains._shared.observability import register_http_metrics
 from domains.scan.api.v1.endpoints import api_router, health_router
+from domains.scan.metrics import register_metrics
 
 
 def create_app() -> FastAPI:
@@ -41,7 +41,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(api_router)
-    register_http_metrics(app, domain="scan", service="scan-api")
+    register_metrics(app)
     return app
 
 

@@ -1,4 +1,4 @@
-"""Character 도메인 Prometheus 메트릭"""
+"""Chat 도메인 Prometheus 메트릭"""
 
 from fastapi import FastAPI
 from fastapi.responses import Response

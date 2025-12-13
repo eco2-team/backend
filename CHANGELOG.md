@@ -7,6 +7,55 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 
 ---
 
+## [1.0.6] - 2025-12-13
+
+### Added
+- **ext-authz Go gRPC 서버 구현 (Auth Offloading)**
+  - Envoy `ext_authz` 프로토콜 기반 외부 인가 서버
+  - JWT 검증 (HS256) + Redis 블랙리스트 조회
+  - 인증 성공 시 `x-user-id`, `x-auth-provider` 헤더 주입
+  - 환경 변수 기반 설정 (`config.go`)
+  - 의존성 역전 원칙(DIP) 적용: Redis 클라이언트 인터페이스 추상화
+- **ext-authz Go 서버 Prometheus 메트릭**
+  - `ext_authz_request_duration_seconds`: 전체 요청 처리 시간 (Histogram)
+  - `ext_authz_jwt_verify_duration_seconds`: JWT 검증 시간 (Histogram)
+  - `ext_authz_redis_lookup_duration_seconds`: Redis 블랙리스트 조회 시간 (Histogram)
+  - `ext_authz_requests_total`: 총 요청 수 (Counter, by result/reason)
+  - `ext_authz_requests_in_flight`: 동시 처리 요청 수 (Gauge)
+  - ServiceMonitor 리소스로 Prometheus 자동 스크래핑 지원
+- **도메인별 독립 `metrics.py`**
+  - 각 FastAPI 도메인에 자체 Prometheus Registry 및 `/metrics/status` 엔드포인트 구현
+  - scan 도메인: 파이프라인/gRPC 비즈니스 메트릭 유지
+
+### Changed
+- **Auth 공통 모듈 완전 제거 (Auth Offloading 완료)**
+  - `domains/_shared/security/` 삭제 (jwt.py, dependencies.py)
+  - ext-authz가 `x-user-id`, `x-auth-provider` 헤더 주입
+  - 각 도메인에서 헤더 기반 사용자 정보 추출 (`UserInfo` 모델)
+  - `TokenPayload`는 auth 도메인 전용으로 이관 (`domains/auth/core/jwt.py`)
+- **Observability 공통 모듈 제거**
+  - `domains/_shared/observability/` 삭제
+  - 각 도메인에 독립적인 `metrics.py` 구현
+- **Dockerfile 멀티스테이지 빌드 최적화**
+  - Builder stage: gcc, libpq-dev 설치 및 pip install
+  - Runtime stage: libpq5만 포함, non-root 사용자(appuser) 실행
+  - Healthcheck: httpx → urllib.request (stdlib)로 의존성 제거
+  - auth, my, location, image, character: `_shared` 의존성 제거
+- **CI/CD 개선**
+  - `ci-services.yml`: `domains/**` 와일드카드를 명시적 도메인 목록으로 변경
+  - `domains/ext-authz` 경로 제외 (별도 Go CI에서 처리)
+  - observability 변경 시 전체 재배포 트리거 제거
+- **ext-authz 서버 로깅 강화**
+  - ALLOW/DENY 모두 구조화된 로그 출력
+  - method, path, host, user_id, jti, provider, duration 포함
+
+### Fixed
+- **my 도메인 provider 처리 단순화**
+  - `MyService.get_current_user()`, `update_current_user()`: provider를 Optional에서 필수로 변경
+  - ext-authz 헤더에서 provider가 항상 전달되므로 로직 단순화
+
+---
+
 ## [1.0.5] - 2025-12-09
 
 ### Added
@@ -464,6 +513,6 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 
 ---
 
-**문서 버전**: 1.0.0
-**최종 업데이트**: 2025-11-18
+**문서 버전**: 1.0.6
+**최종 업데이트**: 2025-12-13
 **관리자**: Backend Platform Team

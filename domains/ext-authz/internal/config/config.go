@@ -7,6 +7,7 @@ import (
 
 type Config struct {
 	GRPCPort         int
+	MetricsPort      int
 	RedisURL         string
 	JWTSecretKey     string
 	JWTAlgorithm     string
@@ -18,7 +19,8 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
-		GRPCPort:         getEnvAsInt("AUTH_GRPC_PORT", 50051), // Default to match Character gRPC port
+		GRPCPort:         getEnvAsInt("AUTH_GRPC_PORT", 50051),
+		MetricsPort:      getEnvAsInt("AUTH_METRICS_PORT", 9090), // Prometheus metrics endpoint
 		RedisURL:         getEnv("AUTH_REDIS_URL", "redis://localhost:6379/0"),
 		JWTSecretKey:     getEnv("AUTH_SECRET_KEY", "secret"),
 		JWTAlgorithm:     getEnv("AUTH_ALGORITHM", "HS256"),

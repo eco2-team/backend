@@ -1,8 +1,7 @@
 from typing import Optional
 from fastapi import Depends, HTTPException, status, Header
 from domains.auth.core.config import get_settings
-from domains._shared.security.jwt import TokenPayload, TokenType
-from domains.auth.core.jwt import decode_jwt
+from domains.auth.core.jwt import TokenPayload, TokenType, decode_jwt
 from domains.auth.services.key_manager import KeyManager
 from domains.auth.services.token_blacklist import TokenBlacklist
 

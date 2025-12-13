@@ -20,22 +20,22 @@ class MyService:
         self.repo = UserRepository(session)
         self.social_repo = UserSocialAccountRepository(session)
 
-    async def get_current_user(
-        self, auth_user_id: UUID, provider: str | None = None
-    ) -> UserProfile:
+    async def get_current_user(self, auth_user_id: UUID, provider: str) -> UserProfile:
+        """현재 사용자 프로필 조회. provider는 ext-authz 헤더에서 전달됨."""
         user, accounts = await self._get_or_create_user_with_accounts(auth_user_id)
-        return self._to_profile(user, accounts, preferred_provider=provider)
+        return self._to_profile(user, accounts, current_provider=provider)
 
     async def update_current_user(
         self,
         auth_user_id: UUID,
         payload: UserUpdate,
-        provider: str | None = None,
+        provider: str,
     ) -> UserProfile:
+        """현재 사용자 프로필 업데이트. provider는 ext-authz 헤더에서 전달됨."""
         user = await self._get_user_by_auth_id(auth_user_id)
         updated = await self._apply_update(user, payload)
         accounts = await self.social_repo.list_by_user_id(auth_user_id)
-        return self._to_profile(updated, accounts, preferred_provider=provider)
+        return self._to_profile(updated, accounts, current_provider=provider)
 
     async def delete_current_user(self, auth_user_id: UUID) -> None:
         user = await self._get_user_by_auth_id(auth_user_id)
@@ -91,33 +91,41 @@ class MyService:
         user: User,
         accounts: Sequence[AuthUserSocialAccount],
         *,
-        preferred_provider: str | None = None,
+        current_provider: str,
     ) -> UserProfile:
-        account = self._select_social_account(accounts, preferred_provider)
+        """
+        사용자 프로필 생성.
+        current_provider: 현재 로그인에 사용된 OAuth provider (ext-authz 헤더에서 전달)
+        """
+        account = self._select_social_account(accounts, current_provider)
         username = self._resolve_username(user, account)
         nickname = self._resolve_nickname(user, account, username)
-        provider = account.provider if account else (preferred_provider or "unknown")
         return UserProfile(
             username=username,
             nickname=nickname,
             phone_number=self._format_phone_number(user.phone_number),
-            provider=provider,
+            provider=account.provider if account else current_provider,
             last_login_at=account.last_login_at if account else None,
         )
 
     @staticmethod
     def _select_social_account(
         accounts: Sequence[AuthUserSocialAccount],
-        preferred_provider: str | None,
+        current_provider: str,
     ) -> AuthUserSocialAccount | None:
+        """
+        현재 로그인 provider와 매칭되는 social account 선택.
+        매칭되는 계정이 없으면 가장 최근 활동 계정 반환.
+        """
         if not accounts:
             return None
-        if preferred_provider:
-            for account in accounts:
-                if account.provider == preferred_provider:
-                    return account
 
-        # Fallback: Select the account with the most recent activity (login or creation)
+        # 현재 로그인한 provider와 매칭되는 account 우선
+        for account in accounts:
+            if account.provider == current_provider:
+                return account
+
+        # Fallback: 가장 최근 활동 계정
         return max(
             accounts,
             key=lambda acc: (

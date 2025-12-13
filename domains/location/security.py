@@ -1,30 +1,57 @@
-from domains._shared.security import TokenPayload, TokenType, build_access_token_dependency
+from uuid import UUID
+from typing import Optional
+
+from fastapi import Header, HTTPException, status
+from pydantic import BaseModel
 
 from domains.location.core.config import get_settings
 
-ACCESS_COOKIE_NAME = "s_access"
 
-_DISABLED_TOKEN = TokenPayload(
-    sub="00000000-0000-0000-0000-000000000000",
-    jti="location-auth-disabled",
-    type=TokenType.ACCESS,
-    exp=4102444800,  # 2100-01-01 UTC
-    iat=0,
+class UserInfo(BaseModel):
+    """ext-authz에서 주입된 사용자 정보"""
+
+    user_id: UUID
+    provider: str
+
+    class Config:
+        frozen = True
+
+
+_DISABLED_USER = UserInfo(
+    user_id=UUID("00000000-0000-0000-0000-000000000000"),
     provider="disabled",
 )
 
+
+async def _extract_user_info(
+    x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
+    x_auth_provider: Optional[str] = Header(default=None, alias="x-auth-provider"),
+) -> UserInfo:
+    """ext-authz가 주입한 헤더에서 사용자 정보 추출"""
+    if not x_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing x-user-id header",
+        )
+    try:
+        user_id = UUID(x_user_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid x-user-id format",
+        ) from exc
+
+    return UserInfo(user_id=user_id, provider=x_auth_provider or "unknown")
+
+
 if get_settings().auth_disabled:
 
-    async def access_token_dependency() -> TokenPayload:
-        """
-        Bypass authentication entirely for local/manual testing.
-        """
-
-        return _DISABLED_TOKEN
+    async def get_current_user() -> UserInfo:
+        """로컬 테스트용 - 인증 우회"""
+        return _DISABLED_USER
 
 else:
-    access_token_dependency = build_access_token_dependency(
-        get_settings,
-    )
+    get_current_user = _extract_user_info
 
-__all__ = ["access_token_dependency"]
+
+__all__ = ["get_current_user", "UserInfo"]
