@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends
 
-from domains.location.security import access_token_dependency
+from domains.location.security import get_current_user, UserInfo
 from domains.location.services.location import LocationService
-from domains._shared.security import TokenPayload
 
 router = APIRouter(prefix="/locations/metrics", tags=["metrics"])
 
@@ -10,6 +9,6 @@ router = APIRouter(prefix="/locations/metrics", tags=["metrics"])
 @router.get("/", summary="Location service metrics")
 async def metrics(
     service: LocationService = Depends(),
-    _: TokenPayload = Depends(access_token_dependency),
+    _: UserInfo = Depends(get_current_user),
 ):
     return await service.metrics()

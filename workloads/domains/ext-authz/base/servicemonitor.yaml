@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ext-authz
+  namespace: auth
+  labels:
+    app: ext-authz
+    release: kube-prometheus-stack  # Prometheus가 인식할 레이블
+spec:
+  selector:
+    matchLabels:
+      app: ext-authz
+  namespaceSelector:
+    matchNames:
+    - auth
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics
+    scrapeTimeout: 10s

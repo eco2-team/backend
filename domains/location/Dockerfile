@@ -1,28 +1,45 @@
-FROM python:3.11-slim
+# ============================================================================
+# Stage 1: Builder - 의존성 설치
+# ============================================================================
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY domains/location/requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ============================================================================
+# Stage 2: Runtime - 최소 이미지
+# ============================================================================
+FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
-    tzdata \
-    gcc \
-    postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
-
 ENV TZ=Asia/Seoul
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# 의존성 설치
-COPY domains/location/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /bin/bash appuser
+
+COPY --from=builder /install /usr/local
 
 # 애플리케이션 코드 복사
-COPY domains/_shared /app/domains/_shared
 COPY domains/location /app/domains/location
+
+USER appuser
 
 EXPOSE 8000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8000/health')"
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
 CMD ["uvicorn", "domains.location.main:app", "--host", "0.0.0.0", "--port", "8000"]

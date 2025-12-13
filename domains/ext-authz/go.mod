@@ -7,6 +7,7 @@ toolchain go1.24.11
 require (
 	github.com/envoyproxy/go-control-plane/envoy v1.36.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/prometheus/client_golang v1.20.5
 	github.com/redis/go-redis/v9 v9.17.2
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251022142026-3a174f9686a8
 	google.golang.org/grpc v1.77.0

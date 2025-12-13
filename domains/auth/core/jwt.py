@@ -1,9 +1,31 @@
 from __future__ import annotations
 
+from enum import Enum
+from uuid import UUID
+
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
+from pydantic import BaseModel
 
-from domains._shared.security.jwt import TokenPayload, TokenType
+
+class TokenType(str, Enum):
+    ACCESS = "access"
+    REFRESH = "refresh"
+
+
+class TokenPayload(BaseModel):
+    """JWT 토큰 페이로드 - Auth 도메인 전용"""
+
+    sub: str
+    jti: str
+    type: TokenType
+    exp: int
+    iat: int
+    provider: str
+
+    @property
+    def user_id(self) -> UUID:
+        return UUID(self.sub)
 
 
 def decode_jwt(

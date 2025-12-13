@@ -9,8 +9,7 @@ from pydantic import BaseModel
 
 from domains.auth.core.config import Settings, get_settings
 from domains.auth.core.security import now_utc, to_unix_timestamp
-from domains._shared.security.jwt import TokenPayload, TokenType
-from domains.auth.core.jwt import decode_jwt
+from domains.auth.core.jwt import TokenPayload, TokenType, decode_jwt
 
 
 class TokenPairInternal(BaseModel):

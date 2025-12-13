@@ -7,8 +7,23 @@ on:
       - develop
       - refactor/gitops-sync-wave
     paths:
-      - "domains/**"
-      - "workloads/domains/**"
+      # FastAPI 서비스 (ext-authz는 Go이므로 ci-ext-authz.yml에서 처리)
+      - "domains/auth/**"
+      - "domains/character/**"
+      - "domains/chat/**"
+      - "domains/image/**"
+      - "domains/location/**"
+      - "domains/my/**"
+      - "domains/scan/**"
+      - "domains/_shared/waste_pipeline/**"
+      - "domains/_shared/schemas/**"
+      - "workloads/domains/auth/**"
+      - "workloads/domains/character/**"
+      - "workloads/domains/chat/**"
+      - "workloads/domains/image/**"
+      - "workloads/domains/location/**"
+      - "workloads/domains/my/**"
+      - "workloads/domains/scan/**"
       - "scripts/**"
       - ".github/workflows/ci-services.yml"
   pull_request:
@@ -17,8 +32,23 @@ on:
       - develop
       - refactor/gitops-sync-wave
     paths:
-      - "domains/**"
-      - "workloads/domains/**"
+      # FastAPI 서비스 (ext-authz는 Go이므로 ci-ext-authz.yml에서 처리)
+      - "domains/auth/**"
+      - "domains/character/**"
+      - "domains/chat/**"
+      - "domains/image/**"
+      - "domains/location/**"
+      - "domains/my/**"
+      - "domains/scan/**"
+      - "domains/_shared/waste_pipeline/**"
+      - "domains/_shared/schemas/**"
+      - "workloads/domains/auth/**"
+      - "workloads/domains/character/**"
+      - "workloads/domains/chat/**"
+      - "workloads/domains/image/**"
+      - "workloads/domains/location/**"
+      - "workloads/domains/my/**"
+      - "workloads/domains/scan/**"
       - "scripts/**"
       - ".github/workflows/ci-services.yml"
   workflow_dispatch:
@@ -115,8 +145,22 @@ jobs:
         uses: tj-actions/changed-files@v45
         with:
           files: |
-            domains/**
-            workloads/domains/**
+            domains/auth/**
+            domains/character/**
+            domains/chat/**
+            domains/image/**
+            domains/location/**
+            domains/my/**
+            domains/scan/**
+            domains/_shared/waste_pipeline/**
+            domains/_shared/schemas/**
+            workloads/domains/auth/**
+            workloads/domains/character/**
+            workloads/domains/chat/**
+            workloads/domains/image/**
+            workloads/domains/location/**
+            workloads/domains/my/**
+            workloads/domains/scan/**
 
       - name: Prepare service matrix
         id: prepare
@@ -131,6 +175,19 @@ jobs:
           any_changed = os.environ.get("ANY_CHANGED", "false").lower() == "true"
           event_name = os.environ.get("EVENT_NAME", "")
           force_all = os.environ.get("FORCE_ALL", "false").lower() == "true"
+          
+          # FastAPI 서비스 목록 (명시적 나열)
+          # ext-authz는 Go 프로젝트이므로 별도 CI(ci-ext-authz.yml)에서 처리
+          FASTAPI_SERVICES = [
+              "auth",
+              "character",
+              "chat",
+              "image",
+              "location",
+              "my",
+              "scan",
+          ]
+          
           alias_map = {
               "info": "image",
           }
@@ -149,15 +206,7 @@ jobs:
           target_services = [normalize(s) for s in raw_targets]
 
           services = []
-          service_root = "domains"
-          discovered = []
-          for entry in os.listdir(service_root):
-              if entry.startswith("_"):
-                  continue
-              if not os.path.isdir(os.path.join(service_root, entry)):
-                  continue
-              discovered.append(normalize(entry))
-          all_services = sorted(set(discovered))
+          all_services = sorted(FASTAPI_SERVICES)
 
           if event_name == "workflow_dispatch":
               if force_all:
@@ -172,18 +221,13 @@ jobs:
 
           if not services and any_changed:
               for path in files:
-                  # shared 경로에 대한 트리거
+                  # shared 경로에 대한 트리거 (waste_pipeline 변경 시 chat, scan 재배포)
                   for prefix, svc_list in shared_triggers.items():
                       if path.startswith(prefix):
                           for svc in svc_list:
                               svc = normalize(svc)
                               if svc in all_services and svc not in services:
                                   services.append(svc)
-                  
-                  # Observability 변경 시 모든 서비스 재배포
-                  if path.startswith("domains/_shared/observability"):
-                      services = list(all_services)
-                      break
 
                   parts = path.split("/")
                   # domains/<service>/ 경로 감지

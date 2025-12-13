@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 
 	"github.com/eco2-team/backend/domains/ext-authz/internal/config"
@@ -44,7 +46,26 @@ func main() {
 	)
 	authServer := server.New(verifier, redisStore)
 
-	// 3. Start gRPC Server
+	// 3. Start Prometheus metrics server
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
+		})
+		mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
+		})
+		metricsAddr := fmt.Sprintf(":%d", cfg.MetricsPort)
+		log.Printf("📊 Starting metrics server on %s", metricsAddr)
+		if err := http.ListenAndServe(metricsAddr, mux); err != nil {
+			log.Printf("Metrics server error: %v", err)
+		}
+	}()
+
+	// 4. Start gRPC Server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)

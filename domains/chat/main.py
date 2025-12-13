@@ -4,8 +4,8 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from domains._shared.observability import register_http_metrics
 from domains.chat.api.v1.routers import api_router, health_router
+from domains.chat.metrics import register_metrics
 
 
 def create_app() -> FastAPI:
@@ -41,7 +41,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(api_router, prefix="/api/v1")
-    register_http_metrics(app, domain="chat", service="chat-api")
+    register_metrics(app)
     return app
 
 

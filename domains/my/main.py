@@ -6,22 +6,15 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-try:
-    from domains._shared.observability import register_http_metrics
-except ModuleNotFoundError:  # pragma: no cover - local service-only runs
-    current_dir = Path(__file__).resolve().parent
-    repo_root = current_dir.parents[1]
-    if str(repo_root) not in sys.path:
-        sys.path.append(str(repo_root))
-    from domains._shared.observability import register_http_metrics
-
 try:  # pragma: no cover - exercised during runtime/CI in different layouts
     from domains.my.api.v1.routers import api_router, health_router
+    from domains.my.metrics import register_metrics
 except ModuleNotFoundError:  # local/CI pytest runs with service dir on PYTHONPATH
     current_dir = Path(__file__).resolve().parent
     if str(current_dir) not in sys.path:
         sys.path.append(str(current_dir))
     from api.v1.routers import api_router, health_router
+    from metrics import register_metrics
 
 
 def create_app() -> FastAPI:
@@ -50,7 +43,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(api_router)
-    register_http_metrics(app, domain="my", service="my-api")
+    register_metrics(app)
     return app
 
 

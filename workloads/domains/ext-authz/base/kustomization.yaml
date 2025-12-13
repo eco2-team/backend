@@ -4,6 +4,7 @@ namespace: auth
 resources:
 - deployment.yaml
 - service.yaml
+- servicemonitor.yaml
 labels:
 - includeSelectors: true
   pairs:

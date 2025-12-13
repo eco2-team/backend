@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, status
 
-from domains._shared.security import TokenPayload
 from domains.chat.api.v1.dependencies import get_chat_service
 from domains.chat.schemas.chat import ChatMessageRequest, ChatMessageResponse
 from domains.chat.services.chat import ChatService
-from domains.chat.security import access_token_dependency
+from domains.chat.security import get_current_user, UserInfo
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -18,6 +17,6 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 async def send_message(
     payload: ChatMessageRequest,
     service: ChatService = Depends(get_chat_service),
-    _token: TokenPayload = Depends(access_token_dependency),
+    _user: UserInfo = Depends(get_current_user),
 ):
     return await service.send_message(payload)
