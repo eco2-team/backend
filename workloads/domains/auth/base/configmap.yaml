@@ -11,8 +11,8 @@ data:
   AUTH_FRONTEND_URL: https://frontend1.dev.growbin.app
   AUTH_COOKIE_DOMAIN: .dev.growbin.app
   AUTH_JWT_ALGORITHM: HS256
-  AUTH_JWT_ISSUER: sesacthon-auth
-  AUTH_JWT_AUDIENCE: sesacthon-clients
+  AUTH_JWT_ISSUER: api.dev.growbin.app/api/v1/auth
+  AUTH_JWT_AUDIENCE: api
   AUTH_ACCESS_TOKEN_EXP_MINUTES: '4320'
   AUTH_REFRESH_TOKEN_EXP_MINUTES: '8640'
   AUTH_GOOGLE_REDIRECT_URI: https://api.dev.growbin.app/api/v1/auth/google/callback

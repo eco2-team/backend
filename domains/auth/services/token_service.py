@@ -9,7 +9,6 @@ from pydantic import BaseModel
 
 from domains.auth.core.config import Settings, get_settings
 from domains.auth.core.security import now_utc, to_unix_timestamp
-from domains.auth.services.key_manager import KeyManager
 from domains._shared.security.jwt import TokenPayload, TokenType
 from domains.auth.core.jwt import decode_jwt
 
@@ -50,10 +49,9 @@ class TokenService:
             "provider": provider,
         }
 
-        # RS256 서명 (Key ID 포함)
-        headers = {"kid": "eco2-auth-key-01"}
+        # HS256 서명 (공유 시크릿)
         token = jwt.encode(
-            payload, KeyManager.get_private_key_pem(), algorithm="RS256", headers=headers
+            payload, self.settings.jwt_secret_key, algorithm=self.settings.jwt_algorithm
         )
         return token, jti, payload["exp"]
 
@@ -82,8 +80,8 @@ class TokenService:
     def decode(self, token: str) -> TokenPayload:
         return decode_jwt(
             token,
-            secret=KeyManager.get_public_key_pem(),
-            algorithm="RS256",
+            secret=self.settings.jwt_secret_key,
+            algorithm=self.settings.jwt_algorithm,
             audience=self.settings.jwt_audience,
             issuer=self.settings.jwt_issuer,
         )
