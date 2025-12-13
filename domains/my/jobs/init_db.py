@@ -13,6 +13,7 @@ from domains.my.database.base import Base
 from domains.my.models.user import User  # noqa: F401
 from domains.my.models.auth_user import AuthUser  # noqa: F401
 from domains.my.models.auth_user_social_account import AuthUserSocialAccount  # noqa: F401
+from domains.my.models.user_character import UserCharacter  # noqa: F401
 
 
 async def init_db() -> int:
