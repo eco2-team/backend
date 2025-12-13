@@ -1,7 +1,5 @@
 from fastapi import APIRouter
 
-from domains.auth.core.security_dependency import access_token_dependency
-
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 google_router = APIRouter(prefix="/auth/google", tags=["auth/google"])
 kakao_router = APIRouter(prefix="/auth/kakao", tags=["auth/kakao"])
@@ -31,5 +29,4 @@ __all__ = [
     "kakao_router",
     "naver_router",
     "metrics_router",
-    "access_token_dependency",
 ]

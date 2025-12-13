@@ -2,7 +2,7 @@ from typing import Annotated, Optional
 import logging
 from urllib.parse import urlparse, urlunparse
 
-from fastapi import Depends, Request, Response, Header, status
+from fastapi import Depends, HTTPException, Request, Response, Header, status
 from fastapi.responses import RedirectResponse
 
 from domains.auth.api.v1.routers import (
@@ -19,8 +19,6 @@ from domains.auth.schemas.auth import (
     OAuthAuthorizeParams,
     OAuthLoginRequest,
 )
-from domains.auth.core.security_dependency import access_token_dependency
-from domains.auth.core.jwt import TokenPayload
 from domains.auth.services.auth import AuthService
 from domains.auth.services.key_manager import KeyManager
 
@@ -127,22 +125,30 @@ async def authorize_google(
 
 
 # ---------------------------------------------------------------------------
-# Protected ping endpoint (no DB I/O) for ext-authz/auth 테스트 용도
+# Protected ping endpoint (no DB I/O) for ext-authz 테스트 용도
+# ext-authz가 주입한 x-user-id 헤더를 읽어 응답 (다른 서비스와 동일한 패턴)
 # ---------------------------------------------------------------------------
 
 
 @auth_router.get(
     "/ping",
-    summary="Protected ping (authz check only)",
+    summary="Protected ping (ext-authz check only)",
     response_model=AuthorizationSuccessResponse,
 )
-async def ping_protected(payload: Annotated["TokenPayload", Depends(access_token_dependency)]):
+async def ping_protected(
+    x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
+    x_auth_provider: Optional[str] = Header(default=None, alias="x-auth-provider"),
+):
+    """ext-authz 검증 후 주입된 헤더 확인용 엔드포인트."""
+    if not x_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing x-user-id header"
+        )
+
     return AuthorizationSuccessResponse(
         data={
-            "sub": payload.sub,
-            "jti": payload.jti,
-            "provider": payload.provider,
-            "type": payload.type.value,
+            "user_id": x_user_id,
+            "provider": x_auth_provider or "unknown",
         }
     )
 
