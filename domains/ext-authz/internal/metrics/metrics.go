@@ -5,12 +5,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-const (
-	namespace = "ext_authz"
-)
+const namespace = "ext_authz"
+
+// ============================================================================
+// Histograms - Latency measurements
+// ============================================================================
 
 var (
-	// RequestDuration measures the total time to process an auth check request
+	// RequestDuration: Total time to process an auth check (p50, p95, p99)
+	// Labels: result (allow/deny), reason (success/missing_header/invalid_token/...)
 	RequestDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: namespace,
@@ -21,7 +24,7 @@ var (
 		[]string{"result", "reason"},
 	)
 
-	// JWTVerifyDuration measures JWT verification time
+	// JWTVerifyDuration: JWT signature verification time
 	JWTVerifyDuration = promauto.NewHistogram(
 		prometheus.HistogramOpts{
 			Namespace: namespace,
@@ -31,7 +34,7 @@ var (
 		},
 	)
 
-	// RedisLookupDuration measures Redis blacklist lookup time
+	// RedisLookupDuration: Blacklist lookup time (includes pool wait)
 	RedisLookupDuration = promauto.NewHistogram(
 		prometheus.HistogramOpts{
 			Namespace: namespace,
@@ -40,8 +43,14 @@ var (
 			Buckets:   []float64{.0001, .00025, .0005, .001, .0025, .005, .01, .025, .05, .1},
 		},
 	)
+)
 
-	// RequestsTotal counts total requests by result
+// ============================================================================
+// Counters - Request/Error counts
+// ============================================================================
+
+var (
+	// RequestsTotal: Total requests by result and reason
 	RequestsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
@@ -51,16 +60,7 @@ var (
 		[]string{"result", "reason"},
 	)
 
-	// RequestsInFlight tracks concurrent requests
-	RequestsInFlight = promauto.NewGauge(
-		prometheus.GaugeOpts{
-			Namespace: namespace,
-			Name:      "requests_in_flight",
-			Help:      "Number of authorization requests currently being processed",
-		},
-	)
-
-	// ErrorsTotal counts errors by type
+	// ErrorsTotal: Errors by type (jwt_verify, redis)
 	ErrorsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
@@ -70,7 +70,7 @@ var (
 		[]string{"type"},
 	)
 
-	// BlacklistHits counts blacklist hits
+	// BlacklistHits: Tokens rejected due to blacklist
 	BlacklistHits = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Namespace: namespace,
@@ -80,14 +80,42 @@ var (
 	)
 )
 
-// Result constants for labeling
+// ============================================================================
+// Gauges - Current state
+// ============================================================================
+
+var (
+	// RequestsInFlight: Concurrent requests being processed
+	RequestsInFlight = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "requests_in_flight",
+			Help:      "Number of authorization requests currently being processed",
+		},
+	)
+)
+
+// ============================================================================
+// Label constants
+// ============================================================================
+
+// Result labels for RequestDuration and RequestsTotal
 const (
 	ResultAllow = "allow"
 	ResultDeny  = "deny"
+)
 
+// Reason labels for RequestDuration and RequestsTotal
+const (
 	ReasonSuccess       = "success"
 	ReasonMissingHeader = "missing_header"
 	ReasonInvalidToken  = "invalid_token"
 	ReasonBlacklisted   = "blacklisted"
 	ReasonRedisError    = "redis_error"
+)
+
+// Error type labels for ErrorsTotal
+const (
+	ErrorTypeJWTVerify = "jwt_verify"
+	ErrorTypeRedis     = "redis"
 )
