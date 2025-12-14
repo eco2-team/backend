@@ -133,7 +133,6 @@ async def authorize_google(
 @auth_router.get(
     "/ping",
     summary="Protected ping (ext-authz check only)",
-    response_model=AuthorizationSuccessResponse,
 )
 async def ping_protected(
     x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
@@ -146,12 +145,13 @@ async def ping_protected(
             detail="Missing x-user-id header",
         )
 
-    return AuthorizationSuccessResponse(
-        data={
+    return {
+        "success": True,
+        "data": {
             "user_id": x_user_id,
             "provider": x_auth_provider or "unknown",
-        }
-    )
+        },
+    }
 
 
 @kakao_router.get(
