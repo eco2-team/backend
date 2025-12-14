@@ -16,7 +16,7 @@ Usage:
     ACCESS_TOKEN="your-token" AUTH_METHOD=header locust -f tests/performance/test_ext_authz.py \
         --host=https://api.dev.growbin.app
 
-    # 쿠키 방식 (Cookie: access_token=<token>)
+    # 쿠키 방식 (Cookie: s_access=<token>)
     ACCESS_TOKEN="your-token" AUTH_METHOD=cookie locust -f tests/performance/test_ext_authz.py \
         --host=https://api.dev.growbin.app
 
@@ -67,8 +67,8 @@ class ExtAuthzPingUser(HttpUser):
             self.headers = {
                 "Content-Type": "application/json",
             }
-            self.cookies = {"access_token": self.token}
-            print(f"🍪 인증 방식: access_token 쿠키")
+            self.cookies = {"s_access": self.token}
+            print(f"🍪 인증 방식: s_access 쿠키")
 
     @task
     def ping_via_ext_authz(self):
@@ -106,8 +106,8 @@ class ExtAuthzCookieUser(HttpUser):
 
     def on_start(self):
         self.token = os.environ.get("ACCESS_TOKEN", "")
-        self.cookies = {"access_token": self.token}
-        print(f"🍪 [CookieUser] access_token 쿠키 사용")
+        self.cookies = {"s_access": self.token}
+        print(f"🍪 [CookieUser] s_access 쿠키 사용")
 
     @task
     def ping_cookie(self):
@@ -171,7 +171,7 @@ class ExtAuthzStressUser(HttpUser):
             self.cookies = {}
         else:
             self.headers = {}
-            self.cookies = {"access_token": self.token}
+            self.cookies = {"s_access": self.token}
 
     @task
     def ping_stress(self):
