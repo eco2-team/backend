@@ -14,13 +14,14 @@ const (
 	BearerPrefix = "Bearer "
 )
 
-// JWT claim keys
+// JWT claim keys (exported for use by other packages)
 const (
-	ClaimSub   = "sub"
-	ClaimJTI   = "jti"
-	ClaimIss   = "iss"
-	ClaimAud   = "aud"
-	ClaimScope = "scope"
+	ClaimSub      = "sub"
+	ClaimJTI      = "jti"
+	ClaimIss      = "iss"
+	ClaimAud      = "aud"
+	ClaimScope    = "scope"
+	ClaimProvider = "provider"
 )
 
 type Verifier struct {
@@ -49,8 +50,11 @@ func NewVerifier(secretKey, algorithm, issuer, audience string, clockSkew time.D
 	}, nil
 }
 
+// Claims is the return type for Verify, compatible with server.TokenVerifier interface.
+type Claims = map[string]any
+
 // Verify parses and validates the token. Returns claims if valid.
-func (v *Verifier) Verify(tokenString string) (jwt.MapClaims, error) {
+func (v *Verifier) Verify(tokenString string) (Claims, error) {
 	// Remove "Bearer " prefix if present
 	tokenString = strings.TrimPrefix(tokenString, BearerPrefix)
 
@@ -98,7 +102,7 @@ func (v *Verifier) Verify(tokenString string) (jwt.MapClaims, error) {
 		}
 	}
 
-	return claims, nil
+	return Claims(claims), nil
 }
 
 func scopeContains(scope string, required string) bool {

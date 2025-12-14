@@ -60,46 +60,64 @@ ACCESS_TOKEN="<token>" AUTH_METHOD=header locust -f tests/performance/test_ext_a
 
 ### Step 1: Redis Pool Size 튜닝
 
-**상태**: 대기 중
+**상태**: ✅ 완료
 
-**변경 파일**: `domains/ext-authz/internal/store/redis.go`
+**변경 파일**:
+- `domains/ext-authz/internal/config/config.go`
+- `domains/ext-authz/internal/store/redis.go`
+- `domains/ext-authz/main.go`
 
 **변경 내용**:
 ```go
-// Before (기본값)
-client := redis.NewClient(opts)
+// config.go - 환경변수 지원 추가
+RedisPoolSize:      getEnvAsInt("REDIS_POOL_SIZE", 100),       // default 20 → 100
+RedisMinIdleConns:  getEnvAsInt("REDIS_MIN_IDLE_CONNS", 20),   // warm connections
+RedisPoolTimeoutMs: getEnvAsInt("REDIS_POOL_TIMEOUT_MS", 2000), // 2s (fast fail)
+RedisReadTimeoutMs: getEnvAsInt("REDIS_READ_TIMEOUT_MS", 1000), // 1s
 
-// After (튜닝)
-opts.PoolSize = 50          // 기본 20 → 50 (동시 연결 2.5배)
-opts.MinIdleConns = 10      // warm connections 유지
-opts.PoolTimeout = 5 * time.Second
-opts.ReadTimeout = 2 * time.Second
-opts.WriteTimeout = 2 * time.Second
+// redis.go - PoolOptions 구조체 추가
+type PoolOptions struct {
+    PoolSize      int
+    MinIdleConns  int
+    PoolTimeout   time.Duration
+    ReadTimeout   time.Duration
+    WriteTimeout  time.Duration
+}
 
-client := redis.NewClient(opts)
+// main.go - 풀 설정 적용
+poolOpts := &store.PoolOptions{
+    PoolSize:     cfg.RedisPoolSize,
+    MinIdleConns: cfg.RedisMinIdleConns,
+    PoolTimeout:  time.Duration(cfg.RedisPoolTimeoutMs) * time.Millisecond,
+    ReadTimeout:  time.Duration(cfg.RedisReadTimeoutMs) * time.Millisecond,
+}
 ```
 
-**환경변수 설정** (선택적, ConfigMap/Deployment):
+**환경변수 설정** (ConfigMap/Deployment):
 ```yaml
 - name: REDIS_POOL_SIZE
-  value: "50"
+  value: "100"       # 기본값 (스트레스 테스트 기반)
 - name: REDIS_MIN_IDLE_CONNS
-  value: "10"
+  value: "20"
+- name: REDIS_POOL_TIMEOUT_MS
+  value: "2000"      # 2초 (빠른 실패)
+- name: REDIS_READ_TIMEOUT_MS
+  value: "1000"      # 1초
 ```
+
+**적용된 값** (스트레스 테스트 결과 기반):
+| 항목 | 기본값 | 튜닝값 | 근거 |
+|------|--------|--------|------|
+| PoolSize | 20 | 100 | 동시 처리 230개 대응 |
+| MinIdleConns | 0 | 20 | Cold start 방지 |
+| PoolTimeout | 4s | 2s | 빠른 실패 (backpressure) |
+| ReadTimeout | 3s | 1s | 빠른 타임아웃 |
 
 **예상 효과**:
-- 동시 Redis 연결 수 증가 (20 → 50)
-- Redis 대기 시간 감소
-- Cold start 지연 방지 (MinIdleConns)
-
-**커밋 메시지**:
-```
-perf(ext-authz): increase Redis pool size to 50
-
-- PoolSize: 20 → 50 (2.5x concurrent connections)
-- MinIdleConns: 0 → 10 (prevent cold start)
-- Add pool/read/write timeout settings
-```
+- 동시 Redis 연결 수 5배 증가 (20 → 100)
+- Redis 풀 대기 시간 대폭 감소
+- Cold start 지연 방지 (MinIdleConns=20)
+- 빠른 실패로 cascading failure 방지
 
 ---
 

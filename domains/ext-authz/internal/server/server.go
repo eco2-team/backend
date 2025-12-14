@@ -14,35 +14,42 @@ import (
 
 	"github.com/eco2-team/backend/domains/ext-authz/internal/jwt"
 	"github.com/eco2-team/backend/domains/ext-authz/internal/metrics"
-	"github.com/eco2-team/backend/domains/ext-authz/internal/store"
 )
 
-// HTTP Header keys
+// ============================================================================
+// Interfaces (Dependency Inversion)
+// ============================================================================
+
+// TokenVerifier verifies JWT tokens and returns claims.
+type TokenVerifier interface {
+	Verify(tokenString string) (map[string]any, error)
+}
+
+// BlacklistStore checks if a token is blacklisted.
+type BlacklistStore interface {
+	IsBlacklisted(ctx context.Context, jti string) (bool, error)
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
 const (
 	HeaderAuthorization = "authorization"
 	HeaderUserID        = "x-user-id"
 	HeaderAuthProvider  = "x-auth-provider"
 )
 
-// JWT claim keys
-const (
-	ClaimSub      = "sub"
-	ClaimJTI      = "jti"
-	ClaimProvider = "provider"
-)
-
-// Error labels for metrics
-const (
-	ErrorLabelJWTVerify = "jwt_verify"
-	ErrorLabelRedis     = "redis"
-)
+// ============================================================================
+// AuthorizationServer
+// ============================================================================
 
 type AuthorizationServer struct {
-	verifier *jwt.Verifier
-	store    *store.Store
+	verifier TokenVerifier
+	store    BlacklistStore
 }
 
-func New(verifier *jwt.Verifier, store *store.Store) (*AuthorizationServer, error) {
+func New(verifier TokenVerifier, store BlacklistStore) (*AuthorizationServer, error) {
 	if verifier == nil {
 		return nil, errors.New("verifier is required")
 	}
@@ -106,13 +113,13 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 		log.Printf("[DENY] method=%s path=%s host=%s reason=\"invalid_token\" error=\"%v\" duration=%s",
 			method, path, host, err, time.Since(start))
 		recordMetrics(metrics.ResultDeny, metrics.ReasonInvalidToken)
-		metrics.ErrorsTotal.WithLabelValues(ErrorLabelJWTVerify).Inc()
+		metrics.ErrorsTotal.WithLabelValues(metrics.ErrorTypeJWTVerify).Inc()
 		return denyResponse(typev3.StatusCode_Unauthorized, "Invalid token"), nil
 	}
 
 	// Extract user info for logging
-	userID, _ := claims[ClaimSub].(string)
-	jti, _ := claims[ClaimJTI].(string)
+	userID, _ := claims[jwt.ClaimSub].(string)
+	jti, _ := claims[jwt.ClaimJTI].(string)
 
 	// 3. Check Blacklist
 	if jti != "" {
@@ -124,7 +131,7 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 			log.Printf("[DENY] method=%s path=%s host=%s user_id=%s jti=%s reason=\"redis_error\" error=\"%v\" duration=%s",
 				method, path, host, userID, jti, err, time.Since(start))
 			recordMetrics(metrics.ResultDeny, metrics.ReasonRedisError)
-			metrics.ErrorsTotal.WithLabelValues(ErrorLabelRedis).Inc()
+			metrics.ErrorsTotal.WithLabelValues(metrics.ErrorTypeRedis).Inc()
 			// Fail-closed: Deny on internal error
 			return denyResponse(typev3.StatusCode_InternalServerError, "Internal Authorization Error"), nil
 		}
@@ -138,7 +145,7 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 	}
 
 	// 4. Allow Request (Inject Headers)
-	provider, _ := claims[ClaimProvider].(string)
+	provider, _ := claims[jwt.ClaimProvider].(string)
 	log.Printf("[ALLOW] method=%s path=%s host=%s user_id=%s provider=%s jti=%s duration=%s",
 		method, path, host, userID, provider, jti, time.Since(start))
 	recordMetrics(metrics.ResultAllow, metrics.ReasonSuccess)

@@ -34,7 +34,17 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	redisStore, err := store.New(ctx, cfg.RedisURL)
+	poolOpts := &store.PoolOptions{
+		PoolSize:     cfg.RedisPoolSize,
+		MinIdleConns: cfg.RedisMinIdleConns,
+		PoolTimeout:  time.Duration(cfg.RedisPoolTimeoutMs) * time.Millisecond,
+		ReadTimeout:  time.Duration(cfg.RedisReadTimeoutMs) * time.Millisecond,
+		WriteTimeout: time.Duration(cfg.RedisWriteTimeoutMs) * time.Millisecond,
+	}
+	log.Printf("🔧 Redis pool config: PoolSize=%d, MinIdleConns=%d, PoolTimeout=%v",
+		poolOpts.PoolSize, poolOpts.MinIdleConns, poolOpts.PoolTimeout)
+
+	redisStore, err := store.New(ctx, cfg.RedisURL, poolOpts)
 	if err != nil {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
