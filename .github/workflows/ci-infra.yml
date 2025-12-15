@@ -65,13 +65,18 @@ jobs:
             REF_TEXT="$COMMIT_MSG"
           fi
           REF_TEXT="${REF_TEXT:-none}"
-          TYPE=$(echo "$REF_TEXT" | sed -n 's/^\([A-Za-z0-9_-]\+\):.*/\1/p' | tr '[:upper:]' '[:lower:]')
+          # Extract type from conventional commit: type(scope): message OR type: message
+          TYPE=$(echo "$REF_TEXT" | sed -n 's/^\([A-Za-z0-9_-]\+\)\(([^)]*)\)\?:.*/\1/p' | tr '[:upper:]' '[:lower:]')
           if [[ "$TYPE" =~ ^(docs)$ ]]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "reason=Commit type '$TYPE' is configured to bypass infra CI" >> "$GITHUB_OUTPUT"
+            {
+              echo "skip=true"
+              echo "reason=Commit type '$TYPE' is configured to bypass infra CI"
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "reason=" >> "$GITHUB_OUTPUT"
+            {
+              echo "skip=false"
+              echo "reason="
+            } >> "$GITHUB_OUTPUT"
           fi
           if [ -z "$TYPE" ]; then
             TYPE="unknown"
