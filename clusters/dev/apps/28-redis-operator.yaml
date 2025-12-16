@@ -33,14 +33,12 @@ spec:
           enabled: false
           sentinel: false
 
-        # Redis 서버 설정 (maxclients 확장, idle 연결 정리, 멀티스레딩)
+        # Redis 서버 설정 (maxclients 확장)
         commonConfiguration: |-
           maxclients 50000
-          tcp-keepalive 20
-          timeout 40
+          tcp-keepalive 300
+          timeout 0
           maxmemory-clients 500mb
-          io-threads 2
-          io-threads-do-reads yes
 
         master:
           count: 1
