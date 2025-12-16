@@ -8,6 +8,7 @@ resources:
 - service-grpc.yaml
 - configmap.yaml
 - db-bootstrap-job.yaml
+- servicemonitor.yaml
 labels:
 - includeSelectors: true
   pairs:

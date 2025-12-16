@@ -15,7 +15,7 @@ data:
     {
       "title": "👤 My - User Profile & Inventory (REST + gRPC)",
       "uid": "domain-my",
-      "version": 1,
+      "version": 2,
       "timezone": "browser",
       "schemaVersion": 38,
       "refresh": "10s",
@@ -33,7 +33,7 @@ data:
           "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
           "targets": [
             {
-              "expr": "sum(rate(http_request_duration_seconds_count{service=\"my-api\"}[5m]))",
+              "expr": "sum(rate(istio_requests_total{destination_service_name=\"my-api\"}[5m]))",
               "legendFormat": "RPS"
             }
           ],
@@ -45,7 +45,7 @@ data:
           "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service=\"my-api\"}[5m])) by (le)) * 1000",
+              "expr": "histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{destination_service_name=\"my-api\"}[5m])) by (le))",
               "legendFormat": "p99"
             }
           ],
@@ -57,7 +57,7 @@ data:
           "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
           "targets": [
             {
-              "expr": "(sum(rate(http_request_duration_seconds_sum{service=\"my-api\"}[5m])) / sum(rate(http_request_duration_seconds_count{service=\"my-api\"}[5m]))) * 1000",
+              "expr": "sum(rate(istio_request_duration_milliseconds_sum{destination_service_name=\"my-api\"}[5m])) / sum(rate(istio_request_duration_milliseconds_count{destination_service_name=\"my-api\"}[5m]))",
               "legendFormat": "Avg"
             }
           ],
@@ -69,7 +69,7 @@ data:
           "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
           "targets": [
             {
-              "expr": "sum(rate(http_requests_total{service=\"my-api\", status_code!~\"5.*\"}[5m])) / sum(rate(http_requests_total{service=\"my-api\"}[5m])) * 100",
+              "expr": "sum(rate(istio_requests_total{destination_service_name=\"my-api\", response_code!~\"5.*\"}[5m])) / sum(rate(istio_requests_total{destination_service_name=\"my-api\"}[5m])) * 100",
               "legendFormat": "Success %"
             }
           ],
@@ -95,7 +95,7 @@ data:
           "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
           "targets": [
             {
-              "expr": "count(up{job=\"my-api\"})",
+              "expr": "count(kube_pod_status_phase{namespace=\"my\", pod=~\"my-api.*\", phase=\"Running\"})",
               "legendFormat": "REST"
             }
           ],
@@ -107,7 +107,7 @@ data:
           "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
           "targets": [
             {
-              "expr": "count(up{job=\"my-grpc\"})",
+              "expr": "count(kube_pod_status_phase{namespace=\"my\", pod=~\"my-grpc.*\", phase=\"Running\"})",
               "legendFormat": "gRPC"
             }
           ],
@@ -125,8 +125,8 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
           "targets": [
             {
-              "expr": "sum by (path) (rate(http_request_duration_seconds_count{service=\"my-api\"}[5m]))",
-              "legendFormat": "{{path}}"
+              "expr": "sum by (request_path) (rate(istio_requests_total{destination_service_name=\"my-api\"}[5m]))",
+              "legendFormat": "{{request_path}}"
             }
           ],
           "fieldConfig": {
@@ -142,8 +142,8 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum by (path, le) (rate(http_request_duration_seconds_bucket{service=\"my-api\"}[5m]))) * 1000",
-              "legendFormat": "{{path}}"
+              "expr": "histogram_quantile(0.99, sum by (request_path, le) (rate(istio_request_duration_milliseconds_bucket{destination_service_name=\"my-api\"}[5m])))",
+              "legendFormat": "{{request_path}}"
             }
           ],
           "fieldConfig": {
@@ -165,15 +165,15 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
           "targets": [
             {
-              "expr": "sum(rate(grpc_server_handled_total{grpc_service=\"my.v1.UserCharacterService\"}[5m]))",
+              "expr": "sum(rate(istio_requests_total{destination_service_name=\"my-grpc\"}[5m]))",
               "legendFormat": "Total"
             },
             {
-              "expr": "sum(rate(grpc_server_handled_total{grpc_service=\"my.v1.UserCharacterService\", grpc_code=\"OK\"}[5m]))",
+              "expr": "sum(rate(istio_requests_total{destination_service_name=\"my-grpc\", response_code=\"200\"}[5m]))",
               "legendFormat": "Success"
             },
             {
-              "expr": "sum(rate(grpc_server_handled_total{grpc_service=\"my.v1.UserCharacterService\", grpc_code!=\"OK\"}[5m]))",
+              "expr": "sum(rate(istio_requests_total{destination_service_name=\"my-grpc\", response_code!=\"200\"}[5m]))",
               "legendFormat": "Error"
             }
           ],
@@ -190,11 +190,11 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(grpc_server_handling_seconds_bucket{grpc_service=\"my.v1.UserCharacterService\"}[5m])) by (le)) * 1000",
+              "expr": "histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{destination_service_name=\"my-grpc\"}[5m])) by (le))",
               "legendFormat": "p99"
             },
             {
-              "expr": "(sum(rate(grpc_server_handling_seconds_sum{grpc_service=\"my.v1.UserCharacterService\"}[5m])) / sum(rate(grpc_server_handling_seconds_count{grpc_service=\"my.v1.UserCharacterService\"}[5m]))) * 1000",
+              "expr": "sum(rate(istio_request_duration_milliseconds_sum{destination_service_name=\"my-grpc\"}[5m])) / sum(rate(istio_request_duration_milliseconds_count{destination_service_name=\"my-grpc\"}[5m]))",
               "legendFormat": "Avg"
             }
           ],

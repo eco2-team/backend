@@ -8,6 +8,7 @@ resources:
 - service-grpc.yaml
 - configmap.yaml
 - hpa.yaml
+- servicemonitor.yaml
 # - authorization-policy.yaml
 # - peer-authentication.yaml
 labels:
