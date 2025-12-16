@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 MIGRATE_SQL = """
 INSERT INTO user_profile.user_characters (
     id, user_id, character_id, character_code, character_name,
-    source, status, acquired_at, updated_at
+    character_type, character_dialog, source, status, acquired_at, updated_at
 )
 SELECT
     co.id,
@@ -43,6 +43,8 @@ SELECT
     co.character_id,
     c.code,
     c.name,
+    c.type_label,
+    c.dialog,
     co.source,
     co.status::text,
     co.acquired_at,
@@ -52,6 +54,8 @@ JOIN character.characters c ON co.character_id = c.id
 ON CONFLICT (user_id, character_id) DO UPDATE SET
     character_code = EXCLUDED.character_code,
     character_name = EXCLUDED.character_name,
+    character_type = EXCLUDED.character_type,
+    character_dialog = EXCLUDED.character_dialog,
     source = COALESCE(EXCLUDED.source, user_profile.user_characters.source),
     status = EXCLUDED.status,
     updated_at = EXCLUDED.updated_at

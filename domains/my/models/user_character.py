@@ -46,6 +46,8 @@ class UserCharacter(Base):
     # 비정규화된 캐릭터 정보 (조회 최적화, character API 호출 감소)
     character_code: Mapped[str] = mapped_column(String(64), nullable=False)
     character_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    character_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    character_dialog: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # 획득 경로 (scan, onboarding, event 등)
     source: Mapped[str | None] = mapped_column(String(120), nullable=True)

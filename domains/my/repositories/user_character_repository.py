@@ -29,6 +29,8 @@ class UserCharacterRepository:
         character_id: UUID,
         character_code: str,
         character_name: str,
+        character_type: str | None = None,
+        character_dialog: str | None = None,
         source: str | None = None,
     ) -> UserCharacter:
         """캐릭터 지급 (upsert).
@@ -51,6 +53,8 @@ class UserCharacterRepository:
             character_id=character_id,
             character_code=character_code,
             character_name=character_name,
+            character_type=character_type,
+            character_dialog=character_dialog,
             source=source,
             status=UserCharacterStatus.OWNED,
         )
@@ -114,3 +118,13 @@ class UserCharacterRepository:
         """사용자의 캐릭터 수 조회."""
         chars = await self.list_by_user(user_id, status=status)
         return len(chars)
+
+    async def owns_character_by_name(self, user_id: UUID, character_name: str) -> bool:
+        """캐릭터 이름으로 소유 여부 확인."""
+        stmt = select(UserCharacter).where(
+            UserCharacter.user_id == user_id,
+            UserCharacter.character_name == character_name,
+            UserCharacter.status == UserCharacterStatus.OWNED,
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().first() is not None

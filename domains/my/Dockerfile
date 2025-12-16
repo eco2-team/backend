@@ -27,8 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /install /usr/local
 
-# 애플리케이션 코드 복사 (character는 DB 모델 공유로 필요)
-COPY domains/character /app/domains/character
+# 애플리케이션 코드 복사
 COPY domains/my /app/domains/my
 
 USER appuser
