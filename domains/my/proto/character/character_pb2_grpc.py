@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import character_pb2 as character__pb2
+from domains.my.proto.character import character_pb2 as character__pb2
 
 GRPC_GENERATED_VERSION = "1.76.0"
 GRPC_VERSION = grpc.__version__
