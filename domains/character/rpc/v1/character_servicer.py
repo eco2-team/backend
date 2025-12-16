@@ -70,3 +70,28 @@ class CharacterServicer(character_pb2_grpc.CharacterServiceServicer):
             except Exception as e:
                 logger.exception("Internal error in GetCharacterReward")
                 await context.abort(grpc.StatusCode.INTERNAL, str(e))
+
+    async def GetDefaultCharacter(self, request, context):
+        """기본 캐릭터(이코) 정보 조회."""
+        try:
+            async with async_session_factory() as session:
+                service = CharacterService(session)
+                character = await service.get_default_character()
+
+                if character is None:
+                    logger.warning("Default character not found")
+                    return character_pb2.GetDefaultCharacterResponse(found=False)
+
+                logger.info("Returning default character: %s", character.name)
+                return character_pb2.GetDefaultCharacterResponse(
+                    found=True,
+                    character_id=str(character.id),
+                    character_code=character.code,
+                    character_name=character.name,
+                    character_type=character.type_label or "",
+                    character_dialog=character.dialog or "",
+                )
+
+        except Exception as e:
+            logger.exception("Internal error in GetDefaultCharacter")
+            await context.abort(grpc.StatusCode.INTERNAL, str(e))

@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package my.v1;
+
+service UserCharacterService {
+  // 캐릭터 지급 (character 도메인에서 호출)
+  rpc GrantCharacter (GrantCharacterRequest) returns (GrantCharacterResponse) {}
+}
+
+message GrantCharacterRequest {
+  string user_id = 1;          // UUID string
+  string character_id = 2;     // UUID string
+  string character_code = 3;
+  string character_name = 4;
+  string character_type = 5;   // type_label
+  string character_dialog = 6; // dialog
+  string source = 7;           // 획득 경로 (scan-reward, default-onboard 등)
+}
+
+message GrantCharacterResponse {
+  bool success = 1;
+  bool already_owned = 2;
+  string message = 3;
+}

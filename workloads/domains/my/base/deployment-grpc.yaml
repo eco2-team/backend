@@ -1,55 +1,50 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-api
+  name: my-grpc
   namespace: my
   labels:
-    app: my-api
+    app: my-grpc
     tier: business-logic
     domain: my
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: my-api
+      app: my-grpc
   template:
     metadata:
       labels:
-        app: my-api
+        app: my-grpc
         tier: business-logic
         domain: my
     spec:
       containers:
-      - name: my-api
+      - name: my-grpc
         image: docker.io/mng990/eco2:my-api-dev-latest
         imagePullPolicy: Always
+        command: [python, -m, domains.my.rpc.server]
         ports:
-        - containerPort: 8000
-          name: http
+        - containerPort: 50052
+          name: grpc
         env:
         - name: POSTGRES_HOST
           value: postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
           value: redis.redis.svc.cluster.local
-        - name: CHARACTER_GRPC_HOST
-          value: character-grpc.character.svc.cluster.local
-        - name: CHARACTER_GRPC_PORT
-          value: '50051'
         envFrom:
         - configMapRef:
             name: my-config
         - secretRef:
             name: my-secret
         livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
+          tcpSocket:
+            port: 50052
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
-          httpGet:
-            path: /health
-            port: 8000
+          tcpSocket:
+            port: 50052
           initialDelaySeconds: 10
           periodSeconds: 5
       imagePullSecrets:

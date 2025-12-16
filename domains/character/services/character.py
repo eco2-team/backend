@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Sequence
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from domains.character.database.session import get_db_session
 from domains.character.models import Character
 from domains.character.repositories import CharacterOwnershipRepository, CharacterRepository
+from domains.character.rpc.my_client import get_my_client
 from domains.character.schemas.catalog import CharacterAcquireResponse, CharacterProfile
 from domains.character.schemas.reward import (
     CharacterRewardFailureReason,
@@ -18,6 +20,8 @@ from domains.character.schemas.reward import (
     ClassificationSummary,
 )
 from domains.character.metrics import REWARD_EVALUATION_TOTAL, REWARD_GRANTED_TOTAL
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_CHARACTER_NAME = "이코"
 DEFAULT_CHARACTER_SOURCE = "default-onboard"
@@ -38,13 +42,9 @@ class CharacterService:
             )
         return [self._to_profile(character) for character in characters]
 
-    async def grant_default_character(self, user_id: UUID) -> CharacterAcquireResponse:
-        return await self._grant_character_by_name(
-            user_id=user_id,
-            character_name=DEFAULT_CHARACTER_NAME,
-            source=DEFAULT_CHARACTER_SOURCE,
-            allow_empty=True,
-        )
+    async def get_default_character(self) -> Character | None:
+        """기본 캐릭터(이코) 정보 조회. my 도메인에서 사용."""
+        return await self.character_repo.get_by_name(DEFAULT_CHARACTER_NAME)
 
     async def metrics(self) -> dict:
         return {
@@ -149,12 +149,21 @@ class CharacterService:
         if existing:
             return CharacterAcquireResponse(acquired=False, character=self._to_profile(character))
 
+        # 1. character.character_ownerships에 저장 (기존 로직 유지)
         await self.ownership_repo.upsert_owned(
             user_id=user_id,
             character=character,
             source=source,
         )
         await self.session.commit()
+
+        # 2. my 도메인에 gRPC로 동기화
+        await self._sync_to_my_domain(
+            user_id=user_id,
+            character=character,
+            source=source,
+        )
+
         return CharacterAcquireResponse(acquired=True, character=self._to_profile(character))
 
     async def _match_characters(self, classification: ClassificationSummary) -> list[Character]:
@@ -196,15 +205,59 @@ class CharacterService:
             if existing:
                 return self._to_profile(match), True, None
 
+            # 1. character.character_ownerships에 저장 (기존 로직 유지)
             await self.ownership_repo.upsert_owned(
                 user_id=user_id,
                 character=match,
                 source="scan-reward",
             )
             await self.session.commit()
+
+            # 2. my 도메인에 gRPC로 동기화
+            await self._sync_to_my_domain(
+                user_id=user_id,
+                character=match,
+                source="scan-reward",
+            )
+
             return self._to_profile(match), False, None
 
         return None, False, CharacterRewardFailureReason.CHARACTER_NOT_FOUND
+
+    async def _sync_to_my_domain(
+        self,
+        user_id: UUID,
+        character: Character,
+        source: str,
+    ) -> None:
+        """my 도메인의 user_characters 테이블에 캐릭터 소유 정보 동기화."""
+        try:
+            client = get_my_client()
+            success, already_owned = await client.grant_character(
+                user_id=user_id,
+                character_id=character.id,
+                character_code=character.code,
+                character_name=character.name,
+                character_type=character.type_label,
+                character_dialog=character.dialog,
+                source=source,
+            )
+            if success:
+                logger.info(
+                    "Synced character %s to my domain for user %s (already_owned=%s)",
+                    character.name,
+                    user_id,
+                    already_owned,
+                )
+            else:
+                logger.warning(
+                    "Failed to sync character %s to my domain for user %s",
+                    character.name,
+                    user_id,
+                )
+        except Exception as e:
+            # 동기화 실패해도 기존 로직은 성공으로 처리 (eventual consistency)
+            logger.error(f"Error syncing to my domain: {e}")
 
     @staticmethod
     def _to_profile(character: Character) -> CharacterProfile:
