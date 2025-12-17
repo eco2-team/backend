@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-jaeger
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '60'
+spec:
+  project: dev
+  source:
+    repoURL: https://jaegertracing.github.io/helm-charts
+    chart: jaeger
+    targetRevision: 0.71.10
+    helm:
+      releaseName: jaeger
+      valuesObject:
+        provisionDataStore:
+          cassandra: false
+        allInOne:
+          enabled: true
+          resources:
+            limits:
+              memory: 512Mi
+        storage:
+          type: memory
+        agent:
+          enabled: false
+        collector:
+          enabled: false
+        query:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true

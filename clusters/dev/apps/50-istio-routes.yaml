@@ -10,6 +10,9 @@ spec:
       - name: gateway
         namespace: istio-system
         path: workloads/routing/gateway/dev
+      - name: global
+        namespace: istio-system
+        path: workloads/routing/global
       - name: auth
         namespace: auth
         path: workloads/routing/auth/dev
@@ -37,6 +40,12 @@ spec:
       - name: grafana
         namespace: grafana
         path: workloads/routing/grafana/dev
+      - name: kiali
+        namespace: istio-system
+        path: workloads/routing/kiali/dev
+      - name: jaeger
+        namespace: istio-system
+        path: workloads/routing/jaeger/dev
   template:
     metadata:
       name: dev-route-{{name}}

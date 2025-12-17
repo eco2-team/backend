@@ -4,7 +4,7 @@ metadata:
   name: istio-ingress
   namespace: istio-system
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: api.dev.growbin.app,argocd.dev.growbin.app,grafana.dev.growbin.app
+    external-dns.alpha.kubernetes.io/hostname: api.dev.growbin.app,argocd.dev.growbin.app,grafana.dev.growbin.app,kiali.dev.growbin.app,jaeger.dev.growbin.app
 spec:
   rules:
   - http:

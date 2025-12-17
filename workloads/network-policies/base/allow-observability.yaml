@@ -1,0 +1,60 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-observability-ingress
+  namespace: istio-system
+spec:
+  podSelector:
+    matchExpressions:
+    - key: app
+      operator: In
+      values:
+      - kiali
+      - jaeger
+      - prometheus
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          istio: ingressgateway
+    ports:
+    - port: 20001 # Kiali
+      protocol: TCP
+    - port: 16686 # Jaeger Query
+      protocol: TCP
+    - port: 9090  # Prometheus
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-observability-collection
+  namespace: auth # 각 앱 네임스페이스마다 필요하지만, 예시로 auth에 추가. 실제로는 모든 네임스페이스에 적용 필요.
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchExpressions:
+        - key: app
+          operator: In
+          values:
+          - kiali
+          - jaeger
+          - prometheus
+    ports:
+    - port: 15020 # Istio metrics merging port
+      protocol: TCP
+    - port: 15090 # Envoy Prometheus telemetry
+      protocol: TCP

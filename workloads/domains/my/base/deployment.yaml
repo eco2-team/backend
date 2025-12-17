@@ -5,6 +5,7 @@ metadata:
   namespace: my
   labels:
     app: my-api
+    version: v1
     tier: business-logic
     domain: my
 spec:
@@ -12,10 +13,12 @@ spec:
   selector:
     matchLabels:
       app: my-api
+      version: v1
   template:
     metadata:
       labels:
         app: my-api
+        version: v1
         tier: business-logic
         domain: my
     spec:
@@ -27,6 +30,16 @@ spec:
         - containerPort: 8000
           name: http
         env:
+        - name: OTEL_SERVICE_NAME
+          value: my-api
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector.istio-system.svc.cluster.local:4317
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
         - name: POSTGRES_HOST
           value: postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
