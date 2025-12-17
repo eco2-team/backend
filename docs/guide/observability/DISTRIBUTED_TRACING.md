@@ -245,6 +245,110 @@ spec:
 
 ---
 
+## OpenTelemetry Exporter 설정 전략
+
+### 세 가지 텔레메트리 신호
+
+OpenTelemetry는 **Traces, Metrics, Logs** 세 가지 신호를 지원합니다. ECO2에서는 각 신호별로 최적의 수집 파이프라인을 선택했습니다.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         ECO2 Service                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  [Traces]     OTel SDK → OTLP/gRPC → Jaeger → Elasticsearch     │
+│               (OTEL_TRACES_EXPORTER=otlp) ✅                    │
+│                                                                 │
+│  [Metrics]    prometheus-client → /metrics → Prometheus scrape  │
+│               (OTEL_METRICS_EXPORTER=none) ❌ OTel 미사용       │
+│                                                                 │
+│  [Logs]       JSON stdout → Fluent Bit → Elasticsearch          │
+│               (OTEL_LOGS_EXPORTER=none) ❌ OTel 미사용          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Kubernetes 환경변수 설정
+
+```yaml
+# workloads/domains/*/base/deployment.yaml
+env:
+  - name: OTEL_SERVICE_NAME
+    value: "auth-api"
+  - name: OTEL_TRACES_EXPORTER
+    value: "otlp"                    # ✅ Jaeger로 전송
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: "http://jaeger-collector.istio-system.svc.cluster.local:4317"
+  - name: OTEL_METRICS_EXPORTER
+    value: "none"                    # ❌ Prometheus가 scrape
+  - name: OTEL_LOGS_EXPORTER
+    value: "none"                    # ❌ Fluent Bit가 수집
+```
+
+### 왜 Metrics/Logs는 `none`인가?
+
+#### 1. 이미 성숙한 파이프라인 존재
+
+| 신호 | 기존 스택 | OTel 대체 시 장점 | 전환 비용 |
+|------|----------|------------------|----------|
+| **Traces** | 없음 → Jaeger | ✅ 신규 도입 | 낮음 |
+| **Metrics** | Prometheus (de facto 표준) | 거의 없음 | 높음 (대시보드 재작성) |
+| **Logs** | Fluent Bit + EFK | Log correlation 개선 | 중간 |
+
+#### 2. 리소스 효율성
+
+```yaml
+# OTel로 모든 신호를 보내면:
+# - 네트워크 트래픽 3배 증가
+# - OTel Collector 부하 증가
+# - 중복 데이터 저장 (Prometheus + OTel Metrics)
+
+# 현재 설정 (traces만):
+# - 최소한의 오버헤드
+# - 기존 인프라 재활용
+```
+
+#### 3. Prometheus Pull 모델의 강점
+
+```yaml
+# Prometheus Pull 모델:
+# ✅ 서비스가 죽어도 "scrape 실패" 자체가 알림
+# ✅ PromQL - 강력한 쿼리 언어
+# ✅ Grafana 생태계 완벽 호환
+# ✅ ServiceMonitor CRD로 자동 발견
+
+# OTel Push 모델:
+# ❌ 서비스가 죽으면 데이터 유실 가능
+# ❌ 추가 Collector 인프라 필요
+```
+
+### 향후 전환 고려 사항
+
+#### Logs → OTLP 전환 시점
+
+```yaml
+# 장점: 로그에 trace_id/span_id 자동 주입 (현재는 수동 구현)
+# 조건: OTel Collector가 안정적으로 운영될 때
+OTEL_LOGS_EXPORTER: "otlp"
+```
+
+#### Metrics → OTLP 전환 시점
+
+```yaml
+# 장점: Exemplars (메트릭 ↔ 트레이스 연결)
+# 조건: Prometheus → Mimir 전환 또는 OTLP 네이티브 백엔드 사용 시
+OTEL_METRICS_EXPORTER: "otlp"
+```
+
+### 설계 원칙
+
+> **"Don't fix what isn't broken"**
+>
+> 기존에 잘 동작하는 Prometheus/Fluent Bit 파이프라인을 유지하면서,
+> 없었던 **Traces만 OTel로 추가**하여 점진적으로 통합합니다.
+
+---
+
 ## 프로덕션 권장 설정
 
 ### 샘플링 설정
