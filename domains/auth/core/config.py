@@ -1,78 +1,39 @@
+"""
+Runtime Settings (FastAPI Official Pattern)
+
+환경변수 기반 동적 설정 - 배포 환경별로 변경됨
+Reference: https://fastapi.tiangolo.com/advanced/settings/
+"""
+
 from functools import lru_cache
 from typing import Optional
 
-from pydantic import HttpUrl, field_validator, Field, AliasChoices
+from pydantic import AliasChoices, Field, HttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-# =============================================================================
-# Service Constants (Single Source of Truth)
-# =============================================================================
-SERVICE_NAME = "auth-api"
-SERVICE_VERSION = "1.0.7"
-
-# =============================================================================
-# Logging Constants (12-Factor App Compliance)
-# =============================================================================
-# Environment variable keys
-ENV_KEY_ENVIRONMENT = "ENVIRONMENT"
-ENV_KEY_LOG_LEVEL = "LOG_LEVEL"
-ENV_KEY_LOG_FORMAT = "LOG_FORMAT"
-
-# Default values (DEBUG for development phase)
-DEFAULT_ENVIRONMENT = "dev"
-DEFAULT_LOG_LEVEL = "DEBUG"
-DEFAULT_LOG_FORMAT = "json"
-
-# ECS (Elastic Common Schema) version
-ECS_VERSION = "8.11.0"
-
-# LogRecord attributes to exclude from extra fields
-# Reference: https://docs.python.org/3/library/logging.html#logrecord-attributes
-EXCLUDED_LOG_RECORD_ATTRS = frozenset(
-    {
-        "name",
-        "msg",
-        "args",
-        "created",
-        "filename",
-        "funcName",
-        "levelname",
-        "levelno",
-        "lineno",
-        "module",
-        "msecs",
-        "pathname",
-        "process",
-        "processName",
-        "relativeCreated",
-        "stack_info",
-        "exc_info",
-        "exc_text",
-        "thread",
-        "threadName",
-        "taskName",
-        "message",
-    }
-)
 
 
 class Settings(BaseSettings):
+    """Runtime configuration loaded from environment variables."""
+
     app_name: str = "Auth API"
     environment: str = "local"
     api_v1_prefix: str = "/api/v1"
-    # Destructive schema reset guard. Keep False unless you need a full reset.
+
+    # Destructive schema reset guard
     schema_reset_enabled: bool = False
 
-    # Database connection (required in production, defaults for testing)
+    # Database
     database_url: str = "postgresql+asyncpg://test:test@localhost:5432/test"
 
-    # Redis connections (required in production, defaults for testing)
+    # Redis
     redis_blacklist_url: str = "redis://localhost:6379/0"
     redis_oauth_state_url: str = "redis://localhost:6379/3"
 
+    # OAuth
     oauth_state_ttl_seconds: int = 600
     oauth_redirect_template: str = "http://localhost:8000/api/v1/auth/{provider}/callback"
 
+    # JWT
     jwt_secret_key: str = "change-me"
     jwt_private_key_pem: Optional[str] = Field(
         default=None,
@@ -84,7 +45,7 @@ class Settings(BaseSettings):
     access_token_exp_minutes: int = 60 * 3
     refresh_token_exp_minutes: int = 60 * 24 * 30
 
-    # Frontend / Cookie domains
+    # Frontend / Cookie
     frontend_url: str = "https://frontend1.dev.growbin.app"
     cookie_domain: Optional[str] = ".dev.growbin.app"
 
@@ -97,11 +58,11 @@ class Settings(BaseSettings):
     character_onboarding_retry_attempts: int = 3
     character_onboarding_retry_backoff_seconds: float = 0.5
 
-    # OAuth failure redirect
     @property
     def oauth_failure_redirect_url(self) -> str:
         return f"{self.frontend_url}/login?error=oauth_failed"
 
+    # OAuth Providers
     kakao_client_id: str = ""
     kakao_client_secret: Optional[str] = None
     kakao_redirect_uri: Optional[HttpUrl] = None
@@ -133,4 +94,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Return cached Settings instance (FastAPI pattern)."""
     return Settings()

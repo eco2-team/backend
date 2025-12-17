@@ -1,53 +1,14 @@
+"""
+Runtime Settings (FastAPI Official Pattern)
+
+환경변수 기반 동적 설정 - 배포 환경별로 변경됨
+Reference: https://fastapi.tiangolo.com/advanced/settings/
+"""
+
 from functools import lru_cache
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-# =============================================================================
-# Service Constants (Single Source of Truth)
-# =============================================================================
-SERVICE_NAME = "character-api"
-SERVICE_VERSION = "1.0.7"
-
-# =============================================================================
-# Logging Constants (12-Factor App Compliance)
-# =============================================================================
-ENV_KEY_ENVIRONMENT = "ENVIRONMENT"
-ENV_KEY_LOG_LEVEL = "LOG_LEVEL"
-ENV_KEY_LOG_FORMAT = "LOG_FORMAT"
-
-DEFAULT_ENVIRONMENT = "dev"
-DEFAULT_LOG_LEVEL = "DEBUG"
-DEFAULT_LOG_FORMAT = "json"
-
-ECS_VERSION = "8.11.0"
-
-EXCLUDED_LOG_RECORD_ATTRS = frozenset(
-    {
-        "name",
-        "msg",
-        "args",
-        "created",
-        "filename",
-        "funcName",
-        "levelname",
-        "levelno",
-        "lineno",
-        "module",
-        "msecs",
-        "pathname",
-        "process",
-        "processName",
-        "relativeCreated",
-        "stack_info",
-        "exc_info",
-        "exc_text",
-        "thread",
-        "threadName",
-        "taskName",
-        "message",
-    }
-)
 
 
 class Settings(BaseSettings):
@@ -88,5 +49,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Return a cached Settings instance."""
+    """Return cached Settings instance (FastAPI pattern)."""
     return Settings()

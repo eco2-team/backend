@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from domains.character.api.v1.routers import api_router, health_router, metrics_router
-from domains.character.core.config import SERVICE_VERSION
+from domains.character.core.constants import SERVICE_VERSION
 from domains.character.core.logging import configure_logging
 from domains.character.metrics import register_metrics
 

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from domains.chat.api.v1.routers import api_router, health_router
-from domains.chat.core.config import SERVICE_VERSION
+from domains.chat.core.constants import SERVICE_VERSION
 from domains.chat.core.logging import configure_logging
 from domains.chat.metrics import register_metrics
 

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from domains.image.api.v1.routers import api_router, health_router
-from domains.image.core.config import SERVICE_VERSION
+from domains.image.core.constants import SERVICE_VERSION
 from domains.image.core.logging import configure_logging
 from domains.image.metrics import register_metrics
 

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from domains.scan.api.v1.endpoints import api_router, health_router
-from domains.scan.core.config import SERVICE_VERSION
+from domains.scan.core.constants import SERVICE_VERSION
 from domains.scan.core.logging import configure_logging
 from domains.scan.metrics import register_metrics
 

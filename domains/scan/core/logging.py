@@ -1,9 +1,6 @@
 """
 Structured Logging Configuration (ECS-based)
 
-Elastic Common Schema (ECS) 기반 JSON 로깅 설정
-OpenTelemetry trace_id 자동 연동
-
 Log Collection Protocol:
 - Fluent Bit → Elasticsearch: HTTP (9200)
 - OpenTelemetry → Jaeger: gRPC OTLP (4317)
@@ -16,7 +13,7 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
-from domains.scan.core.config import (
+from domains.scan.core.constants import (
     DEFAULT_ENVIRONMENT,
     DEFAULT_LOG_FORMAT,
     DEFAULT_LOG_LEVEL,

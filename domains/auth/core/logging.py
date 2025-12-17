@@ -16,7 +16,7 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
-from domains.auth.core.config import (
+from domains.auth.core.constants import (
     DEFAULT_ENVIRONMENT,
     DEFAULT_LOG_FORMAT,
     DEFAULT_LOG_LEVEL,
@@ -38,22 +38,7 @@ except ImportError:
 
 
 class ECSJsonFormatter(logging.Formatter):
-    """
-    Elastic Common Schema (ECS) 기반 JSON 포매터
-
-    출력 예시:
-    {
-        "@timestamp": "2025-12-17T10:00:00.000Z",
-        "message": "User login successful",
-        "log.level": "info",
-        "log.logger": "domains.auth.services.auth",
-        "service.name": "auth-api",
-        "service.version": "1.0.7",
-        "service.environment": "dev",
-        "trace.id": "4bf92f3577b34da6a3ce929d0e0e4736",
-        "span.id": "00f067aa0ba902b7"
-    }
-    """
+    """Elastic Common Schema (ECS) 기반 JSON 포매터"""
 
     def __init__(
         self,
@@ -78,7 +63,6 @@ class ECSJsonFormatter(logging.Formatter):
             "service.environment": self.environment,
         }
 
-        # OpenTelemetry trace context
         if HAS_OPENTELEMETRY:
             span = trace.get_current_span()
             ctx = span.get_span_context()
@@ -86,13 +70,11 @@ class ECSJsonFormatter(logging.Formatter):
                 log_obj["trace.id"] = format(ctx.trace_id, "032x")
                 log_obj["span.id"] = format(ctx.span_id, "016x")
 
-        # Error info
         if record.exc_info:
             log_obj["error.type"] = record.exc_info[0].__name__ if record.exc_info[0] else None
             log_obj["error.message"] = str(record.exc_info[1]) if record.exc_info[1] else None
             log_obj["error.stack_trace"] = self.formatException(record.exc_info)
 
-        # Extra fields (grouped under labels)
         extra_fields = {
             key: value
             for key, value in record.__dict__.items()
@@ -110,15 +92,7 @@ def configure_logging(
     log_level: str | None = None,
     json_format: bool | None = None,
 ) -> None:
-    """
-    애플리케이션 로깅 설정
-
-    Args:
-        service_name: 서비스 이름 (config.SERVICE_NAME)
-        service_version: 서비스 버전 (config.SERVICE_VERSION)
-        log_level: 로그 레벨 (환경변수 LOG_LEVEL로 오버라이드)
-        json_format: JSON 포맷 사용 여부 (환경변수 LOG_FORMAT으로 오버라이드)
-    """
+    """애플리케이션 로깅 설정"""
     environment = os.getenv(ENV_KEY_ENVIRONMENT, DEFAULT_ENVIRONMENT)
     level = log_level or os.getenv(ENV_KEY_LOG_LEVEL, DEFAULT_LOG_LEVEL)
     use_json = (
@@ -156,7 +130,6 @@ def configure_logging(
 
     root_logger.addHandler(handler)
 
-    # Suppress noisy third-party loggers
     for logger_name in (
         "uvicorn",
         "uvicorn.access",

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from domains.location.api.v1.routers import api_router, health_router
-from domains.location.core.config import SERVICE_VERSION
+from domains.location.core.constants import SERVICE_VERSION
 from domains.location.core.logging import configure_logging
 from domains.location.metrics import register_metrics
 

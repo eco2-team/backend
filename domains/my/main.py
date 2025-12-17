@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 try:  # pragma: no cover - exercised during runtime/CI in different layouts
     from domains.my.api.v1.routers import api_router, health_router
-    from domains.my.core.config import SERVICE_VERSION
+    from domains.my.core.constants import SERVICE_VERSION
     from domains.my.core.logging import configure_logging
     from domains.my.metrics import register_metrics
 except ModuleNotFoundError:  # local/CI pytest runs with service dir on PYTHONPATH
