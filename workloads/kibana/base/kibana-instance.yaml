@@ -5,12 +5,8 @@ metadata:
   name: eco2-kibana
 spec:
   enabled: true
-  # ECK Kibana 내부 서비스 URL
-  url: https://eco2-kibana-kb-http.logging.svc:5601
-  # ECK가 자동 생성한 CA 인증서
-  certificate:
-    secretName: eco2-kibana-kb-es-ca
-    certificateKey: ca.crt
+  # ECK Kibana 내부 서비스 URL (TLS disabled이므로 HTTP 사용)
+  url: http://eco2-kibana-kb-http.logging.svc:5601
   # ECK가 자동 생성한 elastic user credentials
   authentication:
     usernamePasswordSecret:
