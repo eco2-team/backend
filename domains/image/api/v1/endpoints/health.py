@@ -1,3 +1,5 @@
+"""Health/Readiness probe endpoints (로그 제외 - 노이즈 방지)."""
+
 from fastapi import APIRouter
 
 SERVICE_NAME = "image"

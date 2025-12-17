@@ -1,10 +1,11 @@
+"""Health/Readiness probe endpoints (로그 제외 - 노이즈 방지)."""
+
 from pydantic import BaseModel
 
 from domains.auth.api.v1.routers import health_probe_router, health_router
 from domains.auth.schemas.common import SuccessResponse
 
 SERVICE_NAME = "auth"
-# Health/Readiness probe는 로그 제외 (5초마다 호출되어 노이즈 유발)
 
 
 class HealthData(BaseModel):
