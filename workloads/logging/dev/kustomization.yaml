@@ -5,7 +5,7 @@ namespace: logging
 
 resources:
 - ../base
-- ../network-policies  # commonLabels 적용 제외 (ECK Pod 라벨 호환)
+# NetworkPolicy는 workloads/network-policies/에서 별도 ArgoCD App으로 배포
 
 commonLabels:
   environment: dev
