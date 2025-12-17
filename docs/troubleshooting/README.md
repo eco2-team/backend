@@ -32,12 +32,29 @@ docs/
 | Infrastructure | ALB Controller / GHCR Pull / Kustomize 구조 / VPC 삭제 / CloudFront | `gitops-deployment.md`, `cluster-cases.md`, `terraform-issues.md`, `vpc-deletion-issues.md`, `cloudfront-issues.md` |
 | Application | ArgoCD 리디렉션 / Prometheus 메모리 / Atlantis CrashLoop | `argocd-ingress-issues.md`, `monitoring-issues.md`, `atlantis-issues.md` |
 | CNI/Calico | Operator vs Helm 충돌, VXLAN 구성, **Typha 포트 5473** | `calico-operator-helm-conflict.md`, `ansible-label-sync.md#3`, **`CALICO_TYPHA_PORT_5473_ISSUE.md`** |
+| **Logging/EFK** | **로그 파싱 실패** / Raw 로그 저장 / CRI 형식 미지원 | **`2025-12-18-fluent-bit-cri-parser.md`** |
 
 > 현장 대응이 필요하면 `TROUBLESHOOTING.md`(Rapid Diagnostics Runbook)으로 곧장 이동해 절차를 따라가세요.
 
 ---
 
-## 🔥 최신 문제 (2025-11-19)
+## 🔥 최신 문제 (2025-12-18)
+
+### [2025-12-18-fluent-bit-cri-parser.md](./2025-12-18-fluent-bit-cri-parser.md) ⭐ NEW
+**Fluent Bit CRI Parser 설정 트러블슈팅**
+
+해결된 문제:
+1. **로그 JSON 파싱 실패**: containerd 런타임 환경에서 Docker parser 사용으로 CRI 형식 로그 파싱 불가
+2. **Raw 로그 저장**: `log` 필드에 CRI 타임스탬프 포함 전체 문자열 저장
+3. **ECS 필드 미추출**: `log.level`, `service.name` 등 구조화된 필드 검색 불가
+
+**특징**: ✅ Container Runtime 확인 방법, ✅ CRI vs Docker 로그 형식 비교, ✅ Fluent Bit Parser 설정
+
+**관련 문서**: [EFK 로깅 계획](../monitoring/EFK_LOGGING_PLAN.md)
+
+---
+
+## 🔥 이전 문제 (2025-11-19)
 
 ### [ARGOCD_DEPLOYMENT_ISSUES.md](./ARGOCD_DEPLOYMENT_ISSUES.md) ⭐ NEW
 **ArgoCD 배포 시 CrashLoopBackOff 및 리디렉션 루프 문제**

@@ -73,3 +73,20 @@ graph LR
 1.  **중앙 집중화:** 14개 노드에 흩어진 로그를 한 곳에서 조회.
 2.  **연관 분석:** Trace ID(Jaeger)를 로그에 포함시켜 트레이싱과 로깅을 완벽하게 연결.
 3.  **대시보드:** Kibana를 통해 "API 에러율", "응답 시간 분포" 등을 시각화.
+
+## 6. 트러블슈팅 참조
+
+### [CRI Parser 설정 문제](../troubleshooting/2025-12-18-fluent-bit-cri-parser.md)
+**containerd 런타임 환경에서 로그 파싱 실패**
+
+| 증상 | 원인 | 해결 |
+|------|------|------|
+| `log` 필드에 raw CRI 문자열 저장 | Docker parser로 CRI 형식 파싱 불가 | `cri` parser 적용 |
+| `log_processed` 필드 null | JSON 병합 미동작 | `Merge_Log On` + `Merge_Log_Key` 설정 |
+
+**핵심 교훈**: Kubernetes 클러스터의 Container Runtime(Docker vs containerd) 확인 필수.
+
+```bash
+# Container Runtime 확인
+kubectl get nodes -o wide | awk '{print $1, $NF}'
+```
