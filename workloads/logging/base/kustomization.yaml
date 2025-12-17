@@ -6,7 +6,9 @@ namespace: logging
 resources:
 - elasticsearch.yaml
 - kibana.yaml
+- kibana-init-job.yaml
 - fluent-bit.yaml
+- stack-config-policy.yaml
 # network-policy.yaml은 별도 kustomization으로 분리 (commonLabels 적용 제외)
 
 commonLabels:

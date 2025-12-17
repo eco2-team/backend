@@ -1,0 +1,135 @@
+---
+# Kibana Data Views 정의 (선언적 관리)
+# ECK StackConfigPolicy가 Data View를 지원하지 않으므로 Init Job으로 관리
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kibana-data-views
+  namespace: logging
+data:
+  # Data View 정의 (JSON)
+  data-views.json: |
+    [
+      {
+        "id": "logs-app-dev",
+        "name": "App Logs (Dev)",
+        "title": "logs-app-dev-*",
+        "timeFieldName": "@timestamp"
+      },
+      {
+        "id": "logs-infra-dev",
+        "name": "Infra Logs (Dev)",
+        "title": "logs-infra-dev-*",
+        "timeFieldName": "@timestamp"
+      },
+      {
+        "id": "logs-all",
+        "name": "All Logs",
+        "title": "logs-*",
+        "timeFieldName": "@timestamp"
+      }
+    ]
+  # 기본 Data View 설정
+  default-data-view.json: |
+    {
+      "data_view_id": "logs-app-dev",
+      "force": true
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kibana-init-scripts
+  namespace: logging
+data:
+  init.sh: |
+    #!/bin/sh
+    set -e
+
+    KIBANA_URL="http://eco2-kibana-kb-http.logging.svc.cluster.local:5601"
+
+    echo "⏳ Waiting for Kibana to be ready..."
+    until wget -q --spider "${KIBANA_URL}/api/status" 2>/dev/null; do
+      echo "Kibana not ready, retrying in 5s..."
+      sleep 5
+    done
+    echo "✅ Kibana is ready!"
+
+    echo ""
+    echo "📊 Creating Data Views from declarative config..."
+    echo "================================================="
+
+    # JSON 파일에서 Data Views 생성
+    cat /config/data-views.json | jq -c '.[]' | while read -r dv; do
+      id=$(echo "$dv" | jq -r '.id')
+      name=$(echo "$dv" | jq -r '.name')
+      title=$(echo "$dv" | jq -r '.title')
+      timeField=$(echo "$dv" | jq -r '.timeFieldName')
+
+      echo "Creating: ${name} (${title})"
+
+      response=$(wget -q -O- --post-data="{\"data_view\":{\"id\":\"${id}\",\"title\":\"${title}\",\"timeFieldName\":\"${timeField}\",\"name\":\"${name}\"}}" \
+        --header="kbn-xsrf: true" \
+        --header="Content-Type: application/json" \
+        "${KIBANA_URL}/api/data_views/data_view" 2>&1) || true
+
+      if echo "$response" | grep -q "error"; then
+        echo "  ⚠️  Already exists or error: ${name}"
+      else
+        echo "  ✅ Created: ${name}"
+      fi
+    done
+
+    echo ""
+    echo "📌 Setting default Data View..."
+    wget -q -O- --post-data="$(cat /config/default-data-view.json)" \
+      --header="kbn-xsrf: true" \
+      --header="Content-Type: application/json" \
+      "${KIBANA_URL}/api/data_views/default" 2>/dev/null || echo "  ⚠️  Failed to set default"
+
+    echo ""
+    echo "🎉 Kibana initialization complete!"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kibana-init
+  namespace: logging
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 5
+  template:
+    spec:
+      nodeSelector:
+        workload: logging
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: observability
+        effect: NoSchedule
+      restartPolicy: OnFailure
+      containers:
+      - name: kibana-init
+        image: alpine:3.19
+        command:
+        - /bin/sh
+        - -c
+        - |
+          apk add --no-cache wget jq
+          /scripts/init.sh
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        - name: config
+          mountPath: /config
+      volumes:
+      - name: scripts
+        configMap:
+          name: kibana-init-scripts
+          defaultMode: 0755
+      - name: config
+        configMap:
+          name: kibana-data-views
