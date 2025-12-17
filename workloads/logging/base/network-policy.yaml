@@ -8,7 +8,8 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: elasticsearch
+      # ECK가 생성한 Elasticsearch Pod 라벨
+      common.k8s.elastic.co/type: elasticsearch
   policyTypes:
   - Ingress
   ingress:
@@ -30,14 +31,16 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: elasticsearch
+      # ECK가 생성한 Elasticsearch Pod 라벨
+      common.k8s.elastic.co/type: elasticsearch
   policyTypes:
   - Ingress
   ingress:
   - from:
     - podSelector:
         matchLabels:
-          app: kibana
+          # ECK가 생성한 Kibana Pod 라벨
+          common.k8s.elastic.co/type: kibana
     ports:
     - protocol: TCP
       port: 9200
@@ -51,7 +54,8 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: kibana
+      # ECK가 생성한 Kibana Pod 라벨
+      common.k8s.elastic.co/type: kibana
   policyTypes:
   - Ingress
   ingress:
@@ -101,7 +105,8 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          app: elasticsearch
+          # ECK가 생성한 Elasticsearch Pod 라벨
+          common.k8s.elastic.co/type: elasticsearch
     ports:
     - protocol: TCP
       port: 9200
