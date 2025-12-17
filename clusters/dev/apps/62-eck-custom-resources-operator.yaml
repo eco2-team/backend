@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-eck-custom-resources-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '62'
+spec:
+  project: dev
+  source:
+    repoURL: https://xco-sk.github.io/eck-custom-resources/
+    chart: eck-custom-resources-operator
+    targetRevision: 0.7.0
+    helm:
+      releaseName: eck-custom-resources
+      valuesObject:
+        # Master 노드에 배포
+        nodeSelector:
+          role: control-plane
+        tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: role
+          operator: Equal
+          value: control-plane
+          effect: NoSchedule
+        # 리소스 제한
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: elastic-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
