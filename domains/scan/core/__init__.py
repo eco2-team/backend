@@ -1,5 +1,11 @@
-"""scan core pipeline shim."""
+"""
+Core module exports.
 
-from domains._shared.waste_pipeline import PipelineError, process_waste_classification
+- Settings, get_settings: Runtime configuration (FastAPI pattern)
+- SERVICE_NAME, SERVICE_VERSION: Static constants
+"""
 
-__all__ = ["PipelineError", "process_waste_classification"]
+from .config import Settings, get_settings
+from .constants import SERVICE_NAME, SERVICE_VERSION
+
+__all__ = ["Settings", "get_settings", "SERVICE_NAME", "SERVICE_VERSION"]

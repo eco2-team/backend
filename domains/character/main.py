@@ -4,14 +4,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from domains.character.api.v1.routers import api_router, health_router, metrics_router
+from domains.character.core.constants import SERVICE_VERSION
+from domains.character.core.logging import configure_logging
 from domains.character.metrics import register_metrics
+
+# 구조화된 로깅 설정 (ECS JSON 포맷)
+configure_logging()
 
 
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Character API",
         description="Character analysis and storytelling service",
-        version="0.7.3",
+        version=SERVICE_VERSION,
         docs_url="/api/v1/character/docs",
         openapi_url="/api/v1/character/openapi.json",
         redoc_url=None,

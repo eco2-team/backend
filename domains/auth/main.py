@@ -5,18 +5,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from domains.auth.api.v1.routers import api_router, health_probe_router
-from domains.auth.metrics import register_metrics
+from domains.auth.core.constants import SERVICE_VERSION
 from domains.auth.core.exceptions import (
     general_exception_handler,
     http_exception_handler,
     validation_exception_handler,
 )
 from domains.auth.core.logging import configure_logging
-
+from domains.auth.metrics import register_metrics
 from domains.auth.services.key_manager import KeyManager
 
 # 구조화된 로깅 설정 (ECS JSON 포맷)
-configure_logging(service_name="auth-api", service_version="0.7.3")
+configure_logging()
 
 
 @asynccontextmanager
@@ -33,7 +33,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Auth API",
         description="Authentication/Authorization service",
-        version="0.7.3",
+        version=SERVICE_VERSION,
         docs_url="/api/v1/auth/docs",
         redoc_url="/api/v1/auth/redoc",
         openapi_url="/api/v1/auth/openapi.json",

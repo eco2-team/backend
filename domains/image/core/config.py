@@ -1,3 +1,10 @@
+"""
+Runtime Settings (FastAPI Official Pattern)
+
+환경변수 기반 동적 설정 - 배포 환경별로 변경됨
+Reference: https://fastapi.tiangolo.com/advanced/settings/
+"""
+
 from functools import lru_cache
 from typing import Literal
 
@@ -6,7 +13,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Runtime configuration for the Image service."""
+
     app_name: str = "Image API"
+
     auth_disabled: bool = Field(
         False,
         validation_alias=AliasChoices("IMAGE_AUTH_DISABLED"),
@@ -51,4 +61,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Return cached Settings instance (FastAPI pattern)."""
     return Settings()

@@ -2,14 +2,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from domains.location.api.v1.routers import api_router, health_router
+from domains.location.core.constants import SERVICE_VERSION
+from domains.location.core.logging import configure_logging
 from domains.location.metrics import register_metrics
+
+# 구조화된 로깅 설정 (ECS JSON 포맷)
+configure_logging()
 
 
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Location API",
         description="Geospatial lookup for recycling facilities",
-        version="0.7.3",
+        version=SERVICE_VERSION,
         docs_url="/api/v1/locations/docs",
         redoc_url="/api/v1/locations/redoc",
         openapi_url="/api/v1/locations/openapi.json",
