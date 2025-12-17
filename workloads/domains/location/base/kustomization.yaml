@@ -5,8 +5,6 @@ resources:
 - deployment.yaml
 - service.yaml
 - configmap.yaml
-- db-bootstrap-job.yaml
-- normalized-import-job.yaml
 labels:
 - includeSelectors: true
   pairs:
