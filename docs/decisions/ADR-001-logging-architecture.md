@@ -2,6 +2,7 @@
 
 > **Status:** Accepted  
 > **Date:** 2025-12-17  
+> **Updated:** 2025-12-17  
 > **Deciders:** Backend Team  
 > **Context:** EDA 전환을 앞둔 로깅 시스템 아키텍처 선택
 
@@ -9,7 +10,39 @@
 
 ## 📋 요약
 
-**결정:** EFK(Elasticsearch + Fluent Bit + Kibana)로 시작하고, EDA 도입 시 Kafka + Logstash를 추가하는 점진적 전환 방식 채택
+**결정:**
+1. **배포 방식:** ECK(Elastic Cloud on Kubernetes) Operator 사용
+2. **아키텍처:** EFK(Elasticsearch + Fluent Bit + Kibana)로 시작하고, EDA 도입 시 Logstash CRD 추가
+
+---
+
+## 🔧 배포 방식 결정: ECK Operator
+
+### 검토한 옵션
+
+| 방식 | 장점 | 단점 |
+|------|------|------|
+| **StatefulSet 직접 관리** | 완전한 제어, 오버헤드 없음 | 업그레이드/TLS 수동 관리 |
+| **ECK Operator** ✅ | CRD 선언적 관리, TLS 자동화, Logstash 통합 | Operator Pod ~200MB 추가 |
+
+### ECK 선택 이유
+
+1. **EFK → EFKL 전환 용이성**
+   - Logstash CRD 추가만으로 전환 완료
+   - ES ↔ Logstash 간 인증/TLS 자동 연결
+
+2. **운영 편의성**
+   - Rolling Upgrade 자동화
+   - TLS 인증서 자동 생성/갱신
+   - 스케일링 선언적 관리
+
+3. **ECK 지원 컴포넌트**
+   | CRD | 용도 |
+   |-----|------|
+   | `Elasticsearch` | 로그 저장 |
+   | `Kibana` | 시각화 |
+   | `Logstash` | 파이프라인 (Phase 2) |
+   | `Beat` | Filebeat 대안 (옵션) |
 
 ---
 
@@ -116,53 +149,120 @@ Phase 2: Fluent Bit → Kafka → Logstash → ES → Kibana
 
 ## ✅ 결정
 
-### Phase 1 (현재): EFK 구축
+### Phase 1 (현재): ECK 기반 EFK 구축
+
 ```
 ┌─────────────────────────────────────────────────────┐
 │           k8s-logging (t3.large, 8GB)               │
 ├─────────────────────────────────────────────────────┤
-│  Fluent Bit → Elasticsearch (5GB) → Kibana (1GB)   │
-│  (DaemonSet)     logs-* 인덱스                      │
-│                  7일 보관                           │
+│  ECK Operator (CRD 관리)                            │
+│  ├─ Elasticsearch CR → 5GB heap                    │
+│  └─ Kibana CR → 1GB                                │
+│  Fluent Bit DaemonSet → ES 직접 전송               │
 └─────────────────────────────────────────────────────┘
+```
+
+**ECK CRD 구조:**
+```yaml
+# Elasticsearch CR
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: eco2-logs
+spec:
+  version: 8.11.0
+  nodeSets:
+  - name: default
+    count: 1
+    config:
+      node.store.allow_mmap: false
+    podTemplate:
+      spec:
+        nodeSelector:
+          workload: logging
+
+# Kibana CR
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: eco2-kibana
+spec:
+  version: 8.11.0
+  elasticsearchRef:
+    name: eco2-logs  # 자동 연결
 ```
 
 | 컴포넌트 | 메모리 | 역할 |
 |----------|--------|------|
+| ECK Operator | 200MB | CRD 컨트롤러 |
 | Elasticsearch | 5GB heap | 로그 저장, 검색 |
 | Kibana | 1GB | 시각화, 검색 UI |
 | Fluent Bit | ~5MB/노드 | 로그 수집, 전송 |
-| System | 2GB | OS |
+| System | 1.8GB | OS |
 
-### Phase 2 (EDA 도입 시): EFKL 전환
+### Phase 2 (EDA 도입 시): Logstash CRD 추가
+
 ```
 ┌─────────────────────────────────────────────────────┐
 │           k8s-logging (t3.large, 8GB)               │
 ├─────────────────────────────────────────────────────┤
-│  Fluent Bit → Kafka → Logstash → ES → Kibana       │
-│              (1GB)   (1.5GB)   (3GB)  (1GB)        │
+│  ECK Operator                                       │
+│  ├─ Elasticsearch CR → 3GB heap                    │
+│  ├─ Kibana CR → 1GB                                │
+│  └─ Logstash CR → 1.5GB (NEW!)                     │
+│  Fluent Bit → Kafka → Logstash CR → ES             │
 └─────────────────────────────────────────────────────┘
+```
+
+**Logstash CRD 추가:**
+```yaml
+apiVersion: logstash.k8s.elastic.co/v1alpha1
+kind: Logstash
+metadata:
+  name: eco2-logstash
+spec:
+  version: 8.11.0
+  count: 1
+  elasticsearchRefs:
+  - name: eco2-logs
+    clusterName: eco2-logs
+  pipelines:
+  - pipeline.id: main
+    config.string: |
+      input { kafka { ... } }
+      filter { ... }
+      output { elasticsearch { hosts => ["${ECO2_LOGS_ES_HOSTS}"] } }
 ```
 
 | 컴포넌트 | 메모리 | 역할 |
 |----------|--------|------|
+| ECK Operator | 200MB | CRD 컨트롤러 |
 | Kafka | 1GB | 로그 버퍼 (1-2시간 retention) |
-| Logstash | 1.5GB | 파싱, trace_id 상관관계 |
-| Elasticsearch | 3GB heap | 로그 저장 |
-| Kibana | 1GB | 시각화 |
-| System | 1.5GB | OS |
+| Logstash CR | 1.5GB | 파싱, trace_id 상관관계 |
+| Elasticsearch CR | 3GB heap | 로그 저장 |
+| Kibana CR | 1GB | 시각화 |
+| System | 1.3GB | OS |
 
 ---
 
 ## 📌 전환 작업 (Phase 1 → Phase 2)
 
+### ECK 기반 전환 장점
+- Logstash CRD 추가 시 ES 연결 **자동 설정**
+- TLS/인증 **자동 구성**
+- 기존 Elasticsearch CR **수정만으로** 메모리 조정
+
 | 작업 | 예상 시간 | 다운타임 |
 |------|----------|----------|
-| Kafka 배포 | 30분 | 없음 |
-| Logstash 배포 | 30분 | 없음 |
-| ES 메모리 조정 (5GB → 3GB) | 15분 | 재시작 필요 |
+| Kafka 배포 (별도) | 30분 | 없음 |
+| Logstash CRD 추가 | 15분 | 없음 |
+| ES CR 메모리 조정 (5GB → 3GB) | 15분 | Rolling Update |
 | Fluent Bit output 변경 | 15분 | 없음 (rolling) |
-| **총계** | **~2시간** | **~15분** |
+| **총계** | **~1.5시간** | **~5분** |
+
+### StatefulSet 직접 관리 대비 단축
+- **30분 단축**: Logstash-ES 연결 설정 자동화
+- **다운타임 감소**: ECK Rolling Update 지원
 
 ---
 
@@ -205,3 +305,4 @@ EDA 후: ~16개 로그
 | 날짜 | 변경 | 작성자 |
 |------|------|--------|
 | 2025-12-17 | 초안 작성 | Backend Team |
+| 2025-12-17 | ECK Operator 사용 결정 추가 | Backend Team |

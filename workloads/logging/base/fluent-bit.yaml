@@ -90,7 +90,8 @@ data:
     [OUTPUT]
         Name            es
         Match           kube.*
-        Host            elasticsearch.logging.svc.cluster.local
+        # ECK 서비스: <elasticsearch-name>-es-http
+        Host            eco2-logs-es-http.logging.svc.cluster.local
         Port            9200
         Logstash_Format On
         Logstash_Prefix logs

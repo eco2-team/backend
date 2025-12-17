@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-eck-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '61'
+spec:
+  project: dev
+  source:
+    repoURL: https://helm.elastic.co
+    chart: eck-operator
+    targetRevision: 2.11.0
+    helm:
+      releaseName: eck-operator
+      valuesObject:
+        # Operator 리소스 제한
+        resources:
+          requests:
+            cpu: 100m
+            memory: 150Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        # Master 노드에 배포
+        nodeSelector:
+          role: control-plane
+        tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: role
+          operator: Equal
+          value: control-plane
+          effect: NoSchedule
+        # Webhook 설정
+        webhook:
+          enabled: true
+        # 모니터링
+        config:
+          metrics:
+            port: 4321
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: elastic-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
