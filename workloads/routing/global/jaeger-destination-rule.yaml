@@ -1,0 +1,12 @@
+# Jaeger Collector에 대한 mTLS 비활성화
+# Jaeger는 sidecar가 없으므로 plain gRPC로 통신해야 함
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: jaeger-collector-mtls-disable
+  namespace: istio-system
+spec:
+  host: jaeger-collector.istio-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE

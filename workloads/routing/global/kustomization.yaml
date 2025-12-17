@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
 - telemetry.yaml
 - external-services.yaml
+- jaeger-destination-rule.yaml
