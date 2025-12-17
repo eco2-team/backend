@@ -58,30 +58,16 @@ EXCLUDED_LOG_RECORD_ATTRS = frozenset(
 # =============================================================================
 # PII Masking Configuration
 # =============================================================================
-# Sensitive field names (case-insensitive matching)
+# Sensitive field names (case-insensitive substring matching)
+# Only include patterns actually used in this codebase
+# Reference: OWASP Logging Cheat Sheet
 SENSITIVE_FIELD_PATTERNS = frozenset(
     {
-        "password",
-        "passwd",
-        "pwd",
-        "secret",
-        "token",
-        "access_token",
-        "refresh_token",
-        "id_token",
-        "api_key",
-        "apikey",
-        "authorization",
-        "auth",
-        "credential",
-        "private_key",
-        "privatekey",
-        "credit_card",
-        "creditcard",
-        "card_number",
-        "cvv",
-        "ssn",
-        "social_security",
+        "password",  # Key loading, user credentials
+        "secret",  # jwt_secret_key, client_secret
+        "token",  # JWT, OAuth tokens (covers access_token, refresh_token)
+        "api_key",  # External API keys (OpenAI, etc.)
+        "authorization",  # HTTP Authorization header
     }
 )
 
