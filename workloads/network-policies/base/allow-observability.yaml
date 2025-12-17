@@ -16,6 +16,7 @@ spec:
   policyTypes:
   - Ingress
   ingress:
+  # Ingress Gateway에서 UI 접근
   - from:
     - namespaceSelector:
         matchLabels:
@@ -29,6 +30,43 @@ spec:
     - port: 16686 # Jaeger Query
       protocol: TCP
     - port: 9090  # Prometheus
+      protocol: TCP
+---
+# Jaeger Collector: 앱 네임스페이스에서 OTLP trace 수신 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-jaeger-otlp-ingress
+  namespace: istio-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: jaeger
+  policyTypes:
+  - Ingress
+  ingress:
+  # 모든 앱 네임스페이스에서 OTLP 포트 접근 허용
+  - from:
+    - namespaceSelector:
+        matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+          - auth
+          - character
+          - chat
+          - scan
+          - my
+          - location
+          - image
+    ports:
+    - port: 4317  # OTLP gRPC
+      protocol: TCP
+    - port: 4318  # OTLP HTTP
+      protocol: TCP
+    - port: 14268 # Jaeger Thrift HTTP
+      protocol: TCP
+    - port: 14250 # Jaeger gRPC
       protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1

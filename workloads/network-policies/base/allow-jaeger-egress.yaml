@@ -1,0 +1,164 @@
+---
+# 앱 네임스페이스에서 Jaeger Collector로 Egress 허용
+# OTLP gRPC(4317), HTTP(4318) 포트로 trace 전송
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-jaeger-egress
+  namespace: auth
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: jaeger
+    ports:
+    - port: 4317
+      protocol: TCP
+    - port: 4318
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-jaeger-egress
+  namespace: character
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: jaeger
+    ports:
+    - port: 4317
+      protocol: TCP
+    - port: 4318
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-jaeger-egress
+  namespace: chat
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: jaeger
+    ports:
+    - port: 4317
+      protocol: TCP
+    - port: 4318
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-jaeger-egress
+  namespace: scan
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: jaeger
+    ports:
+    - port: 4317
+      protocol: TCP
+    - port: 4318
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-jaeger-egress
+  namespace: my
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: jaeger
+    ports:
+    - port: 4317
+      protocol: TCP
+    - port: 4318
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-jaeger-egress
+  namespace: location
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: jaeger
+    ports:
+    - port: 4317
+      protocol: TCP
+    - port: 4318
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-jaeger-egress
+  namespace: image
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: jaeger
+    ports:
+    - port: 4317
+      protocol: TCP
+    - port: 4318
+      protocol: TCP

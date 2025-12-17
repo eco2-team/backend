@@ -8,4 +8,5 @@ resources:
 - allow-observability.yaml
 - allow-ingress-gateway.yaml
 - allow-logging.yaml
+- allow-jaeger-egress.yaml
 # - default-deny-all.yaml
