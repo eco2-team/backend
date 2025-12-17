@@ -1,158 +1,147 @@
-# Kibana 대시보드
+# Kibana 대시보드 (선언적 관리)
 
-> 베스트 프랙티스: Elastic 공식 가이드라인, Google SRE Golden Signals, CNCF OpenTelemetry
+> **eck-custom-resources** 오퍼레이터를 통한 Kubernetes CRD 기반 선언적 관리
 
-## 설계 원칙
-
-### 1. Google SRE Golden Signals
-
-모든 운영 대시보드는 4가지 Golden Signals를 우선 표시:
-
-| Signal | 설명 | ECO2 구현 |
-|--------|------|-----------|
-| **Latency** | 응답 시간 | (메트릭 기반 별도 구현) |
-| **Traffic** | 요청량 | 서비스별 로그 볼륨 |
-| **Errors** | 에러율 | ERROR 레벨 추이 |
-| **Saturation** | 리소스 포화 | (메트릭 기반 별도 구현) |
-
-### 2. Elastic 공식 명명 규칙
+## 아키텍처
 
 ```
-[<Logs | Metrics> <PACKAGE>] <Name>
+┌─────────────────────────────────────────────────────────────────┐
+│                         GitOps Flow                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   Git Repository              ArgoCD              Kubernetes     │
+│   ┌───────────┐              ┌──────┐            ┌──────────┐   │
+│   │ dashboard │   sync       │      │   apply    │ Dashboard│   │
+│   │   .yaml   │ ──────────►  │      │ ─────────► │   CRD    │   │
+│   └───────────┘              └──────┘            └────┬─────┘   │
+│                                                       │         │
+│                              eck-custom-resources     │         │
+│                              ┌───────────────────┐    │         │
+│                              │    Operator       │◄───┘         │
+│                              └─────────┬─────────┘              │
+│                                        │                        │
+│                                        ▼                        │
+│                              ┌───────────────────┐              │
+│                              │     Kibana        │              │
+│                              │   (Saved Objects) │              │
+│                              └───────────────────┘              │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-| 대시보드 | ID | 설명 |
-|----------|-----|------|
-| `[Logs ECO2] Overview` | `logs-eco2-overview` | Golden Signals 개요 |
-| `[Logs ECO2] Developer Debug` | `logs-eco2-debug` | 개발자 디버깅 |
-| `[Logs ECO2] Business Metrics` | `logs-eco2-business` | 비즈니스 지표 |
+## 파일 구조
 
-### 3. 네비게이션
+```
+workloads/logging/dashboards/
+├── kustomization.yaml       # Kustomize 설정
+├── dataview.yaml            # Data View (Index Pattern)
+├── overview-dashboard.yaml  # [Logs ECO2] Overview
+├── debug-dashboard.yaml     # [Logs ECO2] Developer Debug
+└── business-dashboard.yaml  # [Logs ECO2] Business Metrics
+```
 
-- **Links Panel**: 모든 대시보드에 Markdown 기반 네비게이션 포함
-- **Controls Filter**: 서비스/레벨별 필터링
-- **Drilldown**: 에러 → Trace ID 상세 연결
+## CRD 종류
 
-## 대시보드 파일
+| Kind | 설명 |
+|------|------|
+| `DataView` | Index Pattern (logs-app-*) |
+| `Dashboard` | Kibana 대시보드 |
+| `Visualization` | 개별 시각화 (필요시) |
+| `SavedSearch` | 저장된 검색 (필요시) |
 
-### 1. `sre-operations.ndjson` - [Logs ECO2] Overview
+## 대시보드 목록
 
-운영팀을 위한 Golden Signals 기반 대시보드
+### 1. [Logs ECO2] Overview
 
-**패널 구성:**
+**용도**: SRE/운영팀 - Golden Signals 모니터링
+
+**패널**:
 - Navigation Links (Markdown)
-- Service/Level Filter (Controls)
-- Service Health Grid (Tag Cloud)
 - Traffic Volume (Line Chart) - Golden Signal: Traffic
 - Error Trend (Line Chart) - Golden Signal: Errors
-- Recent Errors (Table)
+- Service Health (Donut Chart)
+- Log Level Distribution (Donut Chart)
 
-**기본 설정:**
-- 시간 범위: 24시간
-- 자동 새로고침: 5분
+### 2. [Logs ECO2] Developer Debug
 
-### 2. `developer-debug.ndjson` - [Logs ECO2] Developer Debug
+**용도**: 개발자 - 디버깅 및 Trace 분석
 
-개발자를 위한 디버깅 대시보드
-
-**패널 구성:**
-- Navigation Links (Markdown)
-- Multi-field Filters (Service, Level, Error Type)
-- Errors by Type (Pie Chart)
-- Errors by Service (Horizontal Bar)
-- Error Details with trace.id (Table)
+**패널**:
+- Navigation Links
+- Errors by Type (Donut Chart)
+- Errors by Service (Bar Chart)
+- Error Details Table (with trace.id)
 - Trace Correlation Search
 
-**기본 설정:**
-- 시간 범위: 6시간
-- 자동 새로고침: 1분
+### 3. [Logs ECO2] Business Metrics
 
-### 3. `business-metrics.ndjson` - [Logs ECO2] Business Metrics
+**용도**: 비즈니스 - 사용자 활동 및 기능 사용량
 
-비즈니스 메트릭 대시보드
-
-**패널 구성:**
-- Navigation Links (Markdown)
+**패널**:
+- Navigation Links
 - Total Logins (Metric)
 - Rewards Granted (Metric)
-- Rewards by Character (Pie Chart)
-- Daily Active Logins by Provider (Line Chart)
-- Feature Usage: Chat, Image, Location (Stacked Bar)
-
-**기본 설정:**
-- 시간 범위: 7일
-- 자동 새로고침: 비활성화 (리포트용)
+- Rewards by Character (Donut Chart)
+- Daily Logins by Provider (Line Chart)
+- Feature Usage (Stacked Bar)
 
 ## 사용법
 
-### Import
+### 배포
 
 ```bash
-# Kibana Dev Tools에서 import
-POST kbn:/api/saved_objects/_import?overwrite=true
-# 파일 업로드: sre-operations.ndjson
+# Kustomize로 배포
+kubectl apply -k workloads/logging/dashboards/
 
-# 또는 curl 사용
-curl -X POST "https://kibana.example.com/api/saved_objects/_import?overwrite=true" \
-  -H "kbn-xsrf: true" \
-  -H "Content-Type: multipart/form-data" \
-  --form file=@sre-operations.ndjson
+# 또는 개별 파일
+kubectl apply -f workloads/logging/dashboards/dataview.yaml
+kubectl apply -f workloads/logging/dashboards/overview-dashboard.yaml
 ```
 
-### Export (업데이트 시)
+### 상태 확인
 
 ```bash
-# 특정 대시보드 export
-curl -X POST "https://kibana.example.com/api/saved_objects/_export" \
-  -H "kbn-xsrf: true" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "objects": [{"type": "dashboard", "id": "logs-eco2-overview"}],
-    "includeReferencesDeep": true
-  }' > sre-operations.ndjson
+# Dashboard CRD 상태
+kubectl get dashboards -n logging
+
+# 상세 정보
+kubectl describe dashboard logs-eco2-overview -n logging
 ```
 
-## Data View
+### 삭제
 
-모든 대시보드는 단일 Data View 사용:
-
-| ID | 패턴 | 설명 |
-|----|------|------|
-| `logs-eco2-app-dataview` | `logs-app-*` | 앱 로그 |
-
-## 필수 로그 필드 (ECS 기반)
-
-대시보드 쿼리에 사용되는 필드:
-
-| 필드 | 타입 | 용도 |
-|------|------|------|
-| `@timestamp` | date | 시계열 분석 |
-| `log.level` | keyword | 필터, 에러율 |
-| `service.name` | keyword | 그룹핑, 필터 |
-| `message` | text | 검색, 비즈니스 이벤트 |
-| `trace.id` | keyword | 분산 추적 연결 |
-| `labels.*` | object | 비즈니스 컨텍스트 |
-
-### 비즈니스 이벤트 메시지 (쿼리용)
-
+```bash
+kubectl delete -k workloads/logging/dashboards/
 ```
-# 인증
-"OAuth login successful"
-"Session refreshed"
-"User logged out"
 
-# 보상
-"Reward evaluation completed" + labels.received: true
+## 의존성
 
-# 기능
-"Chat message received"
-"Upload finalized"
-"Location search completed"
+### 필수 컴포넌트
+
+1. **ECK Operator** - Elasticsearch/Kibana 관리
+2. **eck-custom-resources Operator** - Saved Objects CRD 관리
+3. **Kibana 인스턴스** - `eco2-kibana` (targetInstance)
+
+### CRD 설치 확인
+
+```bash
+# CRD 존재 확인
+kubectl get crd dashboards.kibana.eck.github.com
+kubectl get crd dataviews.kibana.eck.github.com
+
+# 오퍼레이터 상태
+kubectl get pods -n eck-custom-resources
 ```
+
+## 베스트 프랙티스
+
+적용된 베스트 프랙티스:
+- **Elastic 공식 명명 규칙**: `[Logs ECO2] <Name>`
+- **Google SRE Golden Signals**: Traffic, Errors 우선 표시
+- **CNCF OpenTelemetry**: trace.id 연계
+- **GitOps**: CRD로 선언적 관리, ArgoCD 자동 동기화
 
 ## 참조
 
+- [eck-custom-resources GitHub](https://github.com/xco-sk/eck-custom-resources)
 - [Elastic Dashboard Guidelines](https://www.elastic.co/docs/extend/integrations/dashboard-guidelines)
-- [Google SRE - Monitoring](https://sre.google/sre-book/monitoring-distributed-systems/)
-- [CNCF OpenTelemetry Logging](https://opentelemetry.io/docs/specs/otel/logs/)
 - [베스트 프랙티스 문서](../../docs/guide/observability/DASHBOARD_BEST_PRACTICES.md)

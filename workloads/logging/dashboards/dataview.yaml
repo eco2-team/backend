@@ -1,0 +1,18 @@
+# Data View (Index Pattern) for ECO2 App Logs
+apiVersion: kibana.eck.github.com/v1alpha1
+kind: DataView
+metadata:
+  name: logs-eco2-app
+  namespace: logging
+spec:
+  targetInstance:
+    name: eco2-kibana
+  body: |
+    {
+      "dataView": {
+        "id": "logs-eco2-app-dataview",
+        "name": "logs-eco2-app",
+        "title": "logs-app-*",
+        "timeFieldName": "@timestamp"
+      }
+    }

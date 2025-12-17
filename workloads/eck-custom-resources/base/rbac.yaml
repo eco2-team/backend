@@ -1,0 +1,55 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eck-custom-resources-controller
+  namespace: eck-custom-resources
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: eck-custom-resources-controller
+rules:
+  # Kibana resources
+- apiGroups: [kibana.eck.github.com]
+  resources: ['*']
+  verbs: ['*']
+  # Elasticsearch resources
+- apiGroups: [es.eck.github.com]
+  resources: ['*']
+  verbs: ['*']
+  # ECK resources (read)
+- apiGroups: [kibana.k8s.elastic.co]
+  resources: [kibanas]
+  verbs: [get, list, watch]
+- apiGroups: [elasticsearch.k8s.elastic.co]
+  resources: [elasticsearches]
+  verbs: [get, list, watch]
+  # Secrets (for credentials)
+- apiGroups: ['']
+  resources: [secrets]
+  verbs: [get, list, watch]
+  # Events
+- apiGroups: ['']
+  resources: [events]
+  verbs: [create, patch]
+  # Status updates
+- apiGroups: [kibana.eck.github.com]
+  resources: ['*/status']
+  verbs: [get, patch, update]
+- apiGroups: [es.eck.github.com]
+  resources: ['*/status']
+  verbs: [get, patch, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eck-custom-resources-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eck-custom-resources-controller
+subjects:
+- kind: ServiceAccount
+  name: eck-custom-resources-controller
+  namespace: eck-custom-resources

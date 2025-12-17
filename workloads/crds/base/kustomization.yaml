@@ -22,3 +22,10 @@ resources:
 
   # ECK (Elastic Cloud on Kubernetes) CRDs
 - https://download.elastic.co/downloads/eck/2.11.0/crds.yaml
+
+  # eck-custom-resources CRDs (Kibana Saved Objects 선언적 관리)
+  # https://github.com/xco-sk/eck-custom-resources v0.7.0
+- https://raw.githubusercontent.com/xco-sk/eck-custom-resources/v0.7.0/config/crd/bases/kibana.eck.github.com_dashboards.yaml
+- https://raw.githubusercontent.com/xco-sk/eck-custom-resources/v0.7.0/config/crd/bases/kibana.eck.github.com_dataviews.yaml
+- https://raw.githubusercontent.com/xco-sk/eck-custom-resources/v0.7.0/config/crd/bases/kibana.eck.github.com_visualizations.yaml
+- https://raw.githubusercontent.com/xco-sk/eck-custom-resources/v0.7.0/config/crd/bases/kibana.eck.github.com_savedsearches.yaml
