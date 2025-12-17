@@ -4,7 +4,13 @@ kind: Kustomization
 namespace: logging
 
 resources:
+# EFK Stack (Elasticsearch, Fluent Bit, Kibana)
 - ../base
+# Kibana Dashboards (eck-custom-resources CRD)
+- dataview.yaml
+- overview-dashboard.yaml
+- debug-dashboard.yaml
+- business-dashboard.yaml
 # NetworkPolicy는 workloads/network-policies/에서 별도 ArgoCD App으로 배포
 
 commonLabels:
