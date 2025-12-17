@@ -530,13 +530,13 @@ module "monitoring" {
   }
 }
 
-# EC2 Instances - Logging (ELK Stack: Elasticsearch + Logstash + Kibana)
+# EC2 Instances - Logging (EFK Stack: Elasticsearch + Fluent Bit + Kibana)
 # Phase 4: Logging (Observability Enhancement - 2025-12)
 module "logging" {
   source = "./modules/ec2"
 
   instance_name        = "k8s-logging"
-  instance_type        = "t3.large" # 8GB (ES Heap 3GB + Logstash 1.5GB + Kibana 1GB + System)
+  instance_type        = "t3.xlarge" # 16GB (ES Heap 8GB + Kibana 2GB + System) - 2025-12-17 스케일업
   ami_id               = data.aws_ami.ubuntu.id
   subnet_id            = module.vpc.public_subnet_ids[2]
   security_group_ids   = [module.security_groups.cluster_sg_id]
