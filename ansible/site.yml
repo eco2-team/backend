@@ -55,7 +55,7 @@
 # ⚠️ Worker join 실패 시 여기서 중단됨
 
 - name: Worker 노드 라벨 교정 (옵션)
-  hosts: workers,api_nodes,rabbitmq,postgresql,redis,monitoring,ingress_gateway
+  hosts: workers,api_nodes,rabbitmq,postgresql,redis,monitoring,logging,ingress_gateway
   become: yes
   gather_facts: yes
   serial: 1

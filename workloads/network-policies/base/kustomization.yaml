@@ -6,4 +6,5 @@ resources:
 - allow-external-https.yaml
 - allow-istiod.yaml
 - allow-observability.yaml
+- allow-ingress-gateway.yaml
 # - default-deny-all.yaml

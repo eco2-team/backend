@@ -4,7 +4,7 @@ metadata:
   name: dev-jaeger
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: '60'
+    argocd.argoproj.io/sync-wave: '61'
 spec:
   project: dev
   source:

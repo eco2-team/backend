@@ -46,6 +46,9 @@ spec:
       - name: jaeger
         namespace: istio-system
         path: workloads/routing/jaeger/dev
+      - name: kibana
+        namespace: logging
+        path: workloads/routing/kibana/dev
   template:
     metadata:
       name: dev-route-{{name}}

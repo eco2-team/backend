@@ -5,6 +5,7 @@ resource "aws_vpc" "main" {
 
   tags = {
     Name                                                 = "${var.environment}-k8s-vpc"
+    Environment                                          = var.environment
     "kubernetes.io/cluster/${var.environment}-sesacthon" = "shared"
   }
 }
@@ -19,6 +20,7 @@ resource "aws_subnet" "public" {
 
   tags = {
     Name                     = "${var.environment}-public-subnet-${count.index + 1}"
+    Environment              = var.environment
     "kubernetes.io/role/elb" = "1"
   }
 }

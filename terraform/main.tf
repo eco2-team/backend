@@ -81,6 +81,7 @@ locals {
     "k8s-postgresql"      = "--node-labels=role=infrastructure,domain=data,infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
     "k8s-redis"           = "--node-labels=role=infrastructure,domain=data,infra-type=redis,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
     "k8s-monitoring"      = "--node-labels=role=infrastructure,domain=observability,infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule"
+    "k8s-logging"         = "--node-labels=role=infrastructure,domain=observability,infra-type=logging,workload=logging,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule"
     "k8s-ingress-gateway" = "--node-labels=role=ingress-gateway,domain=gateway,infra-type=istio,workload=gateway,tier=network,phase=5 --register-with-taints=role=ingress-gateway:NoSchedule"
   }
 }
@@ -109,7 +110,8 @@ resource "aws_key_pair" "k8s" {
   public_key = file(var.public_key_path)
 
   tags = {
-    Name = "k8s-cluster-key"
+    Name        = "k8s-cluster-key"
+    Environment = var.environment
   }
 }
 
@@ -524,6 +526,34 @@ module "monitoring" {
   tags = {
     Role     = "worker"
     Workload = "monitoring"
+    Phase    = "4"
+  }
+}
+
+# EC2 Instances - Logging (ELK Stack: Elasticsearch + Logstash + Kibana)
+# Phase 4: Logging (Observability Enhancement - 2025-12)
+module "logging" {
+  source = "./modules/ec2"
+
+  instance_name        = "k8s-logging"
+  instance_type        = "t3.large" # 8GB (ES Heap 3GB + Logstash 1.5GB + Kibana 1GB + System)
+  ami_id               = data.aws_ami.ubuntu.id
+  subnet_id            = module.vpc.public_subnet_ids[2]
+  security_group_ids   = [module.security_groups.cluster_sg_id]
+  key_name             = aws_key_pair.k8s.key_name
+  iam_instance_profile = aws_iam_instance_profile.k8s.name
+
+  root_volume_size = 100 # Elasticsearch indices (7-day retention)
+  root_volume_type = "gp3"
+
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname           = "k8s-logging"
+    kubelet_extra_args = local.kubelet_profiles["k8s-logging"]
+  })
+
+  tags = {
+    Role     = "worker"
+    Workload = "logging"
     Phase    = "4"
   }
 }

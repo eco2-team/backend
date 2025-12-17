@@ -2,10 +2,10 @@
 # 프론트엔드 직접 업로드 + 백엔드는 URL만 읽기
 
 resource "aws_s3_bucket" "images" {
-  bucket = "${var.environment}-${var.cluster_name}-images"
+  bucket = "${var.environment}-${var.cluster_name}-${var.environment}-images"
 
   tags = {
-    Name        = "${var.environment}-${var.cluster_name}-images"
+    Name        = "${var.environment}-${var.cluster_name}-${var.environment}-images"
     Purpose     = "AI 분석용 이미지 저장"
     Environment = var.environment
   }

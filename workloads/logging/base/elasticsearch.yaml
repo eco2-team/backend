@@ -1,0 +1,72 @@
+# ECK Elasticsearch Custom Resource
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: eco2-logs
+  namespace: logging
+spec:
+  version: 8.11.0
+  nodeSets:
+  - name: default
+    count: 1
+    config:
+      # 클러스터 설정
+      cluster.name: eco2-logs
+      # 단일 노드 모드
+      discovery.type: single-node
+      # 보안 비활성화 (내부 네트워크)
+      xpack.security.enabled: false
+      xpack.security.http.ssl.enabled: false
+      xpack.security.transport.ssl.enabled: false
+      # mmap 비활성화 (컨테이너 환경)
+      node.store.allow_mmap: false
+      # 모니터링
+      xpack.monitoring.collection.enabled: true
+      # 메모리 최적화
+      indices.memory.index_buffer_size: 20%
+    podTemplate:
+      metadata:
+        labels:
+          app: elasticsearch
+      spec:
+        # k8s-logging 노드에 배포
+        nodeSelector:
+          workload: logging
+        tolerations:
+        - key: domain
+          operator: Equal
+          value: observability
+          effect: NoSchedule
+        containers:
+        - name: elasticsearch
+          env:
+          - name: ES_JAVA_OPTS
+            value: -Xms4g -Xmx4g
+          resources:
+            requests:
+              memory: 5Gi
+              cpu: 500m
+            limits:
+              memory: 5Gi
+              cpu: 2000m
+        # vm.max_map_count 설정을 위한 initContainer
+        initContainers:
+        - name: sysctl
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          command: [sh, -c, sysctl -w vm.max_map_count=262144]
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: gp3-storage
+        resources:
+          requests:
+            storage: 50Gi
+  # HTTP 서비스 설정
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true  # TLS 비활성화 (내부 통신)

@@ -1,0 +1,50 @@
+# ECK Kibana Custom Resource
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: eco2-kibana
+  namespace: logging
+spec:
+  version: 8.11.0
+  count: 1
+  # Elasticsearch 자동 연결
+  elasticsearchRef:
+    name: eco2-logs
+  config:
+    # 서버 설정
+    server.name: kibana
+    server.host: 0.0.0.0
+    # 한국어 설정
+    i18n.locale: ko-KR
+    # 모니터링
+    monitoring.ui.container.elasticsearch.enabled: true
+  podTemplate:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      # k8s-logging 노드에 배포
+      nodeSelector:
+        workload: logging
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: observability
+        effect: NoSchedule
+      containers:
+      - name: kibana
+        env:
+        - name: NODE_OPTIONS
+          value: --max-old-space-size=1024
+        resources:
+          requests:
+            memory: 1Gi
+            cpu: 200m
+          limits:
+            memory: 1Gi
+            cpu: 1000m
+  # HTTP 서비스 설정
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true  # TLS 비활성화 (Istio에서 처리)

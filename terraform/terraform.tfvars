@@ -2,4 +2,5 @@
 enable_cloudfront = true
 
 # Route53 도메인 설정
-domain_name = "growbin.app"
+domain_name = "dev.growbin.app"
+environment = "dev"

@@ -240,6 +240,22 @@ output "monitoring_public_ip" {
   value       = module.monitoring.public_ip
 }
 
+# Logging (Phase 4: 2025-12 ELK Stack)
+output "logging_instance_id" {
+  description = "Logging (ELK) Instance ID"
+  value       = module.logging.instance_id
+}
+
+output "logging_public_ip" {
+  description = "Logging (ELK) 노드 Public IP"
+  value       = module.logging.public_ip
+}
+
+output "logging_private_ip" {
+  description = "Logging (ELK) 노드 Private IP"
+  value       = module.logging.private_ip
+}
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Phase 5: Network Nodes Outputs
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -265,7 +281,7 @@ output "ingress_gateway_public_ip" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "ansible_inventory" {
-  description = "Ansible Inventory 내용 (14-Node Architecture)"
+  description = "Ansible Inventory 내용 (15-Node Architecture)"
   value = templatefile("${path.module}/templates/hosts.tpl", {
     master_public_ip           = aws_eip.master.public_ip
     master_private_ip          = module.master.private_ip
@@ -295,6 +311,8 @@ output "ansible_inventory" {
     rabbitmq_private_ip        = module.rabbitmq.private_ip
     monitoring_public_ip       = module.monitoring.public_ip
     monitoring_private_ip      = module.monitoring.private_ip
+    logging_public_ip          = module.logging.public_ip
+    logging_private_ip         = module.logging.private_ip
     ingress_gateway_public_ip  = module.ingress_gateway.public_ip
     ingress_gateway_private_ip = module.ingress_gateway.private_ip
   })
@@ -305,7 +323,7 @@ output "ansible_inventory" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "ssh_commands" {
-  description = "SSH 접속 명령어 (14-Node Architecture)"
+  description = "SSH 접속 명령어 (15-Node Architecture)"
   value = {
     master         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${aws_eip.master.public_ip}"
     api_auth       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_auth.public_ip}"
@@ -321,6 +339,7 @@ output "ssh_commands" {
     redis          = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis.public_ip}"
     rabbitmq       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.rabbitmq.public_ip}"
     monitoring     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.monitoring.public_ip}"
+    logging        = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.logging.public_ip}"
   }
 }
 
@@ -329,11 +348,11 @@ output "ssh_commands" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "cluster_info" {
-  description = "클러스터 정보 요약 (14-Node Architecture)"
+  description = "클러스터 정보 요약 (15-Node Architecture)"
   value = {
     vpc_id    = module.vpc.vpc_id
     master_ip = aws_eip.master.public_ip
-    phase     = "Phase 1-4 Complete - 14-Node Full Production Architecture"
+    phase     = "Phase 1-4 Complete - 15-Node Full Production Architecture"
     api_ips = [
       module.api_auth.public_ip,
       module.api_my.public_ip,
@@ -351,13 +370,14 @@ output "cluster_info" {
       module.postgresql.public_ip,
       module.redis.public_ip,
       module.rabbitmq.public_ip,
-      module.monitoring.public_ip
+      module.monitoring.public_ip,
+      module.logging.public_ip
     ]
-    # 14-Node Architecture
-    total_nodes        = 14  # Master + 7 APIs + 2 Workers + 4 Infra
-    total_vcpu         = 32  # 2(master) + 7(APIs) + 4(workers) + 10(infra) + 4(monitoring)
-    total_memory_gb    = 38  # 8(master) + 9(APIs) + 4(workers) + 8(infra) + 4(monitoring) + 4(psql) + 2(redis) + 1(rabbitmq)
-    estimated_cost_usd = 245 # Monthly: t3.large*1 + t3.medium*2 + t3.small*5 + t3.micro*4
+    # 15-Node Architecture (+ Logging)
+    total_nodes        = 15  # Master + 7 APIs + 2 Workers + 5 Infra
+    total_vcpu         = 34  # +2 (logging t3.large)
+    total_memory_gb    = 46  # +8 (logging t3.large)
+    estimated_cost_usd = 305 # +$60 (t3.large)
   }
 }
 
@@ -366,22 +386,23 @@ output "cluster_info" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "node_roles" {
-  description = "노드별 역할 (14-Node Architecture)"
+  description = "노드별 역할 (15-Node Architecture)"
   value = {
-    master         = "Control Plane (t3.large, 8GB) - Phase 1"
-    api_auth       = "Authentication API (t3.micro, 1GB) - Phase 1"
-    api_my         = "My Page API (t3.micro, 1GB) - Phase 1"
-    api_scan       = "Waste Scan API (t3.small, 2GB) - Phase 2"
-    api_character  = "Character & Mission API (t3.micro, 1GB) - Phase 2"
-    api_location   = "Location & Map API (t3.micro, 1GB) - Phase 2"
-    api_image      = "Image Delivery API (t3.micro, 1GB) - Phase 3"
-    api_chat       = "Chat LLM API (t3.small, 2GB) - Phase 3"
-    worker_storage = "Storage Worker - I/O Bound (t3.small, 2GB) - Phase 4"
-    worker_ai      = "AI Worker - Network Bound (t3.small, 2GB) - Phase 4"
-    postgresql     = "PostgreSQL - 7 Domain Schemas (t3.medium, 4GB) - Phase 1"
-    redis          = "Redis Cache + JWT BlackList (t3.small, 2GB) - Phase 1"
-    rabbitmq       = "RabbitMQ Message Queue (t3.small, 2GB) - Phase 4"
-    monitoring     = "Prometheus + Grafana (t3.medium, 4GB) - Phase 4"
+    master         = "Control Plane (t3.xlarge, 16GB) - Phase 0"
+    api_auth       = "Authentication API (t3.small, 2GB) - Phase 1"
+    api_my         = "My Page API (t3.small, 2GB) - Phase 1"
+    api_scan       = "Waste Scan API (t3.medium, 4GB) - Phase 2"
+    api_character  = "Character & Mission API (t3.small, 2GB) - Phase 2"
+    api_location   = "Location & Map API (t3.small, 2GB) - Phase 2"
+    api_image      = "Image Delivery API (t3.small, 2GB) - Phase 3"
+    api_chat       = "Chat LLM API (t3.medium, 4GB) - Phase 3"
+    worker_storage = "Storage Worker - I/O Bound (t3.medium, 4GB) - Phase 4"
+    worker_ai      = "AI Worker - Network Bound (t3.medium, 4GB) - Phase 4"
+    postgresql     = "PostgreSQL - 7 Domain Schemas (t3.large, 8GB) - Phase 1"
+    redis          = "Redis Cache + JWT BlackList (t3.medium, 4GB) - Phase 1"
+    rabbitmq       = "RabbitMQ Message Queue (t3.medium, 4GB) - Phase 4"
+    monitoring     = "Prometheus + Grafana (t3.large, 8GB) - Phase 4"
+    logging        = "ELK Stack - Elasticsearch + Logstash + Kibana (t3.large, 8GB) - Phase 4"
   }
 }
 
