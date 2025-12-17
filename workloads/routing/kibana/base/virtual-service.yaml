@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: kibana-vs
+  namespace: logging
+spec:
+  hosts:
+  - kibana.growbin.app
+  gateways:
+  - istio-system/eco2-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: kibana.logging.svc.cluster.local
+        port:
+          number: 5601

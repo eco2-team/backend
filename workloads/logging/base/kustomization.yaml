@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: logging
+
+resources:
+- elasticsearch.yaml
+- kibana.yaml
+- fluent-bit.yaml
+- network-policy.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: ecoeco-observability
+  tier: observability

@@ -155,3 +155,13 @@ metadata:
     app.kubernetes.io/part-of: ecoeco-platform
     tier: infrastructure
     role: operators
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+  labels:
+    istio-injection: disabled  # EFK는 Istio sidecar 불필요
+    app.kubernetes.io/part-of: ecoeco-backend
+    tier: observability
+    role: logging

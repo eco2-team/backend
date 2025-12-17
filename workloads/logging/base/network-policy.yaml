@@ -1,0 +1,126 @@
+---
+# Fluent Bit에서 Elasticsearch로 로그 전송 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-fluent-bit-to-es
+  namespace: logging
+spec:
+  podSelector:
+    matchLabels:
+      app: elasticsearch
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector: {}  # 모든 namespace의 Fluent Bit에서
+      podSelector:
+        matchLabels:
+          app: fluent-bit
+    ports:
+    - protocol: TCP
+      port: 9200
+---
+# Kibana에서 Elasticsearch 접근 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kibana-to-es
+  namespace: logging
+spec:
+  podSelector:
+    matchLabels:
+      app: elasticsearch
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: kibana
+    ports:
+    - protocol: TCP
+      port: 9200
+---
+# Istio IngressGateway에서 Kibana 접근 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-kibana
+  namespace: logging
+spec:
+  podSelector:
+    matchLabels:
+      app: kibana
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          app: istio-ingressgateway
+    ports:
+    - protocol: TCP
+      port: 5601
+---
+# Fluent Bit DNS 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-fluent-bit-dns
+  namespace: logging
+spec:
+  podSelector:
+    matchLabels:
+      app: fluent-bit
+  policyTypes:
+  - Egress
+  egress:
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+---
+# Fluent Bit에서 Elasticsearch로 Egress 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-fluent-bit-egress
+  namespace: logging
+spec:
+  podSelector:
+    matchLabels:
+      app: fluent-bit
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: elasticsearch
+    ports:
+    - protocol: TCP
+      port: 9200
+---
+# Fluent Bit에서 K8s API 접근 허용 (메타데이터 조회)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-fluent-bit-k8s-api
+  namespace: logging
+spec:
+  podSelector:
+    matchLabels:
+      app: fluent-bit
+  policyTypes:
+  - Egress
+  egress:
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443

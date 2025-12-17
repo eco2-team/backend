@@ -110,7 +110,8 @@ resource "aws_key_pair" "k8s" {
   public_key = file(var.public_key_path)
 
   tags = {
-    Name = "k8s-cluster-key"
+    Name        = "k8s-cluster-key"
+    Environment = var.environment
   }
 }
 
