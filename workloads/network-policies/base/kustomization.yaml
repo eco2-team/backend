@@ -7,4 +7,5 @@ resources:
 - allow-istiod.yaml
 - allow-observability.yaml
 - allow-ingress-gateway.yaml
+- allow-logging.yaml
 # - default-deny-all.yaml

@@ -77,13 +77,84 @@
 
 ---
 
-## 4. 인덱스 및 수명 주기 관리 (ILM)
+## 4. 인덱스 전략 (Index Strategy)
 
-- **Index Pattern**: `logstash-*` 또는 `kube-*` (Fluent Bit 설정에 따름).
-- **Retention Policy**:
-  - 디스크 공간 절약을 위해 오래된 로그는 주기적으로 삭제하거나 Cold Storage(S3)로 이관.
-  - Elasticsearch ISM(Index State Management) 또는 Curator 활용.
-  - 초기 정책: 7일 보관 후 삭제 (개발 환경 기준).
+### 4.1 인덱스 분리 전략
+
+업계 표준(Netflix, Uber, Google SRE, CNCF)을 참고한 인덱스 분리 전략입니다.
+
+#### 왜 도메인별 인덱스가 아닌가?
+
+| 문제 | 설명 |
+|------|------|
+| **샤드 오버헤드** | 인덱스당 최소 1 primary + 1 replica 샤드 필요 |
+| **리소스 낭비** | 소규모 서비스도 동일 샤드 할당 |
+| **Cross-service 검색** | 분산 트랜잭션 추적 시 다중 인덱스 조인 필요 |
+| **ILM 복잡도** | 인덱스별 lifecycle policy 관리 필요 |
+
+#### 권장 전략: 앱/인프라 분리 + 필드 기반 필터링
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    인덱스 패턴                           │
+├─────────────────────────────────────────────────────────┤
+│  logs-app-{env}-{YYYY.MM.DD}                           │
+│  logs-infra-{env}-{YYYY.MM.DD}                         │
+│                                                         │
+│  예시:                                                  │
+│  - logs-app-dev-2024.12.17                             │
+│  - logs-infra-dev-2024.12.17                           │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### 앱 vs 인프라 분류
+
+| 분류 | 네임스페이스 | 설명 |
+|------|-------------|------|
+| **App** | auth, character, chat, scan, my, location, image | 비즈니스 로직 서비스 |
+| **Infra** | kube-system, istio-system, logging, monitoring, argocd | 플랫폼/인프라 서비스 |
+
+#### 필드 기반 서비스 구분
+
+도메인별 인덱스 대신 ECS 필드로 서비스를 구분합니다:
+
+```json
+{
+  "service.name": "auth-api",
+  "service.version": "1.0.7",
+  "kubernetes.namespace_name": "auth",
+  "kubernetes.pod_name": "auth-api-xxx",
+  "environment": "dev"
+}
+```
+
+#### Kibana 쿼리 예시
+
+```
+# 특정 서비스 에러 로그
+service.name: "auth-api" AND log.level: "error"
+
+# Cross-service 트랜잭션 추적
+trace.id: "abc123*"
+
+# 특정 네임스페이스
+kubernetes.namespace_name: "auth"
+```
+
+### 4.2 수명 주기 관리 (ILM)
+
+| 인덱스 | Hot | Warm | Delete |
+|--------|-----|------|--------|
+| logs-app-dev-* | 3일 | 7일 | 14일 |
+| logs-app-prod-* | 7일 | 30일 | 90일 |
+| logs-infra-* | 1일 | 3일 | 7일 |
+
+### 4.3 참고 자료
+
+- Netflix: 단일 인덱스 + Kafka 파이프라인
+- Uber: ELK → ClickHouse 전환 (샤드 폭발 문제 해결)
+- Google SRE: 로그 레벨별/환경별 분리
+- CNCF: 중앙화 로깅 + 구조화 로그 + 상관 ID
 
 ## 5. 네트워크 및 보안
 

@@ -74,6 +74,12 @@ data:
         Labels              On
         Annotations         Off
 
+    # Health/Readiness probe 로그 제외 (노이즈 감소)
+    [FILTER]
+        Name          grep
+        Match         kube.*
+        Exclude       log /health|ready/
+
     [FILTER]
         Name          modify
         Match         kube.*
@@ -87,24 +93,53 @@ data:
         Nested_under  kubernetes
         Add_prefix    k8s_
 
+    # 앱/인프라 태그 분리 (네임스페이스 기반)
+    # App: auth, character, chat, scan, my, location, image
+    [FILTER]
+        Name          rewrite_tag
+        Match         kube.*
+        Rule          $k8s_namespace_name ^(auth|character|chat|scan|my|location|image)$ app.$k8s_namespace_name false
+        Emitter_Name  re_emitted_app
+
+    # Infra: 나머지 (kube-system, istio-system, logging, monitoring 등)
+    [FILTER]
+        Name          rewrite_tag
+        Match         kube.*
+        Rule          $k8s_namespace_name .+ infra.$k8s_namespace_name false
+        Emitter_Name  re_emitted_infra
+
+    # App 로그 → logs-app-dev-*
     [OUTPUT]
         Name            es
-        Match           kube.*
-        # ECK 서비스: <elasticsearch-name>-es-http
+        Match           app.*
         Host            eco2-logs-es-http.logging.svc.cluster.local
         Port            9200
-        # ECK 인증 (환경변수에서 주입)
         HTTP_User       ${ES_USER}
         HTTP_Passwd     ${ES_PASSWORD}
         Logstash_Format On
-        Logstash_Prefix logs
+        Logstash_Prefix logs-app-dev
         Logstash_DateFormat %Y.%m.%d
         Retry_Limit     False
         Replace_Dots    On
         Suppress_Type_Name On
-        # 버퍼링
         Buffer_Size     5MB
-        # 배치 처리
+        Generate_ID     On
+
+    # Infra 로그 → logs-infra-dev-*
+    [OUTPUT]
+        Name            es
+        Match           infra.*
+        Host            eco2-logs-es-http.logging.svc.cluster.local
+        Port            9200
+        HTTP_User       ${ES_USER}
+        HTTP_Passwd     ${ES_PASSWORD}
+        Logstash_Format On
+        Logstash_Prefix logs-infra-dev
+        Logstash_DateFormat %Y.%m.%d
+        Retry_Limit     False
+        Replace_Dots    On
+        Suppress_Type_Name On
+        Buffer_Size     5MB
         Generate_ID     On
 
   parsers.conf: |

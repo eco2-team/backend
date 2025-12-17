@@ -5,6 +5,7 @@ namespace: logging
 
 resources:
 - ../base
+# NetworkPolicy는 workloads/network-policies/에서 별도 ArgoCD App으로 배포
 
 commonLabels:
   environment: dev

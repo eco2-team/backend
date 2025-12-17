@@ -1,12 +1,11 @@
-from pydantic import BaseModel
+"""Health/Readiness probe endpoints (로그 제외 - 노이즈 방지)."""
 
-from logging import getLogger
+from pydantic import BaseModel
 
 from domains.auth.api.v1.routers import health_probe_router, health_router
 from domains.auth.schemas.common import SuccessResponse
 
 SERVICE_NAME = "auth"
-logger = getLogger(__name__)
 
 
 class HealthData(BaseModel):
@@ -26,7 +25,6 @@ class HealthSuccessResponse(SuccessResponse[HealthData]):
     "/health", response_model=HealthSuccessResponse, summary="Auth service health probe"
 )
 async def health_api():
-    logger.info("Health probe accessed via /api/v1/health")
     return HealthSuccessResponse(
         data=HealthData(
             status="healthy",
@@ -39,7 +37,6 @@ async def health_api():
     "/health", response_model=HealthSuccessResponse, summary="Auth service health probe"
 )
 async def health_root():
-    logger.info("Health probe accessed via /health")
     return HealthSuccessResponse(
         data=HealthData(
             status="healthy",
@@ -52,7 +49,6 @@ async def health_root():
     "/ready", response_model=HealthSuccessResponse, summary="Auth service readiness probe"
 )
 async def readiness_api():
-    logger.info("Readiness probe accessed via /api/v1/ready")
     return HealthSuccessResponse(
         data=HealthData(
             status="ready",
@@ -65,7 +61,6 @@ async def readiness_api():
     "/ready", response_model=HealthSuccessResponse, summary="Auth service readiness probe"
 )
 async def readiness_root():
-    logger.info("Readiness probe accessed via /ready")
     return HealthSuccessResponse(
         data=HealthData(
             status="ready",
