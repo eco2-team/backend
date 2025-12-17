@@ -5,7 +5,7 @@ Core module exports.
 - SERVICE_NAME, SERVICE_VERSION: Static constants
 """
 
-from domains.scan.core.config import Settings, get_settings
-from domains.scan.core.constants import SERVICE_NAME, SERVICE_VERSION
+from .config import Settings, get_settings
+from .constants import SERVICE_NAME, SERVICE_VERSION
 
 __all__ = ["Settings", "get_settings", "SERVICE_NAME", "SERVICE_VERSION"]
