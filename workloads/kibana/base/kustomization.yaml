@@ -6,7 +6,6 @@ namespace: kibana
 resources:
 # Data View (Index Pattern)
 - dataview.yaml
-# Dashboards (eck-custom-resources CR)
 - overview-dashboard.yaml
 - debug-dashboard.yaml
 - business-dashboard.yaml

@@ -7,7 +7,6 @@ metadata:
 spec:
   targetInstance:
     name: eco2-kibana
-    namespace: logging
   body: |
     {
       "dataView": {
