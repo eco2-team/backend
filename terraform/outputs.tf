@@ -281,7 +281,7 @@ output "ingress_gateway_public_ip" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "ansible_inventory" {
-  description = "Ansible Inventory 내용 (14-Node Architecture)"
+  description = "Ansible Inventory 내용 (15-Node Architecture)"
   value = templatefile("${path.module}/templates/hosts.tpl", {
     master_public_ip           = aws_eip.master.public_ip
     master_private_ip          = module.master.private_ip
@@ -311,6 +311,8 @@ output "ansible_inventory" {
     rabbitmq_private_ip        = module.rabbitmq.private_ip
     monitoring_public_ip       = module.monitoring.public_ip
     monitoring_private_ip      = module.monitoring.private_ip
+    logging_public_ip          = module.logging.public_ip
+    logging_private_ip         = module.logging.private_ip
     ingress_gateway_public_ip  = module.ingress_gateway.public_ip
     ingress_gateway_private_ip = module.ingress_gateway.private_ip
   })

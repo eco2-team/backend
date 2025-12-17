@@ -51,7 +51,11 @@ k8s-rabbitmq ansible_host=${rabbitmq_public_ip} private_ip=${rabbitmq_private_ip
 
 # Monitoring (Phase 4: 2025-11-08 활성화)
 [monitoring]
-k8s-monitoring ansible_host=${monitoring_public_ip} private_ip=${monitoring_private_ip} workload=monitoring instance_type=t3.medium phase=4
+k8s-monitoring ansible_host=${monitoring_public_ip} private_ip=${monitoring_private_ip} workload=monitoring instance_type=t3.large phase=4
+
+# Logging (Phase 4: 2025-12 ELK Stack)
+[logging]
+k8s-logging ansible_host=${logging_public_ip} private_ip=${logging_private_ip} workload=logging instance_type=t3.large phase=4
 
 # Ingress Gateway (Phase 5: Istio)
 [ingress_gateway]
@@ -69,4 +73,5 @@ postgresql
 redis
 rabbitmq
 monitoring
+logging
 ingress_gateway
