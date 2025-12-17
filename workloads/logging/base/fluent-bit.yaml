@@ -55,7 +55,7 @@ data:
         Tag               kube.*
         Path              /var/log/containers/*.log
         Parser            docker
-        DB                /var/log/flb_kube.db
+        DB                /fluent-bit/db/flb_kube.db
         Mem_Buf_Limit     50MB
         Skip_Long_Lines   On
         Refresh_Interval  10
@@ -175,6 +175,8 @@ spec:
           readOnly: true
         - name: fluent-bit-config
           mountPath: /fluent-bit/etc/
+        - name: fluent-bit-db
+          mountPath: /fluent-bit/db
 
       volumes:
       - name: varlog
@@ -186,3 +188,5 @@ spec:
       - name: fluent-bit-config
         configMap:
           name: fluent-bit-config
+      - name: fluent-bit-db
+        emptyDir: {}
