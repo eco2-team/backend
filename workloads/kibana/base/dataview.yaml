@@ -9,7 +9,7 @@ spec:
     name: eco2-kibana
   body: |
     {
-      "dataView": {
+      "data_view": {
         "id": "logs-eco2-app-dataview",
         "name": "logs-eco2-app",
         "title": "logs-app-*",
