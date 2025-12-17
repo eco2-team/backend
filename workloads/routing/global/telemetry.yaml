@@ -6,5 +6,5 @@ metadata:
 spec:
   tracing:
   - providers:
-    - name: envoy
+    - name: jaeger
     randomSamplingPercentage: 100.00

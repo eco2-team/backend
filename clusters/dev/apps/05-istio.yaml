@@ -46,7 +46,15 @@ spec:
     helm:
       valuesObject:
         meshConfig:
+          # Jaeger tracing 활성화
+          defaultProviders:
+            tracing:
+            - jaeger
           extensionProviders:
+          - name: jaeger
+            zipkin:
+              service: jaeger-collector.istio-system.svc.cluster.local
+              port: 9411
           - name: eco2-ext-authz
             envoyExtAuthzGrpc:
               service: ext-authz.auth.svc.cluster.local
