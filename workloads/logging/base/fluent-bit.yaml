@@ -74,6 +74,12 @@ data:
         Labels              On
         Annotations         Off
 
+    # Health/Readiness probe 로그 제외 (노이즈 감소)
+    [FILTER]
+        Name          grep
+        Match         kube.*
+        Exclude       log /health|ready/
+
     [FILTER]
         Name          modify
         Match         kube.*
