@@ -59,6 +59,7 @@ spec:
   policyTypes:
   - Ingress
   ingress:
+  # Istio IngressGateway에서 접근
   - from:
     - namespaceSelector:
         matchLabels:
@@ -66,6 +67,14 @@ spec:
       podSelector:
         matchLabels:
           app: istio-ingressgateway
+    ports:
+    - protocol: TCP
+      port: 5601
+  # eck-custom-resources-operator에서 접근 (Dashboard CR 적용)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: elastic-system
     ports:
     - protocol: TCP
       port: 5601
