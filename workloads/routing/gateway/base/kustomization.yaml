@@ -2,10 +2,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - gateway.yaml
-# NOTE: request-authentication.yaml 제거
-# - ext-authz가 HS256 JWT 검증 + 블랙리스트 체크를 이미 담당
-# - Istio RequestAuthentication은 HS256 + JWKS 조합과 호환되지 않음
-# - request-authentication.yaml
 - envoy-filter.yaml
 - health-check-vs.yaml
 - authorization-policy.yaml
