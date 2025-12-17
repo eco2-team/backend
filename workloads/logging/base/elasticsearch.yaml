@@ -10,14 +10,15 @@ spec:
   - name: default
     count: 1
     config:
-      # 단일 노드 모드
-      discovery.type: single-node
       # mmap 비활성화 (컨테이너 환경)
       node.store.allow_mmap: false
-      # 모니터링
-      xpack.monitoring.collection.enabled: true
       # 메모리 최적화
       indices.memory.index_buffer_size: 20%
+      # 명시적 discovery 설정 (ECK single-node 자동 설정 방지)
+      # single-node 모드 대신 명시적 부트스트랩 사용
+      discovery.seed_hosts: []
+      cluster.initial_master_nodes:
+      - eco2-logs-es-default-0
     podTemplate:
       metadata:
         labels:
