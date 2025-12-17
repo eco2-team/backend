@@ -338,55 +338,87 @@ https://jaeger.dev.growbin.app/trace/{trace_id}
 
 ## 민감 정보 처리
 
-### 절대 로깅 금지 항목
+### 자동 마스킹 대상 (OWASP 기준)
 
-| 항목 | 예시 |
-|------|------|
-| 비밀번호 | `password`, `passwd`, `pwd` |
-| 인증 토큰 | JWT, API Key, OAuth Token |
-| 개인정보 | 주민번호, 전화번호, 이메일 |
-| 금융정보 | 신용카드, 계좌번호 |
-| 암호화 키 | Private Key, Secret Key |
+로그 출력 시 다음 필드명을 포함하는 키는 **자동 마스킹**됩니다:
+
+| 패턴 | 매칭 예시 | 설명 |
+|------|----------|------|
+| `password` | `password`, `user_password` | 비밀번호 |
+| `secret` | `jwt_secret_key`, `client_secret` | 비밀 키 |
+| `token` | `token`, `access_token`, `refresh_token` | 인증 토큰 |
+| `api_key` | `api_key`, `OPENAI_API_KEY` | 외부 API 키 |
+| `authorization` | `Authorization` 헤더 | HTTP 인증 헤더 |
+
+> **참고**: OWASP Logging Cheat Sheet 기반, 실제 코드베이스에서 사용되는 패턴만 포함
 
 ### 마스킹 규칙
 
 ```python
-MASKING_PATTERNS = {
-    "token": lambda v: v[:10] + "..." if len(v) > 10 else "***",
-    "email": lambda v: v.split("@")[0][:3] + "***@" + v.split("@")[1] if "@" in v else "***",
-    "phone": lambda v: v[:3] + "****" + v[-4:] if len(v) >= 10 else "***",
-    "password": lambda v: "***REDACTED***",
-}
+# domains/*/core/constants.py
+SENSITIVE_FIELD_PATTERNS = frozenset({
+    "password", "secret", "token", "api_key", "authorization"
+})
+
+# 마스킹 설정
+MASK_PLACEHOLDER = "***REDACTED***"
+MASK_PRESERVE_PREFIX = 4  # 앞 4자 유지
+MASK_PRESERVE_SUFFIX = 4  # 뒤 4자 유지
+MASK_MIN_LENGTH = 10      # 최소 길이 (이하면 전체 마스킹)
 ```
 
 ### 마스킹 예시
 
 ```json
 {
-  "message": "User login attempt",
-  "email": "joh***@example.com",
-  "token": "eyJhbGciO...",
-  "password": "***REDACTED***"
+  "message": "OAuth callback received",
+  "labels": {
+    "access_token": "eyJh...abc1",
+    "refresh_token": "eyJh...xyz9",
+    "user_id": "usr-123"
+  }
 }
 ```
 
-### 구현
+| 원본 값 | 마스킹 결과 | 규칙 |
+|---------|------------|------|
+| `eyJhbGciOiJIUzI1NiJ9.abc123` | `eyJh...c123` | 부분 마스킹 (길이 > 10) |
+| `short123` | `***REDACTED***` | 전체 마스킹 (길이 <= 10) |
+| `null` | `***REDACTED***` | null 값 |
+
+### 구현 (ECSJsonFormatter 내장)
 
 ```python
-def mask_sensitive_data(data: dict) -> dict:
-    """민감 정보 마스킹"""
-    sensitive_keys = {'password', 'token', 'secret', 'key', 'authorization'}
-    
+# domains/*/core/logging.py
+def mask_sensitive_data(data: dict[str, Any]) -> dict[str, Any]:
+    """재귀적으로 민감 필드 마스킹"""
+    if not isinstance(data, dict):
+        return data
     result = {}
     for key, value in data.items():
-        if any(s in key.lower() for s in sensitive_keys):
-            result[key] = "***REDACTED***"
+        if _is_sensitive_key(key):
+            result[key] = _mask_value(value)
         elif isinstance(value, dict):
             result[key] = mask_sensitive_data(value)
+        elif isinstance(value, list):
+            result[key] = [
+                mask_sensitive_data(item) if isinstance(item, dict) else item
+                for item in value
+            ]
         else:
             result[key] = value
     return result
 ```
+
+### 절대 로깅 금지 항목
+
+자동 마스킹과 별개로, 아래 항목은 **로그에 포함하지 않도록** 코드 레벨에서 주의:
+
+| 항목 | 예시 |
+|------|------|
+| 개인정보 (PII) | 주민번호, 전화번호, 실명 |
+| 금융정보 | 신용카드, 계좌번호 |
+| 건강정보 | 의료 기록 |
 
 ---
 

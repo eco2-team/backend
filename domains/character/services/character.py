@@ -54,6 +54,11 @@ class CharacterService:
         }
 
     async def evaluate_reward(self, payload: CharacterRewardRequest) -> CharacterRewardResponse:
+        logger.info(
+            "Reward evaluation started",
+            extra={"user_id": str(payload.user_id), "source": payload.source.value},
+        )
+
         classification = payload.classification
         reward_profile: CharacterProfile | None = None
         already_owned = False
@@ -97,6 +102,16 @@ class CharacterService:
                 REWARD_EVALUATION_TOTAL.labels(status="no_match", source=payload.source.value).inc()
         else:
             REWARD_EVALUATION_TOTAL.labels(status="skipped", source=payload.source.value).inc()
+
+        logger.info(
+            "Reward evaluation completed",
+            extra={
+                "user_id": str(payload.user_id),
+                "received": received,
+                "already_owned": already_owned,
+                "character_name": reward_profile.name if reward_profile else None,
+            },
+        )
 
         return self._to_reward_response(reward_profile, already_owned, received, match_reason)
 

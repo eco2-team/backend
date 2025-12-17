@@ -21,6 +21,10 @@ class ChatService:
         payload: ChatMessageRequest,
     ) -> ChatMessageResponse:
         image_url = str(payload.image_url) if payload.image_url else None
+        logger.info(
+            "Chat message received",
+            extra={"has_image": image_url is not None, "message_length": len(payload.message)},
+        )
         try:
             pipeline_result = await self._run_pipeline(payload.message, image_url)
         except Exception:

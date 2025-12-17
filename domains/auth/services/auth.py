@@ -27,8 +27,6 @@ from domains.auth.core.jwt import TokenPayload
 
 logger = logging.getLogger(__name__)
 
-logger = logging.getLogger(__name__)
-
 ACCESS_COOKIE_NAME = "s_access"
 REFRESH_COOKIE_NAME = "s_refresh"
 COOKIE_PATH = "/"
@@ -66,6 +64,11 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="redirect_uri is required"
             )
+
+        logger.info(
+            "OAuth authorize started",
+            extra={"provider": provider_name, "has_pkce": provider.supports_pkce},
+        )
 
         state, _, code_challenge, expires_at_ts = await self.state_store.create_state(
             provider=provider.name,
@@ -130,10 +133,18 @@ class AuthService:
                 )
                 profile = await provider.fetch_profile(client=client, tokens=tokens)
         except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "OAuth provider API error",
+                extra={"provider": provider_name, "status_code": exc.response.status_code},
+            )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY, detail="Provider API error"
             ) from exc
         except (httpx.HTTPError, OAuthProviderError) as exc:
+            logger.warning(
+                "OAuth login failed",
+                extra={"provider": provider_name, "error_type": type(exc).__name__},
+            )
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
         user, _ = await self.user_repo.upsert_from_profile(profile)
@@ -161,6 +172,11 @@ class AuthService:
             user_agent=user_agent,
         )
         await self.session.commit()
+
+        logger.info(
+            "OAuth login successful",
+            extra={"provider": provider_name, "user_id": str(user.id)},
+        )
 
         self._apply_session_cookies(response, token_pair, access_payload, refresh_payload)
         return User.model_validate(user)
@@ -212,6 +228,8 @@ class AuthService:
         )
         await self.session.commit()
 
+        logger.info("Session refreshed", extra={"user_id": str(user.id)})
+
         self._apply_session_cookies(response, token_pair, access_payload, refresh_payload)
         return User.model_validate(user)
 
@@ -241,6 +259,7 @@ class AuthService:
 
         await self.session.commit()
         self._clear_session_cookies(response)
+        logger.info("User logged out")
 
     async def get_current_user(self, payload: TokenPayload) -> User:
         user = await self.user_repo.get(payload.user_id)

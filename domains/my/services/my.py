@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import logging
+import re
 from typing import Sequence
 from uuid import UUID
-
-import re
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,8 @@ from domains.my.database.session import get_db_session
 from domains.my.models import AuthUserSocialAccount, User
 from domains.my.repositories import UserRepository, UserSocialAccountRepository
 from domains.my.schemas import UserProfile, UserUpdate
+
+logger = logging.getLogger(__name__)
 
 
 class MyService:
@@ -22,6 +24,7 @@ class MyService:
 
     async def get_current_user(self, auth_user_id: UUID, provider: str) -> UserProfile:
         """현재 사용자 프로필 조회. provider는 ext-authz 헤더에서 전달됨."""
+        logger.info("Profile fetched", extra={"user_id": str(auth_user_id), "provider": provider})
         user, accounts = await self._get_or_create_user_with_accounts(auth_user_id)
         return self._to_profile(user, accounts, current_provider=provider)
 
@@ -32,15 +35,24 @@ class MyService:
         provider: str,
     ) -> UserProfile:
         """현재 사용자 프로필 업데이트. provider는 ext-authz 헤더에서 전달됨."""
+        logger.info(
+            "Profile update requested",
+            extra={
+                "user_id": str(auth_user_id),
+                "fields": list(payload.model_dump(exclude_unset=True).keys()),
+            },
+        )
         user = await self._get_user_by_auth_id(auth_user_id)
         updated = await self._apply_update(user, payload)
         accounts = await self.social_repo.list_by_user_id(auth_user_id)
         return self._to_profile(updated, accounts, current_provider=provider)
 
     async def delete_current_user(self, auth_user_id: UUID) -> None:
+        logger.info("User deletion requested", extra={"user_id": str(auth_user_id)})
         user = await self._get_user_by_auth_id(auth_user_id)
         await self.repo.delete_user(user.id)
         await self.session.commit()
+        logger.info("User deleted", extra={"user_id": str(auth_user_id)})
 
     async def metrics(self) -> dict:
         base_metrics = await self.repo.metrics()

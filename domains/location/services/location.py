@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import datetime
 from typing import Any, Optional
@@ -18,6 +19,8 @@ from domains.location.repositories.normalized_site_repository import NormalizedL
 from domains.location.schemas.location import CoordinatesPayload, GeoResponse, LocationEntry
 from domains.location.services.category_classifier import classify_categories
 from domains.location.services.zoom_policy import limit_from_zoom, radius_from_zoom
+
+logger = logging.getLogger(__name__)
 
 
 class LocationService:
@@ -48,6 +51,10 @@ class LocationService:
     ) -> list[LocationEntry]:
         effective_radius = radius or radius_from_zoom(zoom)
         limit = limit_from_zoom(zoom)
+        logger.info(
+            "Location search started",
+            extra={"lat": lat, "lon": lon, "radius_m": effective_radius, "zoom": zoom},
+        )
         rows = await self.repo.find_within_radius(
             latitude=lat,
             longitude=lon,
@@ -75,6 +82,7 @@ class LocationService:
                     pickup_categories=pickup_categories,
                 )
             )
+        logger.info("Location search completed", extra={"results_count": len(entries)})
         return entries
 
     async def geocode(self, address: str) -> GeoResponse:

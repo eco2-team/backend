@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any, Dict, Optional
 from uuid import uuid4
@@ -19,6 +20,8 @@ from domains.image.schemas.image import (
     ImageUploadRequest,
     ImageUploadResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PendingUpload:
@@ -93,6 +96,14 @@ class ImageService:
         *,
         uploader_id: str,
     ) -> ImageUploadResponse:
+        logger.info(
+            "Upload URL requested",
+            extra={
+                "channel": channel.value,
+                "content_type": request.content_type,
+                "uploader_id": uploader_id,
+            },
+        )
         key = self._build_object_key(channel.value, request.filename)
         params = {
             "Bucket": self.settings.s3_bucket,
@@ -133,13 +144,20 @@ class ImageService:
     ) -> ImageUploadFinalizeResponse:
         pending = await self._load_pending_upload(request.key)
         if pending is None:
+            logger.warning("Upload finalize failed: not found", extra={"key": request.key})
             raise PendingUploadNotFoundError
         if pending.channel != channel:
+            logger.warning("Upload finalize failed: channel mismatch", extra={"key": request.key})
             raise PendingUploadChannelMismatchError
         if pending.uploader_id != uploader_id:
+            logger.warning("Upload finalize failed: permission denied", extra={"key": request.key})
             raise PendingUploadPermissionDeniedError
 
         await self._delete_pending_upload(request.key)
+        logger.info(
+            "Upload finalized",
+            extra={"channel": channel.value, "key": request.key, "uploader_id": uploader_id},
+        )
 
         return ImageUploadFinalizeResponse(
             key=request.key,
