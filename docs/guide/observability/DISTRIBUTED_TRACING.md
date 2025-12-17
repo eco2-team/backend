@@ -1,0 +1,327 @@
+# 분산 트레이싱 아키텍처 가이드
+
+## 개요
+
+ECO2 프로젝트의 분산 트레이싱 아키텍처는 **CNCF 표준**(OpenTelemetry)과 **빅테크 베스트 프랙티스**(Google, Netflix, Uber)를 참고하여 설계되었습니다.
+
+```
+┌─────────────┐     ┌─────────────────────┐     ┌─────────────┐
+│   Client    │────▶│   Istio Gateway     │────▶│   Service   │
+└─────────────┘     │   (trace propagate) │     │ (OTel SDK)  │
+                    └─────────────────────┘     └──────┬──────┘
+                                                       │ OTLP
+                    ┌─────────────────────┐            ▼
+                    │      Kiali          │◀───┌─────────────┐
+                    │  (Service Mesh UI)  │    │   Jaeger    │
+                    └─────────────────────┘    │ (istio-sys) │
+                                               └──────┬──────┘
+                    ┌─────────────────────┐           │
+                    │      Kibana         │◀──────────┤
+                    │  (Logs + Traces)    │           ▼
+                    └─────────────────────┘    ┌─────────────┐
+                                               │Elasticsearch│
+                                               │  (Storage)  │
+                                               └─────────────┘
+```
+
+---
+
+## 빅테크 참조 아키텍처
+
+### Google (Dapper → Cloud Trace)
+
+| 원칙 | 설명 | ECO2 적용 |
+|------|------|----------|
+| **Low Overhead** | 프로덕션에서 항상 활성화 가능한 낮은 오버헤드 | 1% 샘플링 기본값 |
+| **Application-level Transparency** | 개발자가 의식하지 않아도 자동 계측 | Auto-instrumentation |
+| **Ubiquitous Deployment** | 모든 서비스에서 일관된 추적 | 모든 도메인 적용 |
+
+### Netflix (Edgar)
+
+| 원칙 | 설명 | ECO2 적용 |
+|------|------|----------|
+| **Request Interceptor Pattern** | HTTP/gRPC 인터셉터로 trace 전파 | FastAPI middleware |
+| **Kafka-based Collection** | 비동기 수집으로 성능 영향 최소화 | OTLP async export |
+| **Unified Observability** | 로그-메트릭-트레이스 통합 | ECS trace.id 연동 |
+
+### Uber (Jaeger)
+
+| 원칙 | 설명 | ECO2 적용 |
+|------|------|----------|
+| **OpenTracing → OpenTelemetry** | 표준 기반 벤더 중립적 계측 | OTel SDK 사용 |
+| **Adaptive Sampling** | 트래픽에 따른 동적 샘플링 | Rate limiting sampler |
+| **Context Propagation** | W3C Trace Context 전파 | Istio + OTel 연동 |
+
+---
+
+## CNCF 베스트 프랙티스
+
+### 1. OpenTelemetry 통합 원칙
+
+```yaml
+# Reference: CNCF OpenTelemetry Best Practices
+instrumentation:
+  # 1. Auto-instrumentation 우선 사용
+  auto_instrumentation: true
+  
+  # 2. SDK-based manual instrumentation (필요 시)
+  manual_spans:
+    - business_critical_operations
+    - external_api_calls
+  
+  # 3. Context propagation
+  propagators:
+    - tracecontext  # W3C standard
+    - baggage       # Cross-cutting concerns
+```
+
+### 2. 샘플링 전략
+
+| 전략 | 사용 시점 | 샘플링률 |
+|------|----------|---------|
+| **Always On** | 개발/스테이징 | 100% |
+| **Probabilistic** | 프로덕션 일반 | 1-10% |
+| **Rate Limiting** | 고트래픽 서비스 | 초당 N개 |
+| **Tail-based** | 에러/지연 분석 | 에러 100%, 정상 1% |
+
+### 3. Jaeger v2 (OTel Collector 기반)
+
+```yaml
+# Jaeger v2 architecture (2024.11 GA)
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 512
+
+exporters:
+  elasticsearch:
+    endpoints: ["http://elasticsearch:9200"]
+    traces_index: jaeger-span
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [elasticsearch]
+```
+
+---
+
+## ECO2 구현 아키텍처
+
+### Python 서비스 (FastAPI)
+
+```python
+# domains/*/core/tracing.py
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+def configure_tracing(service_name: str, service_version: str):
+    resource = Resource.create({
+        SERVICE_NAME: service_name,
+        SERVICE_VERSION: service_version,
+    })
+    
+    provider = TracerProvider(resource=resource)
+    exporter = OTLPSpanExporter(
+        endpoint="jaeger-collector.istio-system.svc.cluster.local:4317",
+        insecure=True,
+    )
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+    trace.set_tracer_provider(provider)
+
+def instrument_app(app):
+    FastAPIInstrumentor.instrument_app(app)
+```
+
+### Go 서비스 (ext-authz)
+
+```go
+// internal/tracing/tracing.go
+import (
+    "go.opentelemetry.io/otel"
+    "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+    "go.opentelemetry.io/otel/sdk/trace"
+)
+
+func InitTracer(serviceName string) (*trace.TracerProvider, error) {
+    exporter, _ := otlptracegrpc.New(ctx,
+        otlptracegrpc.WithEndpoint("jaeger-collector.istio-system.svc.cluster.local:4317"),
+        otlptracegrpc.WithInsecure(),
+    )
+    
+    tp := trace.NewTracerProvider(
+        trace.WithBatcher(exporter),
+        trace.WithResource(resource.NewWithAttributes(
+            semconv.ServiceNameKey.String(serviceName),
+        )),
+    )
+    otel.SetTracerProvider(tp)
+    return tp, nil
+}
+```
+
+---
+
+## 로그-트레이스 상관관계 (Correlation)
+
+### ECS 통합 포맷
+
+```json
+{
+  "@timestamp": "2024-12-17T12:00:00.000Z",
+  "message": "User login successful",
+  "log.level": "info",
+  "service.name": "auth-api",
+  "trace.id": "abc123def456789...",
+  "span.id": "0123456789abcdef",
+  "user.id": "550e...0000",
+  "labels": {
+    "provider": "kakao"
+  }
+}
+```
+
+### Kibana에서 Jaeger 연동
+
+1. **로그 → 트레이스**: `trace.id` 클릭 시 Jaeger UI로 이동
+2. **트레이스 → 로그**: Jaeger span에서 관련 로그 조회
+
+```yaml
+# Kibana Discover → trace.id 필드 URL 포맷
+kibana.yml:
+  discover:
+    customLinks:
+      - label: "View in Jaeger"
+        url: "https://jaeger.dev.growbin.app/trace/{{value}}"
+        field: "trace.id"
+```
+
+---
+
+## Istio + Kiali 통합
+
+### Istio Telemetry 설정
+
+```yaml
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: mesh-default
+  namespace: istio-system
+spec:
+  tracing:
+    - providers:
+        - name: otel-tracing
+      randomSamplingPercentage: 1.0
+      customTags:
+        environment:
+          literal:
+            value: "dev"
+```
+
+### Kiali 대시보드 기능
+
+| 기능 | 설명 |
+|------|------|
+| **Service Graph** | 실시간 서비스 토폴로지 시각화 |
+| **Traffic Animation** | 요청 흐름 애니메이션 |
+| **Health Indicators** | 서비스별 에러율/지연 표시 |
+| **Distributed Tracing** | Jaeger 연동 trace 조회 |
+| **Istio Config Validation** | VirtualService/DestinationRule 검증 |
+
+---
+
+## 프로덕션 권장 설정
+
+### 샘플링 설정
+
+```yaml
+# 환경별 샘플링률
+development:
+  sampling_rate: 1.0  # 100% (디버깅용)
+  
+staging:
+  sampling_rate: 0.1  # 10% (통합 테스트)
+  
+production:
+  sampling_rate: 0.01  # 1% (성능 영향 최소화)
+  error_sampling: 1.0  # 에러는 100% 수집
+```
+
+### 리소스 설정
+
+```yaml
+# Jaeger Collector 리소스 (프로덕션)
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+```
+
+### 데이터 보존 정책
+
+| 데이터 유형 | 보존 기간 | 이유 |
+|------------|----------|------|
+| Traces (정상) | 7일 | 비용 효율 |
+| Traces (에러) | 30일 | 장애 분석 |
+| Service Maps | 실시간 | Kiali 용 |
+
+---
+
+## 트러블슈팅
+
+### trace_id가 로그에 없는 경우
+
+1. OpenTelemetry SDK 초기화 확인
+2. Instrumentation 적용 확인
+3. Context propagation 설정 확인
+
+```python
+# 디버깅: 현재 span 상태 확인
+from opentelemetry import trace
+span = trace.get_current_span()
+print(f"Valid: {span.get_span_context().is_valid}")
+```
+
+### Jaeger에 트레이스가 안 보이는 경우
+
+1. NetworkPolicy 확인 (4317/4318 포트)
+2. Jaeger Collector 상태 확인
+3. OTLP exporter 엔드포인트 확인
+
+```bash
+# NetworkPolicy 확인
+kubectl get networkpolicy -n auth allow-jaeger-egress -o yaml
+
+# Jaeger Collector 로그
+kubectl logs -n istio-system -l app.kubernetes.io/name=jaeger -c jaeger
+```
+
+---
+
+## 참고 자료
+
+- [CNCF OpenTelemetry Documentation](https://opentelemetry.io/docs/)
+- [Jaeger v2 Release Notes](https://www.jaegertracing.io/docs/latest/)
+- [Google Dapper Paper](https://research.google/pubs/pub36356/)
+- [Netflix Edgar - Distributed Tracing](https://netflixtechblog.com/)
+- [Uber Jaeger Architecture](https://www.uber.com/blog/distributed-tracing/)
+- [Istio Distributed Tracing](https://istio.io/latest/docs/tasks/observability/distributed-tracing/)
+- [Kiali Documentation](https://kiali.io/docs/)

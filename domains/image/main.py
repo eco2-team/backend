@@ -1,13 +1,44 @@
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from domains.image.api.v1.routers import api_router, health_router
-from domains.image.core.constants import SERVICE_VERSION
+from domains.image.core.constants import (
+    DEFAULT_ENVIRONMENT,
+    ENV_KEY_ENVIRONMENT,
+    SERVICE_NAME,
+    SERVICE_VERSION,
+)
 from domains.image.core.logging import configure_logging
+from domains.image.core.tracing import (
+    configure_tracing,
+    instrument_fastapi,
+    instrument_httpx,
+    shutdown_tracing,
+)
 from domains.image.metrics import register_metrics
 
 # 구조화된 로깅 설정 (ECS JSON 포맷)
 configure_logging()
+
+# OpenTelemetry 분산 트레이싱 설정
+environment = os.getenv(ENV_KEY_ENVIRONMENT, DEFAULT_ENVIRONMENT)
+configure_tracing(
+    service_name=SERVICE_NAME,
+    service_version=SERVICE_VERSION,
+    environment=environment,
+)
+
+# 글로벌 instrumentation
+instrument_httpx()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    shutdown_tracing()
 
 
 def create_app() -> FastAPI:
@@ -18,6 +49,7 @@ def create_app() -> FastAPI:
         docs_url="/api/v1/images/docs",
         openapi_url="/api/v1/images/openapi.json",
         redoc_url=None,
+        lifespan=lifespan,
     )
 
     app.add_middleware(
@@ -33,6 +65,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # OpenTelemetry FastAPI instrumentation
+    instrument_fastapi(app)
 
     app.include_router(health_router)
     app.include_router(api_router)

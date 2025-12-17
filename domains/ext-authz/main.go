@@ -21,6 +21,7 @@ import (
 	"github.com/eco2-team/backend/domains/ext-authz/internal/logging"
 	"github.com/eco2-team/backend/domains/ext-authz/internal/server"
 	"github.com/eco2-team/backend/domains/ext-authz/internal/store"
+	"github.com/eco2-team/backend/domains/ext-authz/internal/tracing"
 )
 
 func main() {
@@ -40,6 +41,22 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.InitTimeout)
 	defer cancel()
+
+	// Initialize OpenTelemetry tracing
+	tp, err := tracing.Init(ctx, nil)
+	if err != nil {
+		logger.Error("Failed to initialize tracing", slog.String("error", err.Error()))
+		// Continue without tracing - not fatal
+	} else if tp != nil {
+		logger.Info("OpenTelemetry tracing initialized")
+		defer func() {
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), constants.GracefulShutdownTimeout)
+			defer shutdownCancel()
+			if err := tp.Shutdown(shutdownCtx); err != nil {
+				logger.Error("Failed to shutdown tracing", slog.String("error", err.Error()))
+			}
+		}()
+	}
 
 	poolOpts := &store.PoolOptions{
 		PoolSize:     cfg.RedisPoolSize,
