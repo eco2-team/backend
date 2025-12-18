@@ -95,6 +95,13 @@ data:
         Nested_under  kubernetes
         Add_prefix    k8s_
 
+    # ECS 필드 자동 매핑 - K8s 메타데이터에서 ECS 표준 필드 생성
+    [FILTER]
+        Name          lua
+        Match         kube.*
+        script        /fluent-bit/etc/ecs-enrichment.lua
+        call          enrich_with_ecs_fields
+
     # ES로 전송 - Fluent Bit에서 JSON 파싱, ES subobjects:false로 dot 필드 유지
     [OUTPUT]
         Name            es
@@ -150,6 +157,96 @@ data:
         Regex       ^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$
         Time_Key    time
         Time_Format %b %d %H:%M:%S
+
+  # ECS 필드 자동 매핑을 위한 Lua 스크립트
+  # K8s 메타데이터에서 ECS 표준 필드 생성 + 모든 라벨 보존
+  ecs-enrichment.lua: |
+    -- ECS 필드 자동 매핑 스크립트
+    -- 앱 로그: 기존 service.name 유지
+    -- 시스템 로그: K8s 라벨에서 자동 추출
+
+    function enrich_with_ecs_fields(tag, timestamp, record)
+        local modified = false
+
+        -- 1. service.name 매핑 (앱 로그에서 이미 있으면 유지)
+        if not record["service.name"] then
+            -- 우선순위: app > app.kubernetes.io/name > k8s-app > container_name
+            local service_name = record["k8s_labels_app"]
+                              or record["k8s_labels_app.kubernetes.io/name"]
+                              or record["k8s_labels_k8s-app"]
+                              or record["k8s_container_name"]
+
+            if service_name then
+                record["service.name"] = service_name
+                modified = true
+            end
+        end
+
+        -- 2. service.environment 매핑
+        if not record["service.environment"] then
+            local env = record["k8s_labels_environment"]
+                     or record["k8s_namespace_name"]
+
+            if env then
+                record["service.environment"] = env
+                modified = true
+            end
+        end
+
+        -- 3. service.version 매핑
+        if not record["service.version"] then
+            local version = record["k8s_labels_version"]
+                         or record["k8s_labels_app.kubernetes.io/version"]
+
+            if version then
+                record["service.version"] = version
+                modified = true
+            end
+        end
+
+        -- 4. kubernetes.* ECS 필드 매핑
+        if record["k8s_namespace_name"] then
+            record["kubernetes.namespace"] = record["k8s_namespace_name"]
+            modified = true
+        end
+
+        if record["k8s_pod_name"] then
+            record["kubernetes.pod.name"] = record["k8s_pod_name"]
+            modified = true
+        end
+
+        if record["k8s_container_name"] then
+            record["kubernetes.container.name"] = record["k8s_container_name"]
+            modified = true
+        end
+
+        -- 5. kubernetes.labels 객체로 라벨 보존 (주요 라벨만)
+        local labels = {}
+        local label_keys = {
+            "app", "domain", "environment", "version", "tier",
+            "app.kubernetes.io/name", "app.kubernetes.io/part-of",
+            "app.kubernetes.io/version", "app.kubernetes.io/instance",
+            "k8s-app"
+        }
+
+        for _, key in ipairs(label_keys) do
+            local label_field = "k8s_labels_" .. key
+            if record[label_field] then
+                labels[key] = record[label_field]
+            end
+        end
+
+        if next(labels) ~= nil then
+            record["kubernetes.labels"] = labels
+            modified = true
+        end
+
+        if modified then
+            return 1, timestamp, record
+        else
+            return 0, timestamp, record
+        end
+    end
 ---
 apiVersion: apps/v1
 kind: DaemonSet

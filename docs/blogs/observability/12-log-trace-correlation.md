@@ -395,6 +395,104 @@ App (JSON log) → Fluent Bit (parse + distributed) → ES (subobjects:false) �
 
 ---
 
+---
+
+## 🔧 에러 로깅에 trace.id 추가
+
+### 문제 상황
+
+401/403 에러 응답에도 `trace.id`가 로그에 포함되어야 하지만, 에러 핸들러에서 로깅이 없어서 trace 연동이 불가능했음.
+
+### 원인
+
+```python
+# 기존 코드 (로깅 없음)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    error_response = ErrorResponse(...)
+    return JSONResponse(...)  # 로깅 없이 바로 응답
+```
+
+### 해결
+
+`domains/auth/core/exceptions.py`에 에러 로깅 추가:
+
+```python
+import logging
+logger = logging.getLogger(__name__)
+
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    # 에러 로깅 (trace.id 자동 포함)
+    log_level = logging.WARNING if exc.status_code < 500 else logging.ERROR
+    logger.log(
+        log_level,
+        f"HTTP {exc.status_code} {error_code}: {exc.detail}",
+        extra={
+            "http.request.method": request.method,
+            "url.path": request.url.path,
+            "http.response.status_code": exc.status_code,
+            "error.code": error_code,
+        },
+    )
+    ...
+```
+
+### 결과
+
+```json
+{
+  "@timestamp": "2025-12-18T09:31:11.811+00:00",
+  "message": "HTTP 401 UNAUTHORIZED: Missing refresh token",
+  "log.level": "warning",
+  "trace.id": "5fdc8e113b2618f6006a00c89347d78a",
+  "span.id": "e470f4fc8f8fa1f6",
+  "service.name": "auth-api",
+  "http.response.status_code": 401,
+  "url.path": "/api/v1/auth/refresh"
+}
+```
+
+이제 **401/403 에러도 trace.id로 추적 가능**!
+
+---
+
+## 📝 Kibana에서 service.name 표시 확인
+
+### 문제
+
+Kibana에서 `service.name` 컬럼이 `-`로 표시됨.
+
+### 원인
+
+1. **Data View 필드 미갱신**: 새 필드가 아직 인식되지 않음
+2. **일부 로그만 해당 필드 보유**: 시스템 로그(argocd 등)에는 `service.name`이 없음
+
+### 확인
+
+ES에서 직접 검색하면 정상:
+
+```bash
+# service.name으로 검색
+curl "ES/_search" -d '{"query":{"term":{"service.name":"auth-api"}}}'
+
+# 결과
+{
+  "message": "HTTP 401 UNAUTHORIZED: Missing refresh token",
+  "service.name": "auth-api"  # ✅ 정상 저장됨
+}
+```
+
+### 해결 방법
+
+1. **Kibana Data View 새로고침**:
+   - Stack Management → Data Views → logs-* → Refresh field list
+
+2. **검색 필터로 애플리케이션 로그만 표시**:
+   ```kql
+   service.name:* AND NOT k8s_namespace_name:(kube-system OR argocd OR logging)
+   ```
+
+---
+
 ## 🏷️ 커밋
 
 ```
@@ -407,3 +505,239 @@ feat(logging): lift log_processed fields to top level for trace correlation
 ```
 
 **SHA**: `39b662a7`
+
+---
+
+```
+feat(auth): add error logging with trace context
+
+- Log HTTP errors (401, 403, etc.) with trace.id for correlation
+- Log validation errors with field information
+- Log unexpected exceptions with full traceback
+- Enables trace.id search in Kibana for error debugging
+```
+
+**SHA**: `eecc958b`
+
+---
+
+## 🔧 시스템 로그 ECS 표준화
+
+### 문제 상황
+
+Kibana Discover에서 `service.name` 필드가 Available fields에 표시되지 않음.
+
+```
+# 통계
+- service.name 있는 로그: 57건 (0.3%)
+- 전체 로그: 19,015건 (100%)
+→ 99.7%가 시스템 로그 (calico, argocd 등)로 service.name 없음
+```
+
+### Kibana Discover 동작 원리
+
+| 영역 | 표시 필드 |
+|------|----------|
+| **Available fields** | 현재 검색 결과에 **값이 있는** 필드만 표시 |
+| **Empty fields** | 현재 검색 결과에 **값이 없는** 필드 |
+| **Data View Management** | 전체 매핑된 필드 표시 (521개) |
+
+`service.name`이 0.3%에만 있으니 기본 검색에서 Empty fields로 분류됨.
+
+### 해결: 시스템 로그에 ECS 필드 자동 매핑
+
+K8s 메타데이터를 활용하여 모든 로그에 `service.name` 자동 추가.
+
+#### 라벨 분석
+
+```
+# 앱 로그 (우리 서비스)
+app=auth-api, domain=auth, environment=dev, version=v1
+
+# 시스템 로그 (ArgoCD, Istio)
+app.kubernetes.io/name=argocd-server
+
+# 시스템 로그 (Calico)
+k8s-app=calico-node
+```
+
+#### ECS 매핑 전략
+
+| ECS 필드 | 소스 (우선순위) |
+|----------|----------------|
+| `service.name` | `app` > `app.kubernetes.io/name` > `k8s-app` > `container_name` |
+| `service.environment` | `environment` 라벨 > `namespace` |
+| `service.version` | `version` > `app.kubernetes.io/version` |
+| `kubernetes.namespace` | namespace 정보 |
+| `kubernetes.pod.name` | Pod 이름 |
+| `kubernetes.labels.*` | 모든 라벨 보존 |
+
+### 구현: Fluent Bit Lua 필터
+
+`workloads/logging/base/fluent-bit.yaml`:
+
+```ini
+# ECS 필드 자동 매핑 - K8s 메타데이터에서 ECS 표준 필드 생성
+[FILTER]
+    Name          lua
+    Match         kube.*
+    script        /fluent-bit/etc/ecs-enrichment.lua
+    call          enrich_with_ecs_fields
+```
+
+#### Lua 스크립트 (ecs-enrichment.lua)
+
+```lua
+function enrich_with_ecs_fields(tag, timestamp, record)
+    local modified = false
+    
+    -- 1. service.name 매핑 (앱 로그에서 이미 있으면 유지)
+    if not record["service.name"] then
+        local service_name = record["k8s_labels_app"]
+                          or record["k8s_labels_app.kubernetes.io/name"]
+                          or record["k8s_labels_k8s-app"]
+                          or record["k8s_container_name"]
+        
+        if service_name then
+            record["service.name"] = service_name
+            modified = true
+        end
+    end
+    
+    -- 2. service.environment 매핑
+    if not record["service.environment"] then
+        local env = record["k8s_labels_environment"]
+                 or record["k8s_namespace_name"]
+        
+        if env then
+            record["service.environment"] = env
+            modified = true
+        end
+    end
+    
+    -- 3. service.version 매핑
+    if not record["service.version"] then
+        local version = record["k8s_labels_version"]
+                     or record["k8s_labels_app.kubernetes.io/version"]
+        
+        if version then
+            record["service.version"] = version
+            modified = true
+        end
+    end
+    
+    -- 4. kubernetes.* ECS 필드 매핑
+    if record["k8s_namespace_name"] then
+        record["kubernetes.namespace"] = record["k8s_namespace_name"]
+        modified = true
+    end
+    
+    if record["k8s_pod_name"] then
+        record["kubernetes.pod.name"] = record["k8s_pod_name"]
+        modified = true
+    end
+    
+    -- 5. kubernetes.labels 객체로 라벨 보존
+    local labels = {}
+    local label_keys = {"app", "domain", "environment", "version", "tier", ...}
+    
+    for _, key in ipairs(label_keys) do
+        local label_field = "k8s_labels_" .. key
+        if record[label_field] then
+            labels[key] = record[label_field]
+        end
+    end
+    
+    if next(labels) ~= nil then
+        record["kubernetes.labels"] = labels
+        modified = true
+    end
+    
+    if modified then
+        return 1, timestamp, record
+    else
+        return 0, timestamp, record
+    end
+end
+```
+
+### 적용 후 결과
+
+#### 시스템 로그 (Calico)
+
+```json
+{
+  "service.name": "calico-node",
+  "service.environment": "kube-system",
+  "kubernetes.namespace": "kube-system",
+  "kubernetes.pod.name": "calico-node-4t5k9",
+  "kubernetes.labels": {
+    "k8s-app": "calico-node"
+  }
+}
+```
+
+#### 시스템 로그 (ArgoCD)
+
+```json
+{
+  "service.name": "argocd-server",
+  "service.environment": "argocd",
+  "kubernetes.namespace": "argocd",
+  "kubernetes.labels": {
+    "app.kubernetes.io/name": "argocd-server"
+  }
+}
+```
+
+#### 앱 로그 (auth-api) - 기존 유지
+
+```json
+{
+  "service.name": "auth-api",
+  "service.environment": "dev",
+  "service.version": "1.0.0",
+  "trace.id": "abc123...",
+  "kubernetes.labels": {
+    "app": "auth-api",
+    "domain": "auth",
+    "tier": "business-logic"
+  }
+}
+```
+
+### 장점
+
+| 항목 | 효과 |
+|------|------|
+| **검색 일관성** | 모든 로그에 `service.name` 보유 → Kibana 필터 항상 사용 가능 |
+| **기존 로그 호환** | 앱 로그의 ECS 필드 유지 (Lua에서 조건부 처리) |
+| **라벨 보존** | `kubernetes.labels` 객체로 원본 라벨 보존 |
+| **ECS 표준 준수** | `kubernetes.*` 필드셋은 ECS 공식 스펙 |
+
+### 적용 방법
+
+```bash
+# ConfigMap 업데이트
+kubectl apply -f workloads/logging/base/fluent-bit.yaml
+
+# DaemonSet 재시작
+kubectl rollout restart daemonset fluent-bit -n logging
+
+# 확인
+kubectl get pods -n logging -w
+```
+
+---
+
+## 🏷️ 커밋
+
+```
+feat(logging): add ECS enrichment for system logs via Lua filter
+
+- Add Lua filter to map K8s labels to ECS fields (service.name, etc.)
+- Priority: app > app.kubernetes.io/name > k8s-app > container_name
+- Preserve app logs' existing ECS fields (conditional mapping)
+- Add kubernetes.labels object for label preservation
+- All logs now have service.name for consistent Kibana filtering
+```
