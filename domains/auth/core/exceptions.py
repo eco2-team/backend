@@ -1,11 +1,15 @@
 """Custom exception handlers for standardized error responses."""
 
+import logging
+
 from fastapi import HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from domains.auth.schemas.common import ErrorDetail, ErrorResponse
+
+logger = logging.getLogger(__name__)
 
 
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
@@ -22,6 +26,19 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     }
 
     error_code = error_code_map.get(exc.status_code, "UNKNOWN_ERROR")
+
+    # 에러 로깅 (trace.id 자동 포함)
+    log_level = logging.WARNING if exc.status_code < 500 else logging.ERROR
+    logger.log(
+        log_level,
+        f"HTTP {exc.status_code} {error_code}: {exc.detail}",
+        extra={
+            "http.request.method": request.method,
+            "url.path": request.url.path,
+            "http.response.status_code": exc.status_code,
+            "error.code": error_code,
+        },
+    )
 
     error_response = ErrorResponse(
         error=ErrorDetail(
@@ -49,6 +66,18 @@ async def validation_exception_handler(
     )
     message = first_error.get("msg", "Validation error") if first_error else "Validation error"
 
+    # Validation 에러 로깅 (trace.id 자동 포함)
+    logger.warning(
+        f"Validation error: {message}",
+        extra={
+            "http.request.method": request.method,
+            "url.path": request.url.path,
+            "http.response.status_code": 422,
+            "error.code": "VALIDATION_ERROR",
+            "error.field": field,
+        },
+    )
+
     error_response = ErrorResponse(
         error=ErrorDetail(
             code="VALIDATION_ERROR",
@@ -65,6 +94,18 @@ async def validation_exception_handler(
 
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle all other exceptions with standardized error response."""
+    # 예상치 못한 에러 로깅 (trace.id 자동 포함)
+    logger.exception(
+        f"Unexpected error: {type(exc).__name__}",
+        extra={
+            "http.request.method": request.method,
+            "url.path": request.url.path,
+            "http.response.status_code": 500,
+            "error.code": "INTERNAL_SERVER_ERROR",
+            "error.type": type(exc).__name__,
+        },
+    )
+
     error_response = ErrorResponse(
         error=ErrorDetail(
             code="INTERNAL_SERVER_ERROR",
