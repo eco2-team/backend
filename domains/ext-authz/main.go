@@ -44,12 +44,16 @@ func main() {
 	defer cancel()
 
 	// Initialize OpenTelemetry tracing
+	logger.Info("Initializing OpenTelemetry tracing",
+		slog.String("otel_enabled", os.Getenv("OTEL_ENABLED")),
+		slog.String("otel_endpoint", os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")),
+	)
 	tp, err := tracing.Init(ctx, nil)
 	if err != nil {
 		logger.Error("Failed to initialize tracing", slog.String("error", err.Error()))
 		// Continue without tracing - not fatal
 	} else if tp != nil {
-		logger.Info("OpenTelemetry tracing initialized")
+		logger.Info("OpenTelemetry tracing initialized successfully")
 		defer func() {
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), constants.GracefulShutdownTimeout)
 			defer shutdownCancel()
@@ -57,6 +61,8 @@ func main() {
 				logger.Error("Failed to shutdown tracing", slog.String("error", err.Error()))
 			}
 		}()
+	} else {
+		logger.Warn("OpenTelemetry tracing disabled (tp is nil)")
 	}
 
 	poolOpts := &store.PoolOptions{

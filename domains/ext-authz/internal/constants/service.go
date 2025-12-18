@@ -6,5 +6,5 @@ package constants
 
 const (
 	ServiceName    = "ext-authz"
-	ServiceVersion = "1.1.2" // Fix OTEL schema URL conflict
+	ServiceVersion = "1.1.3" // Add OTEL debug logging
 )
