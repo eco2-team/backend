@@ -49,7 +49,7 @@ spec:
           value: none
         # W3C Trace Context propagation (Istio 호환)
         - name: OTEL_PROPAGATORS
-          value: tracecontext,baggage
+          value: b3,tracecontext,baggage
         envFrom:
         - configMapRef:
             name: auth-config

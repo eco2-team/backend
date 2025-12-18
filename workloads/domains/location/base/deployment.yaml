@@ -41,7 +41,7 @@ spec:
         - name: OTEL_LOGS_EXPORTER
           value: none
         - name: OTEL_PROPAGATORS
-          value: tracecontext,baggage
+          value: b3,tracecontext,baggage
         - name: POSTGRES_HOST
           value: postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
