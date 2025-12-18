@@ -100,6 +100,22 @@ func (l *Logger) WithRequest(method, path, host string) *Logger {
 	}
 }
 
+// WithTrace returns a logger with trace context from B3 headers.
+func (l *Logger) WithTrace(traceID, spanID string) *Logger {
+	if traceID == "" {
+		return l
+	}
+	attrs := []any{
+		slog.String(constants.ECSFieldTraceID, traceID),
+	}
+	if spanID != "" {
+		attrs = append(attrs, slog.String(constants.ECSFieldSpanID, spanID))
+	}
+	return &Logger{
+		Logger: l.With(attrs...),
+	}
+}
+
 // WithUser returns a logger with user context (masked).
 func (l *Logger) WithUser(userID, provider string) *Logger {
 	return &Logger{
@@ -123,9 +139,21 @@ func (l *Logger) WithDuration(d time.Duration) *Logger {
 	}
 }
 
+// TraceInfo holds B3 trace context.
+type TraceInfo struct {
+	TraceID string
+	SpanID  string
+}
+
 // AuthAllow logs an allowed authorization request.
 func (l *Logger) AuthAllow(method, path, host, userID, provider, jti string, duration time.Duration) {
-	l.WithRequest(method, path, host).
+	l.AuthAllowWithTrace(method, path, host, userID, provider, jti, duration, TraceInfo{})
+}
+
+// AuthAllowWithTrace logs an allowed authorization request with trace context.
+func (l *Logger) AuthAllowWithTrace(method, path, host, userID, provider, jti string, duration time.Duration, trace TraceInfo) {
+	l.WithTrace(trace.TraceID, trace.SpanID).
+		WithRequest(method, path, host).
 		WithUser(userID, provider).
 		WithDuration(duration).
 		Info("Authorization allowed",
@@ -137,7 +165,14 @@ func (l *Logger) AuthAllow(method, path, host, userID, provider, jti string, dur
 
 // AuthDeny logs a denied authorization request.
 func (l *Logger) AuthDeny(method, path, host, reason string, duration time.Duration, err error) {
-	logger := l.WithRequest(method, path, host).WithDuration(duration)
+	l.AuthDenyWithTrace(method, path, host, reason, duration, err, TraceInfo{})
+}
+
+// AuthDenyWithTrace logs a denied authorization request with trace context.
+func (l *Logger) AuthDenyWithTrace(method, path, host, reason string, duration time.Duration, err error, trace TraceInfo) {
+	logger := l.WithTrace(trace.TraceID, trace.SpanID).
+		WithRequest(method, path, host).
+		WithDuration(duration)
 
 	attrs := []any{
 		slog.String(constants.ECSFieldEventAction, constants.EventActionAuthorization),
@@ -154,7 +189,13 @@ func (l *Logger) AuthDeny(method, path, host, reason string, duration time.Durat
 
 // AuthDenyWithUser logs a denied authorization with user context.
 func (l *Logger) AuthDenyWithUser(method, path, host, userID, jti, reason string, duration time.Duration, err error) {
-	logger := l.WithRequest(method, path, host).
+	l.AuthDenyWithUserAndTrace(method, path, host, userID, jti, reason, duration, err, TraceInfo{})
+}
+
+// AuthDenyWithUserAndTrace logs a denied authorization with user context and trace.
+func (l *Logger) AuthDenyWithUserAndTrace(method, path, host, userID, jti, reason string, duration time.Duration, err error, trace TraceInfo) {
+	logger := l.WithTrace(trace.TraceID, trace.SpanID).
+		WithRequest(method, path, host).
 		WithUser(userID, "").
 		WithDuration(duration)
 

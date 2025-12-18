@@ -12,6 +12,12 @@ const (
 	// Response headers (injected to upstream)
 	HeaderUserID       = "x-user-id"
 	HeaderAuthProvider = "x-auth-provider"
+
+	// B3 Trace Context headers (Istio/Envoy)
+	HeaderB3TraceID      = "x-b3-traceid"
+	HeaderB3SpanID       = "x-b3-spanid"
+	HeaderB3Sampled      = "x-b3-sampled"
+	HeaderB3ParentSpanID = "x-b3-parentspanid"
 )
 
 // ============================================================================

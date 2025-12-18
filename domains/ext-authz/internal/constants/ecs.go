@@ -39,6 +39,10 @@ const (
 	// Auth fields (custom)
 	ECSFieldAuthProvider = "auth.provider"
 	ECSFieldTokenJTI     = "token.jti"
+
+	// Trace fields (ECS standard)
+	ECSFieldTraceID = "trace.id"
+	ECSFieldSpanID  = "span.id"
 )
 
 // ============================================================================

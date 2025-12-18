@@ -66,6 +66,18 @@ func extractRequestInfo(req *authv3.CheckRequest) (method, path, host string) {
 	return
 }
 
+// extractTraceInfo extracts B3 trace context from request headers
+func extractTraceInfo(req *authv3.CheckRequest) logging.TraceInfo {
+	if req.Attributes == nil || req.Attributes.Request == nil || req.Attributes.Request.Http == nil {
+		return logging.TraceInfo{}
+	}
+	headers := req.Attributes.Request.Http.Headers
+	return logging.TraceInfo{
+		TraceID: headers[constants.HeaderB3TraceID],
+		SpanID:  headers[constants.HeaderB3SpanID],
+	}
+}
+
 // Check implements the authorization logic
 func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckRequest) (*authv3.CheckResponse, error) {
 	start := time.Now()
@@ -73,6 +85,7 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 	defer metrics.RequestsInFlight.Dec()
 
 	method, path, host := extractRequestInfo(req)
+	trace := extractTraceInfo(req)
 
 	// Helper to record metrics on exit
 	recordMetrics := func(result, reason string) {
@@ -90,14 +103,14 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 
 	// 1. Extract Token
 	if req.Attributes == nil || req.Attributes.Request == nil || req.Attributes.Request.Http == nil {
-		s.logger.AuthDeny(method, path, host, constants.ReasonMalformedRequest, time.Since(start), nil)
+		s.logger.AuthDenyWithTrace(method, path, host, constants.ReasonMalformedRequest, time.Since(start), nil, trace)
 		recordMetrics(metrics.ResultDeny, metrics.ReasonMissingHeader)
 		return denyResponse(typev3.StatusCode_BadRequest, constants.MsgMalformedRequest), nil
 	}
 
 	authHeader, ok := req.Attributes.Request.Http.Headers[constants.HeaderAuthorization]
 	if !ok || authHeader == "" {
-		s.logger.AuthDeny(method, path, host, constants.ReasonMissingHeader, time.Since(start), nil)
+		s.logger.AuthDenyWithTrace(method, path, host, constants.ReasonMissingHeader, time.Since(start), nil, trace)
 		recordMetrics(metrics.ResultDeny, metrics.ReasonMissingHeader)
 		return denyResponse(typev3.StatusCode_Unauthorized, constants.MsgMissingAuthHeader), nil
 	}
@@ -108,7 +121,7 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 	metrics.JWTVerifyDuration.Observe(time.Since(jwtStart).Seconds())
 
 	if err != nil {
-		s.logger.AuthDeny(method, path, host, constants.ReasonInvalidToken, time.Since(start), err)
+		s.logger.AuthDenyWithTrace(method, path, host, constants.ReasonInvalidToken, time.Since(start), err, trace)
 		recordMetrics(metrics.ResultDeny, metrics.ReasonInvalidToken)
 		metrics.ErrorsTotal.WithLabelValues(metrics.ErrorTypeJWTVerify).Inc()
 		return denyResponse(typev3.StatusCode_Unauthorized, constants.MsgInvalidToken), nil
@@ -125,14 +138,14 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 		metrics.RedisLookupDuration.Observe(time.Since(redisStart).Seconds())
 
 		if err != nil {
-			s.logger.AuthDenyWithUser(method, path, host, userID, jti, constants.ReasonRedisError, time.Since(start), err)
+			s.logger.AuthDenyWithUserAndTrace(method, path, host, userID, jti, constants.ReasonRedisError, time.Since(start), err, trace)
 			recordMetrics(metrics.ResultDeny, metrics.ReasonRedisError)
 			metrics.ErrorsTotal.WithLabelValues(metrics.ErrorTypeRedis).Inc()
 			// Fail-closed: Deny on internal error
 			return denyResponse(typev3.StatusCode_InternalServerError, constants.MsgInternalError), nil
 		}
 		if blacklisted {
-			s.logger.AuthDenyWithUser(method, path, host, userID, jti, constants.ReasonBlacklisted, time.Since(start), nil)
+			s.logger.AuthDenyWithUserAndTrace(method, path, host, userID, jti, constants.ReasonBlacklisted, time.Since(start), nil, trace)
 			recordMetrics(metrics.ResultDeny, metrics.ReasonBlacklisted)
 			metrics.BlacklistHits.Inc()
 			return denyResponse(typev3.StatusCode_Forbidden, constants.MsgBlacklisted), nil
@@ -141,7 +154,7 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 
 	// 4. Allow Request (Inject Headers)
 	provider, _ := claims[jwt.ClaimProvider].(string)
-	s.logger.AuthAllow(method, path, host, userID, provider, jti, time.Since(start))
+	s.logger.AuthAllowWithTrace(method, path, host, userID, provider, jti, time.Since(start), trace)
 	recordMetrics(metrics.ResultAllow, metrics.ReasonSuccess)
 	return allowResponse(userID, provider), nil
 }
