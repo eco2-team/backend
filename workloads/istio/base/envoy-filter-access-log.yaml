@@ -27,7 +27,8 @@ spec:
               log_format:
                 json_format:
                   # ECS standard fields (dot notation)
-                  trace.id: '%REQ(X-B3-TRACEID)%'
+                  # %TRACE_ID% - Envoy가 생성한 trace ID (헤더 없어도 자동 생성)
+                  trace.id: '%TRACE_ID%'
                   span.id: '%REQ(X-B3-SPANID)%'
                   # HTTP fields
                   http.request.method: '%REQ(:METHOD)%'
