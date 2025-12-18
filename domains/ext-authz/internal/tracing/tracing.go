@@ -33,7 +33,7 @@ import (
 
 // Default configuration
 const (
-	defaultEndpoint     = "jaeger-collector.istio-system.svc.cluster.local:4317"
+	defaultEndpoint     = "jaeger-collector-clusterip.istio-system.svc.cluster.local:4317"
 	defaultSamplingRate = 1.0
 	defaultTimeout      = 5 * time.Second
 )

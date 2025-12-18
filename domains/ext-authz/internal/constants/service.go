@@ -6,5 +6,5 @@ package constants
 
 const (
 	ServiceName    = "ext-authz"
-	ServiceVersion = "1.1.0" // Full OTEL tracing with Jaeger span export
+	ServiceVersion = "1.1.1" // Fix Jaeger endpoint to clusterip
 )
