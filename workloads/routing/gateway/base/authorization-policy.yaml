@@ -15,6 +15,7 @@ spec:
     - operation:
         hosts: [api.dev.growbin.app, api.growbin.app]
         paths: [/api/v1/*]   # API 경로에 대해서만 검사
+        # NOTE: CORS preflight(OPTIONS)는 ext-authz 서비스에서 허용 처리
         notPaths:
         # 로그인/리프레시/소셜 OAuth 콜백/JWKS 등은 ext-authz 우회 (logout 제외)
         - /api/v1/auth/kakao

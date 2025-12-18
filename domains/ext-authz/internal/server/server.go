@@ -81,6 +81,13 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 		metrics.RequestsTotal.WithLabelValues(result, reason).Inc()
 	}
 
+	// CORS Preflight: OPTIONS 요청은 인증 없이 허용
+	if method == "OPTIONS" {
+		s.logger.Info("CORS preflight request allowed", "method", method, "path", path, "host", host)
+		recordMetrics(metrics.ResultAllow, "cors_preflight")
+		return allowCORSPreflightResponse(), nil
+	}
+
 	// 1. Extract Token
 	if req.Attributes == nil || req.Attributes.Request == nil || req.Attributes.Request.Http == nil {
 		s.logger.AuthDeny(method, path, host, constants.ReasonMalformedRequest, time.Since(start), nil)
@@ -176,6 +183,22 @@ func denyResponse(statusCode typev3.StatusCode, body string) *authv3.CheckRespon
 					Code: statusCode,
 				},
 				Body: body,
+			},
+		},
+	}
+}
+
+// allowCORSPreflightResponse returns an OK response for CORS preflight requests
+// This allows the browser to proceed with the actual request after the preflight
+func allowCORSPreflightResponse() *authv3.CheckResponse {
+	return &authv3.CheckResponse{
+		Status: &status.Status{
+			Code: int32(code.Code_OK),
+		},
+		HttpResponse: &authv3.CheckResponse_OkResponse{
+			OkResponse: &authv3.OkHttpResponse{
+				// No custom headers needed for preflight
+				// The actual CORS headers will be added by the backend FastAPI CORSMiddleware
 			},
 		},
 	}
