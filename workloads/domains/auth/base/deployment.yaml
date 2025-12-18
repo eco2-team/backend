@@ -47,9 +47,9 @@ spec:
           value: none
         - name: OTEL_LOGS_EXPORTER
           value: none
-        # Istio B3 trace context propagation
+        # W3C Trace Context propagation (Istio 호환)
         - name: OTEL_PROPAGATORS
-          value: b3,b3multi,tracecontext,baggage
+          value: tracecontext,baggage
         envFrom:
         - configMapRef:
             name: auth-config
