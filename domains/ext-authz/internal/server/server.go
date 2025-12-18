@@ -10,6 +10,7 @@ import (
 	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/eco2-team/backend/domains/ext-authz/internal/constants"
 	"github.com/eco2-team/backend/domains/ext-authz/internal/jwt"
@@ -66,16 +67,33 @@ func extractRequestInfo(req *authv3.CheckRequest) (method, path, host string) {
 	return
 }
 
-// extractTraceInfo extracts B3 trace context from request headers
-func extractTraceInfo(req *authv3.CheckRequest) logging.TraceInfo {
-	if req.Attributes == nil || req.Attributes.Request == nil || req.Attributes.Request.Http == nil {
-		return logging.TraceInfo{}
+// extractTraceInfo extracts B3 trace context from gRPC metadata or HTTP headers
+// Priority: 1. gRPC metadata (from Istio sidecar) 2. HTTP headers (from client)
+func extractTraceInfo(ctx context.Context, req *authv3.CheckRequest) logging.TraceInfo {
+	trace := logging.TraceInfo{}
+
+	// 1. Try gRPC metadata first (Istio sidecar injects trace context here)
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if vals := md.Get(constants.HeaderB3TraceID); len(vals) > 0 {
+			trace.TraceID = vals[0]
+		}
+		if vals := md.Get(constants.HeaderB3SpanID); len(vals) > 0 {
+			trace.SpanID = vals[0]
+		}
 	}
-	headers := req.Attributes.Request.Http.Headers
-	return logging.TraceInfo{
-		TraceID: headers[constants.HeaderB3TraceID],
-		SpanID:  headers[constants.HeaderB3SpanID],
+
+	// 2. Fallback to HTTP headers (if client sent them)
+	if trace.TraceID == "" && req.Attributes != nil && req.Attributes.Request != nil && req.Attributes.Request.Http != nil {
+		headers := req.Attributes.Request.Http.Headers
+		if val := headers[constants.HeaderB3TraceID]; val != "" {
+			trace.TraceID = val
+		}
+		if val := headers[constants.HeaderB3SpanID]; val != "" {
+			trace.SpanID = val
+		}
 	}
+
+	return trace
 }
 
 // Check implements the authorization logic
@@ -85,7 +103,7 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 	defer metrics.RequestsInFlight.Dec()
 
 	method, path, host := extractRequestInfo(req)
-	trace := extractTraceInfo(req)
+	trace := extractTraceInfo(ctx, req)
 
 	// Helper to record metrics on exit
 	recordMetrics := func(result, reason string) {
