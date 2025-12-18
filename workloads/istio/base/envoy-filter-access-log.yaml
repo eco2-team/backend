@@ -26,19 +26,22 @@ spec:
               path: /dev/stdout
               log_format:
                 json_format:
+                  # ECS standard fields (dot notation)
+                  trace.id: '%REQ(X-B3-TRACEID)%'
+                  span.id: '%REQ(X-B3-SPANID)%'
+                  # HTTP fields
+                  http.request.method: '%REQ(:METHOD)%'
+                  url.path: '%REQ(:PATH)%'
+                  http.response.status_code: '%RESPONSE_CODE%'
+                  http.response.body.bytes: '%BYTES_SENT%'
+                  # Additional context
                   start_time: '%START_TIME%'
-                  method: '%REQ(:METHOD)%'
-                  path: '%REQ(:PATH)%'
                   protocol: '%PROTOCOL%'
-                  response_code: '%RESPONSE_CODE%'
                   response_flags: '%RESPONSE_FLAGS%'
                   bytes_received: '%BYTES_RECEIVED%'
-                  bytes_sent: '%BYTES_SENT%'
-                  duration: '%DURATION%'
+                  duration_ms: '%DURATION%'
                   upstream_host: '%UPSTREAM_HOST%'
-                  x_forwarded_for: '%REQ(X-FORWARDED-FOR)%'
-                  user_agent: '%REQ(USER-AGENT)%'
+                  source.address: '%REQ(X-FORWARDED-FOR)%'
+                  user_agent.original: '%REQ(USER-AGENT)%'
                   request_id: '%REQ(X-REQUEST-ID)%'
                   authority: '%REQ(:AUTHORITY)%'
-                  trace_id: '%REQ(X-B3-TRACEID)%'
-                  span_id: '%REQ(X-B3-SPANID)%'
