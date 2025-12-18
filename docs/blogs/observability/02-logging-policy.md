@@ -368,6 +368,230 @@ sequenceDiagram
 
 ---
 
+## 🎯 핵심 결정 사항과 근거
+
+### 왜 ECS인가?
+
+```mermaid
+flowchart TB
+    subgraph problem["문제"]
+        p1["로그 필드명 불일치"]
+        p2["Kibana 자동 인식 실패"]
+        p3["팀 간 로그 형식 파편화"]
+    end
+    
+    subgraph solution["ECS 도입"]
+        s1["400+ 표준 필드 정의"]
+        s2["Elasticsearch 네이티브 호환"]
+        s3["OpenTelemetry 매핑 지원"]
+    end
+    
+    subgraph outcome["결과"]
+        o1["Kibana에서 즉시 시각화"]
+        o2["trace.id ↔ span.id 연계"]
+        o3["Phase 2 Logstash 전환 용이"]
+    end
+    
+    problem --> solution --> outcome
+```
+
+**선택 이유:**
+
+1. **ECK Operator 생태계와 일치**
+   - 우리는 ECK(Elastic Cloud on Kubernetes) Operator로 ES/Kibana를 관리 ([ADR-001](../decisions/ADR-001-logging-architecture.md))
+   - ECS는 Elastic 생태계의 표준 스키마로, Kibana가 자동으로 필드를 인식
+   - `service.name`, `trace.id` 등이 사이드바에 바로 표시됨
+
+2. **Phase 2 (EDA) 전환 대비**
+   - 현재: Fluent Bit → ES 직접 전송
+   - EDA 도입 시: Fluent Bit → Kafka → **Logstash** → ES
+   - ECS 표준 필드를 사용하면 Logstash 파이프라인에서 추가 변환 불필요
+
+3. **OpenTelemetry 호환성**
+   - OTEL `trace_id` → ECS `trace.id` 매핑 표준화
+   - Jaeger 트레이스와 Kibana 로그 간 상관관계 조회 가능
+
+### 왜 JSON인가?
+
+```mermaid
+flowchart LR
+    subgraph apps["앱 로그"]
+        json["JSON stdout"]
+    end
+    
+    subgraph fluent["Fluent Bit"]
+        parse["Merge_Log: On"]
+        enrich["K8s 메타데이터 추가"]
+    end
+    
+    subgraph es["Elasticsearch"]
+        index["필드별 인덱싱"]
+        query["필드별 쿼리"]
+    end
+    
+    json --> parse --> enrich --> index --> query
+```
+
+**선택 이유:**
+
+1. **Fluent Bit 자동 파싱**
+   - `Merge_Log: On` 설정으로 JSON 필드가 root에 자동 병합
+   - 별도 grok 파서 없이 구조화된 로그 처리
+
+2. **Kibana 쿼리 최적화**
+   - `service.name: "auth-api"` 같은 필드 기반 검색
+   - 일반 텍스트 로그 대비 10배 이상 빠른 검색
+
+3. **EDA 전환 시 Logstash 처리 용이**
+   - JSON → Logstash filter → JSON 파이프라인 단순화
+   - Saga trace correlation 등 복잡한 변환 지원
+
+### 왜 도메인별 독립 구현인가?
+
+```mermaid
+flowchart TB
+    subgraph bad["❌ 공통 모듈 방식"]
+        common["shared/logging.py"]
+        auth1["auth"] --> common
+        char1["character"] --> common
+        chat1["chat"] --> common
+        
+        common --> |"변경 시 전체 배포"| deploy1["모든 서비스 재배포"]
+    end
+    
+    subgraph good["✅ 도메인별 독립 방식"]
+        auth2["auth/core/logging.py"]
+        char2["character/core/logging.py"]
+        chat2["chat/core/logging.py"]
+        
+        auth2 --> |"독립 배포"| deploy2["auth만 배포"]
+        char2 --> |"독립 배포"| deploy3["character만 배포"]
+    end
+```
+
+**선택 이유:**
+
+1. **마이크로서비스 원칙 준수**
+   - 각 서비스는 독립적으로 배포/확장 가능해야 함
+   - 공통 모듈 의존 시 버전 충돌, 배포 동기화 문제 발생
+
+2. **도메인별 커스터마이징**
+   - auth: `provider`, `token_type`, `jti` 필드
+   - ext-authz: `event.action`, `event.outcome` 필드
+   - character: `character_id`, `exp_gained` 필드
+
+3. **실용적 이유**
+   - 코드 ~200줄 복사 vs 공통 모듈 관리 오버헤드
+   - 각 팀이 독립적으로 로깅 정책 조정 가능
+
+### 왜 trace.id가 필수인가?
+
+```mermaid
+flowchart TB
+    subgraph now["현재 (동기 방식)"]
+        req1["1 API 요청"] --> log1["1~3개 로그"]
+    end
+    
+    subgraph eda["EDA 도입 후"]
+        req2["1 API 요청"] --> log2["10~30개 로그"]
+        log2 --> kafka["Kafka 이벤트"]
+        log2 --> saga["Saga 체인"]
+        log2 --> cdc["CDC 이벤트"]
+        log2 --> celery["Celery 작업"]
+    end
+    
+    subgraph solution["trace.id 없이는?"]
+        chaos["수십 개 로그 중<br/>관련 로그 찾기 불가능"]
+    end
+    
+    now --> |"로그 10배 증가"| eda --> chaos
+```
+
+**선택 이유:**
+
+1. **EDA 도입 시 로그 폭발 대비** ([ADR-001](../decisions/ADR-001-logging-architecture.md))
+   ```
+   현재: 1 요청 → 1~3개 로그 (일일 ~30,000 로그)
+   EDA 후: 1 요청 → 10~30개 로그 (일일 ~300,000 로그)
+   ```
+
+2. **Istio가 생성한 trace.id를 전체 흐름에서 공유**
+   - Istio Ingress Gateway가 **Source of Truth**
+   - ext-authz, 앱 API, Kafka Consumer 모두 동일 trace.id 사용
+   - Kibana에서 `trace.id: "xxx"` 검색 → 전체 요청 흐름 조회
+
+3. **Jaeger ↔ Kibana 상관관계**
+   - Jaeger에서 느린 trace 발견 → trace.id 복사
+   - Kibana에서 해당 trace.id의 상세 로그 조회
+
+### 왜 민감 정보 마스킹인가?
+
+```mermaid
+flowchart LR
+    subgraph risk["위험"]
+        log["로그에 토큰 포함"]
+        es["Elasticsearch 저장"]
+        access["팀원 전체 접근 가능"]
+        leak["유출 시 보안 사고"]
+    end
+    
+    subgraph solution["해결"]
+        pattern["패턴 기반 자동 마스킹"]
+        safe["eyJh...4fQk"]
+    end
+    
+    log --> es --> access --> leak
+    pattern --> safe
+```
+
+**선택 이유:**
+
+1. **OWASP 로깅 치트시트 준수**
+   - 인증 정보, 세션 ID, 개인정보는 로그에 포함 금지
+   - 디버깅 목적이라도 마스킹 필수
+
+2. **Elasticsearch 특성**
+   - 로그가 검색 가능한 형태로 저장됨
+   - Kibana에서 누구나 조회 가능
+   - 잘못된 검색 쿼리로 민감 정보 노출 위험
+
+3. **자동 마스킹으로 개발자 실수 방지**
+   - 패턴 기반 (`password`, `token`, `secret` 등)
+   - `extra` 필드 전체에 재귀적으로 적용
+   - 개발자가 실수로 토큰을 로깅해도 자동 마스킹
+
+### 왜 Python/Go 각각 구현인가?
+
+| 구분 | Python (FastAPI) | Go (ext-authz) |
+|------|------------------|----------------|
+| **Trace 소스** | OpenTelemetry SDK | gRPC Metadata (B3) |
+| **이유** | OTEL 자동 계측 (`opentelemetry-instrument`) | gRPC 서비스라 HTTP 헤더 접근 불가 |
+| **로깅** | stdlib `logging` | `slog` (Go 1.21+) |
+| **이유** | Python 표준, 대부분 라이브러리 호환 | 구조화 로깅 네이티브 지원 |
+| **마스킹** | 재귀 dict 순회 | 개별 함수 |
+| **이유** | `extra` 필드가 중첩 dict일 수 있음 | 필드가 명확하고 단순 |
+
+```mermaid
+flowchart TB
+    subgraph python["Python API"]
+        otel["OTEL SDK"] --> |"trace context"| pylog["ECSJsonFormatter"]
+        pylog --> |"자동 마스킹"| stdout1["stdout"]
+    end
+    
+    subgraph go["Go ext-authz"]
+        grpc["gRPC Metadata"] --> |"B3 headers"| golog["slog + ECS"]
+        golog --> |"개별 마스킹"| stdout2["stdout"]
+    end
+    
+    subgraph shared["공통"]
+        stdout1 --> fb["Fluent Bit"]
+        stdout2 --> fb
+        fb --> es["Elasticsearch"]
+    end
+```
+
+---
+
 ## 📁 정책 문서 구조
 
 ```
@@ -379,39 +603,8 @@ docs/
 │   ├── 04-distributed-tracing.md    # 분산 트레이싱
 │   └── 12-log-trace-correlation.md  # 로그-트레이스 상관관계
 └── decisions/
-    └── ADR-001-logging-architecture.md
+    └── ADR-001-logging-architecture.md  # 아키텍처 결정 기록
 ```
-
----
-
-## 🎯 핵심 결정 사항
-
-### 왜 ECS인가?
-
-1. **Elasticsearch 최적화**: Kibana 자동 필드 인식
-2. **표준화**: 400+ 필드 사전 정의
-3. **OpenTelemetry 호환**: trace.id/span.id 매핑
-
-### 왜 JSON인가?
-
-1. **파싱 용이**: Fluent Bit에서 자동 파싱
-2. **쿼리 가능**: 필드별 검색/필터링
-3. **확장성**: 필드 추가 용이
-
-### 왜 도메인별 독립 구현인가?
-
-1. **결합도 감소**: 공통 모듈 의존성 없음
-2. **유연성**: 도메인별 커스터마이징 가능
-3. **배포 독립성**: 개별 서비스 배포 영향 없음
-
-### 왜 Python/Go 각각 구현인가?
-
-| | Python (FastAPI) | Go (ext-authz) |
-|--|------------------|----------------|
-| Trace 소스 | OpenTelemetry SDK | gRPC Metadata (B3) |
-| 로깅 라이브러리 | stdlib logging | slog (Go 1.21+) |
-| JSON 포매터 | ECSJsonFormatter | slog.JSONHandler |
-| 마스킹 | 재귀 dict 순회 | 개별 함수 |
 
 ---
 
@@ -428,3 +621,4 @@ docs/
 - [OpenTelemetry Logging](https://opentelemetry.io/docs/specs/otel/logs/)
 - [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html)
 - [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
+- [ADR-001: 로깅 아키텍처 선택](../decisions/ADR-001-logging-architecture.md)
