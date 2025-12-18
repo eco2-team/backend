@@ -13,9 +13,11 @@
 
 ---
 
-## 🔍 빅테크 로깅 베스트 프랙티스 분석
+## 🔍 산업 로깅 베스트 프랙티스 분석
 
-### Google SRE
+### Google SRE Book
+
+> 출처: [Google SRE Book - Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/)
 
 **핵심 원칙:**
 - 로그는 **이벤트 기록**이 아닌 **질문에 대한 답**이어야 함
@@ -32,14 +34,16 @@
 ❌ 과도한 DEBUG 로그 금지
 ```
 
-### Netflix
+### Uber Engineering
+
+> 출처: [Uber Blog - Logging](https://www.uber.com/blog/logging/), [Observability at Scale](https://www.uber.com/blog/observability-at-scale/)
 
 **핵심 원칙:**
-- **Context Propagation**: 모든 서비스 간 컨텍스트 전파
-- **Structured Logging**: JSON 포맷 표준화
-- **Sampling**: 고빈도 이벤트는 샘플링
+- **Schema-agnostic 로그 분석**: 스키마 없이 모든 로그 수집, 자주 쿼리되는 필드만 인덱싱
+- **High Cardinality 지원**: 사용자 ID, 트랜잭션 ID 등으로 검색
+- **Cost-aware Logging**: 로그 볼륨 = 스토리지 비용, 압축(CLP) 적용
 
-**로그 레벨 가이드:**
+**Uber의 로그 레벨 가이드:**
 
 | Level | 사용 시점 | 예시 |
 |-------|----------|------|
@@ -48,14 +52,7 @@
 | INFO | 정상 비즈니스 이벤트 | 로그인 성공, 주문 완료 |
 | DEBUG | 개발/디버깅 | 함수 진입, 변수 값 |
 
-### Uber
-
-**핵심 원칙:**
-- **High Cardinality 지원**: 사용자 ID, 트랜잭션 ID로 검색
-- **Log Aggregation**: 중앙 집중화된 로그 분석
-- **Cost-aware Logging**: 로그 볼륨 = 비용
-
-**로그 볼륨 관리:**
+**환경별 로그 볼륨 관리:**
 
 ```
 Development: DEBUG 허용
@@ -617,7 +614,8 @@ docs/
 ## 🔗 참고 자료
 
 - [Google SRE Book - Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/)
-- [Netflix Tech Blog - Logging](https://netflixtechblog.com/)
+- [Uber Engineering Blog - Logging](https://www.uber.com/blog/logging/)
+- [Uber Engineering Blog - Observability at Scale](https://www.uber.com/blog/observability-at-scale/)
 - [OpenTelemetry Logging](https://opentelemetry.io/docs/specs/otel/logs/)
 - [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html)
 - [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
