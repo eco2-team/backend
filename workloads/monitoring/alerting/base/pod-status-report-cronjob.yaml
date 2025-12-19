@@ -43,70 +43,48 @@ spec:
 
               TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S KST')
 
-              total_pods=0
-              running_pods=0
-
-              # Pod 상태를 파싱하는 함수
-              parse_pods() {
+              # Namespace별 상태 요약 (간결 버전)
+              get_ns_summary() {
                 local ns=$1
-                local pods=$(kubectl get pods -n $ns --no-headers 2>/dev/null || echo "")
+                local pods=$(kubectl get pods -n $ns --no-headers 2>/dev/null)
+                [ -z "$pods" ] && echo "⚪ 0/0" && return
 
-                if [ -z "$pods" ]; then
-                  echo "  _No pods_"
-                  return
+                local total=$(echo "$pods" | wc -l)
+                local running=$(echo "$pods" | awk '$3=="Running" || $3=="Completed"' | wc -l)
+                local issues=$((total - running))
+
+                if [ $issues -eq 0 ]; then
+                  echo "🟢 ${running}/${total}"
+                else
+                  echo "🔴 ${running}/${total}"
                 fi
+              }
 
-                while IFS= read -r line; do
-                  name=$(echo "$line" | awk '{print $1}')
-                  ready=$(echo "$line" | awk '{print $2}')
-                  status=$(echo "$line" | awk '{print $3}')
-                  restarts=$(echo "$line" | awk '{print $4}')
-
-                  case "$status" in
-                    Running) emoji="🟢"; ((running_pods++)) ;;
-                    Pending|ContainerCreating) emoji="🟡" ;;
-                    Error|CrashLoopBackOff|ImagePullBackOff|OOMKilled) emoji="🔴" ;;
-                    Completed) emoji="✅"; ((running_pods++)) ;;
-                    *) emoji="⚪" ;;
-                  esac
-
-                  ((total_pods++))
-                  short_name=$(echo "$name" | sed 's/-[a-z0-9]\{8,10\}-[a-z0-9]\{5\}$//' | sed 's/-[a-z0-9]\{5\}$//')
-                  echo "${emoji} \`${short_name}\` ${ready} (restarts: ${restarts})"
-                done <<< "$pods"
+              # 문제 Pod만 상세 출력
+              get_problem_pods() {
+                local ns=$1
+                kubectl get pods -n $ns --no-headers 2>/dev/null | \
+                  awk '$3!="Running" && $3!="Completed" {print "  ⚠️ "$1" ("$3")"}' | head -3
               }
 
               # 리포트 생성
               generate_report() {
                 echo "*📊 Cluster Status Report*"
-                echo "*Time:* ${TIMESTAMP}"
-                echo "*Cluster:* eco2-dev"
+                echo "*${TIMESTAMP}* | eco2-dev"
                 echo ""
-                echo "*━━━━━ 🚀 API Services ━━━━━*"
-
+                echo "*🚀 API Services*"
                 for ns in $API_NS; do
-                  echo ""
-                  echo "*${ns}*"
-                  parse_pods $ns
+                  summary=$(get_ns_summary $ns)
+                  echo "${summary} \`${ns}\`"
+                  get_problem_pods $ns
                 done
-
                 echo ""
-                echo "*━━━━━ ⚙️ Infrastructure ━━━━━*"
-
+                echo "*⚙️ Infrastructure*"
                 for ns in $INFRA_NS; do
-                  echo ""
-                  echo "*${ns}*"
-                  parse_pods $ns
+                  summary=$(get_ns_summary $ns)
+                  echo "${summary} \`${ns}\`"
+                  get_problem_pods $ns
                 done
-
-                echo ""
-                echo "*━━━━━ 📈 Summary ━━━━━*"
-                issues=$((total_pods - running_pods))
-                if [ $issues -eq 0 ]; then
-                  echo "✅ All ${total_pods} pods healthy"
-                else
-                  echo "⚠️ Total: ${total_pods} | Healthy: ${running_pods} | Issues: ${issues}"
-                fi
               }
 
               REPORT=$(generate_report)
@@ -114,17 +92,7 @@ spec:
 
               curl -s -X POST "$SLACK_WEBHOOK_URL" \
                 -H "Content-Type: application/json" \
-                -d "{
-                  \"blocks\": [
-                    {
-                      \"type\": \"section\",
-                      \"text\": {
-                        \"type\": \"mrkdwn\",
-                        \"text\": \"${REPORT_ESCAPED}\"
-                      }
-                    }
-                  ]
-                }"
+                -d "{\"text\": \"${REPORT_ESCAPED}\"}"
 
               echo "Report sent successfully"
 ---
