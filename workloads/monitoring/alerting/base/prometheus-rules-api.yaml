@@ -1,0 +1,119 @@
+# API Performance Alerts
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: eco2-api-alerts
+  namespace: prometheus
+  labels:
+    release: kube-prometheus-stack
+    app: kube-prometheus-stack
+spec:
+  groups:
+    # ===========================================
+    # 🟡 API 응답 지연 - 일반 API (P99 > 1s)
+    # ===========================================
+  - name: api-latency-general
+    rules:
+    - alert: APIHighLatencyGeneral
+      expr: |
+        histogram_quantile(0.99,
+          sum(rate(istio_request_duration_milliseconds_bucket{
+            destination_service_name!~"scan-api|chat-api",
+            destination_service_namespace=~"auth|my|character|location|image",
+            response_code!~"5.*"
+          }[5m])) by (le, destination_service_name, destination_service_namespace)
+        ) > 1000
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High API latency on {{ $labels.destination_service_name }}
+        description: 'P99 latency for {{ $labels.destination_service_name }} is above 1s (current: {{ $value | printf "%.0f" }}ms).'
+
+    # ===========================================
+    # 🟡 API 응답 지연 - Scan API (P99 > 30s)
+    # ===========================================
+  - name: api-latency-scan
+    rules:
+    - alert: ScanAPIHighLatency
+      expr: |
+        histogram_quantile(0.99,
+          sum(rate(istio_request_duration_milliseconds_bucket{
+            destination_service_name="scan-api",
+            response_code!~"5.*"
+          }[5m])) by (le)
+        ) > 30000
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: Scan API latency is very high
+        description: 'Scan API P99 latency is above 30s (current: {{ $value | printf "%.0f" }}ms). GPT Vision API may be experiencing issues.'
+
+    # ===========================================
+    # 🟡 API 응답 지연 - Chat API (P99 > 20s)
+    # ===========================================
+  - name: api-latency-chat
+    rules:
+    - alert: ChatAPIHighLatency
+      expr: |
+        histogram_quantile(0.99,
+          sum(rate(istio_request_duration_milliseconds_bucket{
+            destination_service_name="chat-api",
+            response_code!~"5.*"
+          }[5m])) by (le)
+        ) > 20000
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: Chat API latency is very high
+        description: 'Chat API P99 latency is above 20s (current: {{ $value | printf "%.0f" }}ms). GPT-4o API may be experiencing issues.'
+
+    # ===========================================
+    # 🟠 API 5xx 에러
+    # ===========================================
+  - name: api-errors
+    rules:
+    - alert: APIHighErrorRate
+      expr: |
+        sum(rate(istio_requests_total{
+          response_code=~"5.*",
+          destination_service_namespace=~"auth|my|character|location|image|scan|chat"
+        }[5m])) by (destination_service_name)
+        /
+        sum(rate(istio_requests_total{
+          destination_service_namespace=~"auth|my|character|location|image|scan|chat"
+        }[5m])) by (destination_service_name)
+        > 0.05
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High 5xx error rate on {{ $labels.destination_service_name }}
+        description: '5xx error rate for {{ $labels.destination_service_name }} is above 5% (current: {{ $value | printf "%.2f" | mul 100 }}%).'
+
+    # ===========================================
+    # 🟠 ext-authz deny rate 급증
+    # ===========================================
+  - name: ext-authz-alerts
+    rules:
+    - alert: ExtAuthzHighDenyRate
+      expr: |
+        sum(rate(ext_authz_requests_total{result="denied"}[5m])) > 0.83
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: ext-authz deny rate is high
+        description: ext-authz is denying more than 50 requests per minute. Possible security incident or misconfiguration.
+
+    - alert: ExtAuthzDown
+      expr: |
+        up{job="ext-authz"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: ext-authz is down
+        description: ext-authz service is not responding. All authenticated requests will fail.
