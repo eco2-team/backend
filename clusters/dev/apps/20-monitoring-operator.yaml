@@ -16,6 +16,15 @@ spec:
       releaseName: dev-kube-prometheus-stack
       valuesObject:
         fullnameOverride: kube-prometheus-stack
+        # Disable Control Plane monitoring (kubeadm cluster doesn't expose metrics endpoints)
+        kubeScheduler:
+          enabled: false
+        kubeControllerManager:
+          enabled: false
+        kubeEtcd:
+          enabled: false
+        kubeProxy:
+          enabled: false
         alertmanager:
           enabled: true
           configExistingSecret: alertmanager-config
@@ -180,6 +189,21 @@ spec:
             endpoints:
             - port: http
               path: /metrics/status
+              interval: 30s
+              scrapeTimeout: 5s
+          - name: ext-authz
+            labels:
+              monitoring.sesacthon.dev/target: domain-api
+              monitoring.sesacthon.dev/domain: auth
+            namespaceSelector:
+              matchNames:
+              - auth
+            selector:
+              matchLabels:
+                app: ext-authz
+            endpoints:
+            - port: metrics
+              path: /metrics
               interval: 30s
               scrapeTimeout: 5s
   destination:

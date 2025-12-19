@@ -8,7 +8,6 @@ resources:
 - kibana.yaml
 - fluent-bit.yaml
 - stack-config-policy.yaml
-- elasticsearch-index-template.yaml
 # network-policy.yaml은 별도 kustomization으로 분리 (commonLabels 적용 제외)
 
 commonLabels:

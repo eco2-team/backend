@@ -32,8 +32,8 @@ spec:
         value: warning
         matchType: =
       continue: false
-    # Watchdog 무시
-    - receiver: slack-info
+    # Watchdog 무시 (null receiver)
+    - receiver: 'null'
       matchers:
       - name: alertname
         value: Watchdog
@@ -41,6 +41,7 @@ spec:
       continue: false
 
   receivers:
+  - name: 'null'
   - name: slack-critical
     slackConfigs:
     - apiURL:

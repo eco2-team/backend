@@ -4,7 +4,6 @@ namespace: auth
 resources:
 - deployment.yaml
 - service.yaml
-- servicemonitor.yaml
 - hpa.yaml
 - destination-rule.yaml
 labels:

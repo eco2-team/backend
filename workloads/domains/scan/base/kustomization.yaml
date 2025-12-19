@@ -5,7 +5,6 @@ resources:
 - deployment.yaml
 - service.yaml
 - configmap.yaml
-- servicemonitor.yaml
 labels:
 - includeSelectors: true
   pairs:
