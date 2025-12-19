@@ -1,0 +1,154 @@
+---
+# Pod Status Report CronJob
+# 일정 주기로 모든 Pod 상태를 Slack으로 리포트
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pod-status-report
+  namespace: prometheus
+spec:
+  schedule: 0 9,18 * * *    # 매일 09:00, 18:00 (KST 기준 조정 필요)
+  timeZone: Asia/Seoul
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: pod-status-reporter
+          restartPolicy: OnFailure
+          containers:
+          - name: reporter
+            image: bitnami/kubectl:1.28
+            env:
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: alertmanager-slack-webhook
+                  key: webhook-url
+            command:
+            - /bin/bash
+            - -c
+            - |
+              #!/bin/bash
+              set -e
+
+              # Namespace 목록 (API 서비스)
+              NAMESPACES="auth character chat scan my location image"
+
+              # 현재 시간
+              TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S KST')
+
+              # Pod 상태 수집
+              generate_report() {
+                echo "*📊 Pod Status Report*"
+                echo "*Time:* ${TIMESTAMP}"
+                echo "*Cluster:* eco2-dev"
+                echo ""
+
+                total_pods=0
+                running_pods=0
+
+                for ns in $NAMESPACES; do
+                  echo "*━━━ ${ns} ━━━*"
+
+                  # Pod 정보 수집
+                  pods=$(kubectl get pods -n $ns --no-headers 2>/dev/null || echo "")
+
+                  if [ -z "$pods" ]; then
+                    echo "No pods found"
+                    echo ""
+                    continue
+                  fi
+
+                  while IFS= read -r line; do
+                    name=$(echo "$line" | awk '{print $1}')
+                    ready=$(echo "$line" | awk '{print $2}')
+                    status=$(echo "$line" | awk '{print $3}')
+                    restarts=$(echo "$line" | awk '{print $4}')
+
+                    # 상태별 이모지
+                    case "$status" in
+                      Running)
+                        emoji="🟢"
+                        ((running_pods++))
+                        ;;
+                      Pending|ContainerCreating)
+                        emoji="🟡"
+                        ;;
+                      Error|CrashLoopBackOff|ImagePullBackOff)
+                        emoji="🔴"
+                        ;;
+                      Completed)
+                        emoji="✅"
+                        ;;
+                      *)
+                        emoji="⚪"
+                        ;;
+                    esac
+
+                    ((total_pods++))
+
+                    # Pod 이름 축약 (너무 길면)
+                    short_name=$(echo "$name" | sed 's/-[a-z0-9]\{8,10\}-[a-z0-9]\{5\}$//')
+
+                    echo "${emoji} \`${short_name}\` ${ready} (${status}, restarts: ${restarts})"
+                  done <<< "$pods"
+
+                  echo ""
+                done
+
+                echo "*━━━ Summary ━━━*"
+                echo "Total: ${total_pods} pods | Running: ${running_pods} | Issues: $((total_pods - running_pods))"
+              }
+
+              # Slack 메시지 전송
+              REPORT=$(generate_report)
+
+              # JSON escape
+              REPORT_ESCAPED=$(echo "$REPORT" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+
+              curl -X POST "$SLACK_WEBHOOK_URL" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"blocks\": [
+                    {
+                      \"type\": \"section\",
+                      \"text\": {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"${REPORT_ESCAPED}\"
+                      }
+                    }
+                  ]
+                }"
+
+              echo "Report sent successfully"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-status-reporter
+  namespace: prometheus
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pod-status-reader
+rules:
+- apiGroups: ['']
+  resources: [pods]
+  verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pod-status-reporter-binding
+subjects:
+- kind: ServiceAccount
+  name: pod-status-reporter
+  namespace: prometheus
+roleRef:
+  kind: ClusterRole
+  name: pod-status-reader
+  apiGroup: rbac.authorization.k8s.io

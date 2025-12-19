@@ -5,3 +5,4 @@ resources:
 - alertmanager-config.yaml
 - prometheus-rules-core.yaml
 - prometheus-rules-api.yaml
+- pod-status-report-cronjob.yaml
