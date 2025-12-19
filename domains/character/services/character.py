@@ -5,6 +5,7 @@ from typing import Sequence
 from uuid import UUID
 
 from fastapi import Depends
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.character.core.constants import (
@@ -14,17 +15,12 @@ from domains.character.core.constants import (
     REWARD_SOURCE_SCAN,
 )
 from domains.character.database.session import get_db_session
-from domains.character.exceptions import (
-    CatalogEmptyError,
-    CharacterNameRequiredError,
-    CharacterNotFoundError,
-    DefaultCharacterNotConfiguredError,
-)
+from domains.character.exceptions import CatalogEmptyError
 from domains.character.metrics import REWARD_EVALUATION_TOTAL, REWARD_GRANTED_TOTAL
 from domains.character.models import Character
 from domains.character.repositories import CharacterOwnershipRepository, CharacterRepository
 from domains.character.rpc.my_client import get_my_client
-from domains.character.schemas.catalog import CharacterAcquireResponse, CharacterProfile
+from domains.character.schemas.catalog import CharacterProfile
 from domains.character.schemas.reward import (
     CharacterRewardFailureReason,
     CharacterRewardRequest,
@@ -139,34 +135,6 @@ class CharacterService:
             type=reward_type,
         )
 
-    async def _grant_character_by_name(
-        self,
-        *,
-        user_id: UUID,
-        character_name: str,
-        source: str,
-        allow_empty: bool,
-    ) -> CharacterAcquireResponse:
-        normalized_name = character_name.strip()
-        if not normalized_name:
-            if allow_empty:
-                raise DefaultCharacterNotConfiguredError()
-            raise CharacterNameRequiredError()
-
-        character = await self.character_repo.get_by_name(normalized_name)
-        if character is None:
-            raise CharacterNotFoundError(name=normalized_name)
-
-        existing = await self.ownership_repo.get_by_user_and_character(
-            user_id=user_id,
-            character_id=character.id,
-        )
-        if existing:
-            return CharacterAcquireResponse(acquired=False, character=self._to_profile(character))
-
-        await self._grant_and_sync(user_id=user_id, character=character, source=source)
-        return CharacterAcquireResponse(acquired=True, character=self._to_profile(character))
-
     async def _match_characters(self, classification: ClassificationSummary) -> list[Character]:
         match_label = self._resolve_match_label(classification)
         if not match_label:
@@ -206,10 +174,53 @@ class CharacterService:
             if existing:
                 return self._to_profile(match), True, None
 
-            await self._grant_and_sync(user_id=user_id, character=match, source=REWARD_SOURCE_SCAN)
-            return self._to_profile(match), False, None
+            try:
+                await self._grant_and_sync(
+                    user_id=user_id, character=match, source=REWARD_SOURCE_SCAN
+                )
+                return self._to_profile(match), False, None
+            except IntegrityError:
+                # Race condition: 동시 요청으로 인한 중복 INSERT 시도
+                # UniqueConstraint 위반 → 이미 소유한 것으로 처리
+                await self.session.rollback()
+                logger.info(
+                    "Concurrent ownership grant detected",
+                    extra={"user_id": str(user_id), "character_id": str(match.id)},
+                )
+                return self._to_profile(match), True, None
 
         return None, False, CharacterRewardFailureReason.CHARACTER_NOT_FOUND
+
+    async def _grant_and_sync(
+        self,
+        user_id: UUID,
+        character: Character,
+        source: str,
+    ) -> None:
+        """캐릭터 소유권 저장 및 my 도메인 동기화.
+
+        Transaction Semantics:
+            1. character 스키마에 ownership 저장 후 commit
+            2. my 도메인으로 gRPC 동기화 (best-effort)
+
+        Consistency Model:
+            - gRPC 동기화 실패해도 로컬 ownership은 유지됨 (eventual consistency)
+            - my 도메인과의 정합성은 후속 동기화 배치로 보장
+            - 동시 요청 시 IntegrityError는 호출자가 처리
+
+        Raises:
+            IntegrityError: 동시 요청으로 인한 중복 ownership 시도 시
+        """
+        # 1. character.character_ownerships에 저장
+        await self.ownership_repo.upsert_owned(
+            user_id=user_id,
+            character=character,
+            source=source,
+        )
+        await self.session.commit()
+
+        # 2. my 도메인에 gRPC로 동기화 (best-effort, 실패해도 로컬 저장은 유지)
+        await self._sync_to_my_domain(user_id=user_id, character=character, source=source)
 
     async def _grant_and_sync(
         self,

@@ -90,6 +90,18 @@ class Settings(BaseSettings):
         description="Maximum delay in seconds for exponential backoff retry.",
     )
 
+    # === CORS Settings ===
+    cors_origins: list[str] = Field(
+        default=[
+            "https://frontend1.dev.growbin.app",
+            "https://frontend2.dev.growbin.app",
+            "https://frontend.dev.growbin.app",
+            "http://localhost:5173",
+            "https://localhost:5173",
+        ],
+        description="Allowed CORS origins. Set via JSON array or comma-separated string.",
+    )
+
     model_config = SettingsConfigDict(
         env_prefix="CHARACTER_",
         case_sensitive=False,

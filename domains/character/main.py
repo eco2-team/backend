@@ -8,17 +8,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from domains.character.api.v1.routers import api_router, health_router, metrics_router
-from domains.character.exceptions import (
-    CatalogEmptyError,
-    CharacterNameRequiredError,
-    CharacterNotFoundError,
-    DefaultCharacterNotConfiguredError,
-)
+from domains.character.core.config import get_settings
 from domains.character.core.constants import (
     DEFAULT_ENVIRONMENT,
     ENV_KEY_ENVIRONMENT,
     SERVICE_NAME,
     SERVICE_VERSION,
+)
+from domains.character.exceptions import (
+    CatalogEmptyError,
+    CharacterNameRequiredError,
+    CharacterNotFoundError,
+    DefaultCharacterNotConfiguredError,
 )
 from domains.character.core.logging import configure_logging
 from domains.character.core.tracing import (
@@ -51,6 +52,8 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    settings = get_settings()
+
     app = FastAPI(
         title="Character API",
         description="Character analysis and storytelling service",
@@ -63,13 +66,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "https://frontend1.dev.growbin.app",
-            "https://frontend2.dev.growbin.app",
-            "https://frontend.dev.growbin.app",
-            "http://localhost:5173",
-            "https://localhost:5173",
-        ],
+        allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
