@@ -7,10 +7,11 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.scan.models.scan_task import ScanTask
+from domains.scan.schemas.enums import TaskStatus
 
 if TYPE_CHECKING:
     from domains._shared.schemas.waste import WasteClassificationResult
@@ -37,14 +38,14 @@ class ScanTaskRepository:
         task = ScanTask(
             id=task_id,
             user_id=user_id,
-            status="pending",
+            status=TaskStatus.PENDING,
             image_url=image_url,
             user_input=user_input,
         )
         self.session.add(task)
         await self.session.commit()
         await self.session.refresh(task)
-        logger.debug("Created scan task: %s", task_id)
+        logger.debug("Created scan task", extra={"task_id": str(task_id)})
         return task
 
     async def get_by_id(self, task_id: UUID) -> ScanTask | None:
@@ -54,15 +55,16 @@ class ScanTaskRepository:
         return result.scalar_one_or_none()
 
     async def update_processing(self, task_id: UUID) -> ScanTask | None:
-        """Mark task as processing."""
-        task = await self.get_by_id(task_id)
-        if task is None:
-            return None
-
-        task.status = "processing"
+        """Mark task as processing using single UPDATE query."""
+        stmt = (
+            update(ScanTask)
+            .where(ScanTask.id == task_id)
+            .values(status=TaskStatus.PROCESSING)
+            .returning(ScanTask)
+        )
+        result = await self.session.execute(stmt)
         await self.session.commit()
-        await self.session.refresh(task)
-        return task
+        return result.scalar_one_or_none()
 
     async def update_completed(
         self,
@@ -73,25 +75,31 @@ class ScanTaskRepository:
         pipeline_result: WasteClassificationResult | None,
         reward: CharacterRewardResponse | None,
     ) -> ScanTask | None:
-        """Mark task as completed with results."""
-        task = await self.get_by_id(task_id)
-        if task is None:
-            return None
-
-        task.status = "completed"
-        task.category = category
-        task.confidence = confidence
-        task.completed_at = datetime.now(timezone.utc)
+        """Mark task as completed using single UPDATE query (race-condition safe)."""
+        completed_at = datetime.now(timezone.utc)
 
         # Convert Pydantic models to dict for JSONB storage
-        if pipeline_result is not None:
-            task.pipeline_result = pipeline_result.model_dump(mode="json")
-        if reward is not None:
-            task.reward = reward.model_dump(mode="json")
+        pipeline_dict = pipeline_result.model_dump(mode="json") if pipeline_result else None
+        reward_dict = reward.model_dump(mode="json") if reward else None
 
+        stmt = (
+            update(ScanTask)
+            .where(ScanTask.id == task_id)
+            .values(
+                status=TaskStatus.COMPLETED,
+                category=category,
+                confidence=confidence,
+                completed_at=completed_at,
+                pipeline_result=pipeline_dict,
+                reward=reward_dict,
+            )
+            .returning(ScanTask)
+        )
+        result = await self.session.execute(stmt)
         await self.session.commit()
-        await self.session.refresh(task)
-        logger.debug("Completed scan task: %s", task_id)
+        task = result.scalar_one_or_none()
+        if task:
+            logger.debug("Completed scan task", extra={"task_id": str(task_id)})
         return task
 
     async def update_failed(
@@ -100,18 +108,27 @@ class ScanTaskRepository:
         *,
         error_message: str,
     ) -> ScanTask | None:
-        """Mark task as failed with error message."""
-        task = await self.get_by_id(task_id)
-        if task is None:
-            return None
+        """Mark task as failed using single UPDATE query (race-condition safe)."""
+        completed_at = datetime.now(timezone.utc)
 
-        task.status = "failed"
-        task.error_message = error_message
-        task.completed_at = datetime.now(timezone.utc)
-
+        stmt = (
+            update(ScanTask)
+            .where(ScanTask.id == task_id)
+            .values(
+                status=TaskStatus.FAILED,
+                error_message=error_message,
+                completed_at=completed_at,
+            )
+            .returning(ScanTask)
+        )
+        result = await self.session.execute(stmt)
         await self.session.commit()
-        await self.session.refresh(task)
-        logger.debug("Failed scan task: %s - %s", task_id, error_message)
+        task = result.scalar_one_or_none()
+        if task:
+            logger.debug(
+                "Failed scan task",
+                extra={"task_id": str(task_id), "error": error_message},
+            )
         return task
 
     async def get_user_history(
@@ -136,7 +153,11 @@ class ScanTaskRepository:
         """Count total completed tasks (for metrics)."""
         from sqlalchemy import func
 
-        stmt = select(func.count()).select_from(ScanTask).where(ScanTask.status == "completed")
+        stmt = (
+            select(func.count())
+            .select_from(ScanTask)
+            .where(ScanTask.status == TaskStatus.COMPLETED)
+        )
         result = await self.session.execute(stmt)
         return result.scalar() or 0
 
@@ -144,7 +165,7 @@ class ScanTaskRepository:
         """Get timestamp of most recently completed task (for metrics)."""
         stmt = (
             select(ScanTask.completed_at)
-            .where(ScanTask.status == "completed")
+            .where(ScanTask.status == TaskStatus.COMPLETED)
             .where(ScanTask.completed_at.isnot(None))
             .order_by(ScanTask.completed_at.desc())
             .limit(1)

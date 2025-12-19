@@ -6,11 +6,12 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Float, Index, String, Text, func
+from sqlalchemy import DateTime, Enum as SAEnum, Float, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from domains.scan.database.base import Base
+from domains.scan.schemas.enums import TaskStatus
 
 
 class ScanTask(Base):
@@ -46,10 +47,10 @@ class ScanTask(Base):
     )
 
     # Task status: pending -> processing -> completed/failed
-    status: Mapped[str] = mapped_column(
-        String(20),
+    status: Mapped[TaskStatus] = mapped_column(
+        SAEnum(TaskStatus, native_enum=False, length=20),
         nullable=False,
-        default="pending",
+        default=TaskStatus.PENDING,
     )
 
     # Classification result

@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
 from time import perf_counter
 from typing import List
 from uuid import UUID, uuid4
@@ -60,6 +59,7 @@ class ScanService:
     async def classify(
         self, payload: ClassificationRequest, user_id: UUID
     ) -> ClassificationResponse:
+        """Classify waste image and return results."""
         image_url = str(payload.image_url) if payload.image_url else None
 
         if not image_url:
@@ -71,30 +71,86 @@ class ScanService:
             )
 
         task_id = uuid4()
-        started_at = datetime.now(timezone.utc)
-        logger.info(
-            "Scan pipeline started at %s (task_id=%s, user_id=%s)",
-            started_at.isoformat(),
-            task_id,
-            user_id,
-        )
+        log_ctx = {"task_id": str(task_id), "user_id": str(user_id)}
+
+        logger.info("Scan pipeline started", extra=log_ctx)
 
         # Create task in DB with pending status
-        await self.repository.create(
-            task_id=task_id,
-            user_id=user_id,
-            image_url=image_url,
-            user_input=payload.user_input,
+        try:
+            await self.repository.create(
+                task_id=task_id,
+                user_id=user_id,
+                image_url=image_url,
+                user_input=payload.user_input,
+            )
+        except Exception:
+            logger.exception("Failed to create scan task in DB", extra=log_ctx)
+            return ClassificationResponse(
+                task_id=str(task_id),
+                status="failed",
+                message="데이터베이스 저장에 실패했습니다.",
+                error="DB_ERROR",
+            )
+
+        # Run AI pipeline
+        pipeline_result, error = await self._run_pipeline(
+            task_id, image_url, payload.user_input, log_ctx
         )
 
-        pipeline_started = perf_counter()
-        prompt_text = payload.user_input or DEFAULT_SCAN_PROMPT
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(
-                "Scan prompt text (task_id=%s): %s",
-                task_id,
-                prompt_text,
+        if error:
+            await self._handle_pipeline_failure(task_id, error, log_ctx)
+            return ClassificationResponse(
+                task_id=str(task_id),
+                status="failed",
+                message="분류 파이프라인 처리에 실패했습니다.",
+                error=error,
             )
+
+        # Process reward
+        reward = await self._process_reward(task_id, user_id, pipeline_result, log_ctx)
+
+        # Update task as completed
+        classification = pipeline_result.classification_result.get("classification", {})
+        category = classification.get("major_category")
+
+        try:
+            await self.repository.update_completed(
+                task_id,
+                category=category,
+                confidence=None,
+                pipeline_result=pipeline_result,
+                reward=reward,
+            )
+        except Exception:
+            logger.exception("Failed to update scan task in DB", extra=log_ctx)
+            # Task completed but DB update failed - still return success to user
+            # The data is in pipeline_result anyway
+
+        logger.info("Scan pipeline completed", extra={**log_ctx, "category": category})
+
+        return ClassificationResponse(
+            task_id=str(task_id),
+            status="completed",
+            message="classification completed",
+            pipeline_result=pipeline_result,
+            reward=reward,
+        )
+
+    async def _run_pipeline(
+        self,
+        task_id: UUID,
+        image_url: str,
+        user_input: str | None,
+        log_ctx: dict,
+    ) -> tuple[WasteClassificationResult | None, str | None]:
+        """Run AI classification pipeline. Returns (result, error)."""
+        from domains.scan.metrics import PIPELINE_STEP_LATENCY
+
+        pipeline_started = perf_counter()
+        prompt_text = user_input or DEFAULT_SCAN_PROMPT
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Scan prompt text", extra={**log_ctx, "prompt": prompt_text})
 
         try:
             pipeline_payload = await asyncio.to_thread(
@@ -105,35 +161,15 @@ class ScanService:
                 verbose=False,
             )
         except PipelineError as exc:
-            finished_at = datetime.now(timezone.utc)
             elapsed_ms = (perf_counter() - pipeline_started) * 1000
             logger.info(
-                "Scan pipeline finished at %s (task_id=%s, %.1f ms, success=False)",
-                finished_at.isoformat(),
-                task_id,
-                elapsed_ms,
+                "Scan pipeline failed",
+                extra={**log_ctx, "elapsed_ms": elapsed_ms, "error": str(exc)},
             )
-
-            # Mark task as failed in DB
-            await self.repository.update_failed(
-                task_id,
-                error_message=str(exc),
-            )
-
-            return ClassificationResponse(
-                task_id=str(task_id),
-                status="failed",
-                message="분류 파이프라인 처리에 실패했습니다.",
-                error=str(exc),
-            )
+            return None, str(exc)
 
         # Record metrics
-        from domains.scan.metrics import (
-            PIPELINE_STEP_LATENCY,
-            REWARD_MATCH_COUNTER,
-            REWARD_MATCH_LATENCY,
-        )
-
+        elapsed_ms = (perf_counter() - pipeline_started) * 1000
         metadata = pipeline_payload.get("metadata", {})
         if metadata:
             PIPELINE_STEP_LATENCY.labels(step="vision").observe(metadata.get("duration_vision", 0))
@@ -143,60 +179,50 @@ class ScanService:
                 metadata.get("duration_total", 0)
             )
 
-        finished_at = datetime.now(timezone.utc)
-        elapsed_ms = (perf_counter() - pipeline_started) * 1000
-        logger.info(
-            "Scan pipeline finished at %s (task_id=%s, %.1f ms, success=True)",
-            finished_at.isoformat(),
-            task_id,
-            elapsed_ms,
-        )
+        logger.info("Scan pipeline succeeded", extra={**log_ctx, "elapsed_ms": elapsed_ms})
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
-                "Scan pipeline raw payload (task_id=%s): %s",
-                task_id,
-                json.dumps(pipeline_payload, ensure_ascii=False),
+                "Scan pipeline raw payload",
+                extra={**log_ctx, "payload": json.dumps(pipeline_payload, ensure_ascii=False)},
             )
 
-        pipeline_result = WasteClassificationResult(**pipeline_payload)
-        classification = pipeline_result.classification_result.get("classification", {})
-        category = classification.get("major_category")
+        return WasteClassificationResult(**pipeline_payload), None
+
+    async def _handle_pipeline_failure(self, task_id: UUID, error: str, log_ctx: dict) -> None:
+        """Mark task as failed in DB."""
+        try:
+            await self.repository.update_failed(task_id, error_message=error)
+        except Exception:
+            logger.exception("Failed to update failed task in DB", extra=log_ctx)
+
+    async def _process_reward(
+        self,
+        task_id: UUID,
+        user_id: UUID,
+        pipeline_result: WasteClassificationResult,
+        log_ctx: dict,
+    ) -> CharacterRewardResponse | None:
+        """Process character reward if applicable."""
+        from domains.scan.metrics import REWARD_MATCH_COUNTER, REWARD_MATCH_LATENCY
+
+        if not self._should_attempt_reward(pipeline_result):
+            REWARD_MATCH_COUNTER.labels(status="skipped").inc()
+            return None
 
         reward = None
-        if self._should_attempt_reward(pipeline_result):
-            with REWARD_MATCH_LATENCY.time():
-                reward_request = self._build_reward_request(
-                    user_id,
-                    str(task_id),
-                    pipeline_result,
-                )
-                if reward_request:
-                    reward = await self._call_character_reward_api(reward_request)
+        with REWARD_MATCH_LATENCY.time():
+            reward_request = self._build_reward_request(user_id, str(task_id), pipeline_result)
+            if reward_request:
+                reward = await self._call_character_reward_api(reward_request)
 
-            if reward:
-                REWARD_MATCH_COUNTER.labels(status="success").inc()
-            else:
-                REWARD_MATCH_COUNTER.labels(status="failed").inc()
+        if reward:
+            REWARD_MATCH_COUNTER.labels(status="success").inc()
+            logger.debug("Reward granted", extra={**log_ctx, "reward_name": reward.name})
         else:
-            REWARD_MATCH_COUNTER.labels(status="skipped").inc()
+            REWARD_MATCH_COUNTER.labels(status="failed").inc()
 
-        # Update task as completed in DB
-        await self.repository.update_completed(
-            task_id,
-            category=category,
-            confidence=None,
-            pipeline_result=pipeline_result,
-            reward=reward,
-        )
-
-        return ClassificationResponse(
-            task_id=str(task_id),
-            status="completed",
-            message="classification completed",
-            pipeline_result=pipeline_result,
-            reward=reward,
-        )
+        return reward
 
     async def task(self, task_id: str) -> ScanTask:
         """Retrieve a scan task by ID."""
@@ -364,10 +390,12 @@ class ScanService:
             ).inc()
 
             logger.info(
-                "Character reward gRPC call success (task=%s): received=%s, name=%s",
-                reward_request.task_id,
-                result.received,
-                result.name,
+                "Character reward gRPC call success",
+                extra={
+                    "task_id": reward_request.task_id,
+                    "received": result.received,
+                    "reward_name": result.name,
+                },
             )
             return result
 
@@ -375,13 +403,23 @@ class ScanService:
             GRPC_CALL_COUNTER.labels(
                 service="character", method="GetCharacterReward", status="error"
             ).inc()
-            logger.warning(f"Character reward gRPC call failed: {e.code()} - {e.details()}")
+            logger.warning(
+                "Character reward gRPC call failed",
+                extra={
+                    "task_id": reward_request.task_id,
+                    "grpc_code": str(e.code()),
+                    "grpc_details": e.details(),
+                },
+            )
             return None
         except Exception:
             GRPC_CALL_COUNTER.labels(
                 service="character", method="GetCharacterReward", status="exception"
             ).inc()
-            logger.exception("Unexpected error during character gRPC call")
+            logger.exception(
+                "Unexpected error during character gRPC call",
+                extra={"task_id": reward_request.task_id},
+            )
             return None
 
     @staticmethod
