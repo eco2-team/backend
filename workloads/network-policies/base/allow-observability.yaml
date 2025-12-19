@@ -79,6 +79,7 @@ spec:
   policyTypes:
   - Ingress
   ingress:
+  # Istio system (Kiali, Jaeger, etc.) - sidecar metrics
   - from:
     - namespaceSelector:
         matchLabels:
@@ -95,4 +96,14 @@ spec:
     - port: 15020 # Istio metrics merging port
       protocol: TCP
     - port: 15090 # Envoy Prometheus telemetry
+      protocol: TCP
+  # Prometheus namespace - application metrics scraping
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: prometheus
+    ports:
+    - port: 8000 # API application metrics
+      protocol: TCP
+    - port: 9090 # ext-authz gRPC metrics
       protocol: TCP
