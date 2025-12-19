@@ -52,3 +52,20 @@ MASK_PLACEHOLDER = "***REDACTED***"
 MASK_PRESERVE_PREFIX = 4
 MASK_PRESERVE_SUFFIX = 4
 MASK_MIN_LENGTH = 10
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Character Business Logic Constants
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 기본 캐릭터 설정
+DEFAULT_CHARACTER_NAME = "이코"
+DEFAULT_CHARACTER_SOURCE = "default-onboard"
+
+# 리워드 소스 식별자
+REWARD_SOURCE_SCAN = "scan-reward"
+
+# 분류 카테고리 (리워드 평가 조건)
+RECYCLABLE_WASTE_CATEGORY = "재활용폐기물"
+
+# 매칭 실패 시 기본값
+MATCH_REASON_UNDEFINED = "미정의"

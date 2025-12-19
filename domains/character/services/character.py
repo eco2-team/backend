@@ -7,6 +7,12 @@ from uuid import UUID
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from domains.character.core.constants import (
+    DEFAULT_CHARACTER_NAME,
+    MATCH_REASON_UNDEFINED,
+    RECYCLABLE_WASTE_CATEGORY,
+    REWARD_SOURCE_SCAN,
+)
 from domains.character.database.session import get_db_session
 from domains.character.exceptions import (
     CatalogEmptyError,
@@ -14,6 +20,7 @@ from domains.character.exceptions import (
     CharacterNotFoundError,
     DefaultCharacterNotConfiguredError,
 )
+from domains.character.metrics import REWARD_EVALUATION_TOTAL, REWARD_GRANTED_TOTAL
 from domains.character.models import Character
 from domains.character.repositories import CharacterOwnershipRepository, CharacterRepository
 from domains.character.rpc.my_client import get_my_client
@@ -25,12 +32,8 @@ from domains.character.schemas.reward import (
     CharacterRewardSource,
     ClassificationSummary,
 )
-from domains.character.metrics import REWARD_EVALUATION_TOTAL, REWARD_GRANTED_TOTAL
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_CHARACTER_NAME = "이코"
-DEFAULT_CHARACTER_SOURCE = "default-onboard"
 
 
 class CharacterService:
@@ -70,7 +73,7 @@ class CharacterService:
 
         should_evaluate = (
             payload.source == CharacterRewardSource.SCAN
-            and classification.major_category.strip() == "재활용폐기물"
+            and classification.major_category.strip() == RECYCLABLE_WASTE_CATEGORY
             and payload.disposal_rules_present
             and not payload.insufficiencies_present
         )
@@ -161,21 +164,7 @@ class CharacterService:
         if existing:
             return CharacterAcquireResponse(acquired=False, character=self._to_profile(character))
 
-        # 1. character.character_ownerships에 저장 (기존 로직 유지)
-        await self.ownership_repo.upsert_owned(
-            user_id=user_id,
-            character=character,
-            source=source,
-        )
-        await self.session.commit()
-
-        # 2. my 도메인에 gRPC로 동기화
-        await self._sync_to_my_domain(
-            user_id=user_id,
-            character=character,
-            source=source,
-        )
-
+        await self._grant_and_sync(user_id=user_id, character=character, source=source)
         return CharacterAcquireResponse(acquired=True, character=self._to_profile(character))
 
     async def _match_characters(self, classification: ClassificationSummary) -> list[Character]:
@@ -188,7 +177,7 @@ class CharacterService:
     def _resolve_match_label(classification: ClassificationSummary) -> str | None:
         major = (classification.major_category or "").strip()
         middle = (classification.middle_category or "").strip()
-        if major == "재활용폐기물":
+        if major == RECYCLABLE_WASTE_CATEGORY:
             return middle or None
         return middle or major or None
 
@@ -203,7 +192,7 @@ class CharacterService:
         major = (classification.major_category or "").strip()
         if major:
             return major
-        return "미정의"
+        return MATCH_REASON_UNDEFINED
 
     async def _apply_reward(
         self,
@@ -217,24 +206,28 @@ class CharacterService:
             if existing:
                 return self._to_profile(match), True, None
 
-            # 1. character.character_ownerships에 저장 (기존 로직 유지)
-            await self.ownership_repo.upsert_owned(
-                user_id=user_id,
-                character=match,
-                source="scan-reward",
-            )
-            await self.session.commit()
-
-            # 2. my 도메인에 gRPC로 동기화
-            await self._sync_to_my_domain(
-                user_id=user_id,
-                character=match,
-                source="scan-reward",
-            )
-
+            await self._grant_and_sync(user_id=user_id, character=match, source=REWARD_SOURCE_SCAN)
             return self._to_profile(match), False, None
 
         return None, False, CharacterRewardFailureReason.CHARACTER_NOT_FOUND
+
+    async def _grant_and_sync(
+        self,
+        user_id: UUID,
+        character: Character,
+        source: str,
+    ) -> None:
+        """캐릭터 소유권 저장 및 my 도메인 동기화 (공통 로직)."""
+        # 1. character.character_ownerships에 저장
+        await self.ownership_repo.upsert_owned(
+            user_id=user_id,
+            character=character,
+            source=source,
+        )
+        await self.session.commit()
+
+        # 2. my 도메인에 gRPC로 동기화
+        await self._sync_to_my_domain(user_id=user_id, character=character, source=source)
 
     async def _sync_to_my_domain(
         self,
