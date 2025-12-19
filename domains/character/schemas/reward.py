@@ -18,11 +18,8 @@ class ClassificationSummary(BaseModel):
 
 
 class CharacterRewardFailureReason(str, Enum):
-    UNSUPPORTED_SOURCE = "unsupported_source"
-    UNSUPPORTED_CATEGORY = "unsupported_category"
-    MISSING_RULES = "missing_disposal_rules"
-    INSUFFICIENT_EVIDENCE = "insufficiencies_present"
-    NO_MATCH = "no_matching_character"
+    """리워드 평가 실패 사유."""
+
     CHARACTER_NOT_FOUND = "character_not_seeded"
 
 

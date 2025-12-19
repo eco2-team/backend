@@ -15,12 +15,7 @@ from domains.character.core.constants import (
     SERVICE_NAME,
     SERVICE_VERSION,
 )
-from domains.character.exceptions import (
-    CatalogEmptyError,
-    CharacterNameRequiredError,
-    CharacterNotFoundError,
-    DefaultCharacterNotConfiguredError,
-)
+from domains.character.exceptions import CatalogEmptyError
 from domains.character.core.logging import configure_logging
 from domains.character.core.tracing import (
     configure_tracing,
@@ -29,6 +24,7 @@ from domains.character.core.tracing import (
     shutdown_tracing,
 )
 from domains.character.metrics import register_metrics
+from domains.character.rpc.my_client import close_my_client
 
 # 구조화된 로깅 설정 (ECS JSON 포맷)
 configure_logging()
@@ -48,6 +44,8 @@ instrument_httpx()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
+    # Graceful shutdown
+    await close_my_client()
     shutdown_tracing()
 
 
@@ -79,24 +77,6 @@ def create_app() -> FastAPI:
     @app.exception_handler(CatalogEmptyError)
     async def catalog_empty_handler(request: Request, exc: CatalogEmptyError) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": str(exc)})
-
-    @app.exception_handler(CharacterNotFoundError)
-    async def character_not_found_handler(
-        request: Request, exc: CharacterNotFoundError
-    ) -> JSONResponse:
-        return JSONResponse(status_code=404, content={"detail": str(exc)})
-
-    @app.exception_handler(CharacterNameRequiredError)
-    async def character_name_required_handler(
-        request: Request, exc: CharacterNameRequiredError
-    ) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"detail": str(exc)})
-
-    @app.exception_handler(DefaultCharacterNotConfiguredError)
-    async def default_character_not_configured_handler(
-        request: Request, exc: DefaultCharacterNotConfiguredError
-    ) -> JSONResponse:
-        return JSONResponse(status_code=500, content={"detail": str(exc)})
 
     app.include_router(health_router)
     app.include_router(metrics_router)

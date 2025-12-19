@@ -211,8 +211,8 @@ class CharacterService:
         Raises:
             IntegrityError: 동시 요청으로 인한 중복 ownership 시도 시
         """
-        # 1. character.character_ownerships에 저장
-        await self.ownership_repo.upsert_owned(
+        # 1. character.character_ownerships에 저장 (SELECT 없이 직접 INSERT)
+        await self.ownership_repo.insert_owned(
             user_id=user_id,
             character=character,
             source=source,

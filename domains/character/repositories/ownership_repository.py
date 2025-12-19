@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select
@@ -17,32 +16,27 @@ class CharacterOwnershipRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def upsert_owned(
+    async def insert_owned(
         self,
         *,
         user_id: UUID,
         character: Character,
         source: str | None = None,
     ) -> CharacterOwnership:
-        ownership = await self._get_internal(user_id=user_id, character_id=character.id)
-        if ownership:
-            ownership.status = CharacterOwnershipStatus.OWNED
-            if source:
-                ownership.source = source
-            ownership.updated_at = datetime.now(timezone.utc)
-            # Relationship might be expired if loaded without join
-            if ownership.character is None:
-                ownership.character = character
-        else:
-            ownership = CharacterOwnership(
-                user_id=user_id,
-                character_id=character.id,
-                source=source,
-                status=CharacterOwnershipStatus.OWNED,
-            )
-            ownership.character = character
-            self.session.add(ownership)
+        """새 ownership INSERT (SELECT 없이 직접 삽입).
 
+        Note:
+            호출 전 ownership 존재 여부를 이미 확인했을 때 사용.
+            중복 시 IntegrityError 발생 (UniqueConstraint).
+        """
+        ownership = CharacterOwnership(
+            user_id=user_id,
+            character_id=character.id,
+            source=source,
+            status=CharacterOwnershipStatus.OWNED,
+        )
+        ownership.character = character
+        self.session.add(ownership)
         await self.session.flush()
         return ownership
 

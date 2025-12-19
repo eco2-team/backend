@@ -59,7 +59,6 @@ class MyUserCharacterClient:
 
     async def _call_with_retry(
         self,
-        method_name: str,
         call_func,
         log_ctx: dict,
     ):
@@ -155,7 +154,7 @@ class MyUserCharacterClient:
             async def call_func():
                 return await stub.GrantCharacter(request, timeout=self.timeout)
 
-            response = await self._call_with_retry("GrantCharacter", call_func, log_ctx)
+            response = await self._call_with_retry(call_func, log_ctx)
 
             logger.info(
                 "gRPC call succeeded",
@@ -201,3 +200,11 @@ def reset_my_client() -> None:
     """Reset the singleton client (for testing)."""
     global _client
     _client = None
+
+
+async def close_my_client() -> None:
+    """Close the singleton gRPC client channel (for shutdown)."""
+    global _client
+    if _client is not None:
+        await _client.close()
+        _client = None
