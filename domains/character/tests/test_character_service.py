@@ -422,3 +422,134 @@ class TestEvaluateReward:
         assert result.received is False
         assert result.already_owned is True
         assert result.name == "플라봇"
+
+
+class TestApplyRewardRaceCondition:
+    """Tests for race condition handling in _apply_reward."""
+
+    @pytest.fixture
+    def mock_session(self):
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session):
+        from domains.character.services.character import CharacterService
+
+        service = CharacterService.__new__(CharacterService)
+        service.session = mock_session
+        service.character_repo = MagicMock()
+        service.ownership_repo = MagicMock()
+        return service
+
+    @pytest.mark.asyncio
+    async def test_integrity_error_returns_already_owned(self, service):
+        """IntegrityError 발생 시 already_owned=True 반환."""
+        from sqlalchemy.exc import IntegrityError
+
+        user_id = uuid4()
+        mock_character = MagicMock()
+        mock_character.id = uuid4()
+        mock_character.name = "플라봇"
+        mock_character.type_label = "플라스틱"
+        mock_character.dialog = "플라스틱!"
+        mock_character.description = None
+        mock_character.match_label = "플라스틱"
+
+        service.ownership_repo.get_by_user_and_character = AsyncMock(return_value=None)
+        service._grant_and_sync = AsyncMock(side_effect=IntegrityError("duplicate", {}, None))
+
+        result = await service._apply_reward(user_id, [mock_character])
+
+        profile, already_owned, failure = result
+        assert profile.name == "플라봇"
+        assert already_owned is True
+        assert failure is None
+        service.session.rollback.assert_called_once()
+
+
+class TestSyncToMyDomain:
+    """Tests for _sync_to_my_domain method."""
+
+    @pytest.fixture
+    def mock_session(self):
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session):
+        from domains.character.services.character import CharacterService
+
+        service = CharacterService.__new__(CharacterService)
+        service.session = mock_session
+        service.character_repo = MagicMock()
+        service.ownership_repo = MagicMock()
+        return service
+
+    @pytest.mark.asyncio
+    async def test_sync_success(self, service):
+        """gRPC 동기화 성공 시 로그 남김."""
+        user_id = uuid4()
+        mock_character = MagicMock()
+        mock_character.id = uuid4()
+        mock_character.name = "이코"
+        mock_character.code = "ECO001"
+        mock_character.type_label = "기본"
+        mock_character.dialog = "안녕!"
+
+        mock_client = AsyncMock()
+        mock_client.grant_character = AsyncMock(return_value=(True, False))
+
+        with patch(
+            "domains.character.services.character.get_my_client",
+            return_value=mock_client,
+        ):
+            await service._sync_to_my_domain(
+                user_id=user_id, character=mock_character, source="test"
+            )
+
+        mock_client.grant_character.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_sync_failure_does_not_raise(self, service):
+        """gRPC 동기화 실패해도 예외 발생 안함 (eventual consistency)."""
+        user_id = uuid4()
+        mock_character = MagicMock()
+        mock_character.id = uuid4()
+        mock_character.name = "이코"
+        mock_character.code = "ECO001"
+        mock_character.type_label = "기본"
+        mock_character.dialog = "안녕!"
+
+        mock_client = AsyncMock()
+        mock_client.grant_character = AsyncMock(side_effect=Exception("gRPC error"))
+
+        with patch(
+            "domains.character.services.character.get_my_client",
+            return_value=mock_client,
+        ):
+            # 예외가 발생하지 않아야 함
+            await service._sync_to_my_domain(
+                user_id=user_id, character=mock_character, source="test"
+            )
+
+    @pytest.mark.asyncio
+    async def test_sync_returns_false_logged(self, service):
+        """gRPC 동기화가 False 반환 시 warning 로그."""
+        user_id = uuid4()
+        mock_character = MagicMock()
+        mock_character.id = uuid4()
+        mock_character.name = "이코"
+        mock_character.code = "ECO001"
+        mock_character.type_label = "기본"
+        mock_character.dialog = "안녕!"
+
+        mock_client = AsyncMock()
+        mock_client.grant_character = AsyncMock(return_value=(False, False))
+
+        with patch(
+            "domains.character.services.character.get_my_client",
+            return_value=mock_client,
+        ):
+            # 예외 없이 완료
+            await service._sync_to_my_domain(
+                user_id=user_id, character=mock_character, source="test"
+            )
