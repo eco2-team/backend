@@ -32,9 +32,9 @@ spec:
           value: postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
           value: redis.redis.svc.cluster.local
-        - name: MY_GRPC_HOST
+        - name: CHARACTER_MY_GRPC_HOST
           value: my-grpc.my.svc.cluster.local
-        - name: MY_GRPC_PORT
+        - name: CHARACTER_MY_GRPC_PORT
           value: '50052'
         envFrom:
         - configMapRef:

@@ -55,21 +55,29 @@ class CharacterServicer(character_pb2_grpc.CharacterServiceServicer):
                 )
 
                 logger.info(
-                    "Evaluated reward for user %s (task=%s): received=%s, owned=%s",
-                    payload.user_id,
-                    payload.task_id,
-                    result.received,
-                    result.already_owned,
+                    "Evaluated reward",
+                    extra={
+                        "user_id": str(payload.user_id),
+                        "task_id": payload.task_id,
+                        "received": result.received,
+                        "already_owned": result.already_owned,
+                    },
                 )
                 return response
 
             except ValueError as e:
                 # UUID 변환 실패 등 validation 에러
-                logger.error(f"Invalid argument: {e}")
+                logger.error(
+                    "Invalid argument in GetCharacterReward",
+                    extra={"error": str(e), "user_id": request.user_id},
+                )
                 await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(e))
-            except Exception as e:
-                logger.exception("Internal error in GetCharacterReward")
-                await context.abort(grpc.StatusCode.INTERNAL, str(e))
+            except Exception:
+                logger.exception(
+                    "Internal error in GetCharacterReward",
+                    extra={"user_id": request.user_id, "task_id": request.task_id},
+                )
+                await context.abort(grpc.StatusCode.INTERNAL, "Internal server error")
 
     async def GetDefaultCharacter(self, request, context):
         """기본 캐릭터(이코) 정보 조회."""
@@ -82,7 +90,10 @@ class CharacterServicer(character_pb2_grpc.CharacterServiceServicer):
                     logger.warning("Default character not found")
                     return character_pb2.GetDefaultCharacterResponse(found=False)
 
-                logger.info("Returning default character: %s", character.name)
+                logger.info(
+                    "Returning default character",
+                    extra={"character_name": character.name, "character_id": str(character.id)},
+                )
                 return character_pb2.GetDefaultCharacterResponse(
                     found=True,
                     character_id=str(character.id),
@@ -92,6 +103,6 @@ class CharacterServicer(character_pb2_grpc.CharacterServiceServicer):
                     character_dialog=character.dialog or "",
                 )
 
-        except Exception as e:
+        except Exception:
             logger.exception("Internal error in GetDefaultCharacter")
-            await context.abort(grpc.StatusCode.INTERNAL, str(e))
+            await context.abort(grpc.StatusCode.INTERNAL, "Internal server error")

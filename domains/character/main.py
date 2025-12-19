@@ -3,10 +3,17 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from domains.character.api.v1.routers import api_router, health_router, metrics_router
+from domains.character.exceptions import (
+    CatalogEmptyError,
+    CharacterNameRequiredError,
+    CharacterNotFoundError,
+    DefaultCharacterNotConfiguredError,
+)
 from domains.character.core.constants import (
     DEFAULT_ENVIRONMENT,
     ENV_KEY_ENVIRONMENT,
@@ -70,6 +77,29 @@ def create_app() -> FastAPI:
 
     # OpenTelemetry FastAPI instrumentation
     instrument_fastapi(app)
+
+    # Exception handlers
+    @app.exception_handler(CatalogEmptyError)
+    async def catalog_empty_handler(request: Request, exc: CatalogEmptyError) -> JSONResponse:
+        return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+    @app.exception_handler(CharacterNotFoundError)
+    async def character_not_found_handler(
+        request: Request, exc: CharacterNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+    @app.exception_handler(CharacterNameRequiredError)
+    async def character_name_required_handler(
+        request: Request, exc: CharacterNameRequiredError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+    @app.exception_handler(DefaultCharacterNotConfiguredError)
+    async def default_character_not_configured_handler(
+        request: Request, exc: DefaultCharacterNotConfiguredError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=500, content={"detail": str(exc)})
 
     app.include_router(health_router)
     app.include_router(metrics_router)

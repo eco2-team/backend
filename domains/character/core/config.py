@@ -40,24 +40,29 @@ class Settings(BaseSettings):
     )
 
     # === gRPC Server Settings ===
-    grpc_port: int = Field(
+    # Note: validation_alias 필수 - K8s Service가 GRPC_PORT=tcp://... 형태로 주입하여 충돌
+    grpc_server_port: int = Field(
         50051,
+        validation_alias=AliasChoices("CHARACTER_GRPC_SERVER_PORT"),
         description="gRPC server listening port.",
     )
     grpc_max_workers: int = Field(
         10,
         ge=1,
         le=100,
+        validation_alias=AliasChoices("CHARACTER_GRPC_MAX_WORKERS"),
         description="Maximum number of thread pool workers for gRPC server.",
     )
 
     # === gRPC Client Settings (for calling My service) ===
     my_grpc_host: str = Field(
         "my-api.my.svc.cluster.local",
+        validation_alias=AliasChoices("CHARACTER_MY_GRPC_HOST"),
         description="My service gRPC host.",
     )
     my_grpc_port: int = Field(
         50052,
+        validation_alias=AliasChoices("CHARACTER_MY_GRPC_PORT"),
         description="My service gRPC port.",
     )
     grpc_timeout_seconds: float = Field(

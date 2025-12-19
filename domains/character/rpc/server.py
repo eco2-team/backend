@@ -26,7 +26,7 @@ async def serve() -> None:
     server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers=settings.grpc_max_workers))
     character_pb2_grpc.add_CharacterServiceServicer_to_server(CharacterServicer(), server)
 
-    listen_addr = f"[::]:{settings.grpc_port}"
+    listen_addr = f"[::]:{settings.grpc_server_port}"
     server.add_insecure_port(listen_addr)
 
     logger.info(

@@ -4,10 +4,16 @@ import logging
 from typing import Sequence
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.character.database.session import get_db_session
+from domains.character.exceptions import (
+    CatalogEmptyError,
+    CharacterNameRequiredError,
+    CharacterNotFoundError,
+    DefaultCharacterNotConfiguredError,
+)
 from domains.character.models import Character
 from domains.character.repositories import CharacterOwnershipRepository, CharacterRepository
 from domains.character.rpc.my_client import get_my_client
@@ -36,10 +42,7 @@ class CharacterService:
     async def catalog(self) -> list[CharacterProfile]:
         characters = await self.character_repo.list_all()
         if not characters:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="등록된 캐릭터가 없습니다.",
-            )
+            raise CatalogEmptyError()
         return [self._to_profile(character) for character in characters]
 
     async def get_default_character(self) -> Character | None:
@@ -47,10 +50,10 @@ class CharacterService:
         return await self.character_repo.get_by_name(DEFAULT_CHARACTER_NAME)
 
     async def metrics(self) -> dict:
+        """Return character service metrics from database."""
+        catalog_size = len(await self.character_repo.list_all())
         return {
-            "analyzed_users": 128,
-            "catalog_size": 5,
-            "history_entries": 56,
+            "catalog_size": catalog_size,
         }
 
     async def evaluate_reward(self, payload: CharacterRewardRequest) -> CharacterRewardResponse:
@@ -144,18 +147,12 @@ class CharacterService:
         normalized_name = character_name.strip()
         if not normalized_name:
             if allow_empty:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Default character name is not configured",
-                )
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Character name required",
-            )
+                raise DefaultCharacterNotConfiguredError()
+            raise CharacterNameRequiredError()
 
         character = await self.character_repo.get_by_name(normalized_name)
         if character is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
+            raise CharacterNotFoundError(name=normalized_name)
 
         existing = await self.ownership_repo.get_by_user_and_character(
             user_id=user_id,
@@ -246,6 +243,12 @@ class CharacterService:
         source: str,
     ) -> None:
         """my 도메인의 user_characters 테이블에 캐릭터 소유 정보 동기화."""
+        log_ctx = {
+            "user_id": str(user_id),
+            "character_id": str(character.id),
+            "character_name": character.name,
+            "source": source,
+        }
         try:
             client = get_my_client()
             success, already_owned = await client.grant_character(
@@ -259,20 +262,17 @@ class CharacterService:
             )
             if success:
                 logger.info(
-                    "Synced character %s to my domain for user %s (already_owned=%s)",
-                    character.name,
-                    user_id,
-                    already_owned,
+                    "Synced character to my domain",
+                    extra={**log_ctx, "already_owned": already_owned},
                 )
             else:
                 logger.warning(
-                    "Failed to sync character %s to my domain for user %s",
-                    character.name,
-                    user_id,
+                    "Failed to sync character to my domain",
+                    extra=log_ctx,
                 )
-        except Exception as e:
+        except Exception:
             # 동기화 실패해도 기존 로직은 성공으로 처리 (eventual consistency)
-            logger.error(f"Error syncing to my domain: {e}")
+            logger.exception("Error syncing to my domain", extra=log_ctx)
 
     @staticmethod
     def _to_profile(character: Character) -> CharacterProfile:
