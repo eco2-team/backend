@@ -16,7 +16,7 @@ from domains.location.domain.value_objects import (
     StoreCategory,
 )
 from domains.location.repositories.normalized_site_repository import NormalizedLocationRepository
-from domains.location.schemas.location import CoordinatesPayload, GeoResponse, LocationEntry
+from domains.location.schemas.location import LocationEntry
 from domains.location.services.category_classifier import classify_categories
 from domains.location.services.zoom_policy import limit_from_zoom, radius_from_zoom
 
@@ -84,18 +84,6 @@ class LocationService:
             )
         logger.info("Location search completed", extra={"results_count": len(entries)})
         return entries
-
-    async def geocode(self, address: str) -> GeoResponse:
-        # Placeholder: future integration with external geocoding provider
-        return GeoResponse(address=address, latitude=37.5665, longitude=126.9780)
-
-    async def reverse_geocode(self, coordinates: CoordinatesPayload) -> GeoResponse:
-        # Placeholder
-        return GeoResponse(
-            address="Seoul City Hall",
-            latitude=coordinates.latitude,
-            longitude=coordinates.longitude,
-        )
 
     async def metrics(self) -> dict:
         cache_key = "location:indexed_sites"

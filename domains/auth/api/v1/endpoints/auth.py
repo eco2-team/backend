@@ -2,7 +2,7 @@ from typing import Annotated, Optional
 import logging
 from urllib.parse import urlparse, urlunparse
 
-from fastapi import Depends, HTTPException, Request, Response, Header, status
+from fastapi import Depends, Header, Request, Response, status
 from fastapi.responses import RedirectResponse
 
 from domains.auth.api.v1.routers import (
@@ -20,14 +20,8 @@ from domains.auth.schemas.auth import (
     OAuthLoginRequest,
 )
 from domains.auth.services.auth import AuthService
-from domains.auth.services.key_manager import KeyManager
 
 logger = logging.getLogger(__name__)
-
-
-@auth_router.get("/.well-known/jwks.json", summary="Get JWKS for token verification")
-async def get_jwks():
-    return KeyManager.get_jwks()
 
 
 def _is_default_port(scheme: str, port: str) -> bool:
@@ -122,36 +116,6 @@ async def authorize_google(
         "google", params.model_copy(update={"frontend_origin": frontend_origin})
     )
     return AuthorizationSuccessResponse(data=result)
-
-
-# ---------------------------------------------------------------------------
-# Protected ping endpoint (no DB I/O) for ext-authz 테스트 용도
-# ext-authz가 주입한 x-user-id 헤더를 읽어 응답 (다른 서비스와 동일한 패턴)
-# ---------------------------------------------------------------------------
-
-
-@auth_router.get(
-    "/ping",
-    summary="Protected ping (ext-authz check only)",
-)
-async def ping_protected(
-    x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
-    x_auth_provider: Optional[str] = Header(default=None, alias="x-auth-provider"),
-):
-    """ext-authz 검증 후 주입된 헤더 확인용 엔드포인트."""
-    if not x_user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing x-user-id header",
-        )
-
-    return {
-        "success": True,
-        "data": {
-            "user_id": x_user_id,
-            "provider": x_auth_provider or "unknown",
-        },
-    }
 
 
 @kakao_router.get(

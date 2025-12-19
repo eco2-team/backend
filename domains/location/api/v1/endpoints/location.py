@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from domains.location.domain.value_objects import PickupCategory, StoreCategory
-from domains.location.schemas.location import CoordinatesPayload, GeoResponse, LocationEntry
+from domains.location.schemas.location import LocationEntry
 from domains.location.security import get_current_user, UserInfo
 from domains.location.services.location import LocationService
 
@@ -45,24 +45,6 @@ async def centers(
         store_filter=store_filter,
         pickup_filter=pickup_filter,
     )
-
-
-@router.post("/geocode", response_model=GeoResponse, summary="Address to coordinates")
-async def geocode(
-    address: str,
-    _: UserInfo = Depends(get_current_user),
-    service: LocationService = Depends(),
-):
-    return await service.geocode(address)
-
-
-@router.post("/reverse-geocode", response_model=GeoResponse, summary="Coordinates to address")
-async def reverse_geocode(
-    payload: CoordinatesPayload,
-    _: UserInfo = Depends(get_current_user),
-    service: LocationService = Depends(),
-):
-    return await service.reverse_geocode(payload)
 
 
 def _parse_store_category_param(raw: str) -> set[StoreCategory] | None:
