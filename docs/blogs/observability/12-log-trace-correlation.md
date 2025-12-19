@@ -2,8 +2,8 @@
 
 > **시리즈**: Eco² Observability Enhancement  
 > **작성일**: 2025-12-18  
-> **수정일**: 2025-12-18  
-> **태그**: `#FluentBit` `#Kibana` `#Elasticsearch` `#TraceCorrelation` `#ECS`
+> **수정일**: 2025-12-19  
+> **태그**: `#FluentBit` `#Kibana` `#Elasticsearch` `#TraceCorrelation` `#ECS` `#OTEL`
 
 ---
 
@@ -75,13 +75,13 @@ sequenceDiagram
 
 ### 컴포넌트별 trace.id 지원
 
-| 컴포넌트 | trace.id 소스 | 구현 방식 | 상태 |
-|----------|---------------|----------|------|
-| **Istio Gateway** | `%TRACE_ID%` | EnvoyFilter | ✅ |
-| **istio-proxy (Sidecar)** | `%TRACE_ID%` | EnvoyFilter | ✅ |
-| **ext-authz (Go gRPC)** | gRPC metadata | 수동 추출 | ✅ |
-| **Python APIs** | OTEL SDK | 자동 계측 | ✅ |
-| **시스템 로그** | N/A | 미지원 | ❌ |
+| 컴포넌트 | trace.id 소스 | 구현 방식 | 로그 | Jaeger |
+|----------|---------------|----------|:---:|:---:|
+| **Istio Gateway** | `%TRACE_ID%` | EnvoyFilter | ✅ | ✅ |
+| **istio-proxy (Sidecar)** | `%TRACE_ID%` | EnvoyFilter | ✅ | ✅ |
+| **ext-authz (Go gRPC)** | CheckRequest headers | 수동 span 생성 | ✅ | ✅ |
+| **Python APIs** | B3 헤더 | OTEL SDK 자동 계측 | ✅ | ✅ |
+| **시스템 로그** | N/A | 미지원 | ❌ | ❌ |
 
 ---
 
@@ -385,8 +385,162 @@ if md, ok := metadata.FromIncomingContext(ctx); ok {
 
 | 컴포넌트 | 문제 | 해결 |
 |----------|------|------|
-| ext-authz (Go gRPC) | SDK 미적용 | gRPC metadata 수동 추출 |
+| ~~ext-authz (Go gRPC)~~ | ~~SDK 미적용~~ | ✅ **해결됨** (아래 참조) |
 | 시스템 로그 (calico 등) | 지원 안함 | N/A (trace 불필요) |
+
+---
+
+## 🎯 ext-authz Jaeger Span 적용 (2025-12-19)
+
+### 문제 상황
+
+ext-authz에 OTEL SDK가 구현되어 있었으나 **Jaeger에 서비스가 표시되지 않음**.
+
+```
+# Jaeger 서비스 목록 (적용 전)
+auth-api, scan-api, chat-api, istio-ingressgateway...
+# ext-authz 없음!
+```
+
+**로그에는 trace.id가 있었음**:
+```json
+{
+  "service.name": "ext-authz",
+  "trace.id": "a593d6809fe6f036728dc73cfd170b0e",
+  "msg": "Authorization denied"
+}
+```
+
+### 원인 분석
+
+```mermaid
+sequenceDiagram
+    participant IG as Istio Gateway
+    participant EA as ext-authz
+    participant J as Jaeger
+    
+    Note over IG,EA: 문제의 핵심
+    IG->>EA: gRPC CheckRequest
+    Note over EA: CheckRequest body에<br/>HTTP headers 포함<br/>(x-b3-traceid 등)
+    
+    Note over EA: ❌ otelgrpc interceptor는<br/>gRPC metadata만 확인<br/>→ trace context 못 찾음
+    
+    EA-->>J: span 없음 (context 없어서)
+```
+
+| 구성요소 | trace context 위치 | otelgrpc가 보는 위치 |
+|----------|-------------------|---------------------|
+| Istio ext-authz 호출 | `CheckRequest.attributes.request.http.headers` | gRPC metadata |
+| **결과** | **불일치** → span 생성 안됨 |
+
+### 해결: 수동 Span 생성
+
+`domains/ext-authz/internal/server/server.go`:
+
+```go
+// 1. HTTP 헤더를 OTEL propagator에 어댑트
+type httpHeaderCarrier map[string]string
+
+func (c httpHeaderCarrier) Get(key string) string { return c[key] }
+func (c httpHeaderCarrier) Set(key, value string) { c[key] = value }
+func (c httpHeaderCarrier) Keys() []string { /* ... */ }
+
+// 2. CheckRequest body에서 trace context 추출
+func extractTraceContext(ctx context.Context, req *authv3.CheckRequest) context.Context {
+    headers := req.Attributes.Request.Http.Headers
+    propagator := otel.GetTextMapPropagator()
+    return propagator.Extract(ctx, httpHeaderCarrier(headers))
+}
+
+// 3. Check 함수에서 수동 span 생성
+func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckRequest) (*authv3.CheckResponse, error) {
+    // trace context 추출
+    ctx = extractTraceContext(ctx, req)
+    
+    // span 생성
+    tracer := otel.Tracer("ext-authz")
+    ctx, span := tracer.Start(ctx, "Authorization.Check",
+        trace.WithSpanKind(trace.SpanKindServer),
+        trace.WithAttributes(
+            semconv.HTTPRequestMethodKey.String(method),
+            semconv.URLPath(path),
+        ),
+    )
+    defer span.End()
+    
+    // 결과에 따라 span 속성 설정
+    span.SetAttributes(
+        attribute.String("authz.result", "deny"),
+        attribute.String("authz.reason", "missing_auth_header"),
+    )
+    // ...
+}
+```
+
+### 적용 결과
+
+**Jaeger 서비스 목록 (적용 후)**:
+
+```diff
+  auth-api
+  auth-api.auth
+  character-api
++ ext-authz        ← NEW!
++ ext-authz.auth   ← NEW!
+  image-api
+  istio-ingressgateway.istio-system
+  ...
+```
+
+**Span 상세**:
+
+```json
+{
+  "traceID": "2e9eee6ae8fe8ee4b58b9e8bed2d318c",
+  "spanCount": 5,
+  "operationName": "Authorization.Check",
+  "tags": {
+    "authz.result": "deny",
+    "authz.reason": "missing_auth_header",
+    "url.path": "/api/v1/user/me",
+    "http.request.method": "GET",
+    "http.host": "api.dev.growbin.app"
+  }
+}
+```
+
+### Trace 구조 (5 spans)
+
+```
+istio-ingressgateway.istio-system
+├── async envoy.service.auth.v3.Authorization.Check egress
+├── ext-authz.auth.svc.cluster.local:50051/*
+│   └── Authorization.Check (ext-authz)  ← 새로 추가된 span
+├── envoy.service.auth.v3.Authorization/Check
+└── my-api.my.svc.cluster.local:8000/api/v1/user*
+```
+
+### 커밋
+
+```
+feat(ext-authz): add manual OTEL span creation for Jaeger visibility
+
+Problem:
+- ext-authz was configured with OTEL SDK and otelgrpc interceptor
+- But spans were not appearing in Jaeger
+- Root cause: Istio passes trace headers in CheckRequest body,
+  not in gRPC metadata where otelgrpc interceptor looks
+
+Solution:
+- Add httpHeaderCarrier to adapt HTTP headers for OTEL propagator
+- Extract trace context from CheckRequest body
+- Create manual span with Authorization.Check operation
+- Add span attributes for authz result, reason, user info
+
+Version: 1.1.3 → 1.2.0
+```
+
+**SHA**: `ad869712`
 
 ---
 
@@ -401,17 +555,34 @@ if md, ok := metadata.FromIncomingContext(ctx); ok {
 
 ## ✅ 결론
 
-| 항목 | 현재 상태 |
-|------|----------|
-| trace.id 커버리지 | 7.16% (주로 istio-proxy) |
-| ECS 필드명 | ✅ dot notation 유지 |
-| Cross-service 검색 | ✅ 단일 인덱스로 가능 |
-| ext-authz trace | ✅ gRPC metadata 추출 |
-| Jaeger ↔ Kibana 연동 | ✅ trace.id로 검색 |
+### Jaeger 서비스 커버리지 (2025-12-19 기준)
+
+| 서비스 | Istio Sidecar | OTEL SDK | Jaeger Span |
+|--------|:---:|:---:|:---:|
+| istio-ingressgateway | ✅ | - | ✅ |
+| auth-api | ✅ | ✅ | ✅ |
+| scan-api | ✅ | ✅ | ✅ |
+| chat-api | ✅ | ✅ | ✅ |
+| character-api | ✅ | ✅ | ✅ |
+| location-api | ✅ | ✅ | ✅ |
+| image-api | ✅ | ✅ | ✅ |
+| my-api | ✅ | ✅ | ✅ |
+| **ext-authz** | ✅ | ✅ | ✅ **NEW** |
+
+### 구현 현황
+
+| 항목 | 상태 | 비고 |
+|------|:---:|------|
+| trace.id 커버리지 | 7.16% | 주로 istio-proxy |
+| ECS 필드명 | ✅ | dot notation 유지 |
+| Cross-service 검색 | ✅ | 단일 인덱스 |
+| ext-authz 로그 trace | ✅ | gRPC metadata 추출 |
+| **ext-authz Jaeger Span** | ✅ | **수동 span 생성** |
+| Jaeger ↔ Kibana 연동 | ✅ | trace.id로 검색 |
 
 ### 향후 개선
 
 | 항목 | 현재 | 목표 |
 |------|------|------|
 | 앱 로그 trace 커버리지 | 0.1% | 요청당 1개 이상 |
-| ext-authz Jaeger Span | ❌ | ✅ OTEL SDK 적용 |
+| ~~ext-authz Jaeger Span~~ | ~~❌~~ | ✅ **완료** |
