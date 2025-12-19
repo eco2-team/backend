@@ -232,3 +232,132 @@ class TestRetryableStatusCodes:
 
     def test_not_found_not_retryable(self):
         assert grpc.StatusCode.NOT_FOUND not in RETRYABLE_STATUS_CODES
+
+
+class TestCircuitBreaker:
+    """Tests for Circuit Breaker functionality."""
+
+    @pytest.fixture
+    def client(self) -> MyUserCharacterClient:
+        reset_my_client()
+        client = MyUserCharacterClient(MockSettings())
+        client.reset_circuit_breaker()
+        return client
+
+    @pytest.fixture
+    def user_id(self):
+        return uuid4()
+
+    @pytest.fixture
+    def character_id(self):
+        return uuid4()
+
+    def test_circuit_initial_state_is_closed(self, client: MyUserCharacterClient):
+        """Circuit breaker starts in closed state."""
+        assert client.circuit_state == "CLOSED"
+        assert client.circuit_fail_count == 0
+
+    @pytest.mark.asyncio
+    async def test_circuit_opens_after_consecutive_failures(
+        self, client: MyUserCharacterClient, user_id, character_id
+    ):
+        """Circuit breaker opens after fail_max consecutive failures."""
+        error = grpc.aio.AioRpcError(
+            grpc.StatusCode.UNAVAILABLE,
+            initial_metadata=grpc.aio.Metadata(),
+            trailing_metadata=grpc.aio.Metadata(),
+            details="Service unavailable",
+            debug_error_string="",
+        )
+
+        mock_stub = AsyncMock()
+        mock_stub.GrantCharacter = AsyncMock(side_effect=error)
+
+        with patch.object(client, "_get_stub", return_value=mock_stub):
+            # Call enough times to trip the circuit breaker
+            for _ in range(client.CIRCUIT_FAIL_MAX + 1):
+                await client.grant_character(
+                    user_id=user_id,
+                    character_id=character_id,
+                    character_code="ECO001",
+                    character_name="이코",
+                    character_type="default",
+                    character_dialog="안녕!",
+                    source="test",
+                )
+
+        # Circuit should be open after consecutive failures
+        assert client.circuit_state == "OPEN"
+
+    @pytest.mark.asyncio
+    async def test_circuit_open_fails_fast(
+        self, client: MyUserCharacterClient, user_id, character_id
+    ):
+        """When circuit is open, calls fail fast without making actual request."""
+        # Manually set circuit to open state
+        client._circuit_breaker.open()
+
+        mock_stub = AsyncMock()
+
+        with patch.object(client, "_get_stub", return_value=mock_stub):
+            success, already_owned = await client.grant_character(
+                user_id=user_id,
+                character_id=character_id,
+                character_code="ECO001",
+                character_name="이코",
+                character_type="default",
+                character_dialog="안녕!",
+                source="test",
+            )
+
+        # Should fail fast
+        assert success is False
+        assert already_owned is False
+        # Stub should never be called when circuit is open
+        mock_stub.GrantCharacter.assert_not_called()
+
+    def test_reset_circuit_breaker(self, client: MyUserCharacterClient):
+        """Circuit breaker can be reset to closed state."""
+        client._circuit_breaker.open()
+        assert client.circuit_state == "OPEN"
+
+        client.reset_circuit_breaker()
+        assert client.circuit_state == "CLOSED"
+
+    @pytest.mark.asyncio
+    async def test_success_resets_fail_counter(
+        self, client: MyUserCharacterClient, user_id, character_id
+    ):
+        """Successful call resets the failure counter."""
+        error = grpc.aio.AioRpcError(
+            grpc.StatusCode.UNAVAILABLE,
+            initial_metadata=grpc.aio.Metadata(),
+            trailing_metadata=grpc.aio.Metadata(),
+            details="Service unavailable",
+            debug_error_string="",
+        )
+
+        mock_response = MagicMock()
+        mock_response.success = True
+        mock_response.already_owned = False
+
+        mock_stub = AsyncMock()
+        # Fail twice, then succeed
+        mock_stub.GrantCharacter = AsyncMock(
+            side_effect=[error, error, error, error, mock_response]
+        )
+
+        with patch.object(client, "_get_stub", return_value=mock_stub):
+            # This should succeed (after retries)
+            success, _ = await client.grant_character(
+                user_id=user_id,
+                character_id=character_id,
+                character_code="ECO001",
+                character_name="이코",
+                character_type="default",
+                character_dialog="안녕!",
+                source="test",
+            )
+
+        # Circuit should still be closed after successful call
+        assert client.circuit_state == "CLOSED"
