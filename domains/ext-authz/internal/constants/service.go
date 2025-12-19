@@ -6,5 +6,5 @@ package constants
 
 const (
 	ServiceName    = "ext-authz"
-	ServiceVersion = "1.1.3" // Add OTEL debug logging
+	ServiceVersion = "1.2.0" // Add manual OTEL span creation for Jaeger visibility
 )

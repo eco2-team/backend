@@ -1,7 +1,8 @@
 // Package tracing provides OpenTelemetry distributed tracing configuration.
 //
 // Architecture (CNCF Best Practices):
-//   App (OTel SDK) → OTLP/gRPC (4317) → Jaeger Collector → Elasticsearch
+//
+//	App (OTel SDK) → OTLP/gRPC (4317) → Jaeger Collector → Elasticsearch
 //
 // References:
 //   - Google Dapper: Low overhead, application-level transparency

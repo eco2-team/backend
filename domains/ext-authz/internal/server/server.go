@@ -8,6 +8,11 @@ import (
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/metadata"
@@ -67,33 +72,80 @@ func extractRequestInfo(req *authv3.CheckRequest) (method, path, host string) {
 	return
 }
 
+// httpHeaderCarrier adapts HTTP headers from CheckRequest for trace propagation
+type httpHeaderCarrier map[string]string
+
+func (c httpHeaderCarrier) Get(key string) string {
+	return c[key]
+}
+
+func (c httpHeaderCarrier) Set(key, value string) {
+	c[key] = value
+}
+
+func (c httpHeaderCarrier) Keys() []string {
+	keys := make([]string, 0, len(c))
+	for k := range c {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// extractTraceContext extracts trace context from HTTP headers in CheckRequest
+// and returns a context with the trace information injected.
+// This is necessary because Istio passes trace headers in CheckRequest body,
+// not in gRPC metadata, so otelgrpc interceptor cannot extract them.
+func extractTraceContext(ctx context.Context, req *authv3.CheckRequest) context.Context {
+	if req.Attributes == nil || req.Attributes.Request == nil || req.Attributes.Request.Http == nil {
+		return ctx
+	}
+
+	headers := req.Attributes.Request.Http.Headers
+	if headers == nil {
+		return ctx
+	}
+
+	// Use OTEL propagator to extract trace context from HTTP headers
+	propagator := otel.GetTextMapPropagator()
+	return propagator.Extract(ctx, httpHeaderCarrier(headers))
+}
+
 // extractTraceInfo extracts B3 trace context from gRPC metadata or HTTP headers
 // Priority: 1. gRPC metadata (from Istio sidecar) 2. HTTP headers (from client)
 func extractTraceInfo(ctx context.Context, req *authv3.CheckRequest) logging.TraceInfo {
-	trace := logging.TraceInfo{}
+	traceInfo := logging.TraceInfo{}
 
 	// 1. Try gRPC metadata first (Istio sidecar injects trace context here)
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		if vals := md.Get(constants.HeaderB3TraceID); len(vals) > 0 {
-			trace.TraceID = vals[0]
+			traceInfo.TraceID = vals[0]
 		}
 		if vals := md.Get(constants.HeaderB3SpanID); len(vals) > 0 {
-			trace.SpanID = vals[0]
+			traceInfo.SpanID = vals[0]
 		}
 	}
 
 	// 2. Fallback to HTTP headers (if client sent them)
-	if trace.TraceID == "" && req.Attributes != nil && req.Attributes.Request != nil && req.Attributes.Request.Http != nil {
+	if traceInfo.TraceID == "" && req.Attributes != nil && req.Attributes.Request != nil && req.Attributes.Request.Http != nil {
 		headers := req.Attributes.Request.Http.Headers
 		if val := headers[constants.HeaderB3TraceID]; val != "" {
-			trace.TraceID = val
+			traceInfo.TraceID = val
 		}
 		if val := headers[constants.HeaderB3SpanID]; val != "" {
-			trace.SpanID = val
+			traceInfo.SpanID = val
 		}
 	}
 
-	return trace
+	// 3. Try to get from OTEL span context (if span was created)
+	if traceInfo.TraceID == "" {
+		spanCtx := trace.SpanContextFromContext(ctx)
+		if spanCtx.IsValid() {
+			traceInfo.TraceID = spanCtx.TraceID().String()
+			traceInfo.SpanID = spanCtx.SpanID().String()
+		}
+	}
+
+	return traceInfo
 }
 
 // Check implements the authorization logic
@@ -103,9 +155,29 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 	defer metrics.RequestsInFlight.Dec()
 
 	method, path, host := extractRequestInfo(req)
-	trace := extractTraceInfo(ctx, req)
 
-	// Helper to record metrics on exit
+	// Extract trace context from HTTP headers in CheckRequest body
+	// (Istio passes trace headers here, not in gRPC metadata)
+	ctx = extractTraceContext(ctx, req)
+
+	// Start span for authorization check
+	tracer := otel.Tracer("ext-authz")
+	ctx, span := tracer.Start(ctx, "Authorization.Check",
+		trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithAttributes(
+			semconv.RPCSystemGRPC,
+			semconv.RPCService("envoy.service.auth.v3.Authorization"),
+			semconv.RPCMethod("Check"),
+			semconv.HTTPRequestMethodKey.String(method),
+			semconv.URLPath(path),
+			attribute.String("http.host", host),
+		),
+	)
+	defer span.End()
+
+	traceInfo := extractTraceInfo(ctx, req)
+
+	// Helper to record metrics and span status on exit
 	recordMetrics := func(result, reason string) {
 		duration := time.Since(start).Seconds()
 		metrics.RequestDuration.WithLabelValues(result, reason).Observe(duration)
@@ -116,20 +188,25 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 	if method == "OPTIONS" {
 		s.logger.Info("CORS preflight request allowed", "method", method, "path", path, "host", host)
 		recordMetrics(metrics.ResultAllow, "cors_preflight")
+		span.SetAttributes(attribute.String("authz.result", "allow"), attribute.String("authz.reason", "cors_preflight"))
 		return allowCORSPreflightResponse(), nil
 	}
 
 	// 1. Extract Token
 	if req.Attributes == nil || req.Attributes.Request == nil || req.Attributes.Request.Http == nil {
-		s.logger.AuthDenyWithTrace(method, path, host, constants.ReasonMalformedRequest, time.Since(start), nil, trace)
+		s.logger.AuthDenyWithTrace(method, path, host, constants.ReasonMalformedRequest, time.Since(start), nil, traceInfo)
 		recordMetrics(metrics.ResultDeny, metrics.ReasonMissingHeader)
+		span.SetStatus(codes.Error, constants.ReasonMalformedRequest)
+		span.SetAttributes(attribute.String("authz.result", "deny"), attribute.String("authz.reason", "malformed_request"))
 		return denyResponse(typev3.StatusCode_BadRequest, constants.MsgMalformedRequest), nil
 	}
 
 	authHeader, ok := req.Attributes.Request.Http.Headers[constants.HeaderAuthorization]
 	if !ok || authHeader == "" {
-		s.logger.AuthDenyWithTrace(method, path, host, constants.ReasonMissingHeader, time.Since(start), nil, trace)
+		s.logger.AuthDenyWithTrace(method, path, host, constants.ReasonMissingHeader, time.Since(start), nil, traceInfo)
 		recordMetrics(metrics.ResultDeny, metrics.ReasonMissingHeader)
+		span.SetStatus(codes.Error, constants.ReasonMissingHeader)
+		span.SetAttributes(attribute.String("authz.result", "deny"), attribute.String("authz.reason", "missing_auth_header"))
 		return denyResponse(typev3.StatusCode_Unauthorized, constants.MsgMissingAuthHeader), nil
 	}
 
@@ -139,15 +216,19 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 	metrics.JWTVerifyDuration.Observe(time.Since(jwtStart).Seconds())
 
 	if err != nil {
-		s.logger.AuthDenyWithTrace(method, path, host, constants.ReasonInvalidToken, time.Since(start), err, trace)
+		s.logger.AuthDenyWithTrace(method, path, host, constants.ReasonInvalidToken, time.Since(start), err, traceInfo)
 		recordMetrics(metrics.ResultDeny, metrics.ReasonInvalidToken)
 		metrics.ErrorsTotal.WithLabelValues(metrics.ErrorTypeJWTVerify).Inc()
+		span.RecordError(err)
+		span.SetStatus(codes.Error, constants.ReasonInvalidToken)
+		span.SetAttributes(attribute.String("authz.result", "deny"), attribute.String("authz.reason", "invalid_token"))
 		return denyResponse(typev3.StatusCode_Unauthorized, constants.MsgInvalidToken), nil
 	}
 
 	// Extract user info for logging
 	userID, _ := claims[jwt.ClaimSub].(string)
 	jti, _ := claims[jwt.ClaimJTI].(string)
+	span.SetAttributes(attribute.String("user.id", userID))
 
 	// 3. Check Blacklist
 	if jti != "" {
@@ -156,24 +237,35 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 		metrics.RedisLookupDuration.Observe(time.Since(redisStart).Seconds())
 
 		if err != nil {
-			s.logger.AuthDenyWithUserAndTrace(method, path, host, userID, jti, constants.ReasonRedisError, time.Since(start), err, trace)
+			s.logger.AuthDenyWithUserAndTrace(method, path, host, userID, jti, constants.ReasonRedisError, time.Since(start), err, traceInfo)
 			recordMetrics(metrics.ResultDeny, metrics.ReasonRedisError)
 			metrics.ErrorsTotal.WithLabelValues(metrics.ErrorTypeRedis).Inc()
+			span.RecordError(err)
+			span.SetStatus(codes.Error, constants.ReasonRedisError)
+			span.SetAttributes(attribute.String("authz.result", "deny"), attribute.String("authz.reason", "redis_error"))
 			// Fail-closed: Deny on internal error
 			return denyResponse(typev3.StatusCode_InternalServerError, constants.MsgInternalError), nil
 		}
 		if blacklisted {
-			s.logger.AuthDenyWithUserAndTrace(method, path, host, userID, jti, constants.ReasonBlacklisted, time.Since(start), nil, trace)
+			s.logger.AuthDenyWithUserAndTrace(method, path, host, userID, jti, constants.ReasonBlacklisted, time.Since(start), nil, traceInfo)
 			recordMetrics(metrics.ResultDeny, metrics.ReasonBlacklisted)
 			metrics.BlacklistHits.Inc()
+			span.SetStatus(codes.Error, constants.ReasonBlacklisted)
+			span.SetAttributes(attribute.String("authz.result", "deny"), attribute.String("authz.reason", "blacklisted"))
 			return denyResponse(typev3.StatusCode_Forbidden, constants.MsgBlacklisted), nil
 		}
 	}
 
 	// 4. Allow Request (Inject Headers)
 	provider, _ := claims[jwt.ClaimProvider].(string)
-	s.logger.AuthAllowWithTrace(method, path, host, userID, provider, jti, time.Since(start), trace)
+	s.logger.AuthAllowWithTrace(method, path, host, userID, provider, jti, time.Since(start), traceInfo)
 	recordMetrics(metrics.ResultAllow, metrics.ReasonSuccess)
+	span.SetStatus(codes.Ok, "authorized")
+	span.SetAttributes(
+		attribute.String("authz.result", "allow"),
+		attribute.String("authz.reason", "success"),
+		attribute.String("auth.provider", provider),
+	)
 	return allowResponse(userID, provider), nil
 }
 
