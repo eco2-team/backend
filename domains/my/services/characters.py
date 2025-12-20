@@ -53,9 +53,14 @@ class UserCharacterService:
     async def _ensure_default_character(self, user_id: UUID) -> bool:
         """기본 캐릭터(이코)를 사용자에게 지급합니다.
 
+        Optimistic Locking: IntegrityError 핸들링으로 동시 요청 시에도
+        중복 지급을 방지합니다.
+
         Returns:
             bool: 지급 성공 여부
         """
+        from sqlalchemy.exc import IntegrityError
+
         try:
             # character 도메인에서 기본 캐릭터 정보 조회
             client = get_character_client()
@@ -65,16 +70,7 @@ class UserCharacterService:
                 logger.error("Default character not found in character domain")
                 return False
 
-            # 이미 소유하고 있는지 확인
-            existing = await self.repo.get_by_user_and_character(
-                user_id=user_id,
-                character_id=default_char.character_id,
-            )
-            if existing:
-                logger.info("User %s already owns default character", user_id)
-                return True
-
-            # 새 캐릭터 지급
+            # 새 캐릭터 지급 시도 (Optimistic)
             new_ownership = UserCharacterModel(
                 user_id=user_id,
                 character_id=default_char.character_id,
@@ -86,14 +82,23 @@ class UserCharacterService:
                 status=UserCharacterStatus.OWNED,
             )
             self.session.add(new_ownership)
-            await self.session.commit()
 
-            logger.info(
-                "Granted default character %s to user %s",
-                default_char.character_name,
-                user_id,
-            )
-            return True
+            try:
+                await self.session.commit()
+                logger.info(
+                    "Granted default character %s to user %s",
+                    default_char.character_name,
+                    user_id,
+                )
+                return True
+            except IntegrityError:
+                # UniqueConstraint 위반 - 이미 소유 중 (concurrent request)
+                await self.session.rollback()
+                logger.info(
+                    "User %s already owns default character (concurrent)",
+                    user_id,
+                )
+                return True
 
         except Exception as e:
             logger.exception(f"Failed to grant default character to user {user_id}: {e}")
