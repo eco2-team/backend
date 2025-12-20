@@ -1,5 +1,5 @@
 # SonarCloud Analysis
-# Runs on PR and push to develop/main
+# main/develop 머지 후에만 분석 (무료 플랜은 브랜치 분석 미지원)
 #
 # Setup:
 #   1. Create SonarCloud account: https://sonarcloud.io
@@ -15,11 +15,7 @@ on:
     paths:
       - 'domains/**/*.py'
       - 'sonar-project.properties'
-  pull_request:
-    branches: [develop, main]
-    paths:
-      - 'domains/**/*.py'
-      - 'sonar-project.properties'
+  # PR 분석은 무료 플랜에서 미지원 - main 머지 후 분석
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
