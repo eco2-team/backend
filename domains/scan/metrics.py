@@ -31,7 +31,23 @@ PIPELINE_STEP_LATENCY = Histogram(
     "Duration of each step in the waste classification pipeline",
     labelnames=["step"],
     registry=REGISTRY,
-    buckets=(0.1, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 12.5, 15.0, 20.0),
+    buckets=(
+        0.1,
+        0.5,
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+        6.0,
+        7.0,
+        8.0,
+        9.0,
+        10.0,
+        12.5,
+        15.0,
+        20.0,
+    ),
 )
 
 REWARD_MATCH_LATENCY = Histogram(

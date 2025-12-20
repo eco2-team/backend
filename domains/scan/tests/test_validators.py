@@ -2,7 +2,11 @@
 
 import pytest
 
-from domains.scan.core.validators import ImageUrlError, ImageUrlValidator, ValidationResult
+from domains.scan.core.validators import (
+    ImageUrlError,
+    ImageUrlValidator,
+    ValidationResult,
+)
 
 
 class MockSettings:

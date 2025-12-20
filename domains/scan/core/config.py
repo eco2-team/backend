@@ -45,6 +45,62 @@ class Settings(BaseSettings):
     )
     reward_feature_enabled: bool = True
 
+    # === gRPC Retry & Circuit Breaker Settings ===
+    grpc_timeout_seconds: float = Field(
+        5.0,
+        ge=0.1,
+        le=60.0,
+        description="Timeout in seconds for gRPC calls.",
+    )
+    grpc_max_retries: int = Field(
+        3,
+        ge=0,
+        le=10,
+        description="Maximum retry attempts for transient gRPC failures.",
+    )
+    grpc_retry_base_delay: float = Field(
+        0.1,
+        ge=0.01,
+        le=5.0,
+        description="Base delay in seconds for exponential backoff.",
+    )
+    grpc_retry_max_delay: float = Field(
+        2.0,
+        ge=0.1,
+        le=30.0,
+        description="Maximum delay in seconds for exponential backoff.",
+    )
+    grpc_circuit_fail_max: int = Field(
+        5,
+        ge=1,
+        le=20,
+        description="Number of failures before circuit breaker opens.",
+    )
+    grpc_circuit_timeout_duration: int = Field(
+        30,
+        ge=5,
+        le=300,
+        description="Seconds the circuit breaker stays open before half-open.",
+    )
+
+    # === CORS Settings ===
+    cors_origins: list[str] = Field(
+        default=[
+            "https://frontend1.dev.growbin.app",
+            "https://frontend2.dev.growbin.app",
+            "https://frontend.dev.growbin.app",
+            "http://localhost:5173",
+            "https://localhost:5173",
+            "http://127.0.0.1:5173",
+            "https://127.0.0.1:5173",
+        ],
+        description="Allowed CORS origins.",
+    )
+    cors_allow_credentials: bool = Field(
+        default=True,
+        description="Allow credentials in CORS requests.",
+    )
+
     auth_disabled: bool = Field(
         False,
         validation_alias=AliasChoices("SCAN_AUTH_DISABLED"),

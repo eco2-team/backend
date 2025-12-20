@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+"""Scan API endpoints."""
 
+from fastapi import APIRouter, HTTPException, status
+
+from domains.scan.api.dependencies import CurrentUser, ScanServiceDep
 from domains.scan.schemas.scan import (
     ClassificationRequest,
     ClassificationResponse,
     ScanCategory,
     ScanTask,
 )
-from domains.scan.services.scan import ScanService
-from domains.scan.api.dependencies import get_current_user, UserInfo
 
 router = APIRouter(prefix="/scan", tags=["scan"])
 
@@ -19,9 +20,10 @@ router = APIRouter(prefix="/scan", tags=["scan"])
 )
 async def classify(
     payload: ClassificationRequest,
-    user: UserInfo = Depends(get_current_user),
-    service: ScanService = Depends(),
-):
+    user: CurrentUser,
+    service: ScanServiceDep,
+) -> ClassificationResponse:
+    """이미지를 분석하여 폐기물을 분류합니다."""
     return await service.classify(payload, user.user_id)
 
 
@@ -30,7 +32,8 @@ async def classify(
     response_model=ScanTask,
     summary="Fetch classification task result",
 )
-async def task(task_id: str, service: ScanService = Depends()):
+async def task(task_id: str, service: ScanServiceDep) -> ScanTask:
+    """태스크 ID로 분류 결과를 조회합니다."""
     try:
         return await service.task(task_id)
     except LookupError:
@@ -45,5 +48,6 @@ async def task(task_id: str, service: ScanService = Depends()):
     response_model=list[ScanCategory],
     summary="Supported waste categories",
 )
-async def categories(service: ScanService = Depends()):
+async def categories(service: ScanServiceDep) -> list[ScanCategory]:
+    """지원하는 폐기물 카테고리 목록을 반환합니다."""
     return await service.categories()

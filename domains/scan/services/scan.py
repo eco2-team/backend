@@ -7,7 +7,6 @@ from time import perf_counter
 from typing import List
 from uuid import UUID, uuid4
 
-import grpc
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +17,7 @@ from domains.character.schemas.reward import (
     ClassificationSummary,
 )
 from domains.scan.core.config import Settings, get_settings
-from domains.scan.core.grpc_client import get_character_stub
+from domains.scan.core.grpc_client import get_character_client
 from domains.scan.core.validators import ImageUrlValidator
 from domains.scan.database.session import get_db_session
 from domains.scan.metrics import GRPC_CALL_COUNTER, GRPC_CALL_LATENCY
@@ -79,8 +78,8 @@ class ScanService:
                 "Image URL validation failed",
                 extra={
                     "url": image_url,
-                    "error": validation.error.value if validation.error else None,
-                    "message": validation.message,
+                    "error_code": validation.error.value if validation.error else None,
+                    "error_message": validation.message,
                 },
             )
             return ClassificationResponse(
@@ -204,7 +203,10 @@ class ScanService:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
                 "Scan pipeline raw payload",
-                extra={**log_ctx, "payload": json.dumps(pipeline_payload, ensure_ascii=False)},
+                extra={
+                    **log_ctx,
+                    "payload": json.dumps(pipeline_payload, ensure_ascii=False),
+                },
             )
 
         return WasteClassificationResult(**pipeline_payload), None
@@ -314,7 +316,9 @@ class ScanService:
         return categories
 
     @staticmethod
-    def _extract_classification(result: WasteClassificationResult) -> tuple[str, str, str | None]:
+    def _extract_classification(
+        result: WasteClassificationResult,
+    ) -> tuple[str, str, str | None]:
         """분류 결과에서 major, middle, minor 카테고리 추출."""
         payload = result.classification_result or {}
         classification = payload.get("classification", {}) or {}
@@ -367,83 +371,59 @@ class ScanService:
     async def _call_character_reward_api(
         self, reward_request: CharacterRewardRequest
     ) -> CharacterRewardResponse | None:
-        try:
-            stub = await get_character_stub()
+        """Call Character service gRPC API with retry and circuit breaker."""
+        # Create Protobuf request
+        classification_msg = character_pb2.ClassificationSummary(
+            major_category=reward_request.classification.major_category,
+            middle_category=reward_request.classification.middle_category,
+        )
+        if reward_request.classification.minor_category:
+            classification_msg.minor_category = reward_request.classification.minor_category
 
-            # Create Protobuf request
-            classification_msg = character_pb2.ClassificationSummary(
-                major_category=reward_request.classification.major_category,
-                middle_category=reward_request.classification.middle_category,
-            )
-            if reward_request.classification.minor_category:
-                classification_msg.minor_category = reward_request.classification.minor_category
+        grpc_req = character_pb2.RewardRequest(
+            source=reward_request.source.value,
+            user_id=str(reward_request.user_id),
+            task_id=reward_request.task_id,
+            classification=classification_msg,
+            situation_tags=reward_request.situation_tags,
+            disposal_rules_present=reward_request.disposal_rules_present,
+            insufficiencies_present=reward_request.insufficiencies_present,
+        )
 
-            grpc_req = character_pb2.RewardRequest(
-                source=reward_request.source.value,
-                user_id=str(reward_request.user_id),
-                task_id=reward_request.task_id,
-                classification=classification_msg,
-                situation_tags=reward_request.situation_tags,
-                disposal_rules_present=reward_request.disposal_rules_present,
-                insufficiencies_present=reward_request.insufficiencies_present,
-            )
+        log_ctx = {
+            "task_id": reward_request.task_id,
+            "user_id": str(reward_request.user_id),
+        }
 
-            # Call gRPC with timeout
-            with GRPC_CALL_LATENCY.labels(service="character", method="GetCharacterReward").time():
-                response = await stub.GetCharacterReward(
-                    grpc_req,
-                    timeout=self.settings.character_api_timeout_seconds,
-                )
+        # Call gRPC with retry and circuit breaker
+        client = get_character_client()
+        with GRPC_CALL_LATENCY.labels(service="character", method="GetCharacterReward").time():
+            response = await client.get_character_reward(grpc_req, log_ctx)
 
-            # Convert Protobuf response to Pydantic model
-            result = CharacterRewardResponse(
-                received=response.received,
-                already_owned=response.already_owned,
-                name=response.name if response.HasField("name") else None,
-                dialog=response.dialog if response.HasField("dialog") else None,
-                match_reason=response.match_reason if response.HasField("match_reason") else None,
-                character_type=(
-                    response.character_type if response.HasField("character_type") else None
-                ),
-                type=response.type if response.HasField("type") else None,
-            )
-
-            GRPC_CALL_COUNTER.labels(
-                service="character", method="GetCharacterReward", status="success"
-            ).inc()
-
-            logger.info(
-                "Character reward gRPC call success",
-                extra={
-                    "task_id": reward_request.task_id,
-                    "received": result.received,
-                    "reward_name": result.name,
-                },
-            )
-            return result
-
-        except grpc.RpcError as e:
+        if response is None:
             GRPC_CALL_COUNTER.labels(
                 service="character", method="GetCharacterReward", status="error"
             ).inc()
-            logger.warning(
-                "Character reward gRPC call failed",
-                extra={
-                    "task_id": reward_request.task_id,
-                    "grpc_code": str(e.code()),
-                    "grpc_details": e.details(),
-                },
-            )
             return None
-        except Exception:
-            GRPC_CALL_COUNTER.labels(
-                service="character", method="GetCharacterReward", status="exception"
-            ).inc()
-            logger.exception(
-                "Unexpected error during character gRPC call",
-                extra={"task_id": reward_request.task_id},
-            )
-            return None
+
+        # Convert Protobuf response to Pydantic model
+        result = CharacterRewardResponse(
+            received=response.received,
+            already_owned=response.already_owned,
+            name=response.name if response.HasField("name") else None,
+            dialog=response.dialog if response.HasField("dialog") else None,
+            match_reason=response.match_reason if response.HasField("match_reason") else None,
+            character_type=(
+                response.character_type if response.HasField("character_type") else None
+            ),
+            type=response.type if response.HasField("type") else None,
+        )
+
+        GRPC_CALL_COUNTER.labels(
+            service="character", method="GetCharacterReward", status="success"
+        ).inc()
+
+        return result
 
     @staticmethod
     def _has_insufficiencies(result: WasteClassificationResult) -> bool:

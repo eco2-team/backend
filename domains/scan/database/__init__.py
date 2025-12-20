@@ -8,4 +8,10 @@ from domains.scan.database.session import (
     reset_engine,
 )
 
-__all__ = ["Base", "get_db_session", "get_engine", "get_session_factory", "reset_engine"]
+__all__ = [
+    "Base",
+    "get_db_session",
+    "get_engine",
+    "get_session_factory",
+    "reset_engine",
+]

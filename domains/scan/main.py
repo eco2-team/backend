@@ -5,12 +5,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from domains.scan.api.v1.endpoints import api_router, health_router
+from domains.scan.core.config import get_settings
 from domains.scan.core.constants import (
     DEFAULT_ENVIRONMENT,
     ENV_KEY_ENVIRONMENT,
     SERVICE_NAME,
     SERVICE_VERSION,
 )
+from domains.scan.core.grpc_client import close_character_client
 from domains.scan.core.logging import configure_logging
 from domains.scan.core.tracing import (
     configure_tracing,
@@ -38,10 +40,14 @@ instrument_httpx()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
+    # Cleanup on shutdown
+    await close_character_client()
     shutdown_tracing()
 
 
 def create_app() -> FastAPI:
+    settings = get_settings()
+
     app = FastAPI(
         title="Scan API",
         description="Waste classification pipeline",
@@ -54,16 +60,8 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "https://frontend1.dev.growbin.app",
-            "https://frontend2.dev.growbin.app",
-            "https://frontend.dev.growbin.app",
-            "http://localhost:5173",
-            "https://localhost:5173",
-            "http://127.0.0.1:5173",
-            "https://127.0.0.1:5173",
-        ],
-        allow_credentials=True,
+        allow_origins=settings.cors_origins,
+        allow_credentials=settings.cors_allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )
