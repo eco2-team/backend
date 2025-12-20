@@ -103,6 +103,34 @@ class TestGetDefaultCharacter:
         assert result == mock_character
         service.character_repo.get_by_name.assert_called_once_with(DEFAULT_CHARACTER_NAME)
 
+
+class TestMetrics:
+    """Tests for metrics method."""
+
+    @pytest.fixture
+    def mock_session(self):
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session):
+        from domains.character.services.character import CharacterService
+
+        service = CharacterService.__new__(CharacterService)
+        service.session = mock_session
+        service.character_repo = MagicMock()
+        service.ownership_repo = MagicMock()
+        return service
+
+    @pytest.mark.asyncio
+    async def test_returns_catalog_size(self, service):
+        """카탈로그 크기 반환."""
+        mock_characters = [MagicMock(), MagicMock(), MagicMock()]
+        service.character_repo.list_all = AsyncMock(return_value=mock_characters)
+
+        result = await service.metrics()
+
+        assert result == {"catalog_size": 3}
+
     @pytest.mark.asyncio
     async def test_returns_none_when_not_found(self, service):
         """기본 캐릭터가 없을 때 None 반환."""
@@ -131,6 +159,37 @@ class TestEvaluateReward:
         # 기본적으로 빈 캐릭터 목록 반환
         service.character_repo.list_all = AsyncMock(return_value=[])
         return service
+
+    @pytest.mark.asyncio
+    async def test_returns_no_match_when_no_evaluator(self, service):
+        """등록된 evaluator가 없을 때 빈 응답 반환."""
+        from domains.character.schemas.reward import (
+            CharacterRewardRequest,
+            CharacterRewardSource,
+            ClassificationSummary,
+        )
+
+        payload = CharacterRewardRequest(
+            source=CharacterRewardSource.SCAN,
+            user_id=uuid4(),
+            task_id="task-123",
+            classification=ClassificationSummary(
+                major_category=RECYCLABLE_WASTE_CATEGORY,
+                middle_category="플라스틱",
+            ),
+            disposal_rules_present=True,
+            insufficiencies_present=False,
+        )
+
+        with patch(
+            "domains.character.services.character.get_evaluator",
+            return_value=None,
+        ):
+            result = await service.evaluate_reward(payload)
+
+        assert result.received is False
+        assert result.already_owned is False
+        assert result.name is None
 
     @pytest.mark.asyncio
     async def test_skips_when_not_recyclable(self, service):
@@ -454,3 +513,81 @@ class TestSyncToMyDomain:
             await service._sync_to_my_domain(
                 user_id=user_id, character=mock_character, source="test"
             )
+
+
+class TestCreateForTest:
+    """Tests for create_for_test factory method."""
+
+    @pytest.fixture
+    def mock_session(self):
+        return AsyncMock()
+
+    def test_creates_service_with_default_repos(self, mock_session):
+        """기본 repository로 서비스 생성."""
+        from domains.character.services.character import CharacterService
+
+        service = CharacterService.create_for_test(session=mock_session)
+
+        assert service.session == mock_session
+        assert service.character_repo is not None
+        assert service.ownership_repo is not None
+
+    def test_creates_service_with_custom_repos(self, mock_session):
+        """커스텀 repository로 서비스 생성."""
+        from domains.character.services.character import CharacterService
+
+        mock_char_repo = MagicMock()
+        mock_owner_repo = MagicMock()
+
+        service = CharacterService.create_for_test(
+            session=mock_session,
+            character_repo=mock_char_repo,
+            ownership_repo=mock_owner_repo,
+        )
+
+        assert service.character_repo == mock_char_repo
+        assert service.ownership_repo == mock_owner_repo
+
+
+class TestGrantAndSync:
+    """Tests for _grant_and_sync method."""
+
+    @pytest.fixture
+    def mock_session(self):
+        session = AsyncMock()
+        session.commit = AsyncMock()
+        return session
+
+    @pytest.fixture
+    def service(self, mock_session):
+        from domains.character.services.character import CharacterService
+
+        service = CharacterService.create_for_test(session=mock_session)
+        service.ownership_repo = MagicMock()
+        service.ownership_repo.insert_owned = AsyncMock()
+        return service
+
+    @pytest.mark.asyncio
+    async def test_grant_and_sync_inserts_ownership(self, service, mock_session):
+        """ownership 삽입 후 commit 호출."""
+        user_id = uuid4()
+        mock_character = MagicMock()
+        mock_character.id = uuid4()
+        mock_character.name = "테스트"
+        mock_character.code = "TEST001"
+        mock_character.type_label = "기본"
+        mock_character.dialog = "안녕!"
+
+        mock_client = AsyncMock()
+        mock_client.grant_character = AsyncMock(return_value=(True, False))
+
+        with patch(
+            "domains.character.services.character.get_my_client",
+            return_value=mock_client,
+        ):
+            await service._grant_and_sync(
+                user_id=user_id, character=mock_character, source="test-source"
+            )
+
+        service.ownership_repo.insert_owned.assert_called_once()
+        mock_session.commit.assert_called_once()
