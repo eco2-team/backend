@@ -9,6 +9,7 @@
 name: SonarCloud Analysis
 
 on:
+  workflow_dispatch:  # 수동 트리거
   push:
     branches: [develop, main]
     paths:
