@@ -68,6 +68,13 @@ instrument_httpx()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
+    # gRPC 클라이언트 리소스 정리
+    try:
+        from domains.my.rpc.character_client import close_character_client
+
+        await close_character_client()
+    except ImportError:
+        pass  # 로컬 테스트 환경에서는 무시
     shutdown_tracing()
 
 

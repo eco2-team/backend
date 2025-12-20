@@ -222,7 +222,6 @@ class LocationService:
         )
 
     @staticmethod
-    @staticmethod
     def _sanitize_optional_text(value: Optional[str], *, source: str | None) -> Optional[str]:
         if value is None:
             return None

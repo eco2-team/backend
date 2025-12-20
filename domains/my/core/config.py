@@ -33,6 +33,32 @@ class Settings(BaseSettings):
         description="When true, bypasses access-token validation for local development.",
     )
 
+    # gRPC Client Settings (Character Domain)
+    character_grpc_host: str = Field(
+        "character-api.character.svc.cluster.local",
+        validation_alias=AliasChoices("CHARACTER_GRPC_HOST"),
+        description="Character domain gRPC server hostname.",
+    )
+    character_grpc_port: str = Field(
+        "50051",
+        validation_alias=AliasChoices("CHARACTER_GRPC_PORT"),
+        description="Character domain gRPC server port.",
+    )
+    character_grpc_timeout: float = Field(
+        5.0,
+        description="gRPC call timeout in seconds.",
+    )
+
+    # Circuit Breaker Settings
+    circuit_fail_max: int = Field(
+        5,
+        description="Number of failures before circuit opens.",
+    )
+    circuit_timeout_duration: int = Field(
+        30,
+        description="Seconds to wait before attempting recovery (half-open).",
+    )
+
     model_config = SettingsConfigDict(
         env_prefix="MY_",
         case_sensitive=False,
