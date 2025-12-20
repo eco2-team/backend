@@ -24,34 +24,39 @@ from domains.auth.services.auth import AuthService
 logger = logging.getLogger(__name__)
 
 
-def _is_default_port(scheme: str, port: str) -> bool:
-    scheme = (scheme or "").lower()
-    return (scheme == "https" and port == "443") or (scheme == "http" and port == "80")
+_DEFAULT_PORTS = {"https": "443", "http": "80"}
+
+
+def _first_value(header: Optional[str]) -> Optional[str]:
+    """쉼표로 구분된 헤더에서 첫 번째 값 추출."""
+    return header.split(",")[0].strip() if header else None
+
+
+def _resolve_host(request: Request) -> Optional[str]:
+    """요청에서 호스트 결정."""
+    forwarded = _first_value(request.headers.get("x-forwarded-host"))
+    host_header = _first_value(request.headers.get("host"))
+    return forwarded or host_header or request.url.hostname
+
+
+def _resolve_scheme(request: Request) -> str:
+    """요청에서 스킴 결정."""
+    forwarded = _first_value(request.headers.get("x-forwarded-proto"))
+    return forwarded or request.url.scheme or "https"
 
 
 def _get_request_origin(request: Request) -> Optional[str]:
-    headers = request.headers
-    forwarded_host = headers.get("x-forwarded-host")
-    forwarded_proto = headers.get("x-forwarded-proto")
-    forwarded_port = headers.get("x-forwarded-port")
-
-    host_header = forwarded_host or headers.get("host")
-    host = host_header.split(",")[0].strip() if host_header else request.url.hostname
+    host = _resolve_host(request)
     if not host:
         return None
 
-    scheme = (
-        forwarded_proto.split(",")[0].strip()
-        if forwarded_proto
-        else (request.url.scheme or "https")
-    )
+    scheme = _resolve_scheme(request)
 
     if ":" not in host:
-        if forwarded_port:
-            port = forwarded_port.split(",")[0].strip()
-        else:
-            port = str(request.url.port) if request.url.port else None
-        if port and not _is_default_port(scheme, port):
+        port = _first_value(request.headers.get("x-forwarded-port"))
+        if not port and request.url.port:
+            port = str(request.url.port)
+        if port and port != _DEFAULT_PORTS.get(scheme.lower()):
             host = f"{host}:{port}"
 
     return f"{scheme}://{host}"

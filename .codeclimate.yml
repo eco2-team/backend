@@ -1,0 +1,107 @@
+# CodeClimate Configuration
+# Docs: https://docs.codeclimate.com/docs/advanced-configuration
+#
+# Setup:
+#   1. Go to https://codeclimate.com/github/eco2-team/backend
+#   2. Add repository (free for public repos)
+#   3. Enable GitHub PR integration
+
+version: '2'
+
+checks:
+  # Cognitive Complexity (how hard to understand)
+  cognitive-complexity:
+    enabled: true
+    config:
+      threshold: 15
+
+  # Cyclomatic Complexity (number of paths)
+  method-complexity:
+    enabled: true
+    config:
+      threshold: 10
+
+  # Method length
+  method-lines:
+    enabled: true
+    config:
+      threshold: 50
+
+  # File length
+  file-lines:
+    enabled: true
+    config:
+      threshold: 500
+
+  # Duplication
+  similar-code:
+    enabled: true
+    config:
+      threshold: 50
+
+  identical-code:
+    enabled: true
+    config:
+      threshold: 30
+
+  # Arguments count
+  argument-count:
+    enabled: true
+    config:
+      threshold: 5
+
+  # Return statements
+  return-statements:
+    enabled: true
+    config:
+      threshold: 4
+
+  # Nested control flow
+  nested-control-flow:
+    enabled: true
+    config:
+      threshold: 4
+
+plugins:
+  # Python analysis
+  radon:
+    enabled: true
+    config:
+      python_version: 3
+      threshold: C    # Minimum complexity grade
+
+  # Duplication detection
+  duplication:
+    enabled: true
+    config:
+      languages:
+        python:
+          mass_threshold: 50
+
+  # Security scanning (Bandit-style)
+  bandit:
+    enabled: false  # Enable if needed
+
+exclude_patterns:
+  # Tests
+- '**/tests/'
+- '**/test_*.py'
+- '**/*_test.py'
+- '**/conftest.py'
+
+  # Generated/External
+- '**/proto/'
+- '**/*_pb2.py'
+- '**/*_pb2_grpc.py'
+
+  # Infrastructure
+- terraform/
+- ansible/
+- workloads/
+- clusters/
+
+  # Misc
+- worktrees/
+- .venv/
+- docs/
+- scripts/

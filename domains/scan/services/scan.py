@@ -313,22 +313,28 @@ class ScanService:
             counter += 1
         return categories
 
+    @staticmethod
+    def _extract_classification(result: WasteClassificationResult) -> tuple[str, str, str | None]:
+        """분류 결과에서 major, middle, minor 카테고리 추출."""
+        payload = result.classification_result or {}
+        classification = payload.get("classification", {}) or {}
+        major = (classification.get("major_category") or "").strip()
+        middle = (classification.get("middle_category") or "").strip()
+        minor_raw = classification.get("minor_category")
+        minor = (minor_raw or "").strip() or None
+        return major, middle, minor
+
     def _should_attempt_reward(self, result: WasteClassificationResult) -> bool:
         if not self.settings.reward_feature_enabled:
             return False
         if self._has_insufficiencies(result):
             return False
-        classification_payload = result.classification_result or {}
-        classification = classification_payload.get("classification", {})
-        major = (classification.get("major_category") or "").strip()
-        middle = (classification.get("middle_category") or "").strip()
+        major, middle, _ = self._extract_classification(result)
         if not major or not middle:
             return False
         if major != "재활용폐기물":
             return False
-        if not result.disposal_rules:
-            return False
-        return True
+        return bool(result.disposal_rules)
 
     def _build_reward_request(
         self,
@@ -336,17 +342,14 @@ class ScanService:
         task_id: str,
         result: WasteClassificationResult,
     ) -> CharacterRewardRequest | None:
-        classification_payload = result.classification_result or {}
-        classification = classification_payload.get("classification", {}) or {}
-        major = (classification.get("major_category") or "").strip()
-        middle = (classification.get("middle_category") or "").strip()
+        major, middle, minor = self._extract_classification(result)
         if not major or not middle:
             return None
-        minor_raw = classification.get("minor_category")
-        minor = (minor_raw or "").strip() or None
-        situation_tags = classification_payload.get("situation_tags", [])
+
+        payload = result.classification_result or {}
+        situation_tags = payload.get("situation_tags", [])
         normalized_tags = [str(tag).strip() for tag in situation_tags if isinstance(tag, str)]
-        insufficiencies_present = self._has_insufficiencies(result)
+
         return CharacterRewardRequest(
             source=CharacterRewardSource.SCAN,
             user_id=user_id,
@@ -358,7 +361,7 @@ class ScanService:
             ),
             situation_tags=normalized_tags,
             disposal_rules_present=bool(result.disposal_rules),
-            insufficiencies_present=insufficiencies_present,
+            insufficiencies_present=self._has_insufficiencies(result),
         )
 
     async def _call_character_reward_api(

@@ -34,6 +34,13 @@ class CharacterRewardRequest(BaseModel):
 
 
 class CharacterRewardResponse(BaseModel):
+    """캐릭터 리워드 응답.
+
+    Note:
+        `type` 필드는 레거시 호환성을 위해 유지됩니다.
+        신규 클라이언트는 `character_type` 사용을 권장합니다.
+    """
+
     received: bool = Field(
         default=False,
         description="True when the character was newly granted as part of this reward evaluation",
@@ -51,11 +58,13 @@ class CharacterRewardResponse(BaseModel):
     )
     type: str | None = Field(
         default=None,
-        description="Alias of character_type for clients expecting a 'type' field",
+        description="[Deprecated] Use character_type instead. Kept for legacy client compatibility.",
+        json_schema_extra={"deprecated": True},
     )
 
     def model_post_init(self, __context: Any) -> None:
+        """type과 character_type 동기화 (레거시 호환성)."""
         if self.type is None and self.character_type is not None:
             self.type = self.character_type
-        if self.character_type is None and self.type is not None:
+        elif self.character_type is None and self.type is not None:
             self.character_type = self.type

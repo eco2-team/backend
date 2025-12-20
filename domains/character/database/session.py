@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from domains.character.core import get_settings
+from domains.character.core.tracing import instrument_sqlalchemy
 
 settings = get_settings()
 
@@ -13,6 +14,9 @@ engine = create_async_engine(
     echo=settings.database_echo,
     pool_pre_ping=True,
 )
+
+# DB 쿼리 추적 (Jaeger에서 asyncpg span 확인 가능)
+instrument_sqlalchemy(engine.sync_engine)
 
 async_session_factory = async_sessionmaker(
     bind=engine,

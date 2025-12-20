@@ -5,6 +5,28 @@ from pathlib import Path
 from typing import Iterable
 
 
+def _build_candidates(base_dir: Path, filename: str) -> list[Path]:
+    """검색할 파일 경로 후보 목록 생성."""
+    search_roots = [base_dir, base_dir / "data"]
+    candidates = []
+    for root in search_roots:
+        candidates.append(root / filename)
+        candidates.append(root / unicodedata.normalize("NFD", filename))
+    return candidates
+
+
+def _find_by_keywords(base_dir: Path, keywords: tuple[str, ...]) -> Path | None:
+    """키워드로 CSV 파일 검색."""
+    for root in [base_dir, base_dir / "data"]:
+        if not root.exists():
+            continue
+        for csv_file in root.glob("*.csv"):
+            normalized = unicodedata.normalize("NFC", csv_file.name)
+            if all(kw in normalized for kw in keywords):
+                return csv_file
+    return None
+
+
 def resolve_csv_path(
     base_dir: Path,
     filename: str,
@@ -12,28 +34,15 @@ def resolve_csv_path(
     search_keywords: Iterable[str] | None = None,
 ) -> Path:
     """Locate CSV file either next to the Dockerfile or under the data/ directory."""
-
-    search_roots = [base_dir, base_dir / "data"]
-    candidates: list[Path] = []
-    for root in search_roots:
-        candidates.append(root / filename)
-        candidates.append(root / unicodedata.normalize("NFD", filename))
-
-    for candidate in candidates:
+    for candidate in _build_candidates(base_dir, filename):
         if candidate.exists():
             return candidate
 
-    normalized_keywords = tuple(search_keywords or ())
-    for root in search_roots:
-        if not root.exists():
-            continue
-        for csv_file in root.glob("*.csv"):
-            normalized = unicodedata.normalize("NFC", csv_file.name)
-            if normalized_keywords and not all(
-                keyword in normalized for keyword in normalized_keywords
-            ):
-                continue
-            return csv_file
+    keywords = tuple(search_keywords or ())
+    if keywords:
+        found = _find_by_keywords(base_dir, keywords)
+        if found:
+            return found
 
     raise FileNotFoundError(
         f"CSV file '{filename}' not found under {base_dir} (or its data/ subdirectory). "

@@ -66,3 +66,19 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
 ]
+
+# ============================================================================
+# Radon - Code Complexity Analysis
+# ============================================================================
+# Install: pip install radon
+# Usage:
+#   radon cc domains/ -a -s          # Cyclomatic Complexity
+#   radon mi domains/ -s             # Maintainability Index
+#   radon raw domains/ -s            # Raw metrics (LOC, LLOC, etc.)
+
+[tool.radon]
+exclude = "test_*,*_test.py,conftest.py,__pycache__,worktrees,.venv"
+cc_min = "C"  # Minimum grade to show (A=best, F=worst)
+mi_min = "B"  # Maintainability Index minimum grade
+show_complexity = true
+average = true

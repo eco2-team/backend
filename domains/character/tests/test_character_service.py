@@ -1,6 +1,10 @@
 """Tests for CharacterService business logic.
 
 These tests mock the database layer to test service logic in isolation.
+
+Note:
+    _build_match_reason, _resolve_match_label 테스트는
+    test_evaluators.py의 ScanRewardEvaluator 테스트로 이동됨.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -10,7 +14,6 @@ import pytest
 
 # 상수 직접 정의 (테스트 독립성)
 DEFAULT_CHARACTER_NAME = "이코"
-MATCH_REASON_UNDEFINED = "미정의"
 RECYCLABLE_WASTE_CATEGORY = "재활용폐기물"
 REWARD_SOURCE_SCAN = "scan-reward"
 
@@ -21,114 +24,6 @@ def mock_db_session():
     """Mock database session for all tests."""
     with patch("domains.character.services.character.get_db_session"):
         yield
-
-
-class TestBuildMatchReason:
-    """Tests for _build_match_reason static method."""
-
-    def test_middle_and_minor(self):
-        """middle_category와 minor_category가 있을 때."""
-        from domains.character.schemas.reward import ClassificationSummary
-        from domains.character.services.character import CharacterService
-
-        classification = ClassificationSummary(
-            major_category="재활용폐기물",
-            middle_category="플라스틱",
-            minor_category="페트병",
-        )
-        result = CharacterService._build_match_reason(classification)
-        assert result == "플라스틱>페트병"
-
-    def test_middle_only(self):
-        """middle_category만 있을 때."""
-        from domains.character.schemas.reward import ClassificationSummary
-        from domains.character.services.character import CharacterService
-
-        classification = ClassificationSummary(
-            major_category="재활용폐기물",
-            middle_category="유리",
-            minor_category=None,
-        )
-        result = CharacterService._build_match_reason(classification)
-        assert result == "유리"
-
-    def test_major_only(self):
-        """major_category만 유효하고 middle은 공백일 때."""
-        from domains.character.schemas.reward import ClassificationSummary
-        from domains.character.services.character import CharacterService
-
-        classification = ClassificationSummary(
-            major_category="일반폐기물",
-            middle_category=" ",  # 공백 문자 (strip 후 빈 문자열)
-            minor_category=None,
-        )
-        result = CharacterService._build_match_reason(classification)
-        assert result == "일반폐기물"
-
-    def test_whitespace_categories(self):
-        """모든 카테고리가 공백일 때 (min_length=1 제약으로 빈 문자열 불가)."""
-        from domains.character.schemas.reward import ClassificationSummary
-        from domains.character.services.character import CharacterService
-
-        classification = ClassificationSummary(
-            major_category=" ",  # 공백 문자 (strip 후 빈 문자열)
-            middle_category=" ",  # 공백 문자
-            minor_category=None,
-        )
-        result = CharacterService._build_match_reason(classification)
-        assert result == MATCH_REASON_UNDEFINED
-
-
-class TestResolveMatchLabel:
-    """Tests for _resolve_match_label static method."""
-
-    def test_recyclable_waste_returns_middle(self):
-        """재활용폐기물일 때 middle_category 반환."""
-        from domains.character.schemas.reward import ClassificationSummary
-        from domains.character.services.character import CharacterService
-
-        classification = ClassificationSummary(
-            major_category=RECYCLABLE_WASTE_CATEGORY,
-            middle_category="플라스틱",
-        )
-        result = CharacterService._resolve_match_label(classification)
-        assert result == "플라스틱"
-
-    def test_recyclable_waste_no_middle(self):
-        """재활용폐기물인데 middle_category가 공백일 때."""
-        from domains.character.schemas.reward import ClassificationSummary
-        from domains.character.services.character import CharacterService
-
-        classification = ClassificationSummary(
-            major_category=RECYCLABLE_WASTE_CATEGORY,
-            middle_category=" ",  # 공백 문자 (strip 후 빈 문자열)
-        )
-        result = CharacterService._resolve_match_label(classification)
-        assert result is None
-
-    def test_non_recyclable_returns_middle_or_major(self):
-        """재활용폐기물이 아닐 때 middle 또는 major 반환."""
-        from domains.character.schemas.reward import ClassificationSummary
-        from domains.character.services.character import CharacterService
-
-        classification = ClassificationSummary(
-            major_category="일반폐기물",
-            middle_category="음식물",
-        )
-        result = CharacterService._resolve_match_label(classification)
-        assert result == "음식물"
-
-    def test_non_recyclable_no_middle(self):
-        """재활용폐기물이 아니고 middle도 공백일 때."""
-        from domains.character.schemas.reward import ClassificationSummary
-        from domains.character.services.character import CharacterService
-
-        classification = ClassificationSummary(
-            major_category="대형폐기물",
-            middle_category=" ",  # 공백 문자 (strip 후 빈 문자열)
-        )
-        result = CharacterService._resolve_match_label(classification)
-        assert result == "대형폐기물"
 
 
 class TestCatalog:
@@ -233,6 +128,8 @@ class TestEvaluateReward:
         service.session = mock_session
         service.character_repo = MagicMock()
         service.ownership_repo = MagicMock()
+        # 기본적으로 빈 캐릭터 목록 반환
+        service.character_repo.list_all = AsyncMock(return_value=[])
         return service
 
     @pytest.mark.asyncio
@@ -333,7 +230,8 @@ class TestEvaluateReward:
             insufficiencies_present=False,
         )
 
-        service.character_repo.list_by_match_label = AsyncMock(return_value=[])
+        # 빈 목록 반환 (매칭 없음)
+        service.character_repo.list_all = AsyncMock(return_value=[])
 
         result = await service.evaluate_reward(payload)
 
@@ -371,7 +269,8 @@ class TestEvaluateReward:
             insufficiencies_present=False,
         )
 
-        service.character_repo.list_by_match_label = AsyncMock(return_value=[mock_character])
+        # list_all이 전체 캐릭터 반환, Evaluator가 필터링
+        service.character_repo.list_all = AsyncMock(return_value=[mock_character])
         service.ownership_repo.get_by_user_and_character = AsyncMock(return_value=None)
         service._grant_and_sync = AsyncMock()
 
@@ -414,7 +313,8 @@ class TestEvaluateReward:
             insufficiencies_present=False,
         )
 
-        service.character_repo.list_by_match_label = AsyncMock(return_value=[mock_character])
+        # list_all이 전체 캐릭터 반환
+        service.character_repo.list_all = AsyncMock(return_value=[mock_character])
         service.ownership_repo.get_by_user_and_character = AsyncMock(return_value=mock_ownership)
 
         result = await service.evaluate_reward(payload)
@@ -439,6 +339,7 @@ class TestApplyRewardRaceCondition:
         service.session = mock_session
         service.character_repo = MagicMock()
         service.ownership_repo = MagicMock()
+        service.character_repo.list_all = AsyncMock(return_value=[])
         return service
 
     @pytest.mark.asyncio
@@ -458,7 +359,7 @@ class TestApplyRewardRaceCondition:
         service.ownership_repo.get_by_user_and_character = AsyncMock(return_value=None)
         service._grant_and_sync = AsyncMock(side_effect=IntegrityError("duplicate", {}, None))
 
-        result = await service._apply_reward(user_id, [mock_character])
+        result = await service._apply_reward(user_id, [mock_character], source_label="scan-reward")
 
         profile, already_owned, failure = result
         assert profile.name == "플라봇"

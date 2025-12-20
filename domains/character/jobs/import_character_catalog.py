@@ -14,6 +14,7 @@ from sqlalchemy import func, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from domains.character.core.cache import invalidate_catalog_cache
 from domains.character.database.base import Base
 from domains.character.models.character import Character
 from domains.character.schemas.catalog import CharacterProfile
@@ -70,33 +71,35 @@ def resolve_database_url(cli_value: str | None) -> str:
     return env_value
 
 
+def _parse_catalog_row(row: dict, idx: int) -> CharacterProfile | None:
+    """CSV 행을 CharacterProfile로 변환. 유효하지 않으면 None 반환."""
+    name = (row.get("name") or "").strip()
+    type_label = (row.get("type") or "").strip()
+    dialogue = (row.get("dialog") or "").strip()
+    match_label = (row.get("match") or "").strip()
+
+    if not name or not type_label or not dialogue:
+        print(f"Skipping row {idx} due to empty fields")
+        return None
+
+    return CharacterProfile(name=name, type=type_label, dialog=dialogue, match=match_label or None)
+
+
 def load_catalog(csv_path: Path) -> list[CharacterProfile]:
     if not csv_path.exists():
         raise SystemExit(f"CSV file not found: {csv_path}")
 
-    entries: list[CharacterProfile] = []
     with csv_path.open("r", encoding="utf-8-sig", newline="") as file_obj:
         reader = csv.DictReader(file_obj)
         required = {"name", "type", "dialog"}
         if reader.fieldnames is None or not required.issubset(set(reader.fieldnames)):
             raise SystemExit(f"CSV must contain columns: {', '.join(sorted(required))}")
 
-        for idx, row in enumerate(reader, start=1):
-            name = (row.get("name") or "").strip()
-            type_label = (row.get("type") or "").strip()
-            dialogue = (row.get("dialog") or "").strip()
-            match_label = (row.get("match") or "").strip()
-            if not name or not type_label or not dialogue:
-                print(f"Skipping row {idx} due to empty fields")
-                continue
-            entries.append(
-                CharacterProfile(
-                    name=name,
-                    type=type_label,
-                    dialog=dialogue,
-                    match=match_label or None,
-                )
-            )
+        entries = [
+            profile
+            for idx, row in enumerate(reader, start=1)
+            if (profile := _parse_catalog_row(row, idx)) is not None
+        ]
     return entries
 
 
@@ -182,6 +185,12 @@ async def main() -> None:
         total += len(batch)
     await engine.dispose()
     print(f"Upserted {total} character rows into database")
+
+    # 캐시 무효화 - 새 데이터가 즉시 반영되도록
+    if await invalidate_catalog_cache():
+        print("Cache invalidated successfully")
+    else:
+        print("Cache invalidation skipped (Redis unavailable or disabled)")
 
 
 if __name__ == "__main__":
