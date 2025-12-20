@@ -6,8 +6,13 @@ from pathlib import Path
 
 import pytest
 
-# pytest-asyncio auto mode 설정
-pytest_plugins = ("pytest_asyncio",)
+# pytest-asyncio 조건부 로드 (CI에서 미설치 시 graceful skip)
+try:
+    import pytest_asyncio  # noqa: F401
+
+    pytest_plugins = ("pytest_asyncio",)
+except ImportError:
+    pytest_asyncio = None
 
 # 프로젝트 루트를 PYTHONPATH에 추가
 ROOT_DIR = Path(__file__).resolve().parents[3]
