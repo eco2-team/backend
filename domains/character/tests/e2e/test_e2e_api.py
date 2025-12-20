@@ -3,44 +3,21 @@
 실제 HTTP 요청을 통해 API 엔드포인트를 테스트합니다.
 Service 레이어는 mock하여 API 계층의 동작을 검증합니다.
 
-Test Coverage:
-- HTTP status codes
-- Request/Response serialization
-- Error handling
-- Header validation
-
-Requirements:
-    - pytest-asyncio
-    - httpx
-
 Run:
-    AUTH_DISABLED=true pytest domains/character/tests/test_e2e_api.py -v
+    pytest domains/character/tests/e2e/ -v
 """
 
 from __future__ import annotations
 
-import os
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
+from httpx import AsyncClient
 
-# E2E 테스트는 환경 설정이 필요 - httpx 미설치 시 skip
-httpx = pytest.importorskip("httpx")
-from httpx import AsyncClient  # noqa: E402
-
-# 환경 변수 설정 (앱 로드 전)
-os.environ["AUTH_DISABLED"] = "true"
-os.environ["CHARACTER_AUTH_DISABLED"] = "true"
-os.environ["OTEL_ENABLED"] = "false"
-os.environ["CHARACTER_CACHE_ENABLED"] = "false"
-
-# E2E 테스트 전체에 마커 적용
-pytestmark = pytest.mark.e2e
-
-from domains.character.exceptions import CatalogEmptyError  # noqa: E402
-from domains.character.schemas.catalog import CharacterProfile  # noqa: E402
-from domains.character.schemas.reward import CharacterRewardResponse  # noqa: E402
+from domains.character.exceptions import CatalogEmptyError
+from domains.character.schemas.catalog import CharacterProfile
+from domains.character.schemas.reward import CharacterRewardResponse
 
 
 def create_reward_request_payload(
