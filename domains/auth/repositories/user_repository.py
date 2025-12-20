@@ -50,38 +50,57 @@ class UserRepository:
     async def upsert_from_profile(self, profile: OAuthProfile) -> tuple[User, bool]:
         account = await self.get_account_by_provider(profile.provider, profile.provider_user_id)
         now = now_utc()
-        created_user = False
         normalized_phone = self._normalize_phone(profile.phone_number)
+
         if account:
             self._apply_profile(account, profile, last_login_at=now)
-            user = account.user
+            user, created_user = account.user, False
         else:
-            user = await self._resolve_user_from_profile(profile)
-            if user is None and normalized_phone:
-                user = await self._resolve_user_by_name_phone(profile, normalized_phone)
-            if user is None:
-                user = User(
-                    username=profile.name or profile.nickname,
-                    nickname=profile.nickname or profile.name,
-                    profile_image_url=(
-                        str(profile.profile_image_url) if profile.profile_image_url else None
-                    ),
-                    phone_number=normalized_phone,
-                    last_login_at=now,
-                )
-                self.session.add(user)
-                await self.session.flush()
-                created_user = True
+            user, created_user = await self._resolve_or_create_user(profile, normalized_phone, now)
+            self._link_social_account(user, profile, now)
 
-            account = UserSocialAccount(
-                user_id=user.id,
-                provider=profile.provider,
-                provider_user_id=profile.provider_user_id,
-                email=profile.email,
-                last_login_at=now,
-            )
-            self.session.add(account)
+        self._sync_user_profile(user, profile, normalized_phone, now)
+        await self.session.flush()
+        await self.session.refresh(user)
+        return user, created_user
 
+    async def _resolve_or_create_user(
+        self, profile: OAuthProfile, normalized_phone: Optional[str], now: datetime
+    ) -> tuple[User, bool]:
+        """기존 사용자를 찾거나 새로 생성."""
+        user = await self._resolve_user_from_profile(profile)
+        if user is None and normalized_phone:
+            user = await self._resolve_user_by_name_phone(profile, normalized_phone)
+        if user is not None:
+            return user, False
+
+        user = User(
+            username=profile.name or profile.nickname,
+            nickname=profile.nickname or profile.name,
+            profile_image_url=str(profile.profile_image_url) if profile.profile_image_url else None,
+            phone_number=normalized_phone,
+            last_login_at=now,
+        )
+        self.session.add(user)
+        await self.session.flush()
+        return user, True
+
+    def _link_social_account(self, user: User, profile: OAuthProfile, now: datetime) -> None:
+        """소셜 계정 연결."""
+        account = UserSocialAccount(
+            user_id=user.id,
+            provider=profile.provider,
+            provider_user_id=profile.provider_user_id,
+            email=profile.email,
+            last_login_at=now,
+        )
+        self.session.add(account)
+
+    @staticmethod
+    def _sync_user_profile(
+        user: User, profile: OAuthProfile, normalized_phone: Optional[str], now: datetime
+    ) -> None:
+        """프로필 정보 동기화."""
         user.last_login_at = now
         if profile.nickname:
             user.nickname = profile.nickname
@@ -91,10 +110,6 @@ class UserRepository:
             user.profile_image_url = str(profile.profile_image_url)
         if normalized_phone and not user.phone_number:
             user.phone_number = normalized_phone
-
-        await self.session.flush()
-        await self.session.refresh(user)
-        return user, created_user
 
     async def touch_last_login(self, user_id: uuid.UUID) -> None:
         await self.session.execute(

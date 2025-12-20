@@ -202,6 +202,26 @@ class CharacterService:
         return reward_profile, already_owned, failure_reason, received
 
     @staticmethod
+    def _determine_reward_status(
+        eval_result: EvaluationResult | None,
+        received: bool,
+        already_owned: bool,
+        failure_reason: CharacterRewardFailureReason | None,
+    ) -> str:
+        """리워드 처리 결과에 따른 상태 문자열 결정."""
+        if eval_result and not eval_result.should_evaluate:
+            return "skipped"
+        if eval_result and not eval_result.matches:
+            return "no_match"
+        if already_owned:
+            return "already_owned"
+        if failure_reason:
+            return f"failed_{failure_reason.value}"
+        if received:
+            return "success"
+        return "failed"
+
+    @staticmethod
     def _record_reward_metrics(
         source: str,
         eval_result: EvaluationResult | None = None,
@@ -212,20 +232,10 @@ class CharacterService:
         status: str | None = None,
     ) -> None:
         """리워드 평가 메트릭 기록."""
-        # 상태 결정
         if status is None:
-            if eval_result and not eval_result.should_evaluate:
-                status = "skipped"
-            elif eval_result and not eval_result.matches:
-                status = "no_match"
-            elif already_owned:
-                status = "already_owned"
-            elif failure_reason:
-                status = f"failed_{failure_reason.value}"
-            elif received:
-                status = "success"
-            else:
-                status = "failed"
+            status = CharacterService._determine_reward_status(
+                eval_result, received, already_owned, failure_reason
+            )
 
         REWARD_EVALUATION_TOTAL.labels(status=status, source=source).inc()
 

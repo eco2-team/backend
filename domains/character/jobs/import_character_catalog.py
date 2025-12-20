@@ -71,33 +71,35 @@ def resolve_database_url(cli_value: str | None) -> str:
     return env_value
 
 
+def _parse_catalog_row(row: dict, idx: int) -> CharacterProfile | None:
+    """CSV 행을 CharacterProfile로 변환. 유효하지 않으면 None 반환."""
+    name = (row.get("name") or "").strip()
+    type_label = (row.get("type") or "").strip()
+    dialogue = (row.get("dialog") or "").strip()
+    match_label = (row.get("match") or "").strip()
+
+    if not name or not type_label or not dialogue:
+        print(f"Skipping row {idx} due to empty fields")
+        return None
+
+    return CharacterProfile(name=name, type=type_label, dialog=dialogue, match=match_label or None)
+
+
 def load_catalog(csv_path: Path) -> list[CharacterProfile]:
     if not csv_path.exists():
         raise SystemExit(f"CSV file not found: {csv_path}")
 
-    entries: list[CharacterProfile] = []
     with csv_path.open("r", encoding="utf-8-sig", newline="") as file_obj:
         reader = csv.DictReader(file_obj)
         required = {"name", "type", "dialog"}
         if reader.fieldnames is None or not required.issubset(set(reader.fieldnames)):
             raise SystemExit(f"CSV must contain columns: {', '.join(sorted(required))}")
 
-        for idx, row in enumerate(reader, start=1):
-            name = (row.get("name") or "").strip()
-            type_label = (row.get("type") or "").strip()
-            dialogue = (row.get("dialog") or "").strip()
-            match_label = (row.get("match") or "").strip()
-            if not name or not type_label or not dialogue:
-                print(f"Skipping row {idx} due to empty fields")
-                continue
-            entries.append(
-                CharacterProfile(
-                    name=name,
-                    type=type_label,
-                    dialog=dialogue,
-                    match=match_label or None,
-                )
-            )
+        entries = [
+            profile
+            for idx, row in enumerate(reader, start=1)
+            if (profile := _parse_catalog_row(row, idx)) is not None
+        ]
     return entries
 
 
