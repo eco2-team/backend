@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -84,9 +85,26 @@ func extractRequestInfo(req *authv3.CheckRequest) (method, path, host, origin st
 		method = http.Method
 		path = http.Path
 		host = http.Host
-		origin = http.Headers["origin"]
+		// Case-insensitive origin header lookup (Envoy may pass as "Origin" or "origin")
+		origin = getHeaderCaseInsensitive(http.Headers, "origin")
 	}
 	return
+}
+
+// getHeaderCaseInsensitive finds a header value with case-insensitive key matching
+func getHeaderCaseInsensitive(headers map[string]string, key string) string {
+	// Try exact match first (most common case)
+	if val, ok := headers[key]; ok {
+		return val
+	}
+	// Fallback to case-insensitive search
+	lowerKey := strings.ToLower(key)
+	for k, v := range headers {
+		if strings.ToLower(k) == lowerKey {
+			return v
+		}
+	}
+	return ""
 }
 
 // httpHeaderCarrier adapts HTTP headers from CheckRequest for trace propagation
