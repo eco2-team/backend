@@ -23,6 +23,11 @@ import (
 	"github.com/eco2-team/backend/domains/ext-authz/internal/metrics"
 )
 
+// CORSConfig holds CORS configuration for deny responses
+type CORSConfig struct {
+	AllowedOrigins map[string]bool
+}
+
 // ============================================================================
 // Interfaces (Dependency Inversion)
 // ============================================================================
@@ -42,32 +47,44 @@ type BlacklistStore interface {
 // ============================================================================
 
 type AuthorizationServer struct {
-	verifier TokenVerifier
-	store    BlacklistStore
-	logger   *logging.Logger
+	verifier   TokenVerifier
+	store      BlacklistStore
+	logger     *logging.Logger
+	corsConfig *CORSConfig
 }
 
-func New(verifier TokenVerifier, store BlacklistStore) (*AuthorizationServer, error) {
+func New(verifier TokenVerifier, store BlacklistStore, allowedOrigins []string) (*AuthorizationServer, error) {
 	if verifier == nil {
 		return nil, errors.New(constants.ErrVerifierRequired)
 	}
 	if store == nil {
 		return nil, errors.New(constants.ErrStoreRequired)
 	}
+
+	// Build CORS config as a set for O(1) lookup
+	corsConfig := &CORSConfig{
+		AllowedOrigins: make(map[string]bool, len(allowedOrigins)),
+	}
+	for _, origin := range allowedOrigins {
+		corsConfig.AllowedOrigins[origin] = true
+	}
+
 	return &AuthorizationServer{
-		verifier: verifier,
-		store:    store,
-		logger:   logging.Default(),
+		verifier:   verifier,
+		store:      store,
+		logger:     logging.Default(),
+		corsConfig: corsConfig,
 	}, nil
 }
 
-// extractRequestInfo extracts method, path, and host from the request
-func extractRequestInfo(req *authv3.CheckRequest) (method, path, host string) {
+// extractRequestInfo extracts method, path, host, and origin from the request
+func extractRequestInfo(req *authv3.CheckRequest) (method, path, host, origin string) {
 	if req.Attributes != nil && req.Attributes.Request != nil && req.Attributes.Request.Http != nil {
 		http := req.Attributes.Request.Http
 		method = http.Method
 		path = http.Path
 		host = http.Host
+		origin = http.Headers["origin"]
 	}
 	return
 }
@@ -154,7 +171,13 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 	metrics.RequestsInFlight.Inc()
 	defer metrics.RequestsInFlight.Dec()
 
-	method, path, host := extractRequestInfo(req)
+	method, path, host, origin := extractRequestInfo(req)
+
+	// Check if origin is allowed for CORS headers in deny responses
+	allowedOrigin := ""
+	if origin != "" && s.corsConfig.AllowedOrigins[origin] {
+		allowedOrigin = origin
+	}
 
 	// Extract trace context from HTTP headers in CheckRequest body
 	// (Istio passes trace headers here, not in gRPC metadata)
@@ -198,7 +221,7 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 		recordMetrics(metrics.ResultDeny, metrics.ReasonMissingHeader)
 		span.SetStatus(codes.Error, constants.ReasonMalformedRequest)
 		span.SetAttributes(attribute.String("authz.result", "deny"), attribute.String("authz.reason", "malformed_request"))
-		return denyResponse(typev3.StatusCode_BadRequest, constants.MsgMalformedRequest), nil
+		return denyResponse(typev3.StatusCode_BadRequest, constants.MsgMalformedRequest, allowedOrigin), nil
 	}
 
 	authHeader, ok := req.Attributes.Request.Http.Headers[constants.HeaderAuthorization]
@@ -207,7 +230,7 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 		recordMetrics(metrics.ResultDeny, metrics.ReasonMissingHeader)
 		span.SetStatus(codes.Error, constants.ReasonMissingHeader)
 		span.SetAttributes(attribute.String("authz.result", "deny"), attribute.String("authz.reason", "missing_auth_header"))
-		return denyResponse(typev3.StatusCode_Unauthorized, constants.MsgMissingAuthHeader), nil
+		return denyResponse(typev3.StatusCode_Unauthorized, constants.MsgMissingAuthHeader, allowedOrigin), nil
 	}
 
 	// 2. Verify JWT
@@ -222,7 +245,7 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 		span.RecordError(err)
 		span.SetStatus(codes.Error, constants.ReasonInvalidToken)
 		span.SetAttributes(attribute.String("authz.result", "deny"), attribute.String("authz.reason", "invalid_token"))
-		return denyResponse(typev3.StatusCode_Unauthorized, constants.MsgInvalidToken), nil
+		return denyResponse(typev3.StatusCode_Unauthorized, constants.MsgInvalidToken, allowedOrigin), nil
 	}
 
 	// Extract user info for logging
@@ -244,7 +267,7 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 			span.SetStatus(codes.Error, constants.ReasonRedisError)
 			span.SetAttributes(attribute.String("authz.result", "deny"), attribute.String("authz.reason", "redis_error"))
 			// Fail-closed: Deny on internal error
-			return denyResponse(typev3.StatusCode_InternalServerError, constants.MsgInternalError), nil
+			return denyResponse(typev3.StatusCode_InternalServerError, constants.MsgInternalError, allowedOrigin), nil
 		}
 		if blacklisted {
 			s.logger.AuthDenyWithUserAndTrace(method, path, host, userID, jti, constants.ReasonBlacklisted, time.Since(start), nil, traceInfo)
@@ -252,7 +275,7 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 			metrics.BlacklistHits.Inc()
 			span.SetStatus(codes.Error, constants.ReasonBlacklisted)
 			span.SetAttributes(attribute.String("authz.result", "deny"), attribute.String("authz.reason", "blacklisted"))
-			return denyResponse(typev3.StatusCode_Forbidden, constants.MsgBlacklisted), nil
+			return denyResponse(typev3.StatusCode_Forbidden, constants.MsgBlacklisted, allowedOrigin), nil
 		}
 	}
 
@@ -295,7 +318,27 @@ func allowResponse(userID, provider string) *authv3.CheckResponse {
 	}
 }
 
-func denyResponse(statusCode typev3.StatusCode, body string) *authv3.CheckResponse {
+func denyResponse(statusCode typev3.StatusCode, body string, allowedOrigin string) *authv3.CheckResponse {
+	var headers []*corev3.HeaderValueOption
+
+	// Add CORS headers if origin is allowed (prevents CORS error on 401/403)
+	if allowedOrigin != "" {
+		headers = []*corev3.HeaderValueOption{
+			{
+				Header: &corev3.HeaderValue{
+					Key:   "Access-Control-Allow-Origin",
+					Value: allowedOrigin,
+				},
+			},
+			{
+				Header: &corev3.HeaderValue{
+					Key:   "Access-Control-Allow-Credentials",
+					Value: "true",
+				},
+			},
+		}
+	}
+
 	return &authv3.CheckResponse{
 		Status: &status.Status{
 			Code: int32(code.Code_PERMISSION_DENIED),
@@ -305,7 +348,8 @@ func denyResponse(statusCode typev3.StatusCode, body string) *authv3.CheckRespon
 				Status: &typev3.HttpStatus{
 					Code: statusCode,
 				},
-				Body: body,
+				Headers: headers,
+				Body:    body,
 			},
 		},
 	}

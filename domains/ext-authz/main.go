@@ -103,11 +103,12 @@ func main() {
 		slog.String("issuer", cfg.JWTIssuer),
 	)
 
-	authServer, err := server.New(verifier, redisStore)
+	authServer, err := server.New(verifier, redisStore, cfg.CORSAllowedOrigins)
 	if err != nil {
 		logger.Error("Failed to create auth server", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+	logger.Info("CORS allowed origins configured", slog.Any("origins", cfg.CORSAllowedOrigins))
 
 	// Start metrics server
 	go func() {

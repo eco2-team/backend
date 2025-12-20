@@ -43,7 +43,7 @@ def find_matching_json(classification_result: dict) -> Optional[str]:
 
         if file_path.exists():
             return str(file_path)
-    print("RAG")
+
     # 3) 매칭 실패
     return None
 
