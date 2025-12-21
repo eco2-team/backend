@@ -1,12 +1,40 @@
+---
 # Jaeger Collector에 대한 mTLS 비활성화
-# Jaeger는 sidecar가 없으므로 plain gRPC로 통신해야 함
+# Jaeger는 sidecar가 없으므로 plain gRPC/HTTP로 통신해야 함
+---
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
   name: jaeger-collector-mtls-disable
   namespace: istio-system
 spec:
-  host: jaeger-collector.istio-system.svc.cluster.local
+  # ClusterIP 서비스 사용 (OTLP, Zipkin 트레이스 수집)
+  host: jaeger-collector-clusterip.istio-system.svc.cluster.local
   trafficPolicy:
     tls:
       mode: DISABLE
+    connectionPool:
+      tcp:
+        connectTimeout: 10s
+        maxConnections: 100
+      http:
+        h2UpgradePolicy: UPGRADE
+        http2MaxRequests: 1000
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: jaeger-query-mtls-disable
+  namespace: istio-system
+spec:
+  # ClusterIP 서비스 사용 (UI 및 API 쿼리)
+  host: jaeger-query-clusterip.istio-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+    connectionPool:
+      tcp:
+        connectTimeout: 10s
+      http:
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 100

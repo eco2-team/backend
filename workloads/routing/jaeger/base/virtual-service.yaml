@@ -14,6 +14,12 @@ spec:
         prefix: /
     route:
     - destination:
-        host: jaeger-query.istio-system.svc.cluster.local
+        # ClusterIP 서비스 사용 (Headless 대신 안정적인 연결)
+        host: jaeger-query-clusterip.istio-system.svc.cluster.local
         port:
           number: 16686
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: connect-failure,reset,retriable-4xx,503
