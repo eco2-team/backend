@@ -1,0 +1,88 @@
+---
+# RabbitMQ Exchanges 정의
+# Celery Task + Event Broadcasting용 Exchange
+---
+# 1. Scan Pipeline Exchange (Direct)
+# 라우팅 키: scan.vision, scan.rule, scan.answer
+apiVersion: rabbitmq.com/v1beta1
+kind: Exchange
+metadata:
+  name: scan-direct
+  namespace: rabbitmq
+spec:
+  name: scan.direct
+  type: direct
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# 2. Reward Exchange (Direct)
+# 라우팅 키: reward.character
+apiVersion: rabbitmq.com/v1beta1
+kind: Exchange
+metadata:
+  name: reward-direct
+  namespace: rabbitmq
+spec:
+  name: reward.direct
+  type: direct
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# 3. Dead Letter Exchange (Direct)
+# 실패한 메시지 수집용
+apiVersion: rabbitmq.com/v1beta1
+kind: Exchange
+metadata:
+  name: dlx
+  namespace: rabbitmq
+spec:
+  name: dlx
+  type: direct
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# 4. Auth Blacklist Exchange (Fanout)
+# ext-authz 로컬 캐시 동기화용 - 모든 인스턴스가 수신
+apiVersion: rabbitmq.com/v1beta1
+kind: Exchange
+metadata:
+  name: authz-fanout
+  namespace: rabbitmq
+spec:
+  name: authz.fanout
+  type: fanout
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# 5. Celery Default Exchange (Topic)
+# Celery 기본 Exchange (celery.* 라우팅)
+apiVersion: rabbitmq.com/v1beta1
+kind: Exchange
+metadata:
+  name: celery-default
+  namespace: rabbitmq
+spec:
+  name: celery
+  type: topic
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq

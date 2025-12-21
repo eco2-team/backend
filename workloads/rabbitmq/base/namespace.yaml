@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rabbitmq
+  labels:
+    tier: platform
+    component: rabbitmq
+    istio-injection: enabled  # mTLS + Kiali 가시성

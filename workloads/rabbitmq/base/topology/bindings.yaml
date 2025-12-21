@@ -1,0 +1,165 @@
+---
+# RabbitMQ Bindings 정의
+# Exchange → Queue 연결
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Scan Pipeline Bindings
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: scan-vision-binding
+  namespace: rabbitmq
+spec:
+  source: scan.direct
+  destination: scan.vision
+  destinationType: queue
+  routingKey: scan.vision
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: scan-rule-binding
+  namespace: rabbitmq
+spec:
+  source: scan.direct
+  destination: scan.rule
+  destinationType: queue
+  routingKey: scan.rule
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: scan-answer-binding
+  namespace: rabbitmq
+spec:
+  source: scan.direct
+  destination: scan.answer
+  destinationType: queue
+  routingKey: scan.answer
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Reward Bindings
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: reward-character-binding
+  namespace: rabbitmq
+spec:
+  source: reward.direct
+  destination: reward.character
+  destinationType: queue
+  routingKey: reward.character
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Dead Letter Bindings
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: dlq-scan-vision-binding
+  namespace: rabbitmq
+spec:
+  source: dlx
+  destination: dlq.scan.vision
+  destinationType: queue
+  routingKey: dlq.scan.vision
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: dlq-scan-rule-binding
+  namespace: rabbitmq
+spec:
+  source: dlx
+  destination: dlq.scan.rule
+  destinationType: queue
+  routingKey: dlq.scan.rule
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: dlq-scan-answer-binding
+  namespace: rabbitmq
+spec:
+  source: dlx
+  destination: dlq.scan.answer
+  destinationType: queue
+  routingKey: dlq.scan.answer
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: dlq-reward-binding
+  namespace: rabbitmq
+spec:
+  source: dlx
+  destination: dlq.reward
+  destinationType: queue
+  routingKey: dlq.reward
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: dlq-celery-binding
+  namespace: rabbitmq
+spec:
+  source: dlx
+  destination: dlq.celery
+  destinationType: queue
+  routingKey: dlq.celery
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Celery Default Binding
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: celery-default-binding
+  namespace: rabbitmq
+spec:
+  source: celery
+  destination: celery
+  destinationType: queue
+  routingKey: celery
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq

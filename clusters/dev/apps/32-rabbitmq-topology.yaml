@@ -1,0 +1,36 @@
+# RabbitMQ Topology CRs (Vhost, Queue, Exchange, Binding)
+# Sync Wave 32: RabbitmqCluster(31) 이후, APIs(40) 이전
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-rabbitmq-topology
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '32'
+  labels:
+    env: dev
+    tier: platform
+    component: rabbitmq-topology
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/mng990/SeSACTHON-backend.git
+    targetRevision: develop
+    path: workloads/rabbitmq/dev/topology
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rabbitmq
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

@@ -1,0 +1,16 @@
+---
+# RabbitMQ Vhost 정의
+# Celery Task Queue를 위한 기본 vhost
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Vhost
+metadata:
+  name: eco2-vhost
+  namespace: rabbitmq
+spec:
+  name: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+  # Celery 기본 vhost: /celery (또는 / 사용)
+  # 여기서는 eco2로 명명하여 격리

@@ -14,4 +14,5 @@ resources:
 - allow-scan-egress-to-character.yaml
 - allow-ingress-to-character-from-gateway.yaml
 - allow-character-to-my-grpc.yaml
+- allow-rabbitmq-access.yaml
 # - default-deny-all.yaml

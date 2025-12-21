@@ -1,0 +1,45 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: rabbitmq
+
+resources:
+- ../base
+
+commonLabels:
+  env: prod
+
+# 운영 환경: 3노드 Quorum Cluster (Sidecar ~128Mi 포함)
+patches:
+- patch: |
+    - op: replace
+      path: /spec/replicas
+      value: 3
+    - op: replace
+      path: /spec/persistence/storage
+      value: 50Gi
+    - op: replace
+      path: /spec/resources/requests/memory
+      value: 2Gi
+    - op: replace
+      path: /spec/resources/limits/memory
+      value: 3Gi
+    - op: add
+      path: /spec/rabbitmq/additionalConfig
+      value: |
+        # 기본 설정
+        default_vhost = /
+        tcp_listen_options.backlog = 256
+        tcp_listen_options.nodelay = true
+        vm_memory_high_watermark.relative = 0.7
+        vm_memory_high_watermark_paging_ratio = 0.8
+
+        # 프로덕션 클러스터 설정
+        cluster_formation.target_cluster_size_hint = 3
+        queue_leader_locator = balanced
+
+        # 미러링 정책 (Quorum Queue 기본 사용)
+        cluster_partition_handling = pause_minority
+  target:
+    kind: RabbitmqCluster
+    name: eco2-rabbitmq

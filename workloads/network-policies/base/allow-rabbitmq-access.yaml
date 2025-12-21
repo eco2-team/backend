@@ -1,0 +1,68 @@
+# RabbitMQ 접근 허용 Network Policy
+# AMQP (5672), Management (15672), Prometheus (15692)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-rabbitmq-access
+  namespace: rabbitmq
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: rabbitmq
+  policyTypes:
+  - Ingress
+  ingress:
+    # AMQP 포트 (5672) - API 서비스 + Celery Workers
+  - from:
+        # scan-api, scan-worker
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: scan
+        # character-api (reward consumer)
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: character
+        # auth, ext-authz (blacklist event)
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: auth
+        # chat-api (AI pipeline)
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: chat
+        # RabbitMQ 내부 클러스터 통신
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: rabbitmq
+    ports:
+    - protocol: TCP
+      port: 5672
+    # Management UI (15672) - 모니터링 접근
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+    ports:
+    - protocol: TCP
+      port: 15672
+    # Prometheus 메트릭 (15692)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+    ports:
+    - protocol: TCP
+      port: 15692
+    # Erlang Distribution (25672) - 클러스터 노드 간 통신
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: rabbitmq
+    ports:
+    - protocol: TCP
+      port: 25672
+    - protocol: TCP
+      port: 4369      # epmd
