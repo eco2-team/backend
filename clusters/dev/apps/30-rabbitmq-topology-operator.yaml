@@ -1,0 +1,42 @@
+# RabbitMQ Messaging Topology Operator
+# Queue, Exchange, Binding을 Kubernetes CRD로 관리
+# 공식 문서: https://github.com/rabbitmq/messaging-topology-operator
+# Sync Wave 30: Cluster Operator(29) 이후
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-rabbitmq-topology-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '30'
+  labels:
+    env: dev
+    tier: platform
+    component: rabbitmq-topology-operator
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # RabbitMQ 공식 Messaging Topology Operator manifest
+    repoURL: https://github.com/rabbitmq/messaging-topology-operator
+    targetRevision: v1.15.0  # 2024-12 최신 안정 버전
+    path: config/installation/cert-manager  # cert-manager 통합 버전
+    kustomize:
+      namespace: rabbitmq-system
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rabbitmq-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true    # CRD 충돌 방지
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

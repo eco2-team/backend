@@ -1,0 +1,79 @@
+# cert-manager
+# Kubernetes 클러스터 내 TLS 인증서 자동 관리
+# RabbitMQ Topology Operator, Istio mTLS 등에서 사용
+# Sync Wave 08: Network Policies(07) 이후, Secrets Operator(10) 이전
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-cert-manager
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '8'
+  labels:
+    env: dev
+    tier: platform
+    component: cert-manager
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://charts.jetstack.io
+    chart: cert-manager
+    targetRevision: v1.16.2  # 2024-12 최신 안정 버전
+    helm:
+      values: |
+        # CRD 설치 (필수)
+        crds:
+          enabled: true
+
+        # 리소스 제한
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+
+        # Webhook 설정
+        webhook:
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+
+        # CA Injector 설정
+        cainjector:
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 256Mi
+
+        # Prometheus 메트릭
+        prometheus:
+          enabled: true
+          servicemonitor:
+            enabled: false  # 필요시 활성화
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true    # CRD 충돌 방지
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

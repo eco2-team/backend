@@ -1,0 +1,36 @@
+# RabbitmqCluster CR
+# Sync Wave 31: Topology Operator(30) 이후, Topology CR(32) 이전
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-rabbitmq-cluster
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '31'
+  labels:
+    env: dev
+    tier: platform
+    component: rabbitmq-cluster
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/mng990/SeSACTHON-backend.git
+    targetRevision: develop
+    path: workloads/rabbitmq/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rabbitmq
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

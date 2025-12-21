@@ -1,0 +1,42 @@
+# RabbitMQ Cluster Operator
+# 공식 Operator: https://github.com/rabbitmq/cluster-operator
+# Sync Wave 29: Redis(28) 이후, RabbitmqCluster CR(31) 이전
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-rabbitmq-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '29'
+  labels:
+    env: dev
+    tier: platform
+    component: rabbitmq-operator
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # RabbitMQ 공식 Cluster Operator manifest
+    repoURL: https://github.com/rabbitmq/cluster-operator
+    targetRevision: v2.11.0  # 2024-12 최신 안정 버전
+    path: config/manager
+    kustomize:
+      # 필요시 namespace 오버라이드
+      namespace: rabbitmq-system
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rabbitmq-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true    # CRD 충돌 방지
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

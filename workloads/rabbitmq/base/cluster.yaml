@@ -1,0 +1,111 @@
+# RabbitmqCluster CR
+# 공식 문서: https://www.rabbitmq.com/kubernetes/operator/using-operator
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: eco2-rabbitmq
+  namespace: rabbitmq
+  labels:
+    app: rabbitmq
+    tier: platform
+spec:
+  # 개발: 단일 노드, 프로덕션: 3노드 클러스터 (kustomize overlay)
+  replicas: 1
+
+  # 이미지 설정
+  image: rabbitmq:4.0-management  # Management Plugin 포함
+
+  # 리소스 제한 (Sidecar 포함 고려)
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+  # 영속성 설정
+  persistence:
+    storageClassName: gp3
+    storage: 10Gi
+
+  # RabbitMQ 설정
+  rabbitmq:
+    additionalConfig: |
+      # 기본 vhost
+      default_vhost = /
+
+      # 커넥션 설정
+      tcp_listen_options.backlog = 128
+      tcp_listen_options.nodelay = true
+
+      # 메모리 관리
+      vm_memory_high_watermark.relative = 0.7
+      vm_memory_high_watermark_paging_ratio = 0.8
+
+      # Quorum Queue 설정 (내구성 보장)
+      cluster_formation.target_cluster_size_hint = 1
+      queue_leader_locator = balanced
+
+      # 메시지 TTL 기본값 (24시간)
+      # consumer_timeout = 86400000
+
+      # Dead Letter Exchange 활성화
+      # (Topology Operator에서 설정)
+
+    # 추가 플러그인
+    additionalPlugins:
+    - rabbitmq_management
+    - rabbitmq_prometheus
+    - rabbitmq_shovel    # 메시지 이동 (DLQ → 원래 큐)
+    - rabbitmq_shovel_management
+
+  # 노드 배치
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: infra-type
+            operator: In
+            values:
+            - rabbitmq
+
+  # Taint Toleration
+  tolerations:
+  - key: domain
+    operator: Equal
+    value: integration
+    effect: NoSchedule
+
+  # Service 설정
+  service:
+    type: ClusterIP
+    annotations:
+      prometheus.io/scrape: 'true'
+      prometheus.io/port: '15692'
+
+  # TLS 설정 (선택, 나중에 활성화)
+  # tls:
+  #   secretName: rabbitmq-tls-secret
+
+  # 오버라이드 (환경별 Secret 참조)
+  override:
+    statefulSet:
+      spec:
+        template:
+          spec:
+            containers:
+            - name: rabbitmq
+              env:
+                  # 기본 사용자 비밀번호 (External Secret에서 주입)
+              - name: RABBITMQ_DEFAULT_USER
+                valueFrom:
+                  secretKeyRef:
+                    name: rabbitmq-default-user
+                    key: username
+              - name: RABBITMQ_DEFAULT_PASS
+                valueFrom:
+                  secretKeyRef:
+                    name: rabbitmq-default-user
+                    key: password
