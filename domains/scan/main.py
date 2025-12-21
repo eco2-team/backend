@@ -22,6 +22,9 @@ from domains.scan.core.tracing import (
 )
 from domains.scan.metrics import register_metrics
 
+# Task queue state manager cleanup
+from domains._shared.taskqueue.state import close_state_manager
+
 # 구조화된 로깅 설정 (ECS JSON 포맷)
 configure_logging()
 
@@ -42,6 +45,7 @@ async def lifespan(app: FastAPI):
     yield
     # Cleanup on shutdown
     await close_character_client()
+    await close_state_manager()
     shutdown_tracing()
 
 
