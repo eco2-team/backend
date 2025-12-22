@@ -8,97 +8,115 @@
 - Self-managed Kubernetes, ArgoCD/Helm-charts/Kustomize 기반 GitOps Sync-wave로 개발 및 운영하는 14-Nodes 마이크로서비스 플랫폼입니다.
 - AI 폐기물 분류·근처 제로웨이스트샵 안내·챗봇 등 도메인 API와 데이터 계층, AI-Classification 파이프라인, GitOps 파이프라인을 모노레포로 관리합니다.
 - 정상 배포 중: [https://frontend.dev.growbin.app](https://frontend.dev.growbin.app)
-- kiali: [https://kiali.dev.growbin.app](https://kiali.dev.growbin.app)
-- Jaeger: [https://jaeger.dev.growbin.app](https://jaeger.dev.growbin.app)
 
 ---
 
 ## Service Architecture
 
 ```mermaid
-graph TD
-    %% External
-    User("User / Client") -->|HTTPS| R53[Route 53]
-    R53 -->|Alias| ALB[AWS ALB]
+flowchart TB
+    subgraph External["외부"]
+        User["👤 User/Client"]
+        Route53["Route 53<br/>(DNS)"]
+        ALB["AWS ALB<br/>(HTTPS 443)"]
+    end
 
-    subgraph "AWS VPC"
-        ALB -->|Forward| TG["Target Group"]
+    subgraph AWS_VPC["AWS VPC"]
+        subgraph K8s["Kubernetes Cluster"]
 
-        subgraph "Kubernetes Cluster"
-
-            subgraph "Control Plane Layer"
-                subgraph "Istio CP"
-                    Istiod[["Istiod"]]
-                end
-
-                subgraph "Platform CP"
-                    ArgoCD[["ArgoCD"]]
-                    LBC["AWS LB Controller"]
+            subgraph CP["Control Plane Layer"]
+                subgraph PlatformCP["Platform CP"]
+                    ArgoCD["ArgoCD"]
+                    ALBC["AWS LB<br/>Controller"]
                     ExtDNS["ExternalDNS"]
-                    ESO["External Secrets"]
+                    ExtSecrets["External<br/>Secrets"]
+                end
+
+                subgraph IstioCP["Istio CP"]
+                    Istiod["Istiod"]
                 end
             end
 
-            subgraph "Observability"
-                Prom["Prometheus Stack"]
-                Graf["Grafana"]
+            subgraph DP["Data Plane Layer"]
+                subgraph Ingress["Ingress (istio-system)"]
+                    IG["Istio Ingress Gateway<br/>(Envoy)"]
+                    EF["EnvoyFilter<br/>(cookie→header)"]
+                    VS["VirtualService<br/>Routing"]
+                end
+
+                subgraph AuthZ["AuthN/AuthZ (auth ns)"]
+                    ExtAuthz["ext-authz<br/>(Go, gRPC:50051)"]
+                end
+
+                subgraph Services["Microservices (Envoy Sidecars)"]
+                    Auth["auth-api<br/>:8000"]
+                    My["my-api<br/>:8000"]
+                    Scan["scan-api<br/>:8000"]
+                    Character["character-api<br/>:8000"]
+                    Location["location-api<br/>:8000"]
+                    Image["image-api<br/>:8000"]
+                    Chat["chat-api<br/>:8000"]
+                end
             end
 
-            subgraph "Data Plane Layer"
-                subgraph "Ingress"
-                    TG -->|NodePort| IGW["Istio Ingress Gateway<br>(Envoy)"]
-                    VS["VirtualService Routing"]
-                end
+            subgraph Data["Data Infrastructure"]
+                Redis[("Redis<br/>(cache/blacklist)")]
+                PostgreSQL[("PostgreSQL<br/>(database)")]
+            end
 
-                subgraph "Service Mesh"
-                    Apps["Microservices All with Envoy Sidecars"]
-                end
-
-                subgraph "Data Infrastructure"
-                    PG[("PostgreSQL")]
-                    Redis[("Redis")]
-                end
+            subgraph Obs["Observability"]
+                Prometheus["Prometheus"]
+                Grafana["Grafana"]
             end
         end
     end
 
-    %% Routing
-    IGW ==> VS
-    VS -->|mTLS| Apps
-    VS -.->|Route| Graf
+    %% External Flow
+    User -->|HTTPS| Route53
+    Route53 -->|Alias| ALB
+    ALB -->|Forward| IG
 
-    %% Data Connections
-    Apps --> PG & Redis
-    Graf -->|Query| Prom
+    %% Control Plane
+    ArgoCD -.->|Sync| K8s
+    ALBC -.->|AWS API| ALB
+    ExtDNS -.->|AWS API| Route53
+    Istiod -.->|xDS| IG
+    Istiod -.->|xDS| Services
 
-    %% Config & Sync Flow (Simplified)
-    Istiod -.->|xDS| IGW & Apps
-    ArgoCD -.->|Sync| Istiod & Apps
-    Prom -.->|Scrape| IGW & Apps
-    ESO -.->|Secrets| Apps
+    %% Data Plane Flow
+    IG --> EF
+    EF --> VS
+    VS -->|AuthorizationPolicy| ExtAuthz
+    ExtAuthz -->|Blacklist Check| Redis
 
-    %% AWS Interactions
-    LBC -.->|AWS API| ALB & TG
-    ExtDNS -.->|AWS API| R53
+    VS --> Auth
+    VS --> My
+    VS --> Scan
+    VS --> Character
+    VS --> Location
+    VS --> Image
+    VS --> Chat
 
-    %% Styling
-    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:white;
-    classDef control fill:#326CE5,stroke:#fff,stroke-width:2px,color:white;
-    classDef platform fill:#326CE5,stroke:#fff,stroke-width:2px,color:white,stroke-dasharray: 5 5;
-    classDef ingress fill:#4D27AA,stroke:#fff,stroke-width:2px,color:white;
-    classDef service fill:#76B900,stroke:#333,stroke-width:1px,color:white;
-    classDef data fill:#336791,stroke:#fff,stroke-width:2px,color:white;
-    classDef observe fill:#E6522C,stroke:#fff,stroke-width:2px,color:white;
-    classDef user fill:#666,stroke:#333,stroke-width:2px,color:white;
+    %% Data Access
+    Auth --> PostgreSQL
+    Auth --> Redis
+    My --> PostgreSQL
+    Scan --> PostgreSQL
+    Character --> PostgreSQL
+    Location --> PostgreSQL
+    Image --> PostgreSQL
+    Chat --> PostgreSQL
 
-    class R53,ALB,TG aws;
-    class Istiod,ArgoCD control;
-    class LBC,ExtDNS,ESO platform;
-    class IGW,VS ingress;
-    class Apps service;
-    class PG,Redis data;
-    class Prom,Graf observe;
-    class User user;
+    %% Observability
+    Prometheus -.->|Scrape| Services
+    Prometheus -.->|Scrape| ExtAuthz
+    Grafana -.->|Query| Prometheus
+
+    classDef external fill:#f9f,stroke:#333,stroke-width:2px
+    classDef cp fill:#bbf,stroke:#333,stroke-width:2px
+    classDef dp fill:#bfb,stroke:#333,stroke-width:2px
+    classDef data fill:#fbb,stroke:#333,stroke-width:2px
+    classDef obs fill:#ffb,stroke:#333,stroke-width:2px
 ```
 
 
@@ -357,10 +375,10 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 
 ### Troubleshooting
 
-| 이슈 | 증상 & 해결 | 
+| 이슈 | 증상 & 해결 |
 |------|------------|
-| **Istio Webhook Sync Error** | ArgoCD Sync 시 `istiod-default-validator`가 `OutOfSync` 및 `Deleting` 상태 반복 → `ignoreDifferences`에 `failurePolicy` 추가하여 Istio의 런타임 패치 무시 설정 | 
-| **NetworkPolicy Egress 차단** | `allow-istiod` 정책 적용 후 `my`, `chat` 등 서비스가 DB/DNS 접속 실패 (`ConnectionRefused`, `i/o timeout`) → `allow-dns`, `allow-database-access` 정책을 모든 애플리케이션 네임스페이스로 확장 | 
+| **Istio Webhook Sync Error** | ArgoCD Sync 시 `istiod-default-validator`가 `OutOfSync` 및 `Deleting` 상태 반복 → `ignoreDifferences`에 `failurePolicy` 추가하여 Istio의 런타임 패치 무시 설정 |
+| **NetworkPolicy Egress 차단** | `allow-istiod` 정책 적용 후 `my`, `chat` 등 서비스가 DB/DNS 접속 실패 (`ConnectionRefused`, `i/o timeout`) → `allow-dns`, `allow-database-access` 정책을 모든 애플리케이션 네임스페이스로 확장 |
 | **Auth OAuth 콜백 리다이렉트 실패** | OAuth 성공 후에도 API JSON 응답에서 멈추고 `.growbin.app` 외 서브도메인으로 쿠키가 전달되지 않음 → `X-Frontend-Origin` 헤더 기반 리다이렉트 분기 |
 | **OAuth Provider HTTPS egress 차단** | Auth/Scan/Chat 파드가 외부 OAuth 엔드포인트 연결 실패 → `allow-external-https` 정책으로 TCP 443 egress 허용 |
 | **ArgoCD Deployment CrashLoopBackOff** | Ansible의 Deployment 직접 패치 방식 충돌 → ConfigMap 기반 `server.insecure` 설정으로 전환 |
@@ -384,17 +402,6 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 
 ---
 
-## API Docs
-- [Auth](https://api.dev.growbin.app/api/v1/auth/docs)
-- [Locations](https://api.dev.growbin.app/api/v1/locations/docs)
-- [Scan](https://api.dev.growbin.app/api/v1/scan/docs)
-- [Chat](https://api.dev.growbin.app/api/v1/chat/docs)
-- [Images](https://api.dev.growbin.app/api/v1/images/docs)
-- [My](https://api.dev.growbin.app/api/v1/user/docs)
-- [Character](https://api.dev.growbin.app/api/v1/character/docs#/)
-
----
-
 ## Article
 
 - [이코에코 GitOps 구축기 #1 클러스터 부트스트랩](https://rooftopsnow.tistory.com/8)
@@ -410,6 +417,8 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 - [이코에코(Eco²) Service Mesh #2 내부 통신을 위한 gRPC 마이그레이션](https://rooftopsnow.tistory.com/20)
 - [이코에코(Eco²) Auth Offloading: ext-authz 서버 개발기 (Go, gRPC)](https://rooftopsnow.tistory.com/21)
 - [이코에코(Eco²) Auth Offloading: 도메인 공통 모듈 제거](https://rooftopsnow.tistory.com/22)
+- [이코에코(Eco²) ext-authz: AuthN/AuthZ 검증 엔진 Stress Test](https://rooftopsnow.tistory.com/23)
+- [이코에코(Eco²) ext-authz 성능 튜닝: Redis PoolSize, HPA](https://rooftopsnow.tistory.com/24)
 
 ---
 
@@ -422,3 +431,9 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 - ✅ API 개발 완료, 프론트-백-AI 연동 완료
 - ✅ Istio Migration 완료
 - ✅ gRPC Migration 완료
+- ✅ Auth-Offloading 완료, 도메인별 독립성 확보 (코드레벨)
+- ✅ ext-authz 성능 튜닝
+     - [Grafana 대시보드(snapshot)](https://snapshots.raintank.io/dashboard/snapshot/1qhkHr5rWubb29VtWCAXYB66bHMmN5Ad?orgId=0)
+     - PoolSize: Idle=250, Max=500, HPA: 3-5, cpu(request): 100m, memory(request): 64Mi, cpu(limits): 500m, memory(limits): 256Mi
+     - 테스트 환경: 2500 users, 250 ramp-ups, 30m, wait_time 1-3s,locust
+     - RPS: 1100, pp99: 200-300ms, avg latency: 15-20ms, p99 redis_lookup: 250-350ms
