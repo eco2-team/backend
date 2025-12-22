@@ -7,7 +7,7 @@ Celery Configuration Module
 from functools import lru_cache
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,6 +30,22 @@ class CelerySettings(BaseSettings):
     task_serializer: str = "json"
     result_serializer: str = "json"
     accept_content: list[str] = ["json"]
+
+    @field_validator("accept_content", mode="before")
+    @classmethod
+    def parse_accept_content(cls, v: Any) -> list[str]:
+        """환경변수에서 문자열 또는 쉼표 구분 값을 리스트로 변환."""
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            # JSON 배열 형태 또는 쉼표 구분
+            if v.startswith("["):
+                import json
+
+                return json.loads(v)
+            return [x.strip() for x in v.split(",")]
+        return ["json"]
+
     timezone: str = "Asia/Seoul"
     enable_utc: bool = True
 
@@ -98,10 +114,13 @@ class CelerySettings(BaseSettings):
                 "scan.vision": {"queue": "scan.vision"},
                 "scan.rule": {"queue": "scan.rule"},
                 "scan.answer": {"queue": "scan.answer"},
-                # Reward (character-worker: 도메인 동기화)
-                "scan.reward": {"queue": "reward.character"},  # Chain 마지막 단계
+                # Reward (character-worker: 판정 + DB 저장)
+                "scan.reward": {"queue": "reward.character"},  # 판정만 (빠른 응답)
+                "character.persist_reward": {"queue": "reward.persist"},  # dispatcher
+                "character.save_ownership": {"queue": "reward.persist"},  # character DB
+                "character.save_my_character": {"queue": "my.sync"},  # my DB (직접)
                 "reward.*": {"queue": "reward.character"},  # Legacy 호환
-                "character.sync_to_my": {"queue": "my.sync"},  # my 도메인 동기화
+                "character.sync_to_my": {"queue": "my.sync"},  # deprecated (gRPC)
                 # DLQ 재처리
                 "dlq.*": {"queue": "celery"},
             },

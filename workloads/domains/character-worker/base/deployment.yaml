@@ -36,7 +36,7 @@ spec:
         - worker
         - --loglevel=info
         - -Q
-        - reward.character,my.sync
+        - reward.character,reward.persist,my.sync
         - -c
         - '2'
         env:

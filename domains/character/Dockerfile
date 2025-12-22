@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /install /usr/local
 
 # 애플리케이션 코드 복사
+COPY domains/_shared /app/domains/_shared
 COPY domains/character /app/domains/character
 
 USER appuser

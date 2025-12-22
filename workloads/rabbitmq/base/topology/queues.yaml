@@ -92,6 +92,29 @@ spec:
     namespace: rabbitmq
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Reward Persist Queue (DB 저장 전담)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Queue
+metadata:
+  name: reward-persist-queue
+  namespace: rabbitmq
+spec:
+  name: reward.persist
+  type: quorum
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  arguments:
+    x-dead-letter-exchange: dlx
+    x-dead-letter-routing-key: dlq.reward.persist
+    x-message-ttl: 86400000  # 24시간 (DB 저장 중요)
+    x-delivery-limit: 5      # 재시도 5회
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # My Domain Sync Queue (character → my 동기화)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: rabbitmq.com/v1beta1
@@ -192,6 +215,23 @@ metadata:
   namespace: rabbitmq
 spec:
   name: dlq.my.sync
+  type: quorum
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  arguments:
+    x-message-ttl: 604800000  # 7일 보관
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Queue
+metadata:
+  name: dlq-reward-persist
+  namespace: rabbitmq
+spec:
+  name: dlq.reward.persist
   type: quorum
   durable: true
   autoDelete: false
