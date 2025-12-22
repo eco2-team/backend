@@ -7,7 +7,7 @@ Celery Configuration Module
 from functools import lru_cache
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,6 +30,22 @@ class CelerySettings(BaseSettings):
     task_serializer: str = "json"
     result_serializer: str = "json"
     accept_content: list[str] = ["json"]
+
+    @field_validator("accept_content", mode="before")
+    @classmethod
+    def parse_accept_content(cls, v: Any) -> list[str]:
+        """환경변수에서 문자열 또는 쉼표 구분 값을 리스트로 변환."""
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            # JSON 배열 형태 또는 쉼표 구분
+            if v.startswith("["):
+                import json
+
+                return json.loads(v)
+            return [x.strip() for x in v.split(",")]
+        return ["json"]
+
     timezone: str = "Asia/Seoul"
     enable_utc: bool = True
 
