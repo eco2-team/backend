@@ -21,4 +21,4 @@ spec:
     retries:
       attempts: 3
       perTryTimeout: 10s
-      retryOn: connect-failure,reset,retriable-4xx,503
+      retryOn: connect-failure,reset,503
