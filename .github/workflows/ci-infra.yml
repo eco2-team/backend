@@ -70,7 +70,8 @@ jobs:
             REF_TEXT="$PR_TITLE"
           else
             # 첫 번째 줄만 사용 (멀티라인 커밋 메시지에서 본문 제외)
-            REF_TEXT=$(printf '%s\n' "$COMMIT_MSG" | head -n1)
+            # printf | head 조합은 pipefail 환경에서 SIGPIPE 에러 발생 가능
+            REF_TEXT="${COMMIT_MSG%%$'\n'*}"
           fi
           REF_TEXT="${REF_TEXT:-none}"
           # Extract type from conventional commit: type(scope): message OR type: message
