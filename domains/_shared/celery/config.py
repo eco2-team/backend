@@ -116,9 +116,11 @@ class CelerySettings(BaseSettings):
                 "scan.answer": {"queue": "scan.answer"},
                 # Reward (character-worker: 판정 + DB 저장)
                 "scan.reward": {"queue": "reward.character"},  # 판정만 (빠른 응답)
-                "character.persist_reward": {"queue": "reward.persist"},  # DB 저장 (비동기)
+                "character.persist_reward": {"queue": "reward.persist"},  # dispatcher
+                "character.save_ownership": {"queue": "reward.persist"},  # character DB
+                "character.save_my_character": {"queue": "my.sync"},  # my DB (직접)
                 "reward.*": {"queue": "reward.character"},  # Legacy 호환
-                "character.sync_to_my": {"queue": "my.sync"},  # my 도메인 동기화
+                "character.sync_to_my": {"queue": "my.sync"},  # deprecated (gRPC)
                 # DLQ 재처리
                 "dlq.*": {"queue": "celery"},
             },
