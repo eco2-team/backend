@@ -10,7 +10,8 @@ metadata:
       grafana.dev.growbin.app,
       kiali.dev.growbin.app,
       jaeger.dev.growbin.app,
-      kibana.dev.growbin.app
+      kibana.dev.growbin.app,
+      rabbitmq.dev.growbin.app
 spec:
   rules:
   - http:

@@ -13,4 +13,5 @@ spec:
     - api.dev.growbin.app
     - argocd.dev.growbin.app
     - grafana.dev.growbin.app
+    - rabbitmq.dev.growbin.app
     - '*'
