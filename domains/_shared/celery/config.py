@@ -29,7 +29,9 @@ class CelerySettings(BaseSettings):
     # Task settings
     task_serializer: str = "json"
     result_serializer: str = "json"
-    accept_content: list[str] = ["json"]
+    # pydantic-settings v2에서 list 타입은 JSON 파싱을 먼저 시도하므로
+    # str로 선언 후 validator에서 list로 변환
+    accept_content: str | list[str] = ["json"]
 
     @field_validator("accept_content", mode="before")
     @classmethod
@@ -37,13 +39,18 @@ class CelerySettings(BaseSettings):
         """환경변수에서 문자열 또는 쉼표 구분 값을 리스트로 변환."""
         if isinstance(v, list):
             return v
+        if v is None or (isinstance(v, str) and not v.strip()):
+            # None 또는 빈 문자열인 경우 기본값 반환
+            return ["json"]
         if isinstance(v, str):
-            # JSON 배열 형태 또는 쉼표 구분
+            v = v.strip()
+            # JSON 배열 형태
             if v.startswith("["):
                 import json
 
                 return json.loads(v)
-            return [x.strip() for x in v.split(",")]
+            # 쉼표 구분
+            return [x.strip() for x in v.split(",") if x.strip()]
         return ["json"]
 
     timezone: str = "Asia/Seoul"
