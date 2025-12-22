@@ -14,11 +14,7 @@ spec:
       node.store.allow_mmap: false
       # 메모리 최적화
       indices.memory.index_buffer_size: 20%
-      # 명시적 discovery 설정 (ECK single-node 자동 설정 방지)
-      # single-node 모드 대신 명시적 부트스트랩 사용
-      discovery.seed_hosts: []
-      cluster.initial_master_nodes:
-      - eco2-logs-es-default-0
+      # discovery 설정은 ECK Operator가 자동 관리
     podTemplate:
       metadata:
         labels:
