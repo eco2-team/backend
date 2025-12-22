@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../base
+
+images:
+- name: docker.io/mng990/eco2
+  newTag: scan-api-prod-latest
+
+# Celery Beat는 항상 1개만 (스케줄러)

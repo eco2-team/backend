@@ -1,0 +1,45 @@
+# Celery Workers ApplicationSet
+# 비동기 작업 처리를 위한 Worker Deployments
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: prod-workers
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '61'
+spec:
+  generators:
+  - list:
+      elements:
+      - name: scan-worker
+        namespace: scan
+        phase: '2'
+      - name: celery-beat
+        namespace: scan
+        phase: '2'
+      - name: character-worker
+        namespace: character
+        phase: '3'
+  template:
+    metadata:
+      name: prod-worker-{{name}}
+      namespace: argocd
+      labels:
+        tier: worker
+        domain: '{{namespace}}'
+        phase: '{{phase}}'
+    spec:
+      project: prod
+      source:
+        repoURL: https://github.com/eco2-team/backend.git
+        targetRevision: main
+        path: workloads/domains/{{name}}/prod
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=false  # API에서 이미 생성
