@@ -16,7 +16,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/mng990/SeSACTHON-backend.git
+    repoURL: https://github.com/eco2-team/backend.git
     targetRevision: develop
     path: workloads/rabbitmq/dev/topology
   destination:

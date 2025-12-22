@@ -21,7 +21,7 @@ spec:
     # RabbitMQ 공식 Messaging Topology Operator manifest
     repoURL: https://github.com/rabbitmq/messaging-topology-operator
     targetRevision: v1.15.0  # 2024-12 최신 안정 버전
-    path: config/default/cert-manager  # CRD + RBAC + Deployment + cert-manager 통합
+    path: config/installation/cert-manager  # CRD + RBAC + Deployment + cert-manager 통합
     kustomize:
       patches:
       - target:
