@@ -17,6 +17,7 @@ default_exchange = Exchange("", type="direct")  # Default exchange
 dlx_exchange = Exchange("dlx", type="direct")  # Dead Letter Exchange
 
 # Queue 정의 (DLX 설정 포함 - Topology CR과 동기화)
+# x-queue-type: quorum은 Topology CR과 일치해야 함
 CELERY_QUEUES = (
     # Default queue
     Queue(
@@ -24,6 +25,7 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="celery",
         queue_arguments={
+            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.celery",
         },
@@ -34,6 +36,7 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="scan.vision",
         queue_arguments={
+            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.scan.vision",
         },
@@ -43,6 +46,7 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="scan.rule",
         queue_arguments={
+            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.scan.rule",
         },
@@ -52,6 +56,7 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="scan.answer",
         queue_arguments={
+            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.scan.answer",
         },
@@ -62,6 +67,7 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="scan.reward",
         queue_arguments={
+            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.scan.reward",
         },
@@ -71,6 +77,7 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="character.reward",
         queue_arguments={
+            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.character.reward",
         },
@@ -80,6 +87,7 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="my.reward",
         queue_arguments={
+            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.my.reward",
         },
