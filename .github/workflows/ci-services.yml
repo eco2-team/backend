@@ -197,7 +197,7 @@ jobs:
           }
           shared_triggers = {
               "domains/_shared/waste_pipeline": ["chat", "scan"],
-              "domains/_shared/celery": ["scan", "character"],
+              "domains/_shared/celery": ["scan", "character", "my"],
           }
 
           def normalize(service: str) -> str:
@@ -311,9 +311,9 @@ jobs:
       - commit-filter
       - detect-api-changes
       - api-quality
-    # PR에서는 테스트만, 머지(push) 시에만 빌드/푸시
+    # PR에서는 테스트만, push 또는 workflow_dispatch 시에만 빌드/푸시
     if: >
-      github.event_name == 'push' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
       needs.commit-filter.outputs.skip != 'true' &&
       needs.detect-api-changes.outputs.has_changes == 'true'
     strategy:
@@ -465,7 +465,7 @@ jobs:
       - commit-filter
       - detect-api-changes
     if: >
-      github.event_name == 'push' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
       needs.commit-filter.outputs.skip != 'true'
     steps:
       - name: Check for base changes
@@ -524,7 +524,7 @@ jobs:
       - api-quality
       - base-build-push
     if: >
-      github.event_name == 'push' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
       needs.commit-filter.outputs.skip != 'true' &&
       needs.detect-api-changes.outputs.has_changes == 'true'
     strategy:
