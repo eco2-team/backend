@@ -211,6 +211,8 @@ class CelerySettings(BaseSettings):
         return {
             "broker_url": self.broker_url,
             "result_backend": self.result_backend,
+            # Quorum queue는 global QoS 미지원 - per-consumer QoS 사용
+            "broker_transport_options": {"global_qos": False},
             "task_serializer": self.task_serializer,
             "result_serializer": self.result_serializer,
             "accept_content": self.accept_content,
