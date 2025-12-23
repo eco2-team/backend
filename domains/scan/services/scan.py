@@ -167,14 +167,20 @@ class ScanService:
             # vision, rule, answer: scan-worker (worker-ai)
             # reward: character-worker (worker-storage)
             # 클라이언트는 SSE로 진행상황 및 최종 결과 수신
+
+            # 첫 번째 task에 명시적 task_id 설정 → 모든 chain task가 이를 root_id로 공유
+            # SSE에서 root_id로 chain 전체 추적 가능
+            first_task = vision_task.s(str(task_id), str(user_id), image_url, user_input).set(
+                task_id=str(task_id)
+            )
+
             pipeline = chain(
-                vision_task.s(str(task_id), str(user_id), image_url, user_input),
+                first_task,
                 rule_task.s(),
                 answer_task.s(),
                 scan_reward_task.s(),
             )
-            # task_id를 명시적으로 지정하여 SSE progress와 매칭
-            pipeline.apply_async(task_id=str(task_id))
+            pipeline.apply_async()
 
             logger.info(
                 "scan_chain_dispatched",
