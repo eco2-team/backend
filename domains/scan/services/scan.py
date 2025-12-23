@@ -168,7 +168,8 @@ class ScanService:
                 answer_task.s(),
                 scan_reward_task.s(),
             )
-            pipeline.delay()
+            # task_id를 명시적으로 지정하여 SSE progress와 매칭
+            pipeline.apply_async(task_id=str(task_id))
 
             logger.info(
                 "scan_chain_dispatched",
