@@ -270,25 +270,35 @@ async def _event_generator(
         current = AsyncResult(first_task_id, app=celery_app)
 
         # children을 따라가서 마지막 task 찾기
+        # Note: children은 task가 실행된 후에만 설정됨
         visited = {first_task_id}
-        while current.children:
-            child = current.children[0]  # chain은 하나의 child만 가짐
+        max_depth = 10  # chain 깊이 제한 (vision → rule → answer → reward = 4)
+
+        for _ in range(max_depth):
+            children = current.children
+            if not children:
+                break
+            child = children[0]  # chain은 하나의 child만 가짐
             if child.id in visited:
                 break  # 순환 방지
             visited.add(child.id)
             current = child
 
+        logger.debug(
+            f"Chain traversal: first={first_task_id}, final={current.id}, "
+            f"state={current.state}, depth={len(visited)}"
+        )
+
         if current.ready():
-            return current, current.result if isinstance(current.result, dict) else None
+            result = current.result
+            return current, result if isinstance(result, dict) else None
         return current, None
 
-    async_result = AsyncResult(task_id, app=celery_app)
-    if async_result.ready():
-        # Chain의 마지막 task 결과 가져오기
-        final_async_result, final_result = _get_chain_final_result(task_id)
-
+    # Chain의 마지막 task 상태 확인 (첫 번째 task가 아닌 마지막 task의 ready() 확인)
+    final_async_result, final_result = _get_chain_final_result(task_id)
+    if final_async_result.ready() and final_result:
         logger.info(
-            "Task already completed, returning final chain result",
+            "Chain already completed, returning final result",
             extra={
                 "task_id": task_id,
                 "final_task_id": final_async_result.id,
@@ -296,28 +306,27 @@ async def _event_generator(
             },
         )
 
-        if final_result:
-            event_counter += 1
-            sse_data = {
-                "task_id": task_id,
-                "step": "reward",
-                "status": "completed" if final_async_result.successful() else "failed",
-                "progress": 100,
-                "result": {
-                    "task_id": final_result.get("task_id"),
-                    "status": "completed",
-                    "message": "classification completed",
-                    "pipeline_result": {
-                        "classification_result": final_result.get("classification_result"),
-                        "disposal_rules": final_result.get("disposal_rules"),
-                        "final_answer": final_result.get("final_answer"),
-                    },
-                    "reward": final_result.get("reward"),
-                    "error": None,
+        event_counter += 1
+        sse_data = {
+            "task_id": task_id,
+            "step": "reward",
+            "status": "completed" if final_async_result.successful() else "failed",
+            "progress": 100,
+            "result": {
+                "task_id": final_result.get("task_id"),
+                "status": "completed",
+                "message": "classification completed",
+                "pipeline_result": {
+                    "classification_result": final_result.get("classification_result"),
+                    "disposal_rules": final_result.get("disposal_rules"),
+                    "final_answer": final_result.get("final_answer"),
                 },
-            }
-            yield _format_sse_with_id(sse_data, event_counter)
-            return
+                "reward": final_result.get("reward"),
+                "error": None,
+            },
+        }
+        yield _format_sse_with_id(sse_data, event_counter)
+        return
 
     # Event Receiver를 별도 스레드에서 실행
     executor = ThreadPoolExecutor(max_workers=1)
