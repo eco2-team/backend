@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
     flush_every=50,  # 50개 모이면 flush
     flush_interval=5,  # 5초마다 flush
     acks_late=True,
+    max_retries=5,
 )
 def save_ownership_task(requests: list) -> dict[str, Any]:
     """character.character_ownerships 배치 저장.

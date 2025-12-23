@@ -557,8 +557,8 @@ class TestParallelSaveArchitecture:
         """save_my_character_task에 gRPC 호출 없음."""
         import inspect
 
-        from domains.my.tasks.sync_character import _save_my_character_async
+        from domains.my.tasks.sync_character import _save_my_character_batch_async
 
-        source = inspect.getsource(_save_my_character_async)
+        source = inspect.getsource(_save_my_character_batch_async)
         assert "grpc" not in source.lower()
         assert "get_my_client" not in source
