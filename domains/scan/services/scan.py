@@ -20,6 +20,7 @@ from domains.scan.core.validators import ImageUrlValidator
 from domains.scan.metrics import GRPC_CALL_COUNTER, GRPC_CALL_LATENCY
 from domains.scan.proto import character_pb2
 from domains.scan.schemas.scan import (
+    AsyncClassificationResponse,
     ClassificationRequest,
     ClassificationResponse,
     ScanCategory,
@@ -108,11 +109,15 @@ class ScanService:
 
     async def classify_async(
         self, payload: ClassificationRequest, user_id: UUID
-    ) -> ClassificationResponse:
+    ) -> AsyncClassificationResponse:
         """비동기 방식으로 폐기물 분류 (SSE로 결과 수신)."""
         image_url, error = self._validate_request(payload)
         if error:
-            return error
+            return AsyncClassificationResponse(
+                task_id=error.task_id,
+                status=error.status,
+                message=error.message,
+            )
 
         task_id = uuid4()
         log_ctx = {"task_id": str(task_id), "user_id": str(user_id)}
@@ -148,7 +153,7 @@ class ScanService:
         image_url: str,
         user_input: str | None,
         log_ctx: dict,
-    ) -> ClassificationResponse:
+    ) -> AsyncClassificationResponse:
         """Celery Chain을 발행하여 비동기 처리."""
         from celery import chain
 
@@ -185,14 +190,13 @@ class ScanService:
                 "scan_chain_dispatch_failed",
                 extra={**log_ctx, "event_type": "scan_chain_failed"},
             )
-            return ClassificationResponse(
+            return AsyncClassificationResponse(
                 task_id=str(task_id),
                 status="failed",
                 message="비동기 작업 발행에 실패했습니다.",
-                error="TASK_DISPATCH_ERROR",
             )
 
-        return ClassificationResponse(
+        return AsyncClassificationResponse(
             task_id=str(task_id),
             status="processing",
             message="AI 분석이 진행 중입니다. GET /scan/{task_id}/progress (SSE)로 진행상황을 확인하세요.",
