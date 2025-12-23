@@ -4,7 +4,7 @@ resources:
 - ../base
 images:
 - name: docker.io/mng990/eco2
-  newTag: character-api-prod-latest
+  newTag: character-api-1.0.7-1f7b3e
 labels:
 - includeSelectors: true
   pairs:
