@@ -7,6 +7,7 @@ from fastapi import APIRouter
 
 from domains.scan.api.dependencies import CurrentUser, ScanServiceDep
 from domains.scan.schemas.scan import (
+    AsyncClassificationResponse,
     ClassificationRequest,
     ClassificationResponse,
     ScanCategory,
@@ -37,14 +38,14 @@ async def classify(
 
 @router.post(
     "/classify/async",
-    response_model=ClassificationResponse,
+    response_model=AsyncClassificationResponse,
     summary="Submit waste image for classification (async)",
 )
 async def classify_async(
     payload: ClassificationRequest,
     user: CurrentUser,
     service: ScanServiceDep,
-) -> ClassificationResponse:
+) -> AsyncClassificationResponse:
     """이미지를 분석하여 폐기물을 분류합니다 (비동기 처리).
 
     Celery Chain으로 비동기 처리를 시작하고 task_id를 즉시 반환합니다.

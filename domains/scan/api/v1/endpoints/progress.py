@@ -171,9 +171,18 @@ async def _event_generator(
         event_task_id = event.get("uuid", "")
         task_name = event.get("name", "")
         parent_id = event.get("parent_id")
+        root_id = event.get("root_id")  # chain의 첫 번째 task ID
 
+        # DEBUG: Celery event 필드 확인
+        logger.info(
+            f"Celery event: root_id={root_id}, parent_id={parent_id}, "
+            f"uuid={event_task_id}, name={task_name}, target={task_id}"
+        )
+
+        # root_id로 chain 전체 매칭 (root_id는 chain의 첫 번째 task ID)
         is_chain_task = (
-            event_task_id == task_id
+            root_id == task_id  # chain의 모든 task는 동일한 root_id 공유
+            or event_task_id == task_id
             or event_task_id in chain_task_ids
             or parent_id in chain_task_ids
         )

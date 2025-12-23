@@ -31,12 +31,22 @@ class ClassificationRequest(BaseModel):
 
 
 class ClassificationResponse(BaseModel):
+    """동기 분류 응답 (결과 포함)."""
+
     task_id: str
     status: str
     message: Optional[str] = None
     pipeline_result: Optional[WasteClassificationResult] = None
     reward: Optional[CharacterRewardResponse] = None
     error: Optional[str] = None
+
+
+class AsyncClassificationResponse(BaseModel):
+    """비동기 분류 응답 (task_id만 반환, 결과는 SSE로 수신)."""
+
+    task_id: str
+    status: str
+    message: Optional[str] = None
 
 
 class ScanTask(BaseModel):
