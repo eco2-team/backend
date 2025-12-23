@@ -20,6 +20,9 @@ spec:
       - name: character-worker
         namespace: character
         phase: '3'
+      - name: my-worker
+        namespace: my
+        phase: '3'
   template:
     metadata:
       name: prod-worker-{{name}}

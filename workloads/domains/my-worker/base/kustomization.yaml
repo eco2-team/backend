@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: my
+
+resources:
+- deployment.yaml
+- configmap.yaml
+
+commonLabels:
+  app.kubernetes.io/name: my-worker
+  app.kubernetes.io/component: worker
+  app.kubernetes.io/part-of: ecoeco-backend

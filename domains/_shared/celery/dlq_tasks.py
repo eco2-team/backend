@@ -201,30 +201,44 @@ def reprocess_dlq_scan_answer(max_messages: int = 10) -> dict[str, Any]:
     )
 
 
-@shared_task(name="dlq.reprocess_reward")
-def reprocess_dlq_reward(max_messages: int = 10) -> dict[str, Any]:
-    """DLQ에서 reward.character 실패 메시지 재처리."""
-    logger.info("Starting DLQ reprocess for reward.character")
+@shared_task(name="dlq.reprocess_scan_reward")
+def reprocess_dlq_scan_reward(max_messages: int = 10) -> dict[str, Any]:
+    """DLQ에서 scan.reward 실패 메시지 재처리."""
+    logger.info("Starting DLQ reprocess for scan.reward")
     return _reprocess_dlq_generic(
-        dlq_name="dlq.reward.character",
-        target_queue="reward.character",
-        archive_queue="archive.reward.character",
-        task_module="domains.character.consumers.reward",
+        dlq_name="dlq.scan.reward",
+        target_queue="scan.reward",
+        archive_queue="archive.scan.reward",
+        task_module="domains.scan.tasks.reward",
         task_name="scan_reward_task",
         max_messages=max_messages,
     )
 
 
-@shared_task(name="dlq.reprocess_my_sync")
-def reprocess_dlq_my_sync(max_messages: int = 10) -> dict[str, Any]:
-    """DLQ에서 my.sync 실패 메시지 재처리."""
-    logger.info("Starting DLQ reprocess for my.sync")
+@shared_task(name="dlq.reprocess_character_reward")
+def reprocess_dlq_character_reward(max_messages: int = 10) -> dict[str, Any]:
+    """DLQ에서 character.reward 실패 메시지 재처리."""
+    logger.info("Starting DLQ reprocess for character.reward")
     return _reprocess_dlq_generic(
-        dlq_name="dlq.my.sync",
-        target_queue="my.sync",
-        archive_queue="archive.my.sync",
-        task_module="domains.character.consumers.sync_my",
-        task_name="sync_to_my_task",
+        dlq_name="dlq.character.reward",
+        target_queue="character.reward",
+        archive_queue="archive.character.reward",
+        task_module="domains.character.tasks.reward",
+        task_name="save_ownership_task",
+        max_messages=max_messages,
+    )
+
+
+@shared_task(name="dlq.reprocess_my_reward")
+def reprocess_dlq_my_reward(max_messages: int = 10) -> dict[str, Any]:
+    """DLQ에서 my.reward 실패 메시지 재처리."""
+    logger.info("Starting DLQ reprocess for my.reward")
+    return _reprocess_dlq_generic(
+        dlq_name="dlq.my.reward",
+        target_queue="my.reward",
+        archive_queue="archive.my.reward",
+        task_module="domains.my.tasks.sync_character",
+        task_name="save_my_character_task",
         max_messages=max_messages,
     )
 
@@ -246,13 +260,18 @@ BEAT_SCHEDULE = {
         "schedule": 300.0,
         "kwargs": {"max_messages": 10},
     },
-    "reprocess-dlq-reward": {
-        "task": "dlq.reprocess_reward",
+    "reprocess-dlq-scan-reward": {
+        "task": "dlq.reprocess_scan_reward",
         "schedule": 300.0,
         "kwargs": {"max_messages": 10},
     },
-    "reprocess-dlq-my-sync": {
-        "task": "dlq.reprocess_my_sync",
+    "reprocess-dlq-character-reward": {
+        "task": "dlq.reprocess_character_reward",
+        "schedule": 300.0,
+        "kwargs": {"max_messages": 10},
+    },
+    "reprocess-dlq-my-reward": {
+        "task": "dlq.reprocess_my_reward",
         "schedule": 300.0,
         "kwargs": {"max_messages": 10},
     },

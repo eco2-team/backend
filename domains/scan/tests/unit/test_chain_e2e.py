@@ -169,7 +169,7 @@ class TestFullChainAssembly:
     @patch("domains._shared.waste_pipeline.vision.analyze_images")
     def test_recyclable_with_reward(self, mock_vision, mock_rule, mock_answer, task_id, user_id):
         """시나리오 1: 재활용 폐기물 + 리워드 획득."""
-        from domains.character.consumers.reward import _should_attempt_reward
+        from domains.character.tasks.reward import _should_attempt_reward
         from domains.scan.tasks.answer import answer_task
         from domains.scan.tasks.rule import rule_task
         from domains.scan.tasks.vision import vision_task
@@ -235,7 +235,7 @@ class TestFullChainAssembly:
         self, mock_vision, mock_rule, mock_answer, task_id, user_id
     ):
         """시나리오 2: 재활용 폐기물 + insufficiencies로 리워드 미획득."""
-        from domains.character.consumers.reward import _should_attempt_reward
+        from domains.character.tasks.reward import _should_attempt_reward
         from domains.scan.tasks.answer import answer_task
         from domains.scan.tasks.rule import rule_task
         from domains.scan.tasks.vision import vision_task
@@ -281,7 +281,7 @@ class TestFullChainAssembly:
     @patch("domains._shared.waste_pipeline.vision.analyze_images")
     def test_non_recyclable(self, mock_vision, mock_rule, mock_answer, task_id, user_id):
         """시나리오 3: 일반 폐기물 (리워드 대상 아님)."""
-        from domains.character.consumers.reward import _should_attempt_reward
+        from domains.character.tasks.reward import _should_attempt_reward
         from domains.scan.tasks.answer import answer_task
         from domains.scan.tasks.rule import rule_task
         from domains.scan.tasks.vision import vision_task

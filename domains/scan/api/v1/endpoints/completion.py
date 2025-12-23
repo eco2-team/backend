@@ -142,7 +142,7 @@ async def _completion_generator(
 
     from celery import chain
 
-    from domains.character.consumers.reward import scan_reward_task
+    from domains.character.tasks.reward import scan_reward_task
     from domains.scan.celery_app import celery_app
     from domains.scan.tasks.answer import answer_task
     from domains.scan.tasks.rule import rule_task

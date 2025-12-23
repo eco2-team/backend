@@ -39,23 +39,23 @@ CELERY_QUEUES = (
         routing_key="scan.answer",
         queue_arguments={"x-dead-letter-exchange": "dlx"},
     ),
-    # Reward/Character queues
+    # Reward queues (도메인별 분리)
     Queue(
-        "reward.character",
+        "scan.reward",
         default_exchange,
-        routing_key="reward.character",
+        routing_key="scan.reward",
         queue_arguments={"x-dead-letter-exchange": "dlx"},
     ),
     Queue(
-        "reward.persist",
+        "character.reward",
         default_exchange,
-        routing_key="reward.persist",
+        routing_key="character.reward",
         queue_arguments={"x-dead-letter-exchange": "dlx"},
     ),
     Queue(
-        "my.sync",
+        "my.reward",
         default_exchange,
-        routing_key="my.sync",
+        routing_key="my.reward",
         queue_arguments={"x-dead-letter-exchange": "dlx"},
     ),
 )
@@ -165,19 +165,17 @@ class CelerySettings(BaseSettings):
             "task_send_sent_event": True,  # task-sent 이벤트 발행
             "worker_send_task_events": True,  # worker에서 task 이벤트 발행
             "result_extended": True,  # task-succeeded에 result 포함
-            # Task routing (Phase 2+3: 4단계 Chain + Worker 분리)
+            # Task routing (도메인별 큐 분리)
             "task_routes": {
                 # Scan Chain (scan-worker: AI 처리)
                 "scan.vision": {"queue": "scan.vision"},
                 "scan.rule": {"queue": "scan.rule"},
                 "scan.answer": {"queue": "scan.answer"},
-                # Reward (character-worker: 판정 + DB 저장)
-                "scan.reward": {"queue": "reward.character"},  # 판정만 (빠른 응답)
-                "character.persist_reward": {"queue": "reward.persist"},  # dispatcher
-                "character.save_ownership": {"queue": "reward.persist"},  # character DB
-                "character.save_my_character": {"queue": "my.sync"},  # my DB (직접)
-                "reward.*": {"queue": "reward.character"},  # Legacy 호환
-                "character.sync_to_my": {"queue": "my.sync"},  # deprecated (gRPC)
+                "scan.reward": {"queue": "scan.reward"},  # 보상 판정 (scan-worker)
+                # Character reward (character-worker: character DB 저장)
+                "character.save_ownership": {"queue": "character.reward"},
+                # My reward (my-worker: my DB 저장)
+                "my.save_character": {"queue": "my.reward"},
                 # DLQ 재처리
                 "dlq.*": {"queue": "celery"},
             },
@@ -203,13 +201,18 @@ class CelerySettings(BaseSettings):
                     "schedule": 300.0,
                     "kwargs": {"max_messages": 10},
                 },
-                "reprocess-dlq-reward": {
-                    "task": "dlq.reprocess_reward",
+                "reprocess-dlq-scan-reward": {
+                    "task": "dlq.reprocess_scan_reward",
                     "schedule": 300.0,
                     "kwargs": {"max_messages": 10},
                 },
-                "reprocess-dlq-my-sync": {
-                    "task": "dlq.reprocess_my_sync",
+                "reprocess-dlq-character-reward": {
+                    "task": "dlq.reprocess_character_reward",
+                    "schedule": 300.0,
+                    "kwargs": {"max_messages": 10},
+                },
+                "reprocess-dlq-my-reward": {
+                    "task": "dlq.reprocess_my_reward",
                     "schedule": 300.0,
                     "kwargs": {"max_messages": 10},
                 },

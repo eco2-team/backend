@@ -1,43 +1,43 @@
-# Character Worker Celery Deployment
-# character.reward 큐 처리 (character DB 소유권 저장)
+# My Worker Celery Deployment
+# my.reward 큐 처리 (my DB 유저 캐릭터 동기화)
 # worker-storage 노드에 배포
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: character-worker
-  namespace: character
+  name: my-worker
+  namespace: my
   labels:
-    app: character-worker
+    app: my-worker
     version: v1
     tier: worker
-    domain: character
+    domain: my
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: character-worker
+      app: my-worker
       version: v1
   template:
     metadata:
       labels:
-        app: character-worker
+        app: my-worker
         version: v1
         tier: worker
-        domain: character
+        domain: my
     spec:
       containers:
-      - name: character-worker
-        image: docker.io/mng990/eco2:character-worker-dev-latest
+      - name: my-worker
+        image: docker.io/mng990/eco2:my-worker-dev-latest
         imagePullPolicy: Always
         command: [celery]
         args:
         - -A
-        - domains.character.celery_app
+        - domains.my.celery_app
         - worker
         - --loglevel=info
-        - -E  # Events 활성화 (SSE 스트리밍용)
+        - -E  # Events 활성화
         - -Q
-        - character.reward
+        - my.reward
         - -c
         - '2'
         env:
@@ -45,13 +45,13 @@ spec:
         - name: CELERY_BROKER_URL
           valueFrom:
             secretKeyRef:
-              name: character-secret
+              name: my-secret
               key: CELERY_BROKER_URL
         - name: CELERY_RESULT_BACKEND
-          value: rpc://  # Stateless SSE - Redis 불필요
+          value: rpc://
         # OpenTelemetry
         - name: OTEL_SERVICE_NAME
-          value: character-worker
+          value: my-worker
         - name: OTEL_TRACES_EXPORTER
           value: otlp
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -61,33 +61,29 @@ spec:
         - name: OTEL_LOGS_EXPORTER
           value: none
         # Database
-        - name: POSTGRES_HOST
-          value: postgresql.postgres.svc.cluster.local
-        - name: REDIS_HOST
-          value: redis.redis.svc.cluster.local
-        # gRPC (my-api 연결용)
-        - name: MY_GRPC_HOST
-          value: my-api-grpc.my.svc.cluster.local
-        - name: MY_GRPC_PORT
-          value: '50051'
+        - name: MY_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: my-secret
+              key: DATABASE_URL
         envFrom:
         - configMapRef:
-            name: character-worker-config
+            name: my-worker-config
         - secretRef:
-            name: character-secret
+            name: my-secret
         resources:
           requests:
-            cpu: 200m
-            memory: 512Mi
+            cpu: 100m
+            memory: 256Mi
           limits:
-            cpu: 1000m
-            memory: 2Gi
+            cpu: 500m
+            memory: 1Gi
         livenessProbe:
           exec:
             command:
             - celery
             - -A
-            - domains.character.celery_app
+            - domains.my.celery_app
             - inspect
             - ping
             - -t
@@ -100,7 +96,7 @@ spec:
             command:
             - celery
             - -A
-            - domains.character.celery_app
+            - domains.my.celery_app
             - inspect
             - ping
             - -t

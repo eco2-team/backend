@@ -19,15 +19,15 @@ spec:
     name: eco2-rabbitmq
     namespace: rabbitmq
 ---
-# 2. Reward Exchange (Direct)
-# 라우팅 키: reward.character
+# 2. Character Exchange (Direct)
+# 라우팅 키: character.reward (character DB 저장)
 apiVersion: rabbitmq.com/v1beta1
 kind: Exchange
 metadata:
-  name: reward-direct
+  name: character-direct
   namespace: rabbitmq
 spec:
-  name: reward.direct
+  name: character.direct
   type: direct
   durable: true
   autoDelete: false
@@ -37,7 +37,7 @@ spec:
     namespace: rabbitmq
 ---
 # 3. My Domain Exchange (Direct)
-# 라우팅 키: my.sync (character → my 동기화)
+# 라우팅 키: my.reward (my DB 저장)
 apiVersion: rabbitmq.com/v1beta1
 kind: Exchange
 metadata:

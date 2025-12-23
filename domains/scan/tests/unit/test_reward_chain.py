@@ -2,10 +2,10 @@
 
 4단계 Celery Chain의 마지막 단계인 reward task 테스트.
 판정/저장 분리 구조:
-- scan_reward_task: 판정만 (빠른 응답)
-- persist_reward_task: dispatcher (발행만)
-- save_ownership_task: character DB 저장
-- save_my_character_task: my DB 저장 (gRPC 대신 직접)
+- scan_reward_task: 판정만 (빠른 응답) - scan 도메인
+- persist_reward_task: dispatcher (발행만) - character 도메인
+- save_ownership_task: character DB 저장 - character 도메인
+- save_my_character_task: my DB 저장 - my 도메인
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ class TestShouldAttemptReward:
         self, valid_classification, valid_disposal_rules, valid_final_answer
     ):
         """재활용 + 규정 + insufficiencies 없음 → True."""
-        from domains.character.consumers.reward import _should_attempt_reward
+        from domains.scan.tasks.reward import _should_attempt_reward
 
         with patch.dict("os.environ", {"REWARD_FEATURE_ENABLED": "true"}):
             result = _should_attempt_reward(
@@ -55,7 +55,7 @@ class TestShouldAttemptReward:
         self, valid_classification, valid_disposal_rules, valid_final_answer
     ):
         """REWARD_FEATURE_ENABLED=false → False."""
-        from domains.character.consumers.reward import _should_attempt_reward
+        from domains.scan.tasks.reward import _should_attempt_reward
 
         with patch.dict("os.environ", {"REWARD_FEATURE_ENABLED": "false"}):
             result = _should_attempt_reward(
@@ -65,7 +65,7 @@ class TestShouldAttemptReward:
 
     def test_returns_false_for_non_recyclable(self, valid_disposal_rules, valid_final_answer):
         """major_category != 재활용폐기물 → False."""
-        from domains.character.consumers.reward import _should_attempt_reward
+        from domains.scan.tasks.reward import _should_attempt_reward
 
         classification = {
             "classification": {
@@ -81,7 +81,7 @@ class TestShouldAttemptReward:
 
     def test_returns_false_when_no_disposal_rules(self, valid_classification, valid_final_answer):
         """disposal_rules 없음 → False."""
-        from domains.character.consumers.reward import _should_attempt_reward
+        from domains.scan.tasks.reward import _should_attempt_reward
 
         with patch.dict("os.environ", {"REWARD_FEATURE_ENABLED": "true"}):
             result = _should_attempt_reward(valid_classification, None, valid_final_answer)
@@ -91,7 +91,7 @@ class TestShouldAttemptReward:
         self, valid_classification, valid_disposal_rules
     ):
         """insufficiencies 있음 → False."""
-        from domains.character.consumers.reward import _should_attempt_reward
+        from domains.scan.tasks.reward import _should_attempt_reward
 
         final_answer = {
             "user_answer": "답변",
@@ -105,7 +105,7 @@ class TestShouldAttemptReward:
 
     def test_returns_false_when_missing_category(self, valid_disposal_rules, valid_final_answer):
         """major 또는 middle이 비어있음 → False."""
-        from domains.character.consumers.reward import _should_attempt_reward
+        from domains.scan.tasks.reward import _should_attempt_reward
 
         classification = {"classification": {"major_category": ""}}
         with patch.dict("os.environ", {"REWARD_FEATURE_ENABLED": "true"}):
@@ -315,7 +315,7 @@ class TestSaveOwnershipTask:
 
     def test_save_ownership_task_config(self):
         """save_ownership_task 설정 확인."""
-        from domains.character.consumers.reward import save_ownership_task
+        from domains.character.tasks.reward import save_ownership_task
 
         assert save_ownership_task.name == "character.save_ownership"
         assert save_ownership_task.max_retries == 5
@@ -350,9 +350,9 @@ class TestSaveMyCharacterTask:
 
     def test_save_my_character_task_config(self):
         """save_my_character_task 설정 확인."""
-        from domains.character.consumers.reward import save_my_character_task
+        from domains.my.tasks import save_my_character_task
 
-        assert save_my_character_task.name == "character.save_my_character"
+        assert save_my_character_task.name == "my.save_character"
         assert save_my_character_task.max_retries == 5
 
     def test_uses_my_database_url(self):
@@ -368,16 +368,13 @@ class TestSaveMyCharacterTask:
 
     def test_task_queue_is_my_sync(self):
         """my.sync 큐에서 실행됨."""
-
-        # task decorator에서 queue 확인 불가 - routing으로 결정됨
-        # config에서 "character.save_my_character": {"queue": "my.sync"} 확인
         from domains._shared.celery.config import get_celery_settings
 
         settings = get_celery_settings()
         config = settings.get_celery_config()
         routes = config["task_routes"]
 
-        assert routes["character.save_my_character"]["queue"] == "my.sync"
+        assert routes["my.save_character"]["queue"] == "my.sync"
 
 
 class TestFullChainIntegration:
@@ -388,8 +385,8 @@ class TestFullChainIntegration:
     @patch("domains._shared.waste_pipeline.vision.analyze_images")
     def test_pipeline_produces_reward_eligible_result(self, mock_vision, mock_rule, mock_answer):
         """3단계 파이프라인 후 reward 판정 가능한 결과 생성."""
-        from domains.character.consumers.reward import _should_attempt_reward
         from domains.scan.tasks.answer import answer_task
+        from domains.scan.tasks.reward import _should_attempt_reward
         from domains.scan.tasks.rule import rule_task
         from domains.scan.tasks.vision import vision_task
 
@@ -431,10 +428,10 @@ class TestFullChainIntegration:
 class TestRewardDecisionLogic:
     """_evaluate_reward_decision 함수 테스트."""
 
-    @patch("domains.character.consumers.reward._match_character_async")
+    @patch("domains.scan.tasks.reward._match_character_async")
     def test_decision_returns_character_info(self, mock_match):
         """판정 결과에 캐릭터 정보 포함."""
-        from domains.character.consumers.reward import _evaluate_reward_decision
+        from domains.scan.tasks.reward import _evaluate_reward_decision
 
         character_id = str(uuid4())
         mock_match.return_value = {
@@ -462,10 +459,10 @@ class TestRewardDecisionLogic:
         assert result["character_code"] == "ECO001"
         assert result["received"] is True
 
-    @patch("domains.character.consumers.reward._match_character_async")
+    @patch("domains.scan.tasks.reward._match_character_async")
     def test_decision_returns_none_on_exception(self, mock_match):
         """예외 발생 시 None 반환."""
-        from domains.character.consumers.reward import _evaluate_reward_decision
+        from domains.scan.tasks.reward import _evaluate_reward_decision
 
         mock_match.side_effect = Exception("DB 연결 실패")
 
@@ -494,21 +491,19 @@ class TestParallelSaveArchitecture:
         # 각 task의 큐 확인
         assert routes["character.persist_reward"]["queue"] == "reward.persist"
         assert routes["character.save_ownership"]["queue"] == "reward.persist"
-        assert routes["character.save_my_character"]["queue"] == "my.sync"
+        assert routes["my.save_character"]["queue"] == "my.sync"
 
     def test_each_task_has_own_retry(self):
         """각 task는 독립적인 재시도 로직."""
-        from domains.character.consumers.reward import (
-            save_my_character_task,
-            save_ownership_task,
-        )
+        from domains.character.tasks.reward import save_ownership_task
+        from domains.my.tasks import save_my_character_task
 
         assert save_ownership_task.max_retries == 5
         assert save_my_character_task.max_retries == 5
 
     def test_tasks_are_fire_and_forget(self):
         """persist_reward_task는 하위 task를 Fire & Forget으로 발행."""
-        from domains.character.consumers.reward import persist_reward_task
+        from domains.character.tasks.reward import persist_reward_task
 
         # persist_reward_task는 발행만 하고 결과 대기 안 함
         # delay() 호출 후 즉시 반환
@@ -518,7 +513,7 @@ class TestParallelSaveArchitecture:
         """save_my_character_task에 gRPC 호출 없음."""
         import inspect
 
-        from domains.character.consumers.reward import _save_my_character_async
+        from domains.my.tasks.sync_character import _save_my_character_async
 
         source = inspect.getsource(_save_my_character_async)
         assert "grpc" not in source.lower()

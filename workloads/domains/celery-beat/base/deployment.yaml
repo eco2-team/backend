@@ -46,6 +46,8 @@ spec:
             secretKeyRef:
               name: scan-secret
               key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          value: redis://dev-redis.redis.svc.cluster.local:6379/1
         # OpenTelemetry
         - name: OTEL_SERVICE_NAME
           value: celery-beat

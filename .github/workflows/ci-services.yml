@@ -15,8 +15,8 @@ on:
       - "domains/location/**"
       - "domains/my/**"
       - "domains/scan/**"
-      - "domains/_shared/waste_pipeline/**"
-      - "domains/_shared/celery/**"
+      - "domains/_shared/**"
+      - "domains/_base/**"
       - "workloads/domains/auth/**"
       - "workloads/domains/character/**"
       - "workloads/domains/chat/**"
@@ -24,6 +24,9 @@ on:
       - "workloads/domains/location/**"
       - "workloads/domains/my/**"
       - "workloads/domains/scan/**"
+      - "workloads/domains/character-worker/**"
+      - "workloads/domains/scan-worker/**"
+      - "workloads/domains/my-worker/**"
   pull_request:
     branches:
       - main
@@ -38,8 +41,8 @@ on:
       - "domains/location/**"
       - "domains/my/**"
       - "domains/scan/**"
-      - "domains/_shared/waste_pipeline/**"
-      - "domains/_shared/celery/**"
+      - "domains/_shared/**"
+      - "domains/_base/**"
       - "workloads/domains/auth/**"
       - "workloads/domains/character/**"
       - "workloads/domains/chat/**"
@@ -47,6 +50,9 @@ on:
       - "workloads/domains/location/**"
       - "workloads/domains/my/**"
       - "workloads/domains/scan/**"
+      - "workloads/domains/character-worker/**"
+      - "workloads/domains/scan-worker/**"
+      - "workloads/domains/my-worker/**"
   workflow_dispatch:
     inputs:
       force_all:
@@ -449,4 +455,218 @@ jobs:
           git commit -m "chore(${SERVICE}): bump image tag to ${TAG_NAME} [skip ci]"
           git push origin HEAD:${GITHUB_REF_NAME}
 
+  # ============================================================================
+  # Base Image Build (공통 의존성)
+  # ============================================================================
+  base-build-push:
+    name: 🏗️ Build & Push Base Image
+    runs-on: ubuntu-latest
+    needs:
+      - commit-filter
+      - detect-api-changes
+    if: >
+      github.event_name == 'push' &&
+      needs.commit-filter.outputs.skip != 'true'
+    steps:
+      - name: Check for base changes
+        id: check
+        run: |
+          # Base 이미지 변경 여부 확인 (간소화된 로직)
+          echo "should_build=true" >> "$GITHUB_OUTPUT"
 
+      - name: Checkout
+        if: steps.check.outputs.should_build == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.should_build == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: steps.check.outputs.should_build == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Prepare base image tags
+        if: steps.check.outputs.should_build == 'true'
+        id: meta
+        run: |
+          IMAGE_REPO="docker.io/mng990/eco2"
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "tags=${IMAGE_REPO}:base-prod-latest,${IMAGE_REPO}:base-latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "tags=${IMAGE_REPO}:base-dev-latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push base image
+        if: steps.check.outputs.should_build == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: domains/_base/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # Worker Image Build (character-worker, scan-worker)
+  # ============================================================================
+  worker-build-push:
+    name: 🔧 Build & Push Worker Images
+    runs-on: ubuntu-latest
+    needs:
+      - commit-filter
+      - detect-api-changes
+      - api-quality
+      - base-build-push
+    if: >
+      github.event_name == 'push' &&
+      needs.commit-filter.outputs.skip != 'true' &&
+      needs.detect-api-changes.outputs.has_changes == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        worker: [character, scan, my]
+    steps:
+      - name: Check if worker should build
+        id: check
+        env:
+          SERVICES: ${{ needs.detect-api-changes.outputs.services }}
+          WORKER: ${{ matrix.worker }}
+        run: |
+          # 해당 도메인이 변경되었으면 Worker도 빌드
+          if echo "$SERVICES" | grep -q "\"$WORKER\""; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.should_build == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.should_build == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: steps.check.outputs.should_build == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Prepare worker image tags
+        if: steps.check.outputs.should_build == 'true'
+        id: meta
+        run: |
+          set -euo pipefail
+          SHORT_SHA=$(git rev-parse --short=6 HEAD)
+          WORKER="${{ matrix.worker }}"
+          IMAGE_REPO="docker.io/mng990/eco2"
+          WORKER_SLUG="${WORKER}-worker"
+          VERSION=$(cat VERSION)
+          
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            UNIQUE_TAG="${WORKER_SLUG}-${VERSION}-${SHORT_SHA}"
+            {
+              echo "tags<<TAGS"
+              echo "${IMAGE_REPO}:${UNIQUE_TAG}"
+              echo "${IMAGE_REPO}:${WORKER_SLUG}-prod-latest"
+              echo "${IMAGE_REPO}:${WORKER_SLUG}-latest"
+              echo "TAGS"
+            } >> "$GITHUB_OUTPUT"
+            echo "manifest_tag=${UNIQUE_TAG}" >> "$GITHUB_OUTPUT"
+          else
+            DEV_TAG="${WORKER_SLUG}-dev-${SHORT_SHA}"
+            DEV_LATEST_TAG="${WORKER_SLUG}-dev-latest"
+            {
+              echo "tags<<TAGS"
+              echo "${IMAGE_REPO}:${DEV_TAG}"
+              echo "${IMAGE_REPO}:${DEV_LATEST_TAG}"
+              echo "TAGS"
+            } >> "$GITHUB_OUTPUT"
+            echo "manifest_tag=${DEV_LATEST_TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push worker image
+        if: steps.check.outputs.should_build == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: domains/${{ matrix.worker }}/Dockerfile.worker
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Sync manifest branch
+        if: >
+          steps.check.outputs.should_build == 'true' &&
+          (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git fetch origin "${BRANCH_NAME}"
+          git checkout -B "${BRANCH_NAME}"
+          git pull --rebase origin "${BRANCH_NAME}"
+
+      - name: Update worker manifest tag
+        if: steps.check.outputs.should_build == 'true'
+        id: update_manifest
+        env:
+          WORKER: ${{ matrix.worker }}
+          TAG_NAME: ${{ steps.meta.outputs.manifest_tag }}
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            KUSTOMIZE_FILE="workloads/domains/${WORKER}-worker/prod/kustomization.yaml"
+          else
+            KUSTOMIZE_FILE="workloads/domains/${WORKER}-worker/dev/kustomization.yaml"
+          fi
+          
+          # kustomization.yaml이 없으면 생성
+          if [ ! -f "$KUSTOMIZE_FILE" ]; then
+            mkdir -p "$(dirname $KUSTOMIZE_FILE)"
+            cat > "$KUSTOMIZE_FILE" << EOF
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+          resources:
+            - ../base
+          images:
+            - name: docker.io/mng990/eco2
+              newTag: ${TAG_NAME}
+          EOF
+          else
+            python -m pip install --upgrade pip pyyaml
+            python scripts/ci/update_kustomize_image.py \
+              --file "$KUSTOMIZE_FILE" \
+              --image docker.io/mng990/eco2 \
+              --tag "$TAG_NAME"
+          fi
+          
+          if git diff --quiet -- "$KUSTOMIZE_FILE" 2>/dev/null; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "file=$KUSTOMIZE_FILE" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit worker manifest updates
+        if: steps.update_manifest.outputs.changed == 'true'
+        env:
+          KUSTOMIZE_FILE: ${{ steps.update_manifest.outputs.file }}
+          TAG_NAME: ${{ steps.meta.outputs.manifest_tag }}
+          WORKER: ${{ matrix.worker }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${KUSTOMIZE_FILE}"
+          git commit -m "chore(${WORKER}-worker): bump image tag to ${TAG_NAME} [skip ci]"
+          git push origin HEAD:${GITHUB_REF_NAME}

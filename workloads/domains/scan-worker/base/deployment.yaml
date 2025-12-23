@@ -1,5 +1,5 @@
 # Scan Worker Celery Deployment
-# 비동기 AI 파이프라인 처리
+# 비동기 AI 파이프라인 처리 (vision, rule, answer, reward)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: scan-worker
-        image: docker.io/mng990/eco2:scan-api-dev-latest
+        image: docker.io/mng990/eco2:scan-worker-dev-latest
         imagePullPolicy: Always
         command: [celery]
         args:
@@ -36,7 +36,7 @@ spec:
         - --loglevel=info
         - -E  # Events 활성화 (SSE 스트리밍용)
         - -Q
-        - scan.vision,scan.rule,scan.answer
+        - scan.vision,scan.rule,scan.answer,scan.reward
         - -c
         - '2'
         env:
