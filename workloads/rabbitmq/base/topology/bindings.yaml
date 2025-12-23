@@ -102,24 +102,6 @@ spec:
     namespace: rabbitmq
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# My Domain Sync Bindings
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-apiVersion: rabbitmq.com/v1beta1
-kind: Binding
-metadata:
-  name: my-sync-binding
-  namespace: rabbitmq
-spec:
-  source: my.direct
-  destination: my.sync
-  destinationType: queue
-  routingKey: my.sync
-  vhost: eco2
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
----
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Dead Letter Bindings
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: rabbitmq.com/v1beta1
