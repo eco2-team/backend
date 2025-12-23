@@ -286,7 +286,9 @@ class TestCeleryConfig:
         assert routes["scan.vision"]["queue"] == "scan.vision"
         assert routes["scan.rule"]["queue"] == "scan.rule"
         assert routes["scan.answer"]["queue"] == "scan.answer"
-        assert routes["reward.*"]["queue"] == "reward.character"
+        assert routes["scan.reward"]["queue"] == "scan.reward"
+        assert routes["character.save_ownership"]["queue"] == "character.reward"
+        assert routes["my.save_character"]["queue"] == "my.reward"
         assert routes["dlq.*"]["queue"] == "celery"
 
     def test_get_celery_config_beat_schedule(self):
@@ -302,7 +304,9 @@ class TestCeleryConfig:
         assert "reprocess-dlq-scan-vision" in schedule
         assert "reprocess-dlq-scan-rule" in schedule
         assert "reprocess-dlq-scan-answer" in schedule
-        assert "reprocess-dlq-reward" in schedule
+        assert "reprocess-dlq-scan-reward" in schedule
+        assert "reprocess-dlq-character-reward" in schedule
+        assert "reprocess-dlq-my-reward" in schedule
 
         # 5분마다 실행
         assert schedule["reprocess-dlq-scan-vision"]["schedule"] == 300.0

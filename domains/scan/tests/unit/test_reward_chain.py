@@ -366,15 +366,15 @@ class TestSaveMyCharacterTask:
         assert "postgresql" in my_db_url
         assert "asyncpg" in my_db_url
 
-    def test_task_queue_is_my_sync(self):
-        """my.sync 큐에서 실행됨."""
+    def test_task_queue_is_my_reward(self):
+        """my.reward 큐에서 실행됨."""
         from domains._shared.celery.config import get_celery_settings
 
         settings = get_celery_settings()
         config = settings.get_celery_config()
         routes = config["task_routes"]
 
-        assert routes["my.save_character"]["queue"] == "my.sync"
+        assert routes["my.save_character"]["queue"] == "my.reward"
 
 
 class TestFullChainIntegration:
@@ -488,10 +488,10 @@ class TestParallelSaveArchitecture:
         config = settings.get_celery_config()
         routes = config["task_routes"]
 
-        # 각 task의 큐 확인
-        assert routes["character.persist_reward"]["queue"] == "reward.persist"
-        assert routes["character.save_ownership"]["queue"] == "reward.persist"
-        assert routes["my.save_character"]["queue"] == "my.sync"
+        # 각 task의 큐 확인 (scan.reward → character.reward, my.reward 직접 dispatch)
+        assert routes["scan.reward"]["queue"] == "scan.reward"
+        assert routes["character.save_ownership"]["queue"] == "character.reward"
+        assert routes["my.save_character"]["queue"] == "my.reward"
 
     def test_each_task_has_own_retry(self):
         """각 task는 독립적인 재시도 로직."""
@@ -501,13 +501,17 @@ class TestParallelSaveArchitecture:
         assert save_ownership_task.max_retries == 5
         assert save_my_character_task.max_retries == 5
 
-    def test_tasks_are_fire_and_forget(self):
-        """persist_reward_task는 하위 task를 Fire & Forget으로 발행."""
-        from domains.character.tasks.reward import persist_reward_task
+    def test_scan_reward_dispatches_save_tasks(self):
+        """scan_reward_task가 send_task로 저장 task 발행."""
+        import inspect
 
-        # persist_reward_task는 발행만 하고 결과 대기 안 함
-        # delay() 호출 후 즉시 반환
-        assert persist_reward_task.soft_time_limit == 10  # 짧은 타임아웃
+        from domains.scan.tasks.reward import scan_reward_task
+
+        source = inspect.getsource(scan_reward_task)
+        # send_task로 발행하는지 확인
+        assert "send_task" in source
+        assert "character.save_ownership" in source
+        assert "my.save_character" in source
 
     def test_no_grpc_in_save_my_character(self):
         """save_my_character_task에 gRPC 호출 없음."""
