@@ -35,6 +35,7 @@ spec:
         - domains.character.consumers
         - worker
         - --loglevel=info
+        - -E  # Events 활성화 (SSE 스트리밍용)
         - -Q
         - reward.character,reward.persist,my.sync
         - -c
@@ -46,6 +47,8 @@ spec:
             secretKeyRef:
               name: character-secret
               key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          value: redis://dev-redis.redis.svc.cluster.local:6379/1
         # OpenTelemetry
         - name: OTEL_SERVICE_NAME
           value: character-worker

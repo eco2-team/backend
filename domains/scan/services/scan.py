@@ -20,7 +20,6 @@ from domains.scan.core.validators import ImageUrlValidator
 from domains.scan.metrics import GRPC_CALL_COUNTER, GRPC_CALL_LATENCY
 from domains.scan.proto import character_pb2
 from domains.scan.schemas.scan import (
-    AsyncClassificationResponse,
     ClassificationRequest,
     ClassificationResponse,
     ScanCategory,
@@ -105,107 +104,6 @@ class ScanService:
 
         return await self._classify_sync_internal(
             task_id, user_id, image_url, payload.user_input, log_ctx
-        )
-
-    async def classify_async(
-        self, payload: ClassificationRequest, user_id: UUID
-    ) -> AsyncClassificationResponse:
-        """비동기 방식으로 폐기물 분류 (SSE로 결과 수신)."""
-        image_url, error = self._validate_request(payload)
-        if error:
-            return AsyncClassificationResponse(
-                task_id=error.task_id,
-                status=error.status,
-                message=error.message,
-            )
-
-        task_id = uuid4()
-        log_ctx = {"task_id": str(task_id), "user_id": str(user_id)}
-
-        logger.info(
-            "scan_task_created",
-            extra={
-                "event_type": "scan_created",
-                "task_id": str(task_id),
-                "user_id": str(user_id),
-                "image_url": image_url,
-                "user_input": payload.user_input,
-                "mode": "async",
-            },
-        )
-
-        return await self._classify_async_internal(
-            task_id, user_id, image_url, payload.user_input, log_ctx
-        )
-
-    async def classify(
-        self, payload: ClassificationRequest, user_id: UUID
-    ) -> ClassificationResponse:
-        """[DEPRECATED] callback_url 여부로 동기/비동기 결정. classify_sync/classify_async 사용 권장."""
-        if payload.callback_url:
-            return await self.classify_async(payload, user_id)
-        return await self.classify_sync(payload, user_id)
-
-    async def _classify_async_internal(
-        self,
-        task_id: UUID,
-        user_id: UUID,
-        image_url: str,
-        user_input: str | None,
-        log_ctx: dict,
-    ) -> AsyncClassificationResponse:
-        """Celery Chain을 발행하여 비동기 처리."""
-        from celery import chain
-
-        from domains.character.consumers.reward import scan_reward_task
-        from domains.scan.tasks.answer import answer_task
-        from domains.scan.tasks.rule import rule_task
-        from domains.scan.tasks.vision import vision_task
-
-        try:
-            # 4단계 Chain: vision → rule → answer → reward
-            # vision, rule, answer: scan-worker (worker-ai)
-            # reward: character-worker (worker-storage)
-            # 클라이언트는 SSE로 진행상황 및 최종 결과 수신
-
-            # 첫 번째 task에 명시적 task_id 설정 → 모든 chain task가 이를 root_id로 공유
-            # SSE에서 root_id로 chain 전체 추적 가능
-            first_task = vision_task.s(str(task_id), str(user_id), image_url, user_input).set(
-                task_id=str(task_id)
-            )
-
-            pipeline = chain(
-                first_task,
-                rule_task.s(),
-                answer_task.s(),
-                scan_reward_task.s(),
-            )
-            pipeline.apply_async()
-
-            logger.info(
-                "scan_chain_dispatched",
-                extra={
-                    "event_type": "scan_chain_dispatched",
-                    "task_id": str(task_id),
-                    "user_id": str(user_id),
-                    "stages": ["vision", "rule", "answer", "reward"],
-                },
-            )
-        except Exception:
-            logger.exception(
-                "scan_chain_dispatch_failed",
-                extra={**log_ctx, "event_type": "scan_chain_failed"},
-            )
-            return AsyncClassificationResponse(
-                task_id=str(task_id),
-                status="failed",
-                message="비동기 작업 발행에 실패했습니다.",
-            )
-
-        return AsyncClassificationResponse(
-            task_id=str(task_id),
-            status="processing",
-            message="AI 분석이 진행 중입니다. GET /scan/{task_id}/progress (SSE)로 진행상황을 확인하세요.",
         )
 
     async def _classify_sync_internal(

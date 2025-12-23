@@ -1,10 +1,10 @@
 from fastapi import APIRouter
 
-from . import health, metrics, progress, scan
+from . import completion, health, metrics, scan
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(scan.router)
-api_router.include_router(progress.router)
+api_router.include_router(completion.router)
 api_router.include_router(metrics.router)
 
 health_router = APIRouter()

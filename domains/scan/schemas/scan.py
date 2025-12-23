@@ -10,9 +10,8 @@ from domains.character.schemas.reward import CharacterRewardResponse
 class ClassificationRequest(BaseModel):
     """폐기물 분류 요청.
 
-    비동기 처리:
-        POST /scan/classify/async 사용 시 task_id가 즉시 반환되며,
-        GET /scan/{task_id}/progress (SSE)로 진행상황 및 최종 결과를 수신합니다.
+    동기 처리: POST /scan/classify
+    스트리밍: POST /scan/classify/completion (SSE)
     """
 
     image_url: Optional[HttpUrl] = Field(
@@ -23,15 +22,10 @@ class ClassificationRequest(BaseModel):
         default=None,
         description="사용자 질문/설명 (없으면 기본 안내 문구 사용)",
     )
-    callback_url: Optional[HttpUrl] = Field(
-        default=None,
-        description="[DEPRECATED] 무시됨. SSE(/scan/{task_id}/progress)로 결과 수신.",
-        json_schema_extra={"deprecated": True},
-    )
 
 
 class ClassificationResponse(BaseModel):
-    """동기 분류 응답 (결과 포함)."""
+    """분류 응답 (동기 처리 결과)."""
 
     task_id: str
     status: str
@@ -39,14 +33,6 @@ class ClassificationResponse(BaseModel):
     pipeline_result: Optional[WasteClassificationResult] = None
     reward: Optional[CharacterRewardResponse] = None
     error: Optional[str] = None
-
-
-class AsyncClassificationResponse(BaseModel):
-    """비동기 분류 응답 (task_id만 반환, 결과는 SSE로 수신)."""
-
-    task_id: str
-    status: str
-    message: Optional[str] = None
 
 
 class ScanTask(BaseModel):
