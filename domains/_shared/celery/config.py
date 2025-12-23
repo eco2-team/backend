@@ -16,47 +16,73 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 default_exchange = Exchange("", type="direct")  # Default exchange
 dlx_exchange = Exchange("dlx", type="direct")  # Dead Letter Exchange
 
-# Queue 정의 (DLX 설정 포함)
+# Queue 정의 (DLX 설정 포함 - Topology CR과 동기화)
 CELERY_QUEUES = (
     # Default queue
-    Queue("celery", default_exchange, routing_key="celery"),
+    Queue(
+        "celery",
+        default_exchange,
+        routing_key="celery",
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.celery",
+        },
+    ),
     # Scan pipeline queues
     Queue(
         "scan.vision",
         default_exchange,
         routing_key="scan.vision",
-        queue_arguments={"x-dead-letter-exchange": "dlx"},
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.scan.vision",
+        },
     ),
     Queue(
         "scan.rule",
         default_exchange,
         routing_key="scan.rule",
-        queue_arguments={"x-dead-letter-exchange": "dlx"},
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.scan.rule",
+        },
     ),
     Queue(
         "scan.answer",
         default_exchange,
         routing_key="scan.answer",
-        queue_arguments={"x-dead-letter-exchange": "dlx"},
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.scan.answer",
+        },
     ),
     # Reward queues (도메인별 분리)
     Queue(
         "scan.reward",
         default_exchange,
         routing_key="scan.reward",
-        queue_arguments={"x-dead-letter-exchange": "dlx"},
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.scan.reward",
+        },
     ),
     Queue(
         "character.reward",
         default_exchange,
         routing_key="character.reward",
-        queue_arguments={"x-dead-letter-exchange": "dlx"},
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.character.reward",
+        },
     ),
     Queue(
         "my.reward",
         default_exchange,
         routing_key="my.reward",
-        queue_arguments={"x-dead-letter-exchange": "dlx"},
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.my.reward",
+        },
     ),
 )
 
