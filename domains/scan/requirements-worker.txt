@@ -3,6 +3,9 @@
 # Base 이미지에 포함되지 않은 AI/LLM 관련 패키지
 # ============================================================================
 
+# FastAPI (character 모듈 import 시 필요)
+fastapi==0.109.0
+
 # OpenAI API (Vision, Answer tasks)
 openai>=1.51.0
 
