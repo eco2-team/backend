@@ -7,7 +7,9 @@ character.cache exchange에서 이벤트를 수신하여 로컬 캐시를 업데
 from __future__ import annotations
 
 import logging
+import socket
 import threading
+import time
 from typing import TYPE_CHECKING, Any
 
 from kombu import Connection, Exchange, Queue
@@ -148,24 +150,31 @@ class CacheConsumerThread(threading.Thread):
         """Consumer 실행."""
         logger.info("cache_consumer_thread_starting", extra={"broker": self.broker_url})
 
-        try:
-            with Connection(self.broker_url) as connection:
-                self._consumer = CacheUpdateConsumer(connection, self.cache)
-                # should_stop 체크를 위해 timeout 설정
-                while not self._stop_event.is_set():
-                    try:
-                        self._consumer.run(timeout=1)
-                    except Exception:
-                        if not self._stop_event.is_set():
-                            logger.exception("cache_consumer_error")
-                            # 재연결 시도
-                            break
+        while not self._stop_event.is_set():
+            try:
+                with Connection(self.broker_url, heartbeat=60) as connection:
+                    self._consumer = CacheUpdateConsumer(connection, self.cache)
+                    logger.info("cache_consumer_connected")
 
-        except Exception as e:
-            logger.exception(
-                "cache_consumer_thread_error",
-                extra={"error": str(e)},
-            )
+                    # ConsumerMixin.run()은 내부적으로 무한 루프
+                    # should_stop이 True가 되면 종료됨
+                    self._consumer.run()
+
+            except (socket.timeout, TimeoutError, OSError) as e:
+                # 정상적인 timeout - 조용히 재연결
+                if self._stop_event.is_set():
+                    break
+                logger.debug("cache_consumer_timeout", extra={"error": str(e)})
+                time.sleep(1)  # 재연결 전 잠시 대기
+
+            except Exception as e:
+                if self._stop_event.is_set():
+                    break
+                logger.warning(
+                    "cache_consumer_error",
+                    extra={"error": str(e)},
+                )
+                time.sleep(5)  # 에러 시 더 긴 대기
 
         logger.info("cache_consumer_thread_stopped")
 
