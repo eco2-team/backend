@@ -168,12 +168,22 @@ async def _event_generator(
 
     def _handle_event(event: dict, status: str, result: dict | None = None) -> None:
         """이벤트 처리 및 Queue로 전달."""
+        # DEBUG: Celery event 필드 확인
+        logger.info(
+            f"Celery event received: keys={list(event.keys())}, "
+            f"root_id={event.get('root_id')}, parent_id={event.get('parent_id')}, "
+            f"uuid={event.get('uuid')}, name={event.get('name')}"
+        )
+
         event_task_id = event.get("uuid", "")
         task_name = event.get("name", "")
         parent_id = event.get("parent_id")
+        root_id = event.get("root_id")  # chain의 첫 번째 task ID
 
+        # root_id로 chain 전체 매칭 시도 (테스트 중)
         is_chain_task = (
-            event_task_id == task_id
+            root_id == task_id  # root_id가 API task_id와 일치하면 chain의 모든 task
+            or event_task_id == task_id
             or event_task_id in chain_task_ids
             or parent_id in chain_task_ids
         )
