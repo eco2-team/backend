@@ -36,6 +36,8 @@ spec:
         - worker
         - --loglevel=info
         - -E  # Events 활성화
+        - --without-mingle
+        - --without-gossip
         - -Q
         - character.match  # match 큐만 소비
         - -c

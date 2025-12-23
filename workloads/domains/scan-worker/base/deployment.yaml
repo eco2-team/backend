@@ -35,6 +35,8 @@ spec:
         - worker
         - --loglevel=info
         - -E  # Events 활성화 (SSE 스트리밍용)
+        - --without-mingle  # Quorum queue global QoS 이슈 우회
+        - --without-gossip
         - -Q
         - scan.vision,scan.rule,scan.answer,scan.reward
         - -c

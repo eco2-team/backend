@@ -213,7 +213,10 @@ class CelerySettings(BaseSettings):
             "broker_url": self.broker_url,
             "result_backend": self.result_backend,
             # Quorum queue는 global QoS 미지원 - per-consumer QoS 사용
-            "broker_transport_options": {"global_qos": False},
+            "broker_transport_options": {
+                "global_qos": False,
+                "confirm_publish": True,
+            },
             "task_serializer": self.task_serializer,
             "result_serializer": self.result_serializer,
             "accept_content": self.accept_content,
@@ -226,6 +229,9 @@ class CelerySettings(BaseSettings):
             "worker_prefetch_multiplier": self.worker_prefetch_multiplier,
             "worker_concurrency": self.worker_concurrency,
             "task_default_retry_delay": self.task_default_retry_delay,
+            # Celery 6.0 deprecation 경고 해소
+            "broker_connection_retry_on_startup": True,
+            "worker_cancel_long_running_tasks_on_connection_loss": True,
             # Celery Events 활성화 (SSE 실시간 진행상황 + 최종 결과)
             "task_send_sent_event": True,  # task-sent 이벤트 발행
             "worker_send_task_events": True,  # worker에서 task 이벤트 발행
