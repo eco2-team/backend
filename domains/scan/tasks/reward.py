@@ -87,16 +87,13 @@ def scan_reward_task(
                 log_ctx=log_ctx,
             )
 
-    # 4. 최종 결과 구성 (내부용 필드 제거)
+    # 4. 최종 결과 구성 (내부용 필드 제거, 클라이언트 표시용만)
     reward_response = None
     if reward:
         reward_response = {
-            "received": reward.get("received", False),
-            "already_owned": reward.get("already_owned", False),
             "name": reward.get("name"),
             "dialog": reward.get("dialog"),
             "match_reason": reward.get("match_reason"),
-            "character_type": reward.get("character_type"),
             "type": reward.get("type"),
         }
 
@@ -118,7 +115,7 @@ def scan_reward_task(
             "duration_answer_ms": metadata.get("duration_answer_ms"),
             "has_disposal_rules": disposal_rules is not None,
             "has_reward": reward_response is not None,
-            "reward_received": (reward_response.get("received") if reward_response else None),
+            "matched_character": reward_response.get("name") if reward_response else None,
         },
     )
 

@@ -47,9 +47,8 @@ def match_character_task(
 
     Returns:
         매칭 성공 시:
-        - received: True (매칭됨, 소유 여부는 클라이언트가 판단)
-        - character_id, character_code: 저장 task용
-        - name, dialog, match_reason: 클라이언트 표시용
+        - name, dialog, match_reason, type: 클라이언트 표시용
+        - character_id, character_code: 저장 task 발행용 (내부)
         매칭 실패 시: None
     """
     log_ctx = {
@@ -148,10 +147,12 @@ async def _match_character_async(
 
     # 3. 결과 반환 (소유권 체크 없음 - 클라이언트가 판단)
     return {
-        "received": True,  # 매칭됨 (소유 여부는 클라이언트가 판단)
-        "character_id": str(matched_character.id),
-        "character_code": matched_character.code,
+        # 클라이언트 표시용
         "name": matched_character.name,
         "dialog": matched_character.dialog,
         "match_reason": eval_result.match_reason,
+        "type": matched_character.type_label,
+        # 저장 task 발행용 (내부)
+        "character_id": str(matched_character.id),
+        "character_code": matched_character.code,
     }
