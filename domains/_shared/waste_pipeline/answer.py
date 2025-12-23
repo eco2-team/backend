@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from .utils import (
     ANSWER_GENERATION_PROMPT_PATH,
+    get_async_openai_client,
     get_openai_client,
     load_prompt,
     save_json_result,
@@ -146,3 +147,78 @@ def generate_answer(
             elapsed_ms,
             success,
         )
+
+
+# ==========================================
+# 자연어 답변 비동기 생성 (/completion SSE 전용)
+# ==========================================
+async def generate_answer_async(
+    classification_result: dict,
+    disposal_rules: dict,
+) -> dict:
+    """
+    분류 결과와 배출 규정을 기반으로 자연어 안내문을 비동기로 생성.
+
+    /completion SSE 엔드포인트 전용.
+    AsyncOpenAI 클라이언트를 사용하여 I/O 블로킹 없이 처리.
+
+    Args:
+        classification_result: Vision API 또는 텍스트 분류 결과 dict
+        disposal_rules: 매칭된 JSON 파일의 배출 규정
+
+    Returns:
+        자연어 안내문 dict
+    """
+    started_at = datetime.now(timezone.utc)
+    timer = perf_counter()
+    client = get_async_openai_client()
+
+    logger.info("Answer async generation started at %s", started_at.isoformat())
+
+    # 시스템 프롬프트 로드
+    system_prompt = load_prompt(ANSWER_GENERATION_PROMPT_PATH)
+
+    classification_json = json.dumps(
+        classification_result.get("classification", {}), ensure_ascii=False, indent=2
+    )
+    tags_json = json.dumps(
+        classification_result.get("situation_tags", []), ensure_ascii=False, indent=2
+    )
+    rag_json = json.dumps(disposal_rules, ensure_ascii=False, indent=2)
+    user_input_text = classification_result.get("meta", {}).get("user_input", "")
+
+    user_message = f"""
+    <context id="classification">
+    {classification_json}
+    </context>
+
+    <context id="situation_tags">
+    {tags_json}
+    </context>
+
+    <context id="user_input">
+    {user_input_text}
+    </context>
+
+    <context id="lite_rag">
+    {rag_json}
+    </context>
+    """
+
+    # GPT-5.1 비동기 호출
+    response = await client.chat.completions.parse(
+        model="gpt-5.1",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        response_format=AnswerResult,
+    )
+
+    parsed = response.choices[0].message.parsed
+    result_payload = parsed.model_dump()
+
+    elapsed_ms = (perf_counter() - timer) * 1000
+    logger.info("Answer async generation completed (%.1f ms)", elapsed_ms)
+
+    return result_payload

@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -380,9 +380,9 @@ class TestSaveMyCharacterTask:
 class TestFullChainIntegration:
     """4단계 Chain 통합 테스트 (vision → rule → answer + reward 판정)."""
 
-    @patch("domains._shared.waste_pipeline.answer.generate_answer")
+    @patch("domains._shared.waste_pipeline.answer.generate_answer_async", new_callable=AsyncMock)
     @patch("domains._shared.waste_pipeline.rag.get_disposal_rules")
-    @patch("domains._shared.waste_pipeline.vision.analyze_images")
+    @patch("domains._shared.waste_pipeline.vision.analyze_images_async", new_callable=AsyncMock)
     def test_pipeline_produces_reward_eligible_result(self, mock_vision, mock_rule, mock_answer):
         """3단계 파이프라인 후 reward 판정 가능한 결과 생성."""
         from domains.scan.tasks.answer import answer_task

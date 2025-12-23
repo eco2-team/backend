@@ -39,12 +39,24 @@ celery_app.autodiscover_tasks(
 
 
 @worker_ready.connect
-def init_character_cache_for_scan(sender: Any, **kwargs: Any) -> None:
-    """Worker 시작 시 캐시 Consumer 시작."""
+def init_worker_resources(sender: Any, **kwargs: Any) -> None:
+    """Worker 시작 시 리소스 초기화.
+
+    1. 공유 event loop 초기화 (AsyncOpenAI용)
+    2. 캐시 Consumer 시작
+    """
     from domains._shared.cache import start_cache_consumer
+    from domains._shared.celery.async_support import init_event_loop
 
+    # 1. Event loop 초기화 (비동기 호출용)
+    try:
+        init_event_loop()
+        logger.info("scan_worker_event_loop_initialized")
+    except Exception:
+        logger.exception("scan_worker_event_loop_init_failed")
+
+    # 2. 캐시 Consumer 시작
     logger.info("scan_worker_cache_consumer_starting")
-
     try:
         broker_url = os.getenv("CELERY_BROKER_URL")
         if broker_url:
@@ -57,12 +69,21 @@ def init_character_cache_for_scan(sender: Any, **kwargs: Any) -> None:
 
 
 @worker_shutdown.connect
-def shutdown_character_cache_for_scan(sender: Any, **kwargs: Any) -> None:
-    """Worker 종료 시 캐시 Consumer 정리."""
+def shutdown_worker_resources(sender: Any, **kwargs: Any) -> None:
+    """Worker 종료 시 리소스 정리."""
     from domains._shared.cache import stop_cache_consumer
+    from domains._shared.celery.async_support import shutdown_event_loop
 
+    # 1. 캐시 Consumer 정리
     try:
         stop_cache_consumer()
         logger.info("scan_worker_cache_consumer_stopped")
     except Exception:
         logger.exception("scan_worker_cache_shutdown_failed")
+
+    # 2. Event loop 정리
+    try:
+        shutdown_event_loop()
+        logger.info("scan_worker_event_loop_shutdown")
+    except Exception:
+        logger.exception("scan_worker_event_loop_shutdown_failed")

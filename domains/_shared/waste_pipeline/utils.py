@@ -10,7 +10,7 @@ from typing import Any
 
 import yaml
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 
 load_dotenv()
 
@@ -28,6 +28,7 @@ TEXT_CLASSIFICATION_PROMPT_PATH = PROMPTS_DIR / "text_classification_prompt.txt"
 ANSWER_GENERATION_PROMPT_PATH = PROMPTS_DIR / "answer_generation_prompt.txt"
 
 _openai_client: OpenAI | None = None
+_async_openai_client: AsyncOpenAI | None = None
 
 
 def _build_client() -> OpenAI:
@@ -37,12 +38,27 @@ def _build_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
+def _build_async_client() -> AsyncOpenAI:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
+    return AsyncOpenAI(api_key=api_key)
+
+
 def get_openai_client() -> OpenAI:
     """Lazy-initialize OpenAI client to avoid import-time failures."""
     global _openai_client
     if _openai_client is None:
         _openai_client = _build_client()
     return _openai_client
+
+
+def get_async_openai_client() -> AsyncOpenAI:
+    """Lazy-initialize AsyncOpenAI client for async contexts."""
+    global _async_openai_client
+    if _async_openai_client is None:
+        _async_openai_client = _build_async_client()
+    return _async_openai_client
 
 
 def load_yaml(path: Path) -> Any:

@@ -7,7 +7,7 @@ Phase 2: 3단계 파이프라인 테스트 (vision → rule → answer)
 from __future__ import annotations
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 
@@ -26,7 +26,7 @@ class TestVisionTask:
             "situation_tags": ["내용물_없음"],
         }
 
-    @patch("domains._shared.waste_pipeline.vision.analyze_images")
+    @patch("domains._shared.waste_pipeline.vision.analyze_images_async", new_callable=AsyncMock)
     def test_vision_task_success(self, mock_analyze, mock_vision_result):
         """Vision 분석 성공."""
         from domains.scan.tasks.vision import vision_task
@@ -49,7 +49,7 @@ class TestVisionTask:
         assert "duration_vision_ms" in result["metadata"]
         mock_analyze.assert_called_once()
 
-    @patch("domains._shared.waste_pipeline.vision.analyze_images")
+    @patch("domains._shared.waste_pipeline.vision.analyze_images_async", new_callable=AsyncMock)
     def test_vision_task_default_prompt(self, mock_analyze, mock_vision_result):
         """user_input이 없으면 기본 프롬프트 사용."""
         from domains.scan.tasks.vision import vision_task
@@ -140,7 +140,7 @@ class TestAnswerTask:
             },
         }
 
-    @patch("domains._shared.waste_pipeline.answer.generate_answer")
+    @patch("domains._shared.waste_pipeline.answer.generate_answer_async", new_callable=AsyncMock)
     def test_answer_task_success(self, mock_generate, mock_prev_result):
         """답변 생성 성공."""
         from domains.scan.tasks.answer import answer_task
@@ -159,7 +159,7 @@ class TestAnswerTask:
         assert "duration_answer_ms" in result["metadata"]
         assert "duration_total_ms" in result["metadata"]
 
-    @patch("domains._shared.waste_pipeline.answer.generate_answer")
+    @patch("domains._shared.waste_pipeline.answer.generate_answer_async", new_callable=AsyncMock)
     def test_answer_task_no_disposal_rules(self, mock_generate, mock_prev_result):
         """disposal_rules가 없으면 기본 답변."""
         from domains.scan.tasks.answer import answer_task
@@ -176,9 +176,9 @@ class TestAnswerTask:
 class TestCeleryChain:
     """Celery Chain 통합 테스트 (vision → rule → answer)."""
 
-    @patch("domains._shared.waste_pipeline.answer.generate_answer")
+    @patch("domains._shared.waste_pipeline.answer.generate_answer_async", new_callable=AsyncMock)
     @patch("domains._shared.waste_pipeline.rag.get_disposal_rules")
-    @patch("domains._shared.waste_pipeline.vision.analyze_images")
+    @patch("domains._shared.waste_pipeline.vision.analyze_images_async", new_callable=AsyncMock)
     def test_pipeline_chain_without_reward(self, mock_vision, mock_rule, mock_answer):
         """3단계 파이프라인 체인 시뮬레이션 (reward 제외)."""
         from domains.scan.tasks.answer import answer_task

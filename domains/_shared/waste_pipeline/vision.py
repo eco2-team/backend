@@ -7,6 +7,7 @@ from .utils import (
     ITEM_CLASS_PATH,
     SITUATION_TAG_PATH,
     VISION_PROMPT_PATH,
+    get_async_openai_client,
     get_openai_client,
     load_prompt,
     load_yaml,
@@ -120,5 +121,54 @@ def analyze_images(user_input_text: str, image_url: str, save_result: bool = Fal
             parsed.model_dump(), "vision_classification", subfolder="vision/classification"
         )
         print(f"✅ 저장됨: {saved_path}")
+
+    return parsed.model_dump()
+
+
+# ==========================================
+# GPT-5.1 Vision 비동기 호출 (/completion SSE 전용)
+# ==========================================
+async def analyze_images_async(user_input_text: str, image_url: str) -> dict:
+    """
+    이미지와 텍스트를 비동기로 분석하여 폐기물 분류 결과를 반환.
+
+    /completion SSE 엔드포인트 전용.
+    AsyncOpenAI 클라이언트를 사용하여 I/O 블로킹 없이 처리.
+
+    Args:
+        user_input_text: 사용자 입력 텍스트
+        image_url: 분석할 이미지 URL(단일)
+
+    Returns:
+        분류 결과 dict
+    """
+    client = get_async_openai_client()
+
+    # 프롬프트 로드 및 변수 치환
+    raw_prompt = load_prompt(VISION_PROMPT_PATH)
+    system_prompt = raw_prompt.replace("{{ITEM_CLASS_YAML}}", item_class_text).replace(
+        "{{SITUATION_TAG_YAML}}", situation_tags_text
+    )
+
+    system_items = [{"type": "input_text", "text": system_prompt}]
+    content_items = [
+        {"type": "input_text", "text": user_input_text},
+        {"type": "input_image", "image_url": image_url},
+    ]
+
+    logger.info("Vision async API call starting")
+
+    # Vision API 비동기 호출
+    response = await client.responses.parse(
+        model="gpt-5.1",
+        input=[
+            {"role": "user", "content": content_items},
+            {"role": "system", "content": system_items},
+        ],
+        text_format=VisionResult,
+    )
+
+    parsed = response.output_parsed
+    logger.info("Vision async API call completed")
 
     return parsed.model_dump()

@@ -48,7 +48,8 @@ def vision_task(
     Returns:
         Dictionary containing task metadata and classification result
     """
-    from domains._shared.waste_pipeline.vision import analyze_images
+    from domains._shared.celery.async_support import run_async
+    from domains._shared.waste_pipeline.vision import analyze_images_async
 
     log_ctx = {
         "task_id": task_id,
@@ -56,13 +57,14 @@ def vision_task(
         "celery_task_id": self.request.id,
         "stage": "vision",
     }
-    logger.info("Vision task started", extra=log_ctx)
+    logger.info("Vision task started (async)", extra=log_ctx)
 
     prompt_text = user_input or "이 폐기물을 어떻게 분리배출해야 하나요?"
     started = perf_counter()
 
     try:
-        result_payload = analyze_images(prompt_text, image_url)
+        # AsyncOpenAI 사용 (공유 event loop에서 실행)
+        result_payload = run_async(analyze_images_async(prompt_text, image_url))
         classification_result = _to_dict(result_payload)
     except Exception as exc:
         elapsed_ms = (perf_counter() - started) * 1000

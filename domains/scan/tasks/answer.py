@@ -48,7 +48,8 @@ def answer_task(
     Returns:
         최종 파이프라인 결과 (reward_task로 전달)
     """
-    from domains._shared.waste_pipeline.answer import generate_answer
+    from domains._shared.celery.async_support import run_async
+    from domains._shared.waste_pipeline.answer import generate_answer_async
 
     task_id = prev_result.get("task_id")
     user_id = prev_result.get("user_id")
@@ -61,7 +62,7 @@ def answer_task(
         "celery_task_id": self.request.id,
         "stage": "answer",
     }
-    logger.info("Answer task started", extra=log_ctx)
+    logger.info("Answer task started (async)", extra=log_ctx)
 
     started = perf_counter()
 
@@ -74,11 +75,8 @@ def answer_task(
         elapsed_ms = (perf_counter() - started) * 1000
     else:
         try:
-            final_answer = generate_answer(
-                classification_result,
-                disposal_rules,
-                save_result=False,
-            )
+            # AsyncOpenAI 사용 (공유 event loop에서 실행)
+            final_answer = run_async(generate_answer_async(classification_result, disposal_rules))
         except Exception as exc:
             elapsed_ms = (perf_counter() - started) * 1000
             logger.error(
