@@ -118,7 +118,7 @@ def scan_reward_task(
             "duration_answer_ms": metadata.get("duration_answer_ms"),
             "has_disposal_rules": disposal_rules is not None,
             "has_reward": reward_response is not None,
-            "reward_received": reward_response.get("received") if reward_response else None,
+            "reward_received": (reward_response.get("received") if reward_response else None),
         },
     )
 
@@ -132,7 +132,10 @@ def scan_reward_task(
         )
         logger.debug("task_result_event_sent", extra={"task_id": task_id})
     except Exception as e:
-        logger.warning("task_result_event_failed", extra={"task_id": task_id, "error": str(e)})
+        logger.warning(
+            "task_result_event_failed",
+            extra={"task_id": task_id, "error": str(e)},
+        )
 
     return result
 
@@ -261,5 +264,9 @@ def _dispatch_save_tasks(
 
     logger.info(
         "Reward storage tasks dispatched",
-        extra={**log_ctx, "character_id": reward["character_id"], "dispatched": dispatched},
+        extra={
+            **log_ctx,
+            "character_id": reward["character_id"],
+            "dispatched": dispatched,
+        },
     )

@@ -106,7 +106,9 @@ async def _match_character_async(
     from domains._shared.cache import get_character_cache
     from domains.character.core.config import get_settings
     from domains.character.repositories.character_repository import CharacterRepository
-    from domains.character.repositories.ownership_repository import CharacterOwnershipRepository
+    from domains.character.repositories.ownership_repository import (
+        CharacterOwnershipRepository,
+    )
     from domains.character.schemas.reward import (
         CharacterRewardRequest,
         CharacterRewardSource,
