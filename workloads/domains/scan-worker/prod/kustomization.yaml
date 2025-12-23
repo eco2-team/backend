@@ -6,7 +6,7 @@ resources:
 
 images:
 - name: docker.io/mng990/eco2
-  newTag: scan-api-prod-latest
+  newTag: scan-worker-prod-latest
 
 # Prod 환경: replicas 증가
 patches:

@@ -8,4 +8,4 @@ namespace: character
 
 images:
 - name: docker.io/mng990/eco2
-  newTag: character-api-dev-latest
+  newTag: character-worker-dev-latest

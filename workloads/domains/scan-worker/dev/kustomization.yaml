@@ -6,6 +6,10 @@ namespace: scan
 resources:
 - ../base
 
+images:
+- name: docker.io/mng990/eco2
+  newTag: scan-worker-dev-latest
+
 commonLabels:
   environment: dev
 
