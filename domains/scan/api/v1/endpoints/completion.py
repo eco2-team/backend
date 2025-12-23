@@ -196,6 +196,7 @@ async def _completion_generator(
 
     def run_event_receiver() -> None:
         """Celery Event Receiver (별도 스레드)."""
+
         try:
             logger.info("event_receiver_connecting", extra={"task_id": task_id})
             with celery_app.connection() as connection:
@@ -216,9 +217,14 @@ async def _completion_generator(
                         ),
                     },
                 )
-                # 연결 완료 신호
+                # itercapture를 사용하여 첫 consume 시작 후 ready 신호
+                consumer = recv.itercapture(limit=None, timeout=120, wakeup=True)
+                # Consumer 시작됨 - ready 신호
+                logger.info("event_receiver_ready", extra={"task_id": task_id})
                 receiver_ready.set()
-                recv.capture(limit=None, timeout=120, wakeup=True)
+                # 이벤트 수신 루프
+                for _ in consumer:
+                    pass
         except Exception as e:
             logger.exception("event_receiver_error", extra={"task_id": task_id, "error": str(e)})
             receiver_ready.set()  # 에러 시에도 진행
@@ -231,6 +237,9 @@ async def _completion_generator(
     # 연결 대기 (최대 5초)
     if not receiver_ready.wait(timeout=5.0):
         logger.warning("event_receiver_connect_timeout", extra={"task_id": task_id})
+
+    # 큐 바인딩 완료 대기 (itercapture 내부에서 consumer 설정됨)
+    await asyncio.sleep(0.3)
 
     # 3. Started 이벤트 전송 및 Chain 시작
     yield _format_sse({"status": "started", "task_id": task_id})
