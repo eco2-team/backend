@@ -19,8 +19,8 @@ settings = get_celery_settings()
 # Celery 앱 생성
 celery_app = Celery("scan")
 
-# 설정 적용
-celery_app.config_from_object(settings.get_celery_config())
+# 설정 적용 (dict는 conf.update 사용)
+celery_app.conf.update(settings.get_celery_config())
 
 # Task 모듈 자동 검색
 celery_app.autodiscover_tasks(

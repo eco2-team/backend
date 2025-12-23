@@ -20,7 +20,7 @@ settings = get_celery_settings()
 celery_app = Celery("my")
 
 # 설정 적용
-celery_app.config_from_object(settings.get_celery_config())
+celery_app.conf.update(settings.get_celery_config())
 
 # Task 모듈 자동 검색
 celery_app.autodiscover_tasks(
