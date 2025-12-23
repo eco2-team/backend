@@ -425,16 +425,17 @@ class TestFullChainIntegration:
         assert should_reward is True
 
 
-class TestRewardDecisionLogic:
-    """_evaluate_reward_decision 함수 테스트."""
+class TestDispatchCharacterMatch:
+    """_dispatch_character_match 함수 테스트."""
 
-    @patch("domains.scan.tasks.reward._match_character_async")
-    def test_decision_returns_character_info(self, mock_match):
-        """판정 결과에 캐릭터 정보 포함."""
-        from domains.scan.tasks.reward import _evaluate_reward_decision
+    @patch("domains.scan.tasks.reward.celery_app.send_task")
+    def test_dispatch_returns_character_info(self, mock_send_task):
+        """character.match 호출 시 캐릭터 정보 반환."""
+        from domains.scan.tasks.reward import _dispatch_character_match
 
         character_id = str(uuid4())
-        mock_match.return_value = {
+        mock_result = MagicMock()
+        mock_result.get.return_value = {
             "received": True,
             "already_owned": False,
             "character_id": character_id,
@@ -445,9 +446,9 @@ class TestRewardDecisionLogic:
             "character_type": "플라",
             "type": "플라",
         }
+        mock_send_task.return_value = mock_result
 
-        result = _evaluate_reward_decision(
-            task_id="task-123",
+        result = _dispatch_character_match(
             user_id="user-456",
             classification_result={"classification": {"major_category": "재활용폐기물"}},
             disposal_rules_present=True,
@@ -459,15 +460,40 @@ class TestRewardDecisionLogic:
         assert result["character_code"] == "ECO001"
         assert result["received"] is True
 
-    @patch("domains.scan.tasks.reward._match_character_async")
-    def test_decision_returns_none_on_exception(self, mock_match):
+        # send_task가 올바르게 호출됐는지 확인
+        mock_send_task.assert_called_once()
+        call_args = mock_send_task.call_args
+        assert call_args[0][0] == "character.match"
+        assert call_args[1]["queue"] == "character.match"
+
+    @patch("domains.scan.tasks.reward.celery_app.send_task")
+    def test_dispatch_returns_none_on_exception(self, mock_send_task):
         """예외 발생 시 None 반환."""
-        from domains.scan.tasks.reward import _evaluate_reward_decision
+        from domains.scan.tasks.reward import _dispatch_character_match
 
-        mock_match.side_effect = Exception("DB 연결 실패")
+        mock_send_task.side_effect = Exception("RabbitMQ 연결 실패")
 
-        result = _evaluate_reward_decision(
-            task_id="task-123",
+        result = _dispatch_character_match(
+            user_id="user-456",
+            classification_result={},
+            disposal_rules_present=False,
+            log_ctx={},
+        )
+
+        assert result is None
+
+    @patch("domains.scan.tasks.reward.celery_app.send_task")
+    def test_dispatch_returns_none_on_timeout(self, mock_send_task):
+        """타임아웃 시 None 반환."""
+        from celery.exceptions import TimeoutError
+
+        from domains.scan.tasks.reward import _dispatch_character_match
+
+        mock_result = MagicMock()
+        mock_result.get.side_effect = TimeoutError("Task timed out")
+        mock_send_task.return_value = mock_result
+
+        result = _dispatch_character_match(
             user_id="user-456",
             classification_result={},
             disposal_rules_present=False,
@@ -502,16 +528,26 @@ class TestParallelSaveArchitecture:
         assert save_my_character_task.max_retries == 5
 
     def test_scan_reward_dispatches_save_tasks(self):
-        """scan_reward_task가 send_task로 저장 task 발행."""
+        """scan_reward_task가 _dispatch_save_tasks로 저장 task 발행."""
+        import inspect
+
+        from domains.scan.tasks.reward import _dispatch_save_tasks
+
+        # _dispatch_save_tasks 함수에서 send_task 사용 확인
+        source = inspect.getsource(_dispatch_save_tasks)
+        assert "send_task" in source
+        assert "character.save_ownership" in source
+        assert "my.save_character" in source
+
+    def test_scan_reward_calls_dispatch_save_tasks(self):
+        """scan_reward_task가 _dispatch_save_tasks를 호출."""
         import inspect
 
         from domains.scan.tasks.reward import scan_reward_task
 
         source = inspect.getsource(scan_reward_task)
-        # send_task로 발행하는지 확인
-        assert "send_task" in source
-        assert "character.save_ownership" in source
-        assert "my.save_character" in source
+        # scan_reward_task에서 _dispatch_save_tasks 호출 확인
+        assert "_dispatch_save_tasks" in source
 
     def test_no_grpc_in_save_my_character(self):
         """save_my_character_task에 gRPC 호출 없음."""
