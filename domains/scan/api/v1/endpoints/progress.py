@@ -154,6 +154,9 @@ async def _event_generator(
     chain_task_ids: set[str] = set()
     chain_task_ids.add(task_id)
 
+    # task_id → task_name 매핑 (task-succeeded 이벤트에서 name이 없는 경우 사용)
+    task_name_map: dict[str, str] = {}
+
     def on_task_sent(event: dict) -> None:
         _handle_event(event, "sent")
 
@@ -191,6 +194,12 @@ async def _event_generator(
             return
 
         chain_task_ids.add(event_task_id)
+
+        # task-sent에서 task_name 저장, task-succeeded에서 name이 없으면 매핑 사용
+        if task_name:
+            task_name_map[event_task_id] = task_name
+        else:
+            task_name = task_name_map.get(event_task_id, "")
 
         step_info = TASK_STEP_MAP.get(task_name, {})
         if not step_info:
