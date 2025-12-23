@@ -46,6 +46,14 @@ spec:
           value: postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
           value: redis.redis.svc.cluster.local
+        # Celery (SSE에서 AsyncResult 조회용)
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              name: scan-secret
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          value: rpc://  # Stateless SSE - Redis 불필요
         envFrom:
         - configMapRef:
             name: scan-config
