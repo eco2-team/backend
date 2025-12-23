@@ -2,6 +2,7 @@
 Celery Configuration Module
 
 환경변수 기반 동적 설정 - 배포 환경별로 변경됨
+Quorum queue 지원 (global_qos=False)
 """
 
 from functools import lru_cache
