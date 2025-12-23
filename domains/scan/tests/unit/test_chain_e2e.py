@@ -462,7 +462,7 @@ class TestSSEFinalEventFormat:
         """SSE 이벤트가 JSON 직렬화 가능한지 검증."""
         import json
 
-        from domains.scan.api.v1.endpoints.progress import _format_sse_with_id
+        from domains.scan.api.v1.endpoints.completion import _format_sse
 
         sse_data = {
             "step": "reward",
@@ -481,10 +481,9 @@ class TestSSEFinalEventFormat:
         }
 
         # JSON 직렬화 테스트
-        formatted = _format_sse_with_id(sse_data, event_id=5)
+        formatted = _format_sse(sse_data)
 
         # SSE 형식 검증
-        assert formatted.startswith("id: 5\n")
         assert "data: " in formatted
         assert formatted.endswith("\n\n")
 

@@ -391,3 +391,10 @@ class ScanService:
             elif entry:
                 return True
         return False
+
+    # Alias for backward compatibility with tests
+    async def classify(
+        self, payload: ClassificationRequest, user_id: UUID
+    ) -> ClassificationResponse:
+        """Alias for classify_sync (backward compatibility)."""
+        return await self.classify_sync(payload, user_id)
