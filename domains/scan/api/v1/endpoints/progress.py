@@ -254,6 +254,39 @@ async def _event_generator(
     event_counter += 1
     yield _format_sse_with_id({"status": "connected", "task_id": task_id}, event_counter)
 
+    # Task가 이미 완료되었는지 확인 (이벤트를 놓친 경우 대비)
+    from celery.result import AsyncResult
+
+    async_result = AsyncResult(task_id, app=celery_app)
+    if async_result.ready():
+        logger.info(
+            "Task already completed, returning result directly",
+            extra={"task_id": task_id, "state": async_result.state},
+        )
+        result = async_result.result
+        if isinstance(result, dict):
+            event_counter += 1
+            sse_data = {
+                "task_id": task_id,
+                "step": "reward",
+                "status": "completed" if async_result.successful() else "failed",
+                "progress": 100,
+                "result": {
+                    "task_id": result.get("task_id"),
+                    "status": "completed",
+                    "message": "classification completed",
+                    "pipeline_result": {
+                        "classification_result": result.get("classification_result"),
+                        "disposal_rules": result.get("disposal_rules"),
+                        "final_answer": result.get("final_answer"),
+                    },
+                    "reward": result.get("reward"),
+                    "error": None,
+                },
+            }
+            yield _format_sse_with_id(sse_data, event_counter)
+            return
+
     # Event Receiver를 별도 스레드에서 실행
     executor = ThreadPoolExecutor(max_workers=1)
     future = executor.submit(run_event_receiver)
@@ -288,6 +321,38 @@ async def _event_generator(
 
             except asyncio.TimeoutError:
                 elapsed = asyncio.get_event_loop().time() - start_time
+
+                # 주기적으로 task 완료 여부 확인 (이벤트를 놓친 경우 대비)
+                async_result = AsyncResult(task_id, app=celery_app)
+                if async_result.ready():
+                    logger.info(
+                        "Task completed (detected via polling)",
+                        extra={"task_id": task_id, "state": async_result.state},
+                    )
+                    result = async_result.result
+                    if isinstance(result, dict):
+                        event_counter += 1
+                        sse_data = {
+                            "task_id": task_id,
+                            "step": "reward",
+                            "status": "completed" if async_result.successful() else "failed",
+                            "progress": 100,
+                            "result": {
+                                "task_id": result.get("task_id"),
+                                "status": "completed",
+                                "message": "classification completed",
+                                "pipeline_result": {
+                                    "classification_result": result.get("classification_result"),
+                                    "disposal_rules": result.get("disposal_rules"),
+                                    "final_answer": result.get("final_answer"),
+                                },
+                                "reward": result.get("reward"),
+                                "error": None,
+                            },
+                        }
+                        yield _format_sse_with_id(sse_data, event_counter)
+                        break
+
                 if elapsed > timeout:
                     logger.warning("SSE stream timeout", extra={"task_id": task_id})
                     event_counter += 1
