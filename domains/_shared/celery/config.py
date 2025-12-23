@@ -66,6 +66,17 @@ CELERY_QUEUES = (
             "x-dead-letter-routing-key": "dlq.scan.reward",
         },
     ),
+    # Character match queue (빠른 응답용)
+    Queue(
+        "character.match",
+        default_exchange,
+        routing_key="character.match",
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.character.match",
+        },
+    ),
+    # Character reward queue (fire & forget, 백그라운드)
     Queue(
         "character.reward",
         default_exchange,
@@ -197,8 +208,10 @@ class CelerySettings(BaseSettings):
                 "scan.vision": {"queue": "scan.vision"},
                 "scan.rule": {"queue": "scan.rule"},
                 "scan.answer": {"queue": "scan.answer"},
-                "scan.reward": {"queue": "scan.reward"},  # 보상 판정 (scan-worker)
-                # Character reward (character-worker: character DB 저장)
+                "scan.reward": {"queue": "scan.reward"},  # 보상 dispatch (scan-worker)
+                # Character match (동기 응답, 빠른 처리)
+                "character.match": {"queue": "character.match"},
+                # Character reward (fire & forget, 백그라운드)
                 "character.save_ownership": {"queue": "character.reward"},
                 # My reward (my-worker: my DB 저장)
                 "my.save_character": {"queue": "my.reward"},

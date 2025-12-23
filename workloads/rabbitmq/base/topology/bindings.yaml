@@ -69,7 +69,25 @@ spec:
     namespace: rabbitmq
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Character Reward Binding (character.direct → character.reward)
+# Character Match Binding (동기 응답용)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: character-match-binding
+  namespace: rabbitmq
+spec:
+  source: character.direct
+  destination: character.match
+  destinationType: queue
+  routingKey: character.match
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Character Reward Binding (fire & forget)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: rabbitmq.com/v1beta1
 kind: Binding
@@ -162,6 +180,21 @@ spec:
   destination: dlq.scan.reward
   destinationType: queue
   routingKey: dlq.scan.reward
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: dlq-character-match-binding
+  namespace: rabbitmq
+spec:
+  source: dlx
+  destination: dlq.character.match
+  destinationType: queue
+  routingKey: dlq.character.match
   vhost: eco2
   rabbitmqClusterReference:
     name: eco2-rabbitmq

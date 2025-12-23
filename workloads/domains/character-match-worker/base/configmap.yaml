@@ -1,0 +1,23 @@
+# Character Match Worker ConfigMap
+# 동기 응답용 - 빠른 처리 최적화
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: character-match-worker-config
+  namespace: character
+  labels:
+    app: character-match-worker
+    tier: worker
+data:
+  # Celery settings - 빠른 응답 최적화
+  CELERY_TASK_SERIALIZER: json
+  CELERY_RESULT_SERIALIZER: json
+  CELERY_TIMEZONE: Asia/Seoul
+  CELERY_ENABLE_UTC: 'true'
+  # 빠른 응답을 위해 prefetch 허용
+  CELERY_WORKER_PREFETCH_MULTIPLIER: '4'
+  # 짧은 타임아웃 (동기 대기이므로)
+  CELERY_TASK_TIME_LIMIT: '15'
+  CELERY_TASK_SOFT_TIME_LIMIT: '10'
+  # acks_late 비활성화 (빠른 응답 우선)
+  CELERY_TASK_ACKS_LATE: 'false'

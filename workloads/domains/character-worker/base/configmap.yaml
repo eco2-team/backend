@@ -1,5 +1,6 @@
-# Character Worker ConfigMap
-# Celery Worker 환경 설정
+# Character Reward Worker ConfigMap
+# fire & forget 백그라운드 작업 최적화
+# acks_late + prefetch 1 (공정 분배)
 apiVersion: v1
 kind: ConfigMap
 metadata:

@@ -92,7 +92,30 @@ spec:
     namespace: rabbitmq
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Character Reward Queue (character DB 저장 - character-worker)
+# Character Match Queue (동기 응답, 빠른 처리)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Queue
+metadata:
+  name: character-match-queue
+  namespace: rabbitmq
+spec:
+  name: character.match
+  type: quorum
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  arguments:
+    x-dead-letter-exchange: dlx
+    x-dead-letter-routing-key: dlq.character.match
+    x-message-ttl: 30000     # 30초 (빠른 응답 필요)
+    x-delivery-limit: 2      # 재시도 2회
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Character Reward Queue (fire & forget, 백그라운드)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: rabbitmq.com/v1beta1
 kind: Queue
@@ -198,6 +221,23 @@ metadata:
   namespace: rabbitmq
 spec:
   name: dlq.scan.reward
+  type: quorum
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  arguments:
+    x-message-ttl: 604800000  # 7일 보관
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Queue
+metadata:
+  name: dlq-character-match
+  namespace: rabbitmq
+spec:
+  name: dlq.character.match
   type: quorum
   durable: true
   autoDelete: false

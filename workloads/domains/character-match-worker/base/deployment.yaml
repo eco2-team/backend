@@ -1,14 +1,13 @@
-# Character Reward Worker Celery Deployment
-# character.reward 큐 처리 (fire & forget, 백그라운드 DB 저장)
-# 낮은 concurrency, acks_late 적용
-# worker-storage 노드에 배포
+# Character Match Worker Celery Deployment
+# character.match 큐 처리 (캐릭터 매칭 - 동기 응답)
+# 빠른 응답 필요, 높은 concurrency
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: character-worker
+  name: character-match-worker
   namespace: character
   labels:
-    app: character-worker
+    app: character-match-worker
     version: v1
     tier: worker
     domain: character
@@ -16,18 +15,18 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: character-worker
+      app: character-match-worker
       version: v1
   template:
     metadata:
       labels:
-        app: character-worker
+        app: character-match-worker
         version: v1
         tier: worker
         domain: character
     spec:
       containers:
-      - name: character-worker
+      - name: character-match-worker
         image: docker.io/mng990/eco2:character-worker-dev-latest
         imagePullPolicy: Always
         command: [celery]
@@ -36,11 +35,11 @@ spec:
         - domains.character.celery_app
         - worker
         - --loglevel=info
-        - -E  # Events 활성화 (SSE 스트리밍용)
+        - -E  # Events 활성화
         - -Q
-        - character.reward
+        - character.match  # match 큐만 소비
         - -c
-        - '2'
+        - '4'  # 높은 concurrency (캐시 조회 위주)
         env:
         # Celery Broker (RabbitMQ)
         - name: CELERY_BROKER_URL
@@ -49,10 +48,10 @@ spec:
               name: character-secret
               key: CELERY_BROKER_URL
         - name: CELERY_RESULT_BACKEND
-          value: rpc://  # Stateless SSE - Redis 불필요
+          value: rpc://
         # OpenTelemetry
         - name: OTEL_SERVICE_NAME
-          value: character-worker
+          value: character-match-worker
         - name: OTEL_TRACES_EXPORTER
           value: otlp
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -61,28 +60,23 @@ spec:
           value: none
         - name: OTEL_LOGS_EXPORTER
           value: none
-        # Database
+        # Database (캐시 fallback용)
         - name: POSTGRES_HOST
           value: postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
           value: redis.redis.svc.cluster.local
-        # gRPC (my-api 연결용)
-        - name: MY_GRPC_HOST
-          value: my-api-grpc.my.svc.cluster.local
-        - name: MY_GRPC_PORT
-          value: '50051'
         envFrom:
         - configMapRef:
-            name: character-worker-config
+            name: character-match-worker-config
         - secretRef:
             name: character-secret
         resources:
           requests:
-            cpu: 200m
-            memory: 512Mi
+            cpu: 100m
+            memory: 256Mi
           limits:
-            cpu: 1000m
-            memory: 2Gi
+            cpu: 500m
+            memory: 512Mi
         livenessProbe:
           exec:
             command:
@@ -92,10 +86,10 @@ spec:
             - inspect
             - ping
             - -t
-            - '10'
-          initialDelaySeconds: 60
-          periodSeconds: 30
-          timeoutSeconds: 15
+            - '5'
+          initialDelaySeconds: 30
+          periodSeconds: 20
+          timeoutSeconds: 10
         readinessProbe:
           exec:
             command:
@@ -105,16 +99,15 @@ spec:
             - inspect
             - ping
             - -t
-            - '10'
-          initialDelaySeconds: 30
-          periodSeconds: 15
-          timeoutSeconds: 15
+            - '5'
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 10
       imagePullSecrets:
       - name: dockerhub-secret
       # worker-storage 노드에 배치
       nodeSelector:
         domain: worker-storage
-      # Taint 허용
       tolerations:
       - key: domain
         operator: Equal
