@@ -140,6 +140,19 @@ def scan_reward_task(
         },
     )
 
+    # 커스텀 이벤트 발행 (task-succeeded 이벤트가 수신되지 않는 문제 우회)
+    # Celery의 send_event()는 celeryev exchange로 이벤트를 발행함
+    try:
+        self.send_event(
+            "task-result",
+            result=result,
+            task_id=task_id,
+            root_id=task_id,
+        )
+        logger.debug("task_result_event_sent", extra={"task_id": task_id})
+    except Exception as e:
+        logger.warning("task_result_event_failed", extra={"task_id": task_id, "error": str(e)})
+
     return result
 
 

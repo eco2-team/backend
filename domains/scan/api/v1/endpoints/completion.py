@@ -319,6 +319,30 @@ async def _completion_generator(
         if task_name:
             _send_sse_event(task_name, "completed", result=raw_result)
 
+    def on_task_result(event: dict) -> None:
+        """task-result: 커스텀 이벤트 - scan.reward 완료 결과."""
+        # 이 이벤트는 scan.reward task에서 직접 발행함
+        event_task_id = event.get("task_id", "")
+        event_root_id = event.get("root_id", "")
+
+        # 현재 chain의 task인지 확인
+        if event_task_id != task_id and event_root_id != task_id:
+            return
+
+        raw_result = event.get("result")
+        logger.info(
+            "task_result_event_received",
+            extra={
+                "task_id": task_id,
+                "event_task_id": event_task_id,
+                "result_type": type(raw_result).__name__,
+                "result_keys": list(raw_result.keys()) if isinstance(raw_result, dict) else None,
+            },
+        )
+
+        # scan.reward 완료 처리
+        _send_sse_event("scan.reward", "completed", result=raw_result)
+
     def on_task_failed(event: dict) -> None:
         """task-failed: task 실패."""
         if not _is_chain_task(event):
@@ -396,6 +420,7 @@ async def _completion_generator(
                         "task-started": on_task_started,
                         "task-succeeded": on_task_succeeded,
                         "task-failed": on_task_failed,
+                        "task-result": on_task_result,  # 커스텀 이벤트
                         "*": on_any_event,
                     },
                     ready_event=receiver_ready,
