@@ -184,27 +184,47 @@ async def _completion_generator(
 
         return is_chain
 
-    def on_task_received(event: dict) -> None:
-        """task-received: Worker가 task를 받음 → 'started' 상태."""
+    def on_task_started(event: dict) -> None:
+        """task-started: Worker가 task 실행 시작 → 'started' 상태.
+
+        Note: task-started에는 name이 없을 수 있음, root_id로 매칭 후 task_name_map에서 조회.
+        """
         if not _is_chain_task(event):
             return
 
         event_task_id = event.get("uuid", "")
         task_name = event.get("name", "") or task_name_map.get(event_task_id, "")
 
+        # task-started가 오면 이전 task는 완료된 것
+        if last_received_task["task_name"] and last_received_task["task_id"] != event_task_id:
+            _send_sse_event(last_received_task["task_name"], "completed")
+
         if task_name:
             _send_sse_event(task_name, "started")
             last_received_task["task_id"] = event_task_id
             last_received_task["task_name"] = task_name
 
-    def on_task_sent(event: dict) -> None:
-        """task-sent: 다음 task 전송 → 이전 task 'completed' 상태."""
+    def on_task_received(event: dict) -> None:
+        """task-received: Worker가 task를 받음 → name 매핑용."""
         if not _is_chain_task(event):
             return
 
-        # 다음 task가 sent되면 이전 task는 완료된 것
-        if last_received_task["task_name"]:
-            _send_sse_event(last_received_task["task_name"], "completed")
+        # task-received에는 name이 있으므로 매핑 저장
+        event_task_id = event.get("uuid", "")
+        task_name = event.get("name", "")
+        if task_name:
+            task_name_map[event_task_id] = task_name
+
+    def on_task_sent(event: dict) -> None:
+        """task-sent: task 전송 → name 매핑용."""
+        if not _is_chain_task(event):
+            return
+
+        # task-sent에도 name이 있으므로 매핑 저장
+        event_task_id = event.get("uuid", "")
+        task_name = event.get("name", "")
+        if task_name:
+            task_name_map[event_task_id] = task_name
 
     def on_task_succeeded(event: dict) -> None:
         """task-succeeded: task 성공 (result 포함)."""
@@ -291,6 +311,7 @@ async def _completion_generator(
                     handlers={
                         "task-sent": on_task_sent,
                         "task-received": on_task_received,
+                        "task-started": on_task_started,
                         "task-succeeded": on_task_succeeded,
                         "task-failed": on_task_failed,
                         "*": on_any_event,
