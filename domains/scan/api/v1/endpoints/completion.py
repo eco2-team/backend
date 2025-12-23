@@ -79,10 +79,12 @@ async def _completion_generator(
 ) -> AsyncGenerator[str, None]:
     """SSE 스트림 생성기.
 
-    1. Task 시작 (chain.apply_async)
-    2. Celery Events 수신하여 진행상황 스트리밍
-    3. 최종 결과 전송 후 종료
+    1. Event Receiver 연결
+    2. Task 시작 (chain.apply_async)
+    3. Celery Events 수신하여 진행상황 스트리밍
+    4. 최종 결과 전송 후 종료
     """
+    import threading
     from concurrent.futures import ThreadPoolExecutor
     from uuid import uuid4
 
@@ -114,39 +116,10 @@ async def _completion_generator(
         },
     )
 
-    # 1. Started 이벤트 전송
-    yield _format_sse({"status": "started", "task_id": task_id})
-
-    # 2. Celery Chain 시작 (SSE 연결 후 시작!)
-    try:
-        first_task = vision_task.s(task_id, user_id, image_url, payload.user_input).set(
-            task_id=task_id
-        )
-
-        pipeline = chain(
-            first_task,
-            rule_task.s(),
-            answer_task.s(),
-            scan_reward_task.s(),
-        )
-        pipeline.apply_async()
-
-        logger.info(
-            "completion_chain_dispatched",
-            extra={
-                "event_type": "chain_dispatched",
-                "task_id": task_id,
-                "user_id": user_id,
-            },
-        )
-    except Exception as e:
-        logger.exception("completion_chain_failed", extra={"task_id": task_id})
-        yield _format_sse({"status": "error", "error": str(e)})
-        return
-
-    # 3. Celery Events 수신 및 스트리밍
+    # 1. Celery Events 수신 준비
     event_queue: asyncio.Queue[dict | None] = asyncio.Queue()
     loop = asyncio.get_event_loop()
+    receiver_ready = threading.Event()  # Event Receiver 연결 완료 신호
 
     # Chain task IDs 추적
     chain_task_ids: set[str] = {task_id}
@@ -224,23 +197,71 @@ async def _completion_generator(
     def run_event_receiver() -> None:
         """Celery Event Receiver (별도 스레드)."""
         try:
+            logger.info("event_receiver_connecting", extra={"task_id": task_id})
             with celery_app.connection() as connection:
+                logger.info("event_receiver_connected", extra={"task_id": task_id})
                 recv = celery_app.events.Receiver(
                     connection,
                     handlers={
                         "task-started": on_task_started,
                         "task-succeeded": on_task_succeeded,
                         "task-failed": on_task_failed,
+                        "*": lambda e: logger.debug(
+                            "celery_event_received",
+                            extra={
+                                "task_id": task_id,
+                                "event_type": e.get("type"),
+                                "event_uuid": e.get("uuid"),
+                            },
+                        ),
                     },
                 )
+                # 연결 완료 신호
+                receiver_ready.set()
                 recv.capture(limit=None, timeout=120, wakeup=True)
         except Exception as e:
             logger.exception("event_receiver_error", extra={"task_id": task_id, "error": str(e)})
+            receiver_ready.set()  # 에러 시에도 진행
             loop.call_soon_threadsafe(event_queue.put_nowait, None)
 
-    # Event Receiver 시작
+    # 2. Event Receiver 시작 (백그라운드)
     executor = ThreadPoolExecutor(max_workers=1)
     future = executor.submit(run_event_receiver)
+
+    # 연결 대기 (최대 5초)
+    if not receiver_ready.wait(timeout=5.0):
+        logger.warning("event_receiver_connect_timeout", extra={"task_id": task_id})
+
+    # 3. Started 이벤트 전송 및 Chain 시작
+    yield _format_sse({"status": "started", "task_id": task_id})
+
+    try:
+        first_task = vision_task.s(task_id, user_id, image_url, payload.user_input).set(
+            task_id=task_id
+        )
+
+        pipeline = chain(
+            first_task,
+            rule_task.s(),
+            answer_task.s(),
+            scan_reward_task.s(),
+        )
+        pipeline.apply_async()
+
+        logger.info(
+            "completion_chain_dispatched",
+            extra={
+                "event_type": "chain_dispatched",
+                "task_id": task_id,
+                "user_id": user_id,
+            },
+        )
+    except Exception as e:
+        logger.exception("completion_chain_failed", extra={"task_id": task_id})
+        yield _format_sse({"status": "error", "error": str(e)})
+        future.cancel()
+        executor.shutdown(wait=False)
+        return
 
     try:
         timeout = 120
