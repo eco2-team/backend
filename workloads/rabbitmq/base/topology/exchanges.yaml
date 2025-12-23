@@ -87,7 +87,24 @@ spec:
     name: eco2-rabbitmq
     namespace: rabbitmq
 ---
-# 6. Celery Default Exchange (Topic)
+# 6. Character Cache Exchange (Fanout)
+# Worker 로컬 캐시 동기화용 - 모든 Worker가 수신
+apiVersion: rabbitmq.com/v1beta1
+kind: Exchange
+metadata:
+  name: character-cache
+  namespace: rabbitmq
+spec:
+  name: character.cache
+  type: fanout
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# 7. Celery Default Exchange (Topic)
 # Celery 기본 Exchange (celery.* 라우팅)
 apiVersion: rabbitmq.com/v1beta1
 kind: Exchange

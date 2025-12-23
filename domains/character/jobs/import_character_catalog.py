@@ -192,6 +192,44 @@ async def main() -> None:
     else:
         print("Cache invalidation skipped (Redis unavailable or disabled)")
 
+    # Worker 로컬 캐시 동기화 - MQ로 full_refresh 이벤트 발행
+    await publish_cache_refresh(payloads)
+
+
+async def publish_cache_refresh(payloads: list[dict]) -> None:
+    """Worker 로컬 캐시 갱신을 위한 MQ 이벤트 발행.
+
+    모든 Worker의 로컬 캐시를 최신 데이터로 갱신합니다.
+    """
+    broker_url = os.getenv("CELERY_BROKER_URL")
+    if not broker_url:
+        print("Cache refresh skipped (CELERY_BROKER_URL not set)")
+        return
+
+    try:
+        from domains._shared.cache import get_cache_publisher
+
+        publisher = get_cache_publisher(broker_url)
+
+        # payloads를 캐시 형식으로 변환
+        characters = [
+            {
+                "id": str(uuid5(NAMESPACE_URL, p["code"])),  # code 기반 UUID
+                "code": p["code"],
+                "name": p["name"],
+                "type_label": p["type_label"],
+                "dialog": p["dialog"],
+                "match_label": p.get("match_label"),
+            }
+            for p in payloads
+        ]
+
+        publisher.publish_full_refresh(characters)
+        print(f"Cache refresh event published ({len(characters)} characters)")
+
+    except Exception as e:
+        print(f"Cache refresh event failed: {e}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

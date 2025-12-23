@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -69,3 +71,39 @@ class CharacterOwnershipRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalars().first()
+
+    async def insert_or_ignore(
+        self,
+        *,
+        user_id: UUID,
+        character_id: UUID,
+        source: str | None = None,
+    ) -> bool:
+        """멱등적 삽입: 이미 존재하면 무시.
+
+        ON CONFLICT DO NOTHING을 사용하여 중복 삽입을 방지합니다.
+        여러 번 호출해도 안전합니다 (멱등성).
+
+        Args:
+            user_id: 사용자 ID
+            character_id: 캐릭터 ID
+            source: 획득 소스 (예: "scan-reward")
+
+        Returns:
+            True면 새로 삽입됨, False면 이미 존재하여 무시됨
+        """
+        stmt = (
+            insert(CharacterOwnership)
+            .values(
+                user_id=user_id,
+                character_id=character_id,
+                source=source,
+                status=CharacterOwnershipStatus.OWNED,
+                acquired_at=datetime.now(timezone.utc),
+            )
+            .on_conflict_do_nothing(index_elements=["user_id", "character_id"])
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        # rowcount > 0이면 새로 삽입됨
+        return result.rowcount > 0

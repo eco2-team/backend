@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import nullcontext
 from typing import Sequence
 from uuid import UUID
@@ -26,6 +27,41 @@ from domains.character.schemas.reward import (
 from domains.character.services.evaluators import EvaluationResult, get_evaluator
 
 logger = logging.getLogger(__name__)
+
+
+def _publish_cache_event(event_type: str, character: Character | None = None) -> None:
+    """Worker 로컬 캐시 동기화를 위한 MQ 이벤트 발행.
+
+    Args:
+        event_type: "upsert" 또는 "delete"
+        character: 대상 캐릭터 (delete 시 character_id만 사용)
+    """
+    broker_url = os.getenv("CELERY_BROKER_URL")
+    if not broker_url:
+        logger.debug("cache_event_skipped_no_broker")
+        return
+
+    try:
+        from domains._shared.cache import get_cache_publisher
+
+        publisher = get_cache_publisher(broker_url)
+
+        if event_type == "upsert" and character:
+            publisher.publish_upsert(
+                {
+                    "id": str(character.id),
+                    "code": character.code,
+                    "name": character.name,
+                    "type_label": character.type_label,
+                    "dialog": character.dialog,
+                    "match_label": character.match_label,
+                }
+            )
+        elif event_type == "delete" and character:
+            publisher.publish_delete(str(character.id))
+
+    except Exception:
+        logger.exception("cache_event_publish_failed", extra={"event_type": event_type})
 
 
 class CharacterService:
