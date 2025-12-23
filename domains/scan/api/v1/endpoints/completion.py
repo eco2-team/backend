@@ -195,66 +195,41 @@ async def _completion_generator(
         _handle_event(event, "failed")
 
     def run_event_receiver() -> None:
-        """Celery Event Receiver (별도 스레드) - kombu Consumer 직접 사용."""
-        from kombu import Exchange, Queue
-        from kombu.mixins import ConsumerMixin
+        """Celery Event Receiver (별도 스레드) - ReadyAwareReceiver 사용."""
+        from celery.events.receiver import EventReceiver
 
-        # Celery 이벤트용 Exchange (topic 타입)
-        celeryev_exchange = Exchange("celeryev", type="topic", durable=True)
+        class ReadyAwareReceiver(EventReceiver):
+            """Consumer 준비 완료 시점을 정확히 알려주는 Receiver."""
 
-        class EventReceiver(ConsumerMixin):
-            def __init__(self, connection):
-                self.connection = connection
+            def __init__(self, *args, ready_event=None, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.ready_event = ready_event
 
-            def get_consumers(self, Consumer, channel):
-                # celeryev exchange에서 모든 task 이벤트 수신
-                queue = Queue(
-                    name="",  # 익명 큐 (자동 삭제)
-                    exchange=celeryev_exchange,
-                    routing_key="task.#",  # task 관련 이벤트만
-                    auto_delete=True,
-                    durable=False,
-                )
-                return [
-                    Consumer(
-                        queues=[queue],
-                        callbacks=[self.on_event],
-                        accept=["json"],
-                    )
-                ]
-
-            def on_event(self, body, message):
-                """이벤트 처리."""
-                event_type = body.get("type", "")
-                logger.debug(
-                    "celery_event_received",
-                    extra={
-                        "task_id": task_id,
-                        "event_type": event_type,
-                        "event_uuid": body.get("uuid"),
-                    },
-                )
-
-                if event_type == "task-started":
-                    on_task_started(body)
-                elif event_type == "task-succeeded":
-                    on_task_succeeded(body)
-                elif event_type == "task-failed":
-                    on_task_failed(body)
-
-                message.ack()
-
-            def on_consume_ready(self, connection, channel, consumers, **kwargs):
-                """Consumer가 준비되면 호출됨."""
-                logger.info("event_receiver_consuming", extra={"task_id": task_id})
-                receiver_ready.set()
+            def capture(self, limit=None, timeout=None, wakeup=True):
+                """Consumer context 진입 후 ready 신호를 보내는 capture."""
+                with self.consumer(wakeup=wakeup):
+                    # Consumer가 설정된 후 ready 신호 (큐 바인딩 완료!)
+                    logger.info("event_receiver_consumer_ready", extra={"task_id": task_id})
+                    if self.ready_event:
+                        self.ready_event.set()
+                    # 이벤트 수신 루프
+                    for _ in self.drain_events(timeout=timeout, limit=limit):
+                        pass
 
         try:
             logger.info("event_receiver_connecting", extra={"task_id": task_id})
             with celery_app.connection() as connection:
                 logger.info("event_receiver_connected", extra={"task_id": task_id})
-                receiver = EventReceiver(connection)
-                receiver.run()
+                recv = ReadyAwareReceiver(
+                    connection,
+                    handlers={
+                        "task-started": on_task_started,
+                        "task-succeeded": on_task_succeeded,
+                        "task-failed": on_task_failed,
+                    },
+                    ready_event=receiver_ready,
+                )
+                recv.capture(limit=None, timeout=120, wakeup=True)
         except Exception as e:
             logger.exception("event_receiver_error", extra={"task_id": task_id, "error": str(e)})
             receiver_ready.set()  # 에러 시에도 진행
@@ -264,12 +239,11 @@ async def _completion_generator(
     executor = ThreadPoolExecutor(max_workers=1)
     future = executor.submit(run_event_receiver)
 
-    # 연결 대기 (최대 5초)
+    # 연결 대기 (최대 5초) - ReadyAwareReceiver가 consumer 준비 후 set()
     if not receiver_ready.wait(timeout=5.0):
         logger.warning("event_receiver_connect_timeout", extra={"task_id": task_id})
 
-    # 큐 바인딩 완료 대기 (itercapture 내부에서 consumer 설정됨)
-    await asyncio.sleep(0.3)
+    # Sleep 불필요! receiver_ready는 consumer가 실제로 준비된 후에만 set됨
 
     # 3. Started 이벤트 전송 및 Chain 시작
     yield _format_sse({"status": "started", "task_id": task_id})
