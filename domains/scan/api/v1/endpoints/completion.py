@@ -196,6 +196,9 @@ async def _completion_generator(
 
     def run_event_receiver() -> None:
         """Celery Event Receiver (별도 스레드) - ReadyAwareReceiver 사용."""
+        import socket
+        from itertools import count
+
         from celery.events.receiver import EventReceiver
 
         class ReadyAwareReceiver(EventReceiver):
@@ -205,16 +208,32 @@ async def _completion_generator(
                 super().__init__(*args, **kwargs)
                 self.ready_event = ready_event
 
-            def capture(self, limit=None, timeout=None, wakeup=True):
-                """Consumer context 진입 후 ready 신호를 보내는 capture."""
-                with self.consumer(wakeup=wakeup):
+            def consume(self, limit=None, timeout=None, safety_interval=1, **kwargs):
+                """Consumer context 진입 후 ready 신호를 보내는 consume."""
+                elapsed = 0
+                with self.consumer_context(**kwargs) as (conn, channel, consumers):
                     # Consumer가 설정된 후 ready 신호 (큐 바인딩 완료!)
                     logger.info("event_receiver_consumer_ready", extra={"task_id": task_id})
                     if self.ready_event:
                         self.ready_event.set()
-                    # 이벤트 수신 루프
-                    for _ in self.drain_events(timeout=timeout, limit=limit):
-                        pass
+
+                    for i in limit and range(limit) or count():
+                        if self.should_stop:
+                            break
+                        self.on_iteration()
+                        try:
+                            conn.drain_events(timeout=safety_interval)
+                        except socket.timeout:
+                            conn.heartbeat_check()
+                            elapsed += safety_interval
+                            if timeout and elapsed >= timeout:
+                                raise
+                        except OSError:
+                            if not self.should_stop:
+                                raise
+                        else:
+                            yield
+                            elapsed = 0
 
         try:
             logger.info("event_receiver_connecting", extra={"task_id": task_id})
