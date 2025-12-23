@@ -112,9 +112,9 @@ class TestClassifyAsyncService:
 
             response = await service.classify_async(request, user_id)
 
-            # Chain이 발행됨
+            # Chain이 발행됨 (apply_async로 task_id 명시적 지정)
             mock_chain.assert_called_once()
-            mock_pipeline.delay.assert_called_once()
+            mock_pipeline.apply_async.assert_called_once()
 
             # 응답 검증
             assert response.status == "processing"
