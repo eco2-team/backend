@@ -2,10 +2,11 @@
 Character Reward Tasks
 
 캐릭터 보상 저장 관련 Celery Tasks
-- save_ownership_task: character DB 저장 (character.reward 큐)
+- save_ownership_batch: character DB 배치 저장 (character.reward 큐)
 
-Note: scan_reward_task는 scan 도메인에서 처리 (domains/scan/tasks/reward.py)
-      scan.reward에서 직접 이 task를 호출합니다.
+배치 처리로 DB 효율성 향상:
+- flush_every: 50개 모이면 flush
+- flush_interval: 5초마다 flush
 """
 
 from __future__ import annotations
@@ -15,103 +16,125 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from domains._shared.celery.base_task import BaseTask
+from celery_batches import Batches
+
 from domains.character.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
 
 # ============================================================
-# Save Ownership Task - character DB 저장
+# Save Ownership Batch Task - character DB 배치 저장
 # ============================================================
 
 
 @celery_app.task(
-    bind=True,
-    base=BaseTask,
+    base=Batches,
     name="character.save_ownership",
     queue="character.reward",
+    flush_every=50,  # 50개 모이면 flush
+    flush_interval=5,  # 5초마다 flush
+    acks_late=True,
     max_retries=5,
-    soft_time_limit=30,
-    time_limit=60,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_backoff_max=300,
-    retry_jitter=True,
 )
-def save_ownership_task(
-    self: BaseTask,
-    user_id: str,
-    character_id: str,
-    source: str,
-) -> dict[str, Any]:
-    """character.character_ownerships 저장.
+def save_ownership_task(requests: list) -> dict[str, Any]:
+    """character.character_ownerships 배치 저장.
 
-    Idempotent: 이미 소유한 경우 skip.
+    Bulk INSERT로 DB 효율성 향상.
+    Idempotent: ON CONFLICT DO NOTHING.
     """
-    log_ctx = {
-        "user_id": user_id,
-        "character_id": character_id,
-        "source": source,
-        "celery_task_id": self.request.id,
-    }
-    logger.info("Save ownership task started", extra=log_ctx)
+    if not requests:
+        return {"processed": 0}
+
+    batch_data = []
+    for req in requests:
+        # SimpleRequest에서 kwargs 추출
+        kwargs = req.kwargs or {}
+        if not kwargs:
+            # positional args인 경우
+            args = req.args or ()
+            if len(args) >= 3:
+                kwargs = {
+                    "user_id": args[0],
+                    "character_id": args[1],
+                    "source": args[2],
+                }
+        if kwargs:
+            batch_data.append(kwargs)
+
+    if not batch_data:
+        return {"processed": 0}
+
+    logger.info(
+        "Save ownership batch started",
+        extra={"batch_size": len(batch_data)},
+    )
 
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            result = loop.run_until_complete(
-                _save_ownership_async(
-                    user_id=user_id,
-                    character_id=character_id,
-                    source=source,
-                )
-            )
+            result = loop.run_until_complete(_save_ownership_batch_async(batch_data))
         finally:
             loop.close()
 
-        logger.info("Save ownership completed", extra={**log_ctx, **result})
+        logger.info(
+            "Save ownership batch completed",
+            extra={"batch_size": len(batch_data), **result},
+        )
         return result
 
     except Exception:
-        logger.exception("Save ownership failed", extra=log_ctx)
+        logger.exception(
+            "Save ownership batch failed",
+            extra={"batch_size": len(batch_data)},
+        )
         raise
 
 
-async def _save_ownership_async(
-    user_id: str,
-    character_id: str,
-    source: str,
+async def _save_ownership_batch_async(
+    batch_data: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """character.character_ownerships UPSERT (INSERT ON CONFLICT DO NOTHING).
+    """character.character_ownerships BULK UPSERT.
 
-    Single-query 멱등성 보장:
-    - 이미 존재하면 무시 (rowcount=0)
-    - 신규면 삽입 (rowcount=1)
-    - Race condition 없음 (atomic)
+    INSERT INTO ... VALUES (...), (...), ... ON CONFLICT DO NOTHING
     """
+    from sqlalchemy import text
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
     from sqlalchemy.orm import sessionmaker
 
     from domains.character.core.config import get_settings
-    from domains.character.repositories.ownership_repository import CharacterOwnershipRepository
 
     settings = get_settings()
     engine = create_async_engine(settings.database_url, echo=False)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
-        ownership_repo = CharacterOwnershipRepository(session)
+        # Bulk INSERT with ON CONFLICT DO NOTHING
+        values = []
+        params = {}
+        for i, data in enumerate(batch_data):
+            values.append(f"(:user_id_{i}, :character_id_{i}, :source_{i}, NOW(), NOW())")
+            params[f"user_id_{i}"] = UUID(data["user_id"])
+            params[f"character_id_{i}"] = UUID(data["character_id"])
+            params[f"source_{i}"] = data.get("source", "scan")
 
-        # Single-query UPSERT: INSERT ... ON CONFLICT DO NOTHING
-        inserted = await ownership_repo.insert_or_ignore(
-            user_id=UUID(user_id),
-            character_id=UUID(character_id),
-            source=source,
+        if not values:
+            return {"processed": 0, "inserted": 0}
+
+        sql = text(
+            f"""
+            INSERT INTO character_ownerships
+                (user_id, character_id, source, created_at, updated_at)
+            VALUES {", ".join(values)}
+            ON CONFLICT (user_id, character_id) DO NOTHING
+        """
         )
 
-        if inserted:
-            return {"saved": True}
-        else:
-            return {"saved": False, "reason": "already_owned"}
+        result = await session.execute(sql, params)
+        await session.commit()
+
+        return {
+            "processed": len(batch_data),
+            "inserted": result.rowcount,
+        }

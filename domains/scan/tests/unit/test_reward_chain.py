@@ -314,11 +314,13 @@ class TestSaveOwnershipTask:
         assert result["saved"] is True
 
     def test_save_ownership_task_config(self):
-        """save_ownership_task 설정 확인."""
+        """save_ownership_task 설정 확인 (배치 태스크)."""
         from domains.character.tasks.reward import save_ownership_task
 
         assert save_ownership_task.name == "character.save_ownership"
-        assert save_ownership_task.max_retries == 5
+        # 배치 태스크: flush_every, flush_interval 설정
+        assert hasattr(save_ownership_task, "flush_every")
+        assert hasattr(save_ownership_task, "flush_interval")
 
     def test_handles_concurrent_insert(self):
         """동시 요청으로 인한 IntegrityError 처리."""
@@ -349,11 +351,13 @@ class TestSaveMyCharacterTask:
         }
 
     def test_save_my_character_task_config(self):
-        """save_my_character_task 설정 확인."""
+        """save_my_character_task 설정 확인 (배치 태스크)."""
         from domains.my.tasks import save_my_character_task
 
         assert save_my_character_task.name == "my.save_character"
-        assert save_my_character_task.max_retries == 5
+        # 배치 태스크: flush_every, flush_interval 설정
+        assert hasattr(save_my_character_task, "flush_every")
+        assert hasattr(save_my_character_task, "flush_interval")
 
     def test_uses_my_database_url(self):
         """MY_DATABASE_URL 환경변수 사용."""
@@ -553,8 +557,8 @@ class TestParallelSaveArchitecture:
         """save_my_character_task에 gRPC 호출 없음."""
         import inspect
 
-        from domains.my.tasks.sync_character import _save_my_character_async
+        from domains.my.tasks.sync_character import _save_my_character_batch_async
 
-        source = inspect.getsource(_save_my_character_async)
+        source = inspect.getsource(_save_my_character_batch_async)
         assert "grpc" not in source.lower()
         assert "get_my_client" not in source

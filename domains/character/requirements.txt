@@ -28,3 +28,4 @@ opentelemetry-propagator-b3==1.29.0
 aiobreaker==1.2.0
 # Celery (for async task dispatch)
 celery==5.4.0
+celery-batches==0.9.0
