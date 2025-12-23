@@ -195,36 +195,66 @@ async def _completion_generator(
         _handle_event(event, "failed")
 
     def run_event_receiver() -> None:
-        """Celery Event Receiver (별도 스레드)."""
+        """Celery Event Receiver (별도 스레드) - kombu Consumer 직접 사용."""
+        from kombu import Exchange, Queue
+        from kombu.mixins import ConsumerMixin
+
+        # Celery 이벤트용 Exchange (topic 타입)
+        celeryev_exchange = Exchange("celeryev", type="topic", durable=True)
+
+        class EventReceiver(ConsumerMixin):
+            def __init__(self, connection):
+                self.connection = connection
+
+            def get_consumers(self, Consumer, channel):
+                # celeryev exchange에서 모든 task 이벤트 수신
+                queue = Queue(
+                    name="",  # 익명 큐 (자동 삭제)
+                    exchange=celeryev_exchange,
+                    routing_key="task.#",  # task 관련 이벤트만
+                    auto_delete=True,
+                    durable=False,
+                )
+                return [
+                    Consumer(
+                        queues=[queue],
+                        callbacks=[self.on_event],
+                        accept=["json"],
+                    )
+                ]
+
+            def on_event(self, body, message):
+                """이벤트 처리."""
+                event_type = body.get("type", "")
+                logger.debug(
+                    "celery_event_received",
+                    extra={
+                        "task_id": task_id,
+                        "event_type": event_type,
+                        "event_uuid": body.get("uuid"),
+                    },
+                )
+
+                if event_type == "task-started":
+                    on_task_started(body)
+                elif event_type == "task-succeeded":
+                    on_task_succeeded(body)
+                elif event_type == "task-failed":
+                    on_task_failed(body)
+
+                message.ack()
+
+            def on_consume_ready(self, connection, channel, consumers, **kwargs):
+                """Consumer가 준비되면 호출됨."""
+                logger.info("event_receiver_consuming", extra={"task_id": task_id})
+                receiver_ready.set()
 
         try:
             logger.info("event_receiver_connecting", extra={"task_id": task_id})
             with celery_app.connection() as connection:
                 logger.info("event_receiver_connected", extra={"task_id": task_id})
-                recv = celery_app.events.Receiver(
-                    connection,
-                    handlers={
-                        "task-started": on_task_started,
-                        "task-succeeded": on_task_succeeded,
-                        "task-failed": on_task_failed,
-                        "*": lambda e: logger.debug(
-                            "celery_event_received",
-                            extra={
-                                "task_id": task_id,
-                                "event_type": e.get("type"),
-                                "event_uuid": e.get("uuid"),
-                            },
-                        ),
-                    },
-                )
-                # itercapture를 사용하여 첫 consume 시작 후 ready 신호
-                consumer = recv.itercapture(limit=None, timeout=120, wakeup=True)
-                # Consumer 시작됨 - ready 신호
-                logger.info("event_receiver_ready", extra={"task_id": task_id})
-                receiver_ready.set()
-                # 이벤트 수신 루프
-                for _ in consumer:
-                    pass
+                receiver = EventReceiver(connection)
+                receiver.run()
         except Exception as e:
             logger.exception("event_receiver_error", extra={"task_id": task_id, "error": str(e)})
             receiver_ready.set()  # 에러 시에도 진행
