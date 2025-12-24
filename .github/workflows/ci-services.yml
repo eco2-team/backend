@@ -156,6 +156,7 @@ jobs:
             domains/location/**
             domains/my/**
             domains/scan/**
+            domains/_base/**
             domains/_shared/waste_pipeline/**
             domains/_shared/celery/**
             workloads/domains/auth/**
@@ -198,6 +199,8 @@ jobs:
           shared_triggers = {
               "domains/_shared/waste_pipeline": ["chat", "scan"],
               "domains/_shared/celery": ["scan", "character", "my"],
+              # Base 이미지 변경 시 모든 서비스 재빌드 (의존성 업데이트)
+              "domains/_base": ["auth", "character", "chat", "image", "location", "my", "scan"],
           }
 
           def normalize(service: str) -> str:
