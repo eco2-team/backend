@@ -47,6 +47,10 @@ spec:
       cluster_formation.target_cluster_size_hint = 1
       queue_leader_locator = balanced
 
+      # Prometheus 메트릭 (큐별 메트릭 활성화)
+      # RabbitMQ 4.0+ 기본 비활성화, 명시적 활성화 필요
+      prometheus.return_per_object_metrics = true
+
       # 메시지 TTL 기본값 (24시간)
       # consumer_timeout = 86400000
 
