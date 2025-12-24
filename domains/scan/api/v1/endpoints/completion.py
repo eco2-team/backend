@@ -308,6 +308,11 @@ async def _completion_generator(
         event_task_id = event.get("uuid", "")
         task_name = event.get("name", "") or task_name_map.get(event_task_id, "")
 
+        # scan.* task만 처리 (character.match 등 다른 도메인 task 무시)
+        # character.match의 task-started가 오면 scan.reward를 빈 결과로 완료 처리하는 버그 방지
+        if task_name and not task_name.startswith("scan."):
+            return
+
         # task-started가 오면 이전 task는 완료된 것
         if last_received_task["task_name"] and last_received_task["task_id"] != event_task_id:
             _send_sse_event(last_received_task["task_name"], "completed")
