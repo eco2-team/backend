@@ -101,32 +101,28 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
+        # Startup probe: 초기 시작 시 충분한 시간 부여
+        startupProbe:
+          exec:
+            command: [celery, -A, domains.character.celery_app, inspect, ping, -t, '15']
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 20
+          failureThreshold: 12  # 30s + 12*10s = 최대 150초 대기
         livenessProbe:
           exec:
-            command:
-            - celery
-            - -A
-            - domains.character.celery_app
-            - inspect
-            - ping
-            - -t
-            - '10'
-          initialDelaySeconds: 60
+            command: [celery, -A, domains.character.celery_app, inspect, ping, -t, '15']
+          initialDelaySeconds: 10  # startupProbe 통과 후 시작
           periodSeconds: 30
-          timeoutSeconds: 15
+          timeoutSeconds: 20
+          failureThreshold: 3
         readinessProbe:
           exec:
-            command:
-            - celery
-            - -A
-            - domains.character.celery_app
-            - inspect
-            - ping
-            - -t
-            - '10'
-          initialDelaySeconds: 30
-          periodSeconds: 15
-          timeoutSeconds: 15
+            command: [celery, -A, domains.character.celery_app, inspect, ping, -t, '15']
+          initialDelaySeconds: 5
+          periodSeconds: 20
+          timeoutSeconds: 20
+          failureThreshold: 3
       imagePullSecrets:
       - name: dockerhub-secret
       # worker-storage 노드에 배치
