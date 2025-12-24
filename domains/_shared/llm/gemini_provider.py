@@ -125,13 +125,14 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
             extra={"model": self._config.vision_model},
         )
 
-        # Gen AI SDK 사용
+        # Gen AI SDK 사용 (JSON 모드 강제)
         response = client.models.generate_content(
             model=self._config.vision_model,
             contents=[
                 {"inline_data": {"mime_type": "image/jpeg", "data": image_data}},
                 full_prompt,
             ],
+            config={"response_mime_type": "application/json"},
         )
 
         return self._parse_response(response.text, response_model)
@@ -166,7 +167,7 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
             extra={"model": self._config.vision_model},
         )
 
-        # Gen AI SDK는 동기만 지원, 스레드풀로 비동기 래핑
+        # Gen AI SDK는 동기만 지원, 스레드풀로 비동기 래핑 (JSON 모드 강제)
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
@@ -176,6 +177,7 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
                     {"inline_data": {"mime_type": "image/jpeg", "data": image_data}},
                     full_prompt,
                 ],
+                config={"response_mime_type": "application/json"},
             ),
         )
 
@@ -213,6 +215,7 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
         response = client.models.generate_content(
             model=self._config.chat_model,
             contents=full_prompt,
+            config={"response_mime_type": "application/json"},
         )
 
         return self._parse_response(response.text, response_model)
@@ -248,13 +251,14 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
             extra={"model": self._config.chat_model},
         )
 
-        # Gen AI SDK는 동기만 지원, 스레드풀로 비동기 래핑
+        # Gen AI SDK는 동기만 지원, 스레드풀로 비동기 래핑 (JSON 모드 강제)
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
             lambda: client.models.generate_content(
                 model=self._config.chat_model,
                 contents=full_prompt,
+                config={"response_mime_type": "application/json"},
             ),
         )
 
