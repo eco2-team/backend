@@ -289,7 +289,14 @@ class TestCeleryConfig:
         assert routes["scan.reward"]["queue"] == "scan.reward"
         assert routes["character.save_ownership"]["queue"] == "character.reward"
         assert routes["my.save_character"]["queue"] == "my.reward"
-        assert routes["dlq.*"]["queue"] == "celery"
+
+        # DLQ reprocess task → 각 도메인 큐로 분리 라우팅
+        assert routes["dlq.reprocess_scan_vision"]["queue"] == "scan.vision"
+        assert routes["dlq.reprocess_scan_rule"]["queue"] == "scan.rule"
+        assert routes["dlq.reprocess_scan_answer"]["queue"] == "scan.answer"
+        assert routes["dlq.reprocess_scan_reward"]["queue"] == "scan.reward"
+        assert routes["dlq.reprocess_character_reward"]["queue"] == "character.reward"
+        assert routes["dlq.reprocess_my_reward"]["queue"] == "my.reward"
 
     def test_get_celery_config_beat_schedule(self):
         """Beat 스케줄 설정 확인."""
