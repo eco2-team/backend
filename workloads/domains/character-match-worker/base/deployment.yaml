@@ -12,7 +12,7 @@ metadata:
     tier: worker
     domain: character
 spec:
-  replicas: 1
+  replicas: 2  # 부하 분산
   selector:
     matchLabels:
       app: character-match-worker
@@ -41,7 +41,7 @@ spec:
         - -Q
         - character.match  # match 큐만 소비
         - -c
-        - '4'  # 높은 concurrency (캐시 조회 위주)
+        - '16'  # 높은 concurrency (캐시 조회 위주, 스레드 pool)
         env:
         # Celery Broker (RabbitMQ)
         - name: CELERY_BROKER_URL

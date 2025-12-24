@@ -11,7 +11,7 @@ metadata:
     tier: worker
     domain: scan
 spec:
-  replicas: 1
+  replicas: 3  # 부하 분산
   selector:
     matchLabels:
       app: scan-worker
@@ -38,7 +38,7 @@ spec:
         - -Q
         - scan.vision,scan.rule,scan.answer,scan.reward
         - -c
-        - '2'
+        - '8'  # OpenAI API 병렬 호출 (3 replicas x 8 = 24 동시)
         env:
         # Celery Broker (RabbitMQ)
         - name: CELERY_BROKER_URL
