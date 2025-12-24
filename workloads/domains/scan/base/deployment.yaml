@@ -53,7 +53,7 @@ spec:
               name: scan-secret
               key: CELERY_BROKER_URL
         - name: CELERY_RESULT_BACKEND
-          value: rpc://  # Stateless SSE - Redis 불필요
+          value: redis://dev-redis.redis.svc.cluster.local:6379/0  # Cross-worker RPC 응답용
         envFrom:
         - configMapRef:
             name: scan-config

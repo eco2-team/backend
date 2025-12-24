@@ -55,7 +55,7 @@ spec:
               name: character-secret
               key: CELERY_BROKER_URL
         - name: CELERY_RESULT_BACKEND
-          value: rpc://  # Stateless SSE - Redis 불필요
+          value: redis://dev-redis.redis.svc.cluster.local:6379/0  # Cross-worker RPC 응답용
         # Database Pool (Worker 전용 - concurrency에 맞춤)
         - name: DB_POOL_SIZE
           value: '15'  # 상시 유지 커넥션

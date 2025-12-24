@@ -50,7 +50,7 @@ spec:
               name: character-secret
               key: CELERY_BROKER_URL
         - name: CELERY_RESULT_BACKEND
-          value: rpc://
+          value: redis://dev-redis.redis.svc.cluster.local:6379/0  # Cross-worker RPC 응답용
         # OpenTelemetry
         - name: OTEL_SERVICE_NAME
           value: character-match-worker
