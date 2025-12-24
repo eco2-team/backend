@@ -1,6 +1,7 @@
 # Scan Worker Celery Deployment
 # 비동기 AI 파이프라인 처리 (vision, rule, answer, reward)
 # Gevent Pool 사용으로 100+ 동시 I/O 처리
+# Rebuild: 2024-12-24 - base image gevent + celery 5.4.0
 apiVersion: apps/v1
 kind: Deployment
 metadata:

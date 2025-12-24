@@ -2,6 +2,7 @@
 # character.reward 큐 처리 (fire & forget, 백그라운드 DB 저장)
 # gevent pool: DB I/O 바운드 작업에 최적화
 # worker-storage 노드에 배포
+# Rebuild: 2024-12-24 - base image gevent + celery 5.4.0
 apiVersion: apps/v1
 kind: Deployment
 metadata:
