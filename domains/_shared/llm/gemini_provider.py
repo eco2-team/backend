@@ -33,9 +33,7 @@ class GeminiProvider(LLMProvider):
         pip install google-genai
 
     Models:
-        - gemini-3-flash-preview: 프런티어급 성능, 저렴한 비용
-        - gemini-2.5-flash: 100만 토큰 컨텍스트, 균형 잡힌 모델
-        - gemini-2.5-pro: 코딩 및 복잡한 추론
+        - gemini-3-flash-preview: 프론티어급 성능, 합리적인 비용
     """
 
     def __init__(self, config: LLMConfig):
