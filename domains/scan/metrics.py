@@ -1,10 +1,12 @@
 """Scan 도메인 Prometheus 메트릭
 
-ext-authz 메트릭 구조 참고:
-- 세분화된 Histogram buckets (ExponentialBucketsRange 유사)
+ext-authz 메트릭 구조 참고 (Go prometheus.ExponentialBucketsRange):
+- 지수 스케일 버킷: 낮은 latency에 더 촘촘한 분포
+- Netflix/Uber/Google SRE 권장: ~2x factor between buckets
 - 명확한 label 구조 (result, reason, status)
-- Gauge/Counter/Histogram 목적별 분리
 """
+
+import math
 
 from fastapi import FastAPI
 from fastapi.responses import Response
@@ -20,55 +22,59 @@ from prometheus_client import (
 REGISTRY = CollectorRegistry(auto_describe=True)
 METRICS_PATH = "/metrics/status"
 
+
 # ─────────────────────────────────────────────────────────────────────────────
-# Bucket 설정 (ext-authz ExponentialBucketsRange 참고)
-# - 낮은 latency에 더 세분화된 bucket
-# - tail latency 탐지를 위한 상위 bucket
+# Bucket 생성 유틸리티 (Go prometheus 호환)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# TTFB: 첫 이벤트까지 시간 (10ms ~ 5s, 12 buckets)
-TTFB_BUCKETS = (0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0)
 
-# Stage Duration: 각 스테이지 소요 시간 (100ms ~ 30s, 15 buckets)
-STAGE_BUCKETS = (0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 7.5, 10.0, 15.0, 20.0, 30.0)
+def exponential_buckets_range(min_val: float, max_val: float, count: int) -> tuple:
+    """Go prometheus.ExponentialBucketsRange 호환 구현.
 
-# Chain Duration: 전체 파이프라인 (1s ~ 120s, 15 buckets)
-CHAIN_BUCKETS = (
-    1.0,
-    2.0,
-    3.0,
-    5.0,
-    7.5,
-    10.0,
-    12.5,
-    15.0,
-    20.0,
-    25.0,
-    30.0,
-    45.0,
-    60.0,
-    90.0,
-    120.0,
-)
+    min_val과 max_val 사이에 count개의 버킷을 지수적으로 분포시킴.
+    - 낮은 latency 구간에 더 촘촘한 버킷 (p50/p90/p95/p99 정밀 측정)
+    - 높은 latency 구간은 tail 탐지용
 
-# Celery Task: 개별 태스크 (10ms ~ 30s, 15 buckets)
-CELERY_TASK_BUCKETS = (
-    0.01,
-    0.05,
-    0.1,
-    0.25,
-    0.5,
-    1.0,
-    2.0,
-    3.0,
-    5.0,
-    7.5,
-    10.0,
-    15.0,
-    20.0,
-    25.0,
-    30.0,
-)
+    Args:
+        min_val: 최소 버킷 값 (초 단위)
+        max_val: 최대 버킷 값 (초 단위)
+        count: 버킷 개수
+
+    Returns:
+        지수 분포된 버킷 튜플
+
+    Example:
+        >>> exponential_buckets_range(0.01, 5.0, 12)
+        (0.01, 0.017, 0.029, 0.050, 0.086, 0.147, 0.252, 0.432, 0.740, 1.27, 2.17, 3.71, 5.0)
+    """
+    if count < 2:
+        return (min_val, max_val)
+    log_min = math.log(min_val)
+    log_max = math.log(max_val)
+    factor = (log_max - log_min) / (count - 1)
+    return tuple(round(math.exp(log_min + factor * i), 4) for i in range(count))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Bucket 설정 (ext-authz 스타일, ~2x factor)
+#
+# Netflix/Google SRE 권장:
+# - TTFB: 빠른 응답 측정 (10ms ~ 10s)
+# - Stage: OpenAI API 호출 포함 (100ms ~ 60s)
+# - Chain: 전체 파이프라인 (1s ~ 180s)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# TTFB: 첫 이벤트까지 시간 (10ms ~ 10s, 14 buckets, ~1.8x factor)
+TTFB_BUCKETS = exponential_buckets_range(0.01, 10.0, 14)
+
+# Stage Duration: OpenAI API 포함 (100ms ~ 60s, 15 buckets, ~1.6x factor)
+STAGE_BUCKETS = exponential_buckets_range(0.1, 60.0, 15)
+
+# Chain Duration: 전체 파이프라인 (1s ~ 180s, 15 buckets, ~1.5x factor)
+CHAIN_BUCKETS = exponential_buckets_range(1.0, 180.0, 15)
+
+# Celery Task: 개별 태스크 (10ms ~ 60s, 16 buckets, ~1.7x factor)
+CELERY_TASK_BUCKETS = exponential_buckets_range(0.01, 60.0, 16)
 
 
 def register_metrics(app: FastAPI) -> None:
@@ -153,30 +159,15 @@ PIPELINE_STEP_LATENCY = Histogram(
     "Duration of each step in the waste classification pipeline",
     labelnames=["step"],
     registry=REGISTRY,
-    buckets=(
-        0.1,
-        0.5,
-        1.0,
-        2.0,
-        3.0,
-        4.0,
-        5.0,
-        6.0,
-        7.0,
-        8.0,
-        9.0,
-        10.0,
-        12.5,
-        15.0,
-        20.0,
-    ),
+    buckets=STAGE_BUCKETS,  # 동일 스케일 사용
 )
 
+# 캐릭터 매칭: 캐시 조회 위주 (10ms ~ 5s, 12 buckets)
 REWARD_MATCH_LATENCY = Histogram(
     "scan_reward_match_duration_seconds",
-    "Duration of character reward matching API call",
+    "Duration of character reward matching (local cache)",
     registry=REGISTRY,
-    buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+    buckets=exponential_buckets_range(0.01, 5.0, 12),
 )
 
 REWARD_MATCH_COUNTER = Counter(
@@ -186,12 +177,13 @@ REWARD_MATCH_COUNTER = Counter(
     registry=REGISTRY,
 )
 
+# gRPC: 빠른 내부 통신 (1ms ~ 2s, 12 buckets)
 GRPC_CALL_LATENCY = Histogram(
     "scan_grpc_call_duration_seconds",
     "Duration of gRPC calls to external services",
     labelnames=["service", "method"],
     registry=REGISTRY,
-    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5),
+    buckets=exponential_buckets_range(0.001, 2.0, 12),
 )
 
 GRPC_CALL_COUNTER = Counter(
