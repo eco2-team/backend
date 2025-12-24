@@ -114,18 +114,21 @@ async def _save_ownership_batch_async(
         values = []
         params = {}
         for i, data in enumerate(batch_data):
-            values.append(f"(:user_id_{i}, :character_id_{i}, :source_{i}, NOW(), NOW())")
+            values.append(
+                f"(:user_id_{i}, :character_id_{i}, :source_{i}, " f":status_{i}, NOW(), NOW())"
+            )
             params[f"user_id_{i}"] = UUID(data["user_id"])
             params[f"character_id_{i}"] = UUID(data["character_id"])
             params[f"source_{i}"] = data.get("source", "scan")
+            params[f"status_{i}"] = "owned"
 
         if not values:
             return {"processed": 0, "inserted": 0}
 
         sql = text(
             f"""
-            INSERT INTO character_ownerships
-                (user_id, character_id, source, created_at, updated_at)
+            INSERT INTO character.character_ownerships
+                (user_id, character_id, source, status, acquired_at, updated_at)
             VALUES {", ".join(values)}
             ON CONFLICT (user_id, character_id) DO NOTHING
         """

@@ -121,7 +121,7 @@ async def _save_my_character_batch_async(
             values.append(
                 f"(:user_id_{i}, :character_id_{i}, :character_code_{i}, "
                 f":character_name_{i}, :character_type_{i}, :character_dialog_{i}, "
-                f":source_{i}, NOW(), NOW())"
+                f":source_{i}, :status_{i}, NOW(), NOW())"
             )
             params[f"user_id_{i}"] = UUID(data["user_id"])
             params[f"character_id_{i}"] = UUID(data["character_id"])
@@ -130,15 +130,16 @@ async def _save_my_character_batch_async(
             params[f"character_type_{i}"] = data.get("character_type")
             params[f"character_dialog_{i}"] = data.get("character_dialog")
             params[f"source_{i}"] = data.get("source", "scan")
+            params[f"status_{i}"] = "owned"  # 기본값: 소유 상태
 
         if not values:
             return {"processed": 0, "inserted": 0}
 
         sql = text(
             f"""
-            INSERT INTO user_characters
+            INSERT INTO user_profile.user_characters
                 (user_id, character_id, character_code, character_name,
-                 character_type, character_dialog, source, created_at, updated_at)
+                 character_type, character_dialog, source, status, acquired_at, updated_at)
             VALUES {", ".join(values)}
             ON CONFLICT (user_id, character_id) DO NOTHING
         """
