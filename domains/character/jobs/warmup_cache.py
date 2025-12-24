@@ -42,23 +42,26 @@ async def warmup_cache() -> int:
 
     try:
         async with engine.connect() as conn:
+            # character 스키마의 characters 테이블에서 직접 조회
             result = await conn.execute(
-                text("SELECT id, code, name, match_label, metadata FROM characters")
+                text(
+                    "SELECT id, code, name, match_label, type_label, dialog "
+                    "FROM character.characters"
+                )
             )
             rows = result.fetchall()
 
-        # metadata JSON에서 type, dialog 추출
+        # 컬럼: id, code, name, match_label, type_label, dialog
         characters = []
         for row in rows:
-            meta = row[4] or {}
             characters.append(
                 {
                     "id": str(row[0]),
                     "code": row[1],
                     "name": row[2],
-                    "match_label": row[3],
-                    "type_label": meta.get("type", ""),
-                    "dialog": meta.get("dialog", ""),
+                    "match_label": row[3] or "",
+                    "type_label": row[4] or "",
+                    "dialog": row[5] or "",
                 }
             )
 
