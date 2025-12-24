@@ -86,10 +86,10 @@ spec:
             - inspect
             - ping
             - -t
-            - '5'
-          initialDelaySeconds: 30
-          periodSeconds: 20
-          timeoutSeconds: 10
+            - '10'
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 15
         readinessProbe:
           exec:
             command:
@@ -99,10 +99,10 @@ spec:
             - inspect
             - ping
             - -t
-            - '5'
-          initialDelaySeconds: 15
-          periodSeconds: 10
-          timeoutSeconds: 10
+            - '10'
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 15
       imagePullSecrets:
       - name: dockerhub-secret
       # worker-storage 노드에 배치
