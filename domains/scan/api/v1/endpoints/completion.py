@@ -347,15 +347,6 @@ async def _completion_generator(
         event_task_id = event.get("uuid", "")
         task_name = event.get("name", "") or task_name_map.get(event_task_id, "")
 
-        # scan.reward는 task-result 커스텀 이벤트에서 처리 (dict로 정확히 전달됨)
-        # task-succeeded의 result는 str로 전달되어 파싱 실패할 수 있으므로 무시
-        if task_name == "scan.reward":
-            logger.debug(
-                "skip_task_succeeded_for_reward",
-                extra={"task_id": task_id, "event_task_id": event_task_id},
-            )
-            return
-
         # 디버그 로깅: result 확인
         raw_result = event.get("result")
         logger.info(
@@ -369,6 +360,7 @@ async def _completion_generator(
             },
         )
 
+        # scan.reward도 task-succeeded로 처리 (커스텀 이벤트 전달 불안정)
         if task_name:
             _send_sse_event(task_name, "completed", result=raw_result)
 
