@@ -6,6 +6,7 @@ from prometheus_client import (
     CONTENT_TYPE_LATEST,
     CollectorRegistry,
     Counter,
+    Gauge,
     Histogram,
     generate_latest,
 )
@@ -21,6 +22,64 @@ def register_metrics(app: FastAPI) -> None:
     async def metrics_endpoint() -> Response:
         return Response(content=generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SSE Completion 엔드포인트 메트릭
+# ─────────────────────────────────────────────────────────────────────────────
+
+SSE_CONNECTIONS_ACTIVE = Gauge(
+    "scan_sse_connections_active",
+    "Number of active SSE connections",
+    registry=REGISTRY,
+)
+
+SSE_CHAIN_DURATION = Histogram(
+    "scan_sse_chain_duration_seconds",
+    "Total duration of SSE chain (vision → rule → answer → reward)",
+    registry=REGISTRY,
+    buckets=(5, 10, 15, 20, 25, 30, 45, 60, 90, 120),
+)
+
+SSE_STAGE_DURATION = Histogram(
+    "scan_sse_stage_duration_seconds",
+    "Duration of each SSE stage",
+    labelnames=["stage"],  # vision, rule, answer, reward
+    registry=REGISTRY,
+    buckets=(0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30),
+)
+
+SSE_REQUESTS_TOTAL = Counter(
+    "scan_sse_requests_total",
+    "Total SSE requests",
+    labelnames=["status"],  # success, failed, timeout
+    registry=REGISTRY,
+)
+
+SSE_TTFB = Histogram(
+    "scan_sse_ttfb_seconds",
+    "Time to first byte (first SSE event)",
+    registry=REGISTRY,
+    buckets=(0.1, 0.25, 0.5, 1, 2, 3, 5, 10),
+)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Celery Task 메트릭
+# ─────────────────────────────────────────────────────────────────────────────
+
+CELERY_TASK_DURATION = Histogram(
+    "scan_celery_task_duration_seconds",
+    "Duration of Celery task execution",
+    labelnames=["task_name", "status"],  # success, failed, retry
+    registry=REGISTRY,
+    buckets=(0.1, 0.5, 1, 2, 5, 10, 15, 20, 30),
+)
+
+CELERY_QUEUE_SIZE = Gauge(
+    "scan_celery_queue_size",
+    "Number of messages in Celery queue",
+    labelnames=["queue"],
+    registry=REGISTRY,
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Scan 도메인 커스텀 비즈니스 메트릭

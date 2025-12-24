@@ -9,12 +9,20 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from typing import AsyncGenerator
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from domains.scan.api.dependencies import CurrentUser, ScanServiceDep
+from domains.scan.metrics import (
+    SSE_CHAIN_DURATION,
+    SSE_CONNECTIONS_ACTIVE,
+    SSE_REQUESTS_TOTAL,
+    SSE_STAGE_DURATION,
+    SSE_TTFB,
+)
 from domains.scan.schemas.scan import ClassificationRequest
 
 router = APIRouter(prefix="/scan", tags=["scan-completion"])
@@ -142,15 +150,26 @@ async def _completion_generator(
 
     from celery import chain
 
-    from domains.scan.tasks.reward import scan_reward_task
     from domains.scan.celery_app import celery_app
     from domains.scan.tasks.answer import answer_task
+    from domains.scan.tasks.reward import scan_reward_task
     from domains.scan.tasks.rule import rule_task
     from domains.scan.tasks.vision import vision_task
+
+    # 메트릭: 활성 연결 수 증가
+    SSE_CONNECTIONS_ACTIVE.inc()
+    chain_start_time = time.time()
+    first_event_sent = False
+    final_status = "success"
+
+    # 스테이지별 시작 시간 추적
+    stage_start_times: dict[str, float] = {}
 
     # 요청 검증
     image_url = str(payload.image_url) if payload.image_url else None
     if not image_url:
+        SSE_CONNECTIONS_ACTIVE.dec()
+        SSE_REQUESTS_TOTAL.labels(status="failed").inc()
         yield _format_sse({"status": "error", "error": "IMAGE_URL_REQUIRED"})
         return
 
@@ -182,9 +201,28 @@ async def _completion_generator(
 
     def _send_sse_event(task_name: str, status: str, result: dict | str | None = None) -> None:
         """SSE 이벤트 전송."""
+        nonlocal first_event_sent, stage_start_times
+
         step_info = TASK_STEP_MAP.get(task_name, {})
         if not step_info:
             return
+
+        step_name = step_info["step"]
+
+        # 스테이지별 시간 추적
+        if status == "started":
+            stage_start_times[step_name] = time.time()
+        elif status == "completed" and step_name in stage_start_times:
+            duration = time.time() - stage_start_times[step_name]
+            SSE_STAGE_DURATION.labels(stage=step_name).observe(duration)
+            logger.info(
+                "stage_completed",
+                extra={
+                    "task_id": task_id,
+                    "stage": step_name,
+                    "duration_seconds": round(duration, 3),
+                },
+            )
 
         # progress 계산: completed면 해당 단계 완료 값, started면 이전 단계 완료 값
         progress = (
@@ -196,6 +234,12 @@ async def _completion_generator(
             "status": status,
             "progress": progress,
         }
+
+        # TTFB 메트릭 (첫 이벤트 전송 시간)
+        if not first_event_sent:
+            ttfb = time.time() - chain_start_time
+            SSE_TTFB.observe(ttfb)
+            first_event_sent = True
 
         # reward 완료 시 최종 결과 포함
         if task_name == "scan.reward" and status == "completed":
@@ -496,6 +540,8 @@ async def _completion_generator(
                 yield _format_sse(event)
 
                 if event.get("step") == "reward" and event.get("status") in ("completed", "failed"):
+                    if event.get("status") == "failed":
+                        final_status = "failed"
                     break
 
             except asyncio.TimeoutError:
@@ -504,12 +550,28 @@ async def _completion_generator(
                 if elapsed > timeout:
                     logger.warning("completion_stream_timeout", extra={"task_id": task_id})
                     yield _format_sse({"status": "timeout", "task_id": task_id})
+                    final_status = "timeout"
                     break
 
                 # Keep-alive
                 yield ": keepalive\n\n"
 
     finally:
+        # 메트릭 기록
+        chain_duration = time.time() - chain_start_time
+        SSE_CHAIN_DURATION.observe(chain_duration)
+        SSE_REQUESTS_TOTAL.labels(status=final_status).inc()
+        SSE_CONNECTIONS_ACTIVE.dec()
+
+        logger.info(
+            "completion_stream_finished",
+            extra={
+                "task_id": task_id,
+                "status": final_status,
+                "duration_seconds": round(chain_duration, 3),
+            },
+        )
+
         future.cancel()
         executor.shutdown(wait=False)
 

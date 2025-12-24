@@ -39,6 +39,7 @@ opentelemetry-instrumentation-httpx==0.50b0
 opentelemetry-instrumentation-redis==0.50b0
 opentelemetry-instrumentation-asyncpg==0.50b0
 opentelemetry-instrumentation-grpc==0.50b0
+opentelemetry-instrumentation-celery==0.50b0
 opentelemetry-propagator-b3==1.29.0
 
 # Monitoring
