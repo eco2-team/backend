@@ -286,11 +286,11 @@ data:
           "gridPos": { "h": 8, "w": 8, "x": 16, "y": 23 },
           "targets": [
             {
-              "expr": "rabbitmq_queue_messages_ready{namespace=\"rabbitmq\", queue=~\"scan.*|character.*|my.*\"}",
+              "expr": "rabbitmq_queue_messages_ready{queue=~\"scan\\\\..*|character\\\\..*|my\\\\..*\"}",
               "legendFormat": "{{queue}} (ready)"
             },
             {
-              "expr": "rabbitmq_queue_messages_unacked{namespace=\"rabbitmq\", queue=~\"scan.*|character.*|my.*\"}",
+              "expr": "rabbitmq_queue_messages_unacked{queue=~\"scan\\\\..*|character\\\\..*|my\\\\..*\"}",
               "legendFormat": "{{queue}} (unacked)"
             }
           ],
