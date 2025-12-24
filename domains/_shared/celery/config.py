@@ -2,7 +2,7 @@
 Celery Configuration Module
 
 환경변수 기반 동적 설정 - 배포 환경별로 변경됨
-Quorum queue 지원 (global_qos=False)
+Classic queue 사용 (Celery global QoS 호환)
 """
 
 from functools import lru_cache
@@ -18,7 +18,7 @@ default_exchange = Exchange("", type="direct")  # Default exchange
 dlx_exchange = Exchange("dlx", type="direct")  # Dead Letter Exchange
 
 # Queue 정의 (DLX 설정 포함 - Topology CR과 완전 동기화)
-# 모든 인자가 Topology CR과 일치해야 함 (x-queue-type, x-delivery-limit 등)
+# Classic queue 사용 - x-queue-type 생략 (기본값)
 CELERY_QUEUES = (
     # Default queue
     Queue(
@@ -26,11 +26,9 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="celery",
         queue_arguments={
-            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.celery",
             "x-message-ttl": 3600000,  # 1시간
-            "x-delivery-limit": 3,
         },
     ),
     # Scan pipeline queues
@@ -39,11 +37,9 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="scan.vision",
         queue_arguments={
-            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.scan.vision",
             "x-message-ttl": 3600000,  # 1시간
-            "x-delivery-limit": 3,
         },
     ),
     Queue(
@@ -51,11 +47,9 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="scan.rule",
         queue_arguments={
-            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.scan.rule",
             "x-message-ttl": 300000,  # 5분
-            "x-delivery-limit": 3,
         },
     ),
     Queue(
@@ -63,11 +57,9 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="scan.answer",
         queue_arguments={
-            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.scan.answer",
             "x-message-ttl": 3600000,  # 1시간
-            "x-delivery-limit": 3,
         },
     ),
     # Reward queues (도메인별 분리)
@@ -76,11 +68,9 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="scan.reward",
         queue_arguments={
-            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.scan.reward",
             "x-message-ttl": 3600000,  # 1시간
-            "x-delivery-limit": 3,
         },
     ),
     # Character match queue (빠른 응답용)
@@ -89,11 +79,9 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="character.match",
         queue_arguments={
-            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.character.match",
             "x-message-ttl": 30000,  # 30초 (빠른 응답)
-            "x-delivery-limit": 2,
         },
     ),
     # Character reward queue (fire & forget, 백그라운드)
@@ -102,11 +90,9 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="character.reward",
         queue_arguments={
-            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.character.reward",
             "x-message-ttl": 86400000,  # 24시간
-            "x-delivery-limit": 5,
         },
     ),
     Queue(
@@ -114,11 +100,9 @@ CELERY_QUEUES = (
         default_exchange,
         routing_key="my.reward",
         queue_arguments={
-            "x-queue-type": "quorum",
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.my.reward",
             "x-message-ttl": 86400000,  # 24시간
-            "x-delivery-limit": 5,
         },
     ),
 )
@@ -212,9 +196,8 @@ class CelerySettings(BaseSettings):
         return {
             "broker_url": self.broker_url,
             "result_backend": self.result_backend,
-            # Quorum queue는 global QoS 미지원 - per-consumer QoS 사용
+            # Classic queue는 global QoS 지원 - 명시적 설정 불필요
             "broker_transport_options": {
-                "global_qos": False,
                 "confirm_publish": True,
             },
             "task_serializer": self.task_serializer,

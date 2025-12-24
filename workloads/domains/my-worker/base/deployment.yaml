@@ -36,8 +36,6 @@ spec:
         - worker
         - --loglevel=info
         - -E  # Events 활성화
-        - --without-mingle
-        - --without-gossip
         - -Q
         - my.reward
         - -c

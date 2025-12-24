@@ -1,6 +1,6 @@
 ---
 # RabbitMQ Queues 정의
-# Quorum Queue 사용 (내구성 + 가용성)
+# Classic Queue 사용 (Celery global QoS 호환)
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Scan Pipeline Queues (AI 파이프라인)
@@ -12,7 +12,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: scan.vision
-  type: quorum  # Quorum Queue (복제 + 내구성)
+  type: classic  # Classic Queue (Celery 호환)
   durable: true
   autoDelete: false
   vhost: eco2
@@ -22,8 +22,6 @@ spec:
     x-dead-letter-routing-key: dlq.scan.vision
     # 메시지 TTL: 1시간 (AI 타임아웃 대비)
     x-message-ttl: 3600000
-    # 최대 재시도 횟수 (delivery-limit)
-    x-delivery-limit: 3
   rabbitmqClusterReference:
     name: eco2-rabbitmq
     namespace: rabbitmq
@@ -35,7 +33,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: scan.rule
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -43,7 +41,6 @@ spec:
     x-dead-letter-exchange: dlx
     x-dead-letter-routing-key: dlq.scan.rule
     x-message-ttl: 300000  # 5분 (Rule-based는 빠름)
-    x-delivery-limit: 3
   rabbitmqClusterReference:
     name: eco2-rabbitmq
     namespace: rabbitmq
@@ -55,7 +52,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: scan.answer
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -63,7 +60,6 @@ spec:
     x-dead-letter-exchange: dlx
     x-dead-letter-routing-key: dlq.scan.answer
     x-message-ttl: 3600000  # 1시간 (GPT 호출)
-    x-delivery-limit: 3
   rabbitmqClusterReference:
     name: eco2-rabbitmq
     namespace: rabbitmq
@@ -78,7 +74,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: scan.reward
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -86,7 +82,6 @@ spec:
     x-dead-letter-exchange: dlx
     x-dead-letter-routing-key: dlq.scan.reward
     x-message-ttl: 3600000   # 1시간 (AI 처리 후)
-    x-delivery-limit: 3      # 재시도 3회
   rabbitmqClusterReference:
     name: eco2-rabbitmq
     namespace: rabbitmq
@@ -101,7 +96,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: character.match
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -109,7 +104,6 @@ spec:
     x-dead-letter-exchange: dlx
     x-dead-letter-routing-key: dlq.character.match
     x-message-ttl: 30000     # 30초 (빠른 응답 필요)
-    x-delivery-limit: 2      # 재시도 2회
   rabbitmqClusterReference:
     name: eco2-rabbitmq
     namespace: rabbitmq
@@ -124,7 +118,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: character.reward
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -132,7 +126,6 @@ spec:
     x-dead-letter-exchange: dlx
     x-dead-letter-routing-key: dlq.character.reward
     x-message-ttl: 86400000  # 24시간 (DB 저장 중요)
-    x-delivery-limit: 5      # 재시도 5회
   rabbitmqClusterReference:
     name: eco2-rabbitmq
     namespace: rabbitmq
@@ -147,7 +140,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: my.reward
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -155,7 +148,6 @@ spec:
     x-dead-letter-exchange: dlx
     x-dead-letter-routing-key: dlq.my.reward
     x-message-ttl: 86400000  # 24시간 (DB 저장 중요)
-    x-delivery-limit: 5      # 재시도 5회
   rabbitmqClusterReference:
     name: eco2-rabbitmq
     namespace: rabbitmq
@@ -170,7 +162,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: dlq.scan.vision
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -187,7 +179,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: dlq.scan.rule
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -204,7 +196,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: dlq.scan.answer
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -221,7 +213,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: dlq.scan.reward
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -238,7 +230,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: dlq.character.match
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -255,7 +247,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: dlq.character.reward
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -272,7 +264,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: dlq.my.reward
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -292,7 +284,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: celery
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
@@ -300,7 +292,6 @@ spec:
     x-dead-letter-exchange: dlx
     x-dead-letter-routing-key: dlq.celery
     x-message-ttl: 3600000
-    x-delivery-limit: 3
   rabbitmqClusterReference:
     name: eco2-rabbitmq
     namespace: rabbitmq
@@ -312,7 +303,7 @@ metadata:
   namespace: rabbitmq
 spec:
   name: dlq.celery
-  type: quorum
+  type: classic
   durable: true
   autoDelete: false
   vhost: eco2
