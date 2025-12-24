@@ -360,7 +360,16 @@ async def _completion_generator(
             },
         )
 
-        # scan.reward도 task-succeeded로 처리 (커스텀 이벤트 전달 불안정)
+        # scan.reward는 task-result 커스텀 이벤트에서 처리
+        # task-succeeded의 result는 str 타입으로 dict 파싱이 불안정함
+        # task-result 이벤트는 dict로 직접 전달되어 안정적
+        if task_name == "scan.reward":
+            logger.debug(
+                "skip_task_succeeded_for_reward",
+                extra={"task_id": task_id, "event_task_id": event_task_id},
+            )
+            return
+
         if task_name:
             _send_sse_event(task_name, "completed", result=raw_result)
 
