@@ -308,18 +308,18 @@ data:
           "collapsed": false
         },
         {
-          "title": "SSE 요청 상태 (req/s)",
+          "title": "SSE 요청 상태 (req/m)",
           "type": "timeseries",
           "gridPos": { "h": 6, "w": 12, "x": 0, "y": 32 },
           "targets": [
             {
-              "expr": "sum by (status) (rate(scan_sse_requests_total[1m]))",
+              "expr": "sum by (status) (rate(scan_sse_requests_total[1m])) * 60",
               "legendFormat": "{{status}}"
             }
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "reqps",
+              "unit": "short",
               "custom": { "lineWidth": 2, "fillOpacity": 20, "stacking": { "mode": "normal" } }
             },
             "overrides": [
@@ -343,6 +343,90 @@ data:
             "defaults": {
               "unit": "short",
               "custom": { "lineWidth": 2, "fillOpacity": 30 }
+            }
+          }
+        },
+        {
+          "title": "🖥️ Worker 리소스 사용량",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 },
+          "collapsed": false
+        },
+        {
+          "title": "Worker CPU 사용률",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 39 },
+          "targets": [
+            {
+              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=~\"scan|character|my\", container=~\".*worker.*\"}[5m])) * 100",
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Worker Memory 사용량",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 39 },
+          "targets": [
+            {
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=~\"scan|character|my\", container=~\".*worker.*\"}) / 1024 / 1024",
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "decmbytes",
+              "min": 0,
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Worker CPU Request vs Usage",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 47 },
+          "targets": [
+            {
+              "expr": "sum by (pod) (kube_pod_container_resource_requests{namespace=~\"scan|character|my\", container=~\".*worker.*\", resource=\"cpu\"})",
+              "legendFormat": "{{pod}} request"
+            },
+            {
+              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=~\"scan|character|my\", container=~\".*worker.*\"}[5m]))",
+              "legendFormat": "{{pod}} usage"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "Worker Memory Request vs Usage",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 47 },
+          "targets": [
+            {
+              "expr": "sum by (pod) (kube_pod_container_resource_requests{namespace=~\"scan|character|my\", container=~\".*worker.*\", resource=\"memory\"}) / 1024 / 1024",
+              "legendFormat": "{{pod}} request"
+            },
+            {
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=~\"scan|character|my\", container=~\".*worker.*\"}) / 1024 / 1024",
+              "legendFormat": "{{pod}} usage"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "decmbytes",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
             }
           }
         }

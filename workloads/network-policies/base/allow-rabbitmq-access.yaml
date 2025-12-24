@@ -59,6 +59,9 @@ spec:
   - from:
     - namespaceSelector:
         matchLabels:
+          kubernetes.io/metadata.name: prometheus
+    - namespaceSelector:
+        matchLabels:
           kubernetes.io/metadata.name: monitoring
     ports:
     - protocol: TCP
