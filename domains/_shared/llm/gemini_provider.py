@@ -1,9 +1,16 @@
-"""Google Gemini LLM Provider 구현."""
+"""Google Gemini LLM Provider 구현.
+
+Gemini 3 Flash, Gemini 2.5 Flash 등 최신 모델 지원.
+새로운 Gen AI SDK (google-genai) 사용.
+
+Ref: https://ai.google.dev/gemini-api/docs?hl=ko
+"""
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any, TypeVar
 
 from pydantic import BaseModel
@@ -18,12 +25,17 @@ T = TypeVar("T", bound=BaseModel)
 class GeminiProvider(LLMProvider):
     """Google Gemini API Provider.
 
-    Gemini 2.0 Flash, Gemini 3.0 Flash 등 지원.
-    Vision 및 Chat Completion 통합 API 사용.
+    Gemini 3 Flash, Gemini 2.5 Flash/Pro 등 지원.
+    Gen AI SDK (google-genai) 사용.
 
     Note:
-        google-generativeai 패키지 필요:
-        pip install google-generativeai
+        google-genai 패키지 필요:
+        pip install google-genai
+
+    Models:
+        - gemini-3-flash-preview: 프런티어급 성능, 저렴한 비용
+        - gemini-2.5-flash: 100만 토큰 컨텍스트, 균형 잡힌 모델
+        - gemini-2.5-pro: 코딩 및 복잡한 추론
     """
 
     def __init__(self, config: LLMConfig):
@@ -38,20 +50,15 @@ class GeminiProvider(LLMProvider):
         """Lazy import 및 클라이언트 초기화."""
         if self._client is None:
             try:
-                import google.generativeai as genai
+                from google import genai
 
-                genai.configure(api_key=self._config.api_key)
-                self._client = genai
+                os.environ.setdefault("GOOGLE_API_KEY", self._config.api_key)
+                self._client = genai.Client(api_key=self._config.api_key)
             except ImportError as e:
                 raise ImportError(
-                    "google-generativeai 패키지가 필요합니다. " "pip install google-generativeai"
+                    "google-genai 패키지가 필요합니다. pip install google-genai"
                 ) from e
         return self._client
-
-    def _get_model(self, model_name: str):
-        """Gemini 모델 인스턴스 반환."""
-        genai = self._get_client()
-        return genai.GenerativeModel(model_name)
 
     def _parse_response(
         self,
@@ -59,7 +66,6 @@ class GeminiProvider(LLMProvider):
         response_model: type[T],
     ) -> dict[str, Any]:
         """Gemini 응답을 Pydantic 모델로 파싱."""
-        # JSON 블록 추출 (```json ... ``` 형식 처리)
         text = response_text.strip()
         if text.startswith("```json"):
             text = text[7:]
@@ -101,7 +107,7 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
         """Gemini Vision API 동기 호출."""
         import httpx
 
-        model = self._get_model(self._config.vision_model)
+        client = self._get_client()
 
         # 이미지 다운로드
         image_data = httpx.get(request.image_url).content
@@ -112,7 +118,6 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
             prompt_parts.append(request.system_prompt)
         prompt_parts.append(request.prompt)
         prompt_parts.append(self._build_schema_prompt(response_model))
-
         full_prompt = "\n\n".join(prompt_parts)
 
         logger.info(
@@ -120,12 +125,13 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
             extra={"model": self._config.vision_model},
         )
 
-        response = model.generate_content(
-            [
-                {"mime_type": "image/jpeg", "data": image_data},
+        # Gen AI SDK 사용
+        response = client.models.generate_content(
+            model=self._config.vision_model,
+            contents=[
+                {"inline_data": {"mime_type": "image/jpeg", "data": image_data}},
                 full_prompt,
             ],
-            generation_config={"response_mime_type": "application/json"},
         )
 
         return self._parse_response(response.text, response_model)
@@ -136,13 +142,15 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
         response_model: type[T],
     ) -> dict[str, Any]:
         """Gemini Vision API 비동기 호출."""
+        import asyncio
+
         import httpx
 
-        model = self._get_model(self._config.vision_model)
+        client = self._get_client()
 
         # 이미지 비동기 다운로드
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(request.image_url)
+        async with httpx.AsyncClient() as http_client:
+            resp = await http_client.get(request.image_url)
             image_data = resp.content
 
         # 프롬프트 구성
@@ -151,7 +159,6 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
             prompt_parts.append(request.system_prompt)
         prompt_parts.append(request.prompt)
         prompt_parts.append(self._build_schema_prompt(response_model))
-
         full_prompt = "\n\n".join(prompt_parts)
 
         logger.info(
@@ -159,13 +166,17 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
             extra={"model": self._config.vision_model},
         )
 
-        # Gemini는 동기 API만 제공, 비동기 래핑 필요
-        response = await model.generate_content_async(
-            [
-                {"mime_type": "image/jpeg", "data": image_data},
-                full_prompt,
-            ],
-            generation_config={"response_mime_type": "application/json"},
+        # Gen AI SDK는 동기만 지원, 스레드풀로 비동기 래핑
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: client.models.generate_content(
+                model=self._config.vision_model,
+                contents=[
+                    {"inline_data": {"mime_type": "image/jpeg", "data": image_data}},
+                    full_prompt,
+                ],
+            ),
         )
 
         return self._parse_response(response.text, response_model)
@@ -176,7 +187,7 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
         response_model: type[T],
     ) -> dict[str, Any]:
         """Gemini Chat Completion 동기 호출."""
-        model = self._get_model(self._config.chat_model)
+        client = self._get_client()
 
         # 메시지 변환 (OpenAI 형식 → Gemini 형식)
         prompt_parts = []
@@ -199,9 +210,9 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
             extra={"model": self._config.chat_model},
         )
 
-        response = model.generate_content(
-            full_prompt,
-            generation_config={"response_mime_type": "application/json"},
+        response = client.models.generate_content(
+            model=self._config.chat_model,
+            contents=full_prompt,
         )
 
         return self._parse_response(response.text, response_model)
@@ -212,7 +223,9 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
         response_model: type[T],
     ) -> dict[str, Any]:
         """Gemini Chat Completion 비동기 호출."""
-        model = self._get_model(self._config.chat_model)
+        import asyncio
+
+        client = self._get_client()
 
         # 메시지 변환
         prompt_parts = []
@@ -235,9 +248,14 @@ JSON만 출력하세요. 다른 텍스트는 포함하지 마세요.
             extra={"model": self._config.chat_model},
         )
 
-        response = await model.generate_content_async(
-            full_prompt,
-            generation_config={"response_mime_type": "application/json"},
+        # Gen AI SDK는 동기만 지원, 스레드풀로 비동기 래핑
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: client.models.generate_content(
+                model=self._config.chat_model,
+                contents=full_prompt,
+            ),
         )
 
         return self._parse_response(response.text, response_model)

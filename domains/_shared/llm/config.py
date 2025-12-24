@@ -40,8 +40,9 @@ class LLMConfig:
 
         if provider == ProviderType.GEMINI:
             api_key = os.getenv("GOOGLE_API_KEY", "")
-            vision_model = os.getenv("LLM_VISION_MODEL", "gemini-2.0-flash")
-            chat_model = os.getenv("LLM_CHAT_MODEL", "gemini-2.0-flash")
+            # https://ai.google.dev/gemini-api/docs?hl=ko
+            vision_model = os.getenv("LLM_VISION_MODEL", "gemini-3-flash-preview")
+            chat_model = os.getenv("LLM_CHAT_MODEL", "gemini-3-flash-preview")
         else:
             api_key = os.getenv("OPENAI_API_KEY", "")
             vision_model = os.getenv("LLM_VISION_MODEL", "gpt-5.1")
