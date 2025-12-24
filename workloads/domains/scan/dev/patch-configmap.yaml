@@ -6,3 +6,7 @@ metadata:
 data:
   ENVIRONMENT: dev
   DEBUG: 'true'
+  # LLM Provider 설정 (openai | gemini)
+  LLM_PROVIDER: openai
+  LLM_VISION_MODEL: gpt-5.1
+  LLM_CHAT_MODEL: gpt-5.1
