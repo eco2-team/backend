@@ -31,16 +31,36 @@ async def evaluate_reward(self, classification):
 - DB 장애 시 매칭 불가
 - Worker 스케일링 = DB 부하 스케일링
 
-### 1.2 설계 원칙
+### 1.2 캐싱 대상 선정: Character Catalog
 
-캐릭터 데이터는 **거의 변경되지 않음** (현재 13개, 최대 100개 미만). 각 Worker 메모리에 캐싱하여 사용.
+**캐싱 대상 조건:**
+- 읽기 빈도 >> 쓰기 빈도
+- 데이터 크기가 작음 (메모리에 적재 가능)
+- 모든 Worker가 동일한 데이터 필요
+- 실시간성보다 일관성이 중요
+
+**Character Catalog 특성:**
+
+| 항목 | 값 |
+|------|-----|
+| 레코드 수 | 13개 (최대 ~100개) |
+| 레코드 크기 | ~500 bytes |
+| 총 메모리 | ~50KB |
+| 읽기 빈도 | 매 스캔 요청 (수백 회/일) |
+| 쓰기 빈도 | 캐릭터 추가 시 (수 회/월) |
+
+캐릭터 카탈로그는 운영자가 수동으로 추가하는 마스터 데이터. 사용자 행동으로 변경되지 않음.
+
+### 1.3 설계 원칙
+
+캐릭터 데이터는 **거의 변경되지 않음**. 각 Worker 메모리에 캐싱하여 사용.
 
 ```
 Before:  Worker → PostgreSQL (~50ms)
 After:   Worker → Local Memory (~0.01ms)
 ```
 
-### 1.3 성능 비교
+### 1.4 성능 비교
 
 | 방식 | 레이턴시 | 실패 모드 |
 |------|----------|-----------|
@@ -158,9 +178,89 @@ class CacheConsumerThread(threading.Thread):
 
 ---
 
-## 5. 캐시 워밍업
+## 5. Catalog 업데이트 시 동기화
 
-### 5.1 ArgoCD PostSync Hook
+### 5.1 업데이트 시나리오
+
+| 시나리오 | 트리거 | 동기화 방법 |
+|----------|--------|-------------|
+| 캐릭터 추가 | CSV import Job | `full_refresh` 이벤트 발행 |
+| 캐릭터 수정 | Admin API (미구현) | `upsert` 이벤트 발행 |
+| 캐릭터 삭제 | Admin API (미구현) | `delete` 이벤트 발행 |
+| Worker 배포 | ArgoCD Sync | PostSync Hook → `full_refresh` |
+
+### 5.2 CSV Import 흐름
+
+```
+운영자: CSV 업로드
+          │
+          ▼
+┌─────────────────────────────┐
+│  import_character_catalog   │  (Kubernetes Job)
+│  - CSV 파싱                  │
+│  - DB INSERT/UPDATE         │
+│  - publish_full_refresh()   │
+└─────────────────────────────┘
+          │
+          ▼
+    character.cache (Fanout Exchange)
+          │
+          ├─── Worker-1: cache.set_all()
+          ├─── Worker-2: cache.set_all()
+          └─── Worker-N: cache.set_all()
+```
+
+### 5.3 Publisher 구현
+
+```python
+class CharacterCachePublisher:
+    def publish_full_refresh(self, characters: list[dict]) -> None:
+        self._publish({
+            "type": "full_refresh",
+            "characters": characters,
+        })
+    
+    def publish_upsert(self, character: dict) -> None:
+        self._publish({
+            "type": "upsert",
+            "character": character,
+        })
+    
+    def publish_delete(self, character_id: str) -> None:
+        self._publish({
+            "type": "delete",
+            "character_id": character_id,
+        })
+```
+
+### 5.4 Import Job 예시
+
+```python
+# domains/character/jobs/import_character_catalog.py
+async def import_and_publish(csv_path: str) -> None:
+    # 1. DB에 저장
+    characters = await parse_and_save(csv_path)
+    
+    # 2. 캐시 동기화 이벤트 발행
+    publisher = get_cache_publisher(broker_url)
+    publisher.publish_full_refresh([
+        {
+            "id": str(c.id),
+            "code": c.code,
+            "name": c.name,
+            "match_label": c.match_label,
+            "type_label": c.metadata.get("type"),
+            "dialog": c.metadata.get("dialog"),
+        }
+        for c in characters
+    ])
+```
+
+---
+
+## 6. 캐시 워밍업 (배포 시)
+
+### 6.1 ArgoCD PostSync Hook
 
 배포 완료 후 Job이 실행되어 캐시 초기화:
 
@@ -175,7 +275,7 @@ metadata:
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 ```
 
-### 5.2 워밍업 흐름
+### 6.2 워밍업 흐름
 
 ```
 ArgoCD Sync → Deployment 업데이트 → Pods 준비 완료
@@ -193,9 +293,9 @@ ArgoCD Sync → Deployment 업데이트 → Pods 준비 완료
 
 ---
 
-## 6. Celery Pool과 캐시 공유
+## 7. Celery Pool과 캐시 공유
 
-### 6.1 prefork vs threads
+### 7.1 prefork vs threads
 
 Celery는 여러 pool 타입을 지원하며, 캐시 공유 여부가 달라진다.
 
@@ -217,7 +317,7 @@ MainProcess
      └─ ThreadPoolExecutor-2 ─┘ (공유)
 ```
 
-### 6.2 character-match-worker 설정
+### 7.2 character-match-worker 설정
 
 캐시 조회가 주 작업이므로 `threads` pool 사용:
 
@@ -238,9 +338,9 @@ args:
 
 ---
 
-## 7. Thread-Safe 캐시 구현
+## 8. Thread-Safe 캐시 구현
 
-### 7.1 싱글톤 + Lock
+### 8.1 싱글톤 + Lock
 
 ```python
 class CharacterLocalCache:
@@ -271,9 +371,9 @@ class CharacterLocalCache:
 
 ---
 
-## 8. 캐시 미스 정책
+## 9. 캐시 미스 정책
 
-### 8.1 DB Fallback 없음
+### 9.1 DB Fallback 없음
 
 ```python
 if not characters:
@@ -286,7 +386,7 @@ if not characters:
 - 캐시 미스는 배포 직후 수 초 동안만 발생
 - PostSync Hook이 해결
 
-### 8.2 Eventual Consistency 허용 구간
+### 9.2 Eventual Consistency 허용 구간
 
 ```
 배포 시점:
@@ -300,20 +400,21 @@ if not characters:
 
 ---
 
-## 9. 관련 코드
+## 10. 관련 코드
 
 | 파일 | 역할 |
 |------|------|
 | `domains/_shared/cache/cache_consumer.py` | Fanout Consumer 구현 |
 | `domains/_shared/cache/cache_publisher.py` | 이벤트 발행 |
 | `domains/_shared/cache/character_cache.py` | Thread-safe 캐시 |
-| `domains/character/jobs/warmup_cache.py` | 캐시 워밍업 모듈 |
+| `domains/character/jobs/warmup_cache.py` | 배포 시 캐시 워밍업 |
+| `domains/character/jobs/import_character_catalog.py` | CSV 업로드 시 캐시 동기화 |
 | `workloads/domains/character-match-worker/base/cache-warmup-job.yaml` | PostSync Hook |
 | `workloads/domains/character-match-worker/base/deployment.yaml` | threads pool 설정 |
 
 ---
 
-## 10. Trade-off
+## 11. Trade-off
 
 | 항목 | 장점 | 단점 |
 |------|------|------|
