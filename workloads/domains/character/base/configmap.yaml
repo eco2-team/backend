@@ -6,4 +6,5 @@ metadata:
 data:
   LOG_LEVEL: INFO
   ENVIRONMENT: base
-  CHARACTER_DATABASE_URL: postgresql+asyncpg://sesacthon:sesacthon@dev-postgresql.postgres.svc.cluster.local:5432/ecoeco
+  DEBUG: 'true'
+  # CHARACTER_DATABASE_URL is managed by character-secret (ExternalSecret)
