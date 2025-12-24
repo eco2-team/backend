@@ -59,6 +59,9 @@ spec:
           value: none
         - name: OTEL_LOGS_EXPORTER
           value: none
+        # Trace Context Propagation (API → Worker 연결)
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
         # Database & Redis
         - name: POSTGRES_HOST
           value: postgresql.postgres.svc.cluster.local

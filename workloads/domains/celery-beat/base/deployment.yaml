@@ -59,6 +59,9 @@ spec:
           value: none
         - name: OTEL_LOGS_EXPORTER
           value: none
+        # Trace Context Propagation
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
         # Database (for DLQ tasks)
         - name: POSTGRES_HOST
           value: postgresql.postgres.svc.cluster.local

@@ -86,20 +86,24 @@ def _setup_celery_tracing() -> None:
         logger.error(f"Failed to setup Celery tracing: {e}")
 
 
-# 모듈 로드 시 tracing 설정
-_setup_celery_tracing()
-
-
 # ============================================================
-# Worker 시작 시 캐릭터 캐시 초기화
+# Worker 시작 시 리소스 초기화
 # ============================================================
 
 
 @worker_ready.connect
 def init_character_cache(sender: Any, **kwargs: Any) -> None:
-    """Worker 시작 시 캐시 Consumer 시작."""
+    """Worker 시작 시 리소스 초기화.
+
+    1. OpenTelemetry Celery 트레이싱 설정
+    2. 캐시 Consumer 시작
+    """
     from domains._shared.cache import start_cache_consumer
 
+    # 1. OpenTelemetry Celery 트레이싱 설정 (worker_ready 시점에 호출)
+    _setup_celery_tracing()
+
+    # 2. 캐시 Consumer 시작
     logger.info("character_worker_cache_consumer_starting")
 
     try:

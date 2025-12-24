@@ -84,14 +84,8 @@ def _setup_celery_tracing() -> None:
         logger.error(f"Failed to setup Celery tracing: {e}")
 
 
-# 모듈 로드 시 tracing 설정
-_setup_celery_tracing()
-
-
 # ============================================================
-# Worker 시작 시 캐릭터 캐시 초기화 (scan-worker용)
-# Note: scan.reward는 character-worker에서 실행되지만,
-#       일관성을 위해 scan-worker에서도 캐시 Consumer를 시작
+# Worker 시작 시 리소스 초기화 (scan-worker용)
 # ============================================================
 
 
@@ -99,20 +93,24 @@ _setup_celery_tracing()
 def init_worker_resources(sender: Any, **kwargs: Any) -> None:
     """Worker 시작 시 리소스 초기화.
 
-    1. 공유 event loop 초기화 (AsyncOpenAI용)
-    2. 캐시 Consumer 시작
+    1. OpenTelemetry Celery 트레이싱 설정
+    2. 공유 event loop 초기화 (AsyncOpenAI용)
+    3. 캐시 Consumer 시작
     """
     from domains._shared.cache import start_cache_consumer
     from domains._shared.celery.async_support import init_event_loop
 
-    # 1. Event loop 초기화 (비동기 호출용)
+    # 1. OpenTelemetry Celery 트레이싱 설정 (worker_ready 시점에 호출해야 로그 출력됨)
+    _setup_celery_tracing()
+
+    # 2. Event loop 초기화 (비동기 호출용)
     try:
         init_event_loop()
         logger.info("scan_worker_event_loop_initialized")
     except Exception:
         logger.exception("scan_worker_event_loop_init_failed")
 
-    # 2. 캐시 Consumer 시작
+    # 3. 캐시 Consumer 시작
     logger.info("scan_worker_cache_consumer_starting")
     try:
         broker_url = os.getenv("CELERY_BROKER_URL")

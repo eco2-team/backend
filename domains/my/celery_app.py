@@ -85,11 +85,13 @@ def _setup_celery_tracing() -> None:
         logger.error(f"Failed to setup Celery tracing: {e}")
 
 
-# 모듈 로드 시 tracing 설정
-_setup_celery_tracing()
-
-
 @worker_ready.connect
 def on_worker_ready(sender: Any, **kwargs: Any) -> None:
-    """Worker 시작 시 로깅."""
+    """Worker 시작 시 리소스 초기화.
+
+    1. OpenTelemetry Celery 트레이싱 설정
+    """
+    # 1. OpenTelemetry Celery 트레이싱 설정 (worker_ready 시점에 호출)
+    _setup_celery_tracing()
+
     logger.info("my_worker_started", extra={"hostname": sender.hostname})
