@@ -11,3 +11,4 @@ commonLabels:
 resources:
 - deployment.yaml
 - configmap.yaml
+- cache-warmup-job.yaml

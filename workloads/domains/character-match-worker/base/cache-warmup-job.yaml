@@ -1,0 +1,73 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cache-warmup
+  namespace: character
+  annotations:
+    # ArgoCD PostSync Hook - sync 완료 후 실행
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 300  # 5분 후 자동 삭제
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: cache-warmup
+        image: docker.io/mng990/eco2:character-api-dev-latest
+        imagePullPolicy: Always
+        command:
+        - python3
+        - -c
+        - |
+          import os
+          import asyncio
+          from sqlalchemy.ext.asyncio import create_async_engine
+          from sqlalchemy import text
+          from domains._shared.cache import get_cache_publisher
+
+          async def warmup():
+              db_url = os.getenv('CHARACTER_DATABASE_URL')
+              broker_url = os.getenv('CELERY_BROKER_URL')
+
+              print('Loading characters from DB...')
+              engine = create_async_engine(db_url)
+
+              async with engine.connect() as conn:
+                  result = await conn.execute(text(
+                      'SELECT id, code, name, match_label, metadata FROM characters'
+                  ))
+                  rows = result.fetchall()
+              await engine.dispose()
+
+              # metadata JSON에서 type, dialog 추출
+              characters = []
+              for row in rows:
+                  meta = row[4] or {}
+                  characters.append({
+                      'id': str(row[0]),
+                      'code': row[1],
+                      'name': row[2],
+                      'match_label': row[3],
+                      'type_label': meta.get('type', ''),
+                      'dialog': meta.get('dialog', ''),
+                  })
+
+              print(f'Found {len(characters)} characters')
+              for c in characters[:3]:
+                  print(f"  - {c['name']} (match_label: {c['match_label']})")
+
+              # 캐시 refresh 이벤트 발행
+              publisher = get_cache_publisher(broker_url)
+              publisher.publish_full_refresh(characters)
+              print('Cache refresh event published!')
+
+          asyncio.run(warmup())
+        envFrom:
+        - secretRef:
+            name: character-secret
+        - configMapRef:
+            name: character-config
+      imagePullSecrets:
+      - name: dockerhub-secret
