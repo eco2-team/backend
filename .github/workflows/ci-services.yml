@@ -25,8 +25,10 @@ on:
       - "workloads/domains/my/**"
       - "workloads/domains/scan/**"
       - "workloads/domains/character-worker/**"
+      - "workloads/domains/character-match-worker/**"
       - "workloads/domains/scan-worker/**"
       - "workloads/domains/my-worker/**"
+      - "workloads/domains/celery-beat/**"
   pull_request:
     branches:
       - main
@@ -51,8 +53,10 @@ on:
       - "workloads/domains/my/**"
       - "workloads/domains/scan/**"
       - "workloads/domains/character-worker/**"
+      - "workloads/domains/character-match-worker/**"
       - "workloads/domains/scan-worker/**"
       - "workloads/domains/my-worker/**"
+      - "workloads/domains/celery-beat/**"
   workflow_dispatch:
     inputs:
       force_all:
@@ -159,13 +163,21 @@ jobs:
             domains/_base/**
             domains/_shared/waste_pipeline/**
             domains/_shared/celery/**
+            domains/_shared/cache/**
+            domains/_shared/database/**
+            domains/_shared/schemas/**
             workloads/domains/auth/**
             workloads/domains/character/**
+            workloads/domains/character-worker/**
+            workloads/domains/character-match-worker/**
             workloads/domains/chat/**
             workloads/domains/image/**
             workloads/domains/location/**
             workloads/domains/my/**
+            workloads/domains/my-worker/**
             workloads/domains/scan/**
+            workloads/domains/scan-worker/**
+            workloads/domains/celery-beat/**
 
       - name: Prepare service matrix
         id: prepare
@@ -197,8 +209,16 @@ jobs:
               "info": "image",
           }
           shared_triggers = {
+              # LLM 파이프라인: chat, scan에서 사용
               "domains/_shared/waste_pipeline": ["chat", "scan"],
+              # Celery 설정: worker가 있는 도메인
               "domains/_shared/celery": ["scan", "character", "my"],
+              # Cache 모듈: character-match-worker에서 사용
+              "domains/_shared/cache": ["character"],
+              # Database 설정: DB 연결하는 서비스
+              "domains/_shared/database": ["auth", "character", "my", "scan"],
+              # Schemas: scan, chat에서 사용
+              "domains/_shared/schemas": ["scan", "chat"],
               # Base 이미지 변경 시 모든 서비스 재빌드 (의존성 업데이트)
               "domains/_base": ["auth", "character", "chat", "image", "location", "my", "scan"],
           }
