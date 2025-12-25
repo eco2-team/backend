@@ -18,6 +18,14 @@
 | 12 | [Celery Batches와 멱등성 처리](./12-batch-processing-idempotency.md) | ✅ 완료 | celery-batches, Bulk INSERT, ON CONFLICT DO NOTHING |
 | 13 | [RabbitMQ/Celery 시스템 전체 분석](./13-rabbitmq-celery-system-analysis.md) | ✅ 완료 | 전체 아키텍처, Exchanges/Queues, Workers, Task Flow, DLQ |
 | 14 | [Celery + RabbitMQ 트러블슈팅](./14-celery-rabbitmq-troubleshooting.md) | ✅ 완료 | Quorum Queue 호환성, 도메인 간 의존성, Fanout 브로드캐스트 |
+| 15 | [Prefork 병목 분석 (AsyncIO 전환 전)](./15-system-rpm-analysis-before-asyncio.md) | ✅ 완료 | Prometheus 실측, I/O-bound 워크로드 분석, prefork 한계 |
+| 16 | [Celery Gevent Pool 전환](./16-celery-gevent-pool-migration.md) | ✅ 완료 | prefork → gevent, 100+ 동시 I/O, Monkey Patching |
+| 17 | [Worker Pool + DB 최적화](./17-worker-pool-db-optimization.md) | ✅ 완료 | Connection Pool 설정, 도메인별 Pool 분리 |
+| 18 | [Gevent + Asyncio Event Loop 충돌](./18-gevent-asyncio-eventloop-conflict.md) | ✅ 완료 | 98% 실패 원인, 동기 클라이언트 전환, 트러블슈팅 |
+| 19 | [Redis ReadOnly Replica 에러](./19-redis-readonly-replica-error.md) | ✅ 완료 | Sentinel Master 직접 연결, headless service |
+| 20 | [Gevent 전환 트러블슈팅](./20-gevent-migration-troubleshooting.md) | ✅ 완료 | 7개 문제 해결 과정, 핵심 교훈 |
+| 21 | [LLM API 큐잉 시스템 아키텍처](./21-llm-queue-system-architecture.md) | ✅ 완료 | Gevent Pool, Redis 상태저장, 큐 라우팅, HPA |
+| 22 | [큐잉 Scan API 성능 측정](./22-scan-sse-performance-benchmark.md) | ✅ 완료 | k6 부하 테스트, 동기 vs 비동기 비교, 병목 분석 |
 
 ---
 
@@ -39,15 +47,18 @@ EDA, MQ, 마이크로서비스 아키텍처의 핵심 패턴과 이론적 배경
 
 ## 기술 스택
 
-| 구성 요소 | 기술 | 버전 |
-|----------|------|------|
-| Message Broker | RabbitMQ | 4.0+ |
-| Task Queue | Celery | 5.3+ |
-| Result Backend | Redis | 7.0+ |
-| API Framework | FastAPI | 0.100+ |
-| Kubernetes Operator | RabbitMQ Cluster Operator | 2.11+ |
-| Topology Operator | Messaging Topology Operator | 1.15+ |
-| GitOps | ArgoCD | 2.13+ |
+| 구성 요소 | 기술 | 버전 | 비고 |
+|----------|------|------|------|
+| Message Broker | RabbitMQ | 4.0+ | AMQP 0-9-1 |
+| Task Queue | Celery | 5.4.0 | celery-batches 호환 |
+| Worker Pool | Gevent | 24.11+ | I/O-bound 최적화 |
+| Result Backend | Redis | 7.0+ | Sentinel Master 직접 연결 |
+| Batch Processing | celery-batches | 0.9.0 | Bulk INSERT |
+| API Framework | FastAPI | 0.100+ | SSE 스트리밍 |
+| Kubernetes Operator | RabbitMQ Cluster Operator | 2.11+ | |
+| Topology Operator | Messaging Topology Operator | 1.15+ | |
+| GitOps | ArgoCD | 2.13+ | |
+| Autoscaling | HPA (autoscaling/v2) | | CPU/Memory 기반 |
 
 ---
 
@@ -62,7 +73,7 @@ EDA, MQ, 마이크로서비스 아키텍처의 핵심 패턴과 이론적 배경
 - [x] Network Policy 구성
 - [x] Istio Sidecar 통합
 
-### Phase 1: Celery Worker (완료)
+### Phase 2: Celery Worker (완료)
 
 - [x] RabbitMQ ServiceMonitor 추가
 - [x] Celery 공통 모듈 개발 (BaseTask, WebhookTask, CelerySettings)
@@ -70,14 +81,32 @@ EDA, MQ, 마이크로서비스 아키텍처의 핵심 패턴과 이론적 배경
 - [x] character-api Reward Consumer 구현
 - [x] Grafana RabbitMQ 대시보드 추가
 
-### Phase 2: Pipeline 큐 분리 (예정)
+### Phase 3: Pipeline 큐 분리 (완료)
 
-- [ ] 4단계 Celery Chain 구현 (vision → rule → answer → reward)
-- [ ] DLQ 재처리 Task (Celery Beat)
-- [ ] Archive Queue 생성
-- [ ] 단계별 메트릭 수집
+- [x] 4단계 Celery Chain 구현 (vision → rule → answer → reward)
+- [x] DLQ 재처리 Task (Celery Beat)
+- [x] 단계별 메트릭 수집 (Prometheus)
+- [x] SSE 실시간 스트리밍
 
-### Phase 1: ext-authz 캐시 동기화 (예정)
+### Phase 4: Gevent Pool 전환 (완료)
+
+- [x] prefork → gevent 전환 (I/O-bound 최적화)
+- [x] 동기 OpenAI 클라이언트로 전환 (event loop 충돌 해결)
+- [x] Redis Master 직접 연결 (Result Backend)
+- [x] Character Cache Fanout 동기화
+- [x] Deterministic UUID (멱등성 보장)
+- [x] DLQ 라우팅 수정 (도메인별 분리)
+
+### Phase 5: HPA 자동 스케일링 (진행 중)
+
+- [x] scan-api HPA (maxReplicas: 4)
+- [x] scan-worker HPA (maxReplicas: 5)
+- [x] character-match-worker HPA (maxReplicas: 4, cache 공유 검증)
+- [x] character-worker HPA (maxReplicas: 2)
+- [x] my-worker HPA (maxReplicas: 2)
+- [x] 부하 테스트 검증 (k6, 30~34 VU)
+
+### 예정: ext-authz 캐시 동기화
 
 - [ ] authz.fanout Exchange 연동
 - [ ] ext-authz Go AMQP Consumer 구현

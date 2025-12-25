@@ -6,6 +6,7 @@ namespace: my
 resources:
 - deployment.yaml
 - configmap.yaml
+- hpa.yaml
 
 commonLabels:
   app.kubernetes.io/name: my-worker

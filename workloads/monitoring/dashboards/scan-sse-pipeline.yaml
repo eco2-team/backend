@@ -247,9 +247,61 @@ data:
           "collapsed": false
         },
         {
+          "title": "🔗 SSE vs RabbitMQ 연결 수",
+          "description": "SSE 연결 1개당 RabbitMQ 연결이 몇 개 생성되는지 확인 (SSE 병목 분석)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+          "targets": [
+            {
+              "expr": "scan_sse_connections_active",
+              "legendFormat": "SSE Active Connections"
+            },
+            {
+              "expr": "rabbitmq_connections",
+              "legendFormat": "RabbitMQ Total Connections"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "SSE Active Connections" }, "properties": [{ "id": "color", "value": { "fixedColor": "#6ed0e0" } }] },
+              { "matcher": { "id": "byName", "options": "RabbitMQ Total Connections" }, "properties": [{ "id": "color", "value": { "fixedColor": "#ef843c" } }] }
+            ]
+          }
+        },
+        {
+          "title": "📈 RabbitMQ 연결 증가율",
+          "description": "테스트 중 연결 생성 속도 (SSE당 AMQP 연결 생성 확인)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+          "targets": [
+            {
+              "expr": "rate(rabbitmq_connections_opened_total[1m])",
+              "legendFormat": "Connections Opened/sec"
+            },
+            {
+              "expr": "rate(rabbitmq_connections_closed_total[1m])",
+              "legendFormat": "Connections Closed/sec"
+            },
+            {
+              "expr": "rate(scan_sse_requests_total[1m])",
+              "legendFormat": "SSE Requests/sec"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
           "title": "Celery Stage 평균 처리 시간",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 23 },
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 31 },
           "targets": [
             {
               "expr": "sum by (stage) (rate(scan_sse_stage_duration_seconds_sum[1m])) / sum by (stage) (rate(scan_sse_stage_duration_seconds_count[1m]))",
@@ -266,7 +318,7 @@ data:
         {
           "title": "Celery Stage p99",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 23 },
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 31 },
           "targets": [
             {
               "expr": "histogram_quantile(0.99, sum by (stage, le) (rate(scan_sse_stage_duration_seconds_bucket[1m])))",
@@ -283,7 +335,7 @@ data:
         {
           "title": "RabbitMQ 큐 메시지 수",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 23 },
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 31 },
           "targets": [
             {
               "expr": "rabbitmq_queue_messages_ready{queue=~\"scan\\\\..*|character\\\\..*|my\\\\..*\"}",
@@ -304,13 +356,13 @@ data:
         {
           "title": "📊 요청 상태별 분포",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 },
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 },
           "collapsed": false
         },
         {
           "title": "SSE 요청 상태 (req/m)",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 32 },
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 40 },
           "targets": [
             {
               "expr": "sum by (status) (rate(scan_sse_requests_total[1m])) * 60",
@@ -332,7 +384,7 @@ data:
         {
           "title": "Active Connections (시계열)",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 32 },
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 40 },
           "targets": [
             {
               "expr": "scan_sse_connections_active",
@@ -349,13 +401,13 @@ data:
         {
           "title": "🖥️ Worker 리소스 사용량",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 },
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 46 },
           "collapsed": false
         },
         {
           "title": "Worker CPU 사용률",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 39 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 47 },
           "targets": [
             {
               "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=~\"scan|character|my\", container=~\".*worker.*\"}[5m])) * 100",
@@ -373,7 +425,7 @@ data:
         {
           "title": "Worker Memory 사용량",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 39 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 47 },
           "targets": [
             {
               "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=~\"scan|character|my\", container=~\".*worker.*\"}) / 1024 / 1024",
@@ -391,7 +443,7 @@ data:
         {
           "title": "Worker CPU Request vs Usage",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 47 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 55 },
           "targets": [
             {
               "expr": "sum by (pod) (kube_pod_container_resource_requests{namespace=~\"scan|character|my\", container=~\".*worker.*\", resource=\"cpu\"})",
@@ -412,7 +464,7 @@ data:
         {
           "title": "Worker Memory Request vs Usage",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 47 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 55 },
           "targets": [
             {
               "expr": "sum by (pod) (kube_pod_container_resource_requests{namespace=~\"scan|character|my\", container=~\".*worker.*\", resource=\"memory\"}) / 1024 / 1024",

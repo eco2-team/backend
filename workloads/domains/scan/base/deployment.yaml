@@ -29,6 +29,14 @@ spec:
         ports:
         - containerPort: 8000
           name: http
+        # HPA를 위한 리소스 설정 (노드: 2 CPU, 3.8GB)
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
         env:
         - name: OTEL_SERVICE_NAME
           value: scan-api
@@ -64,13 +72,17 @@ spec:
             path: /health
             port: 8000
           initialDelaySeconds: 30
-          periodSeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 10  # SSE 부하 시 응답 지연 허용
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /health
             port: 8000
           initialDelaySeconds: 10
-          periodSeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
       imagePullSecrets:
       - name: dockerhub-secret
       nodeSelector:

@@ -1,0 +1,51 @@
+# character-match-worker HPA (Horizontal Pod Autoscaler)
+# 노드: k8s-worker-storage (2 CPU, 3.8GB) - character-worker, my-worker와 공유
+# Pod당: 200m CPU (app 100m + istio 100m), 384Mi Memory
+# 캐시 조회 위주, 빠른 응답 필요 (sync RPC)
+#
+# ⚠️ Cache 공유: fanout exchange로 모든 Pod가 동일한 cache 이벤트 수신
+#    새 Pod 생성 시 자동으로 cache 동기화됨
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: character-match-worker-hpa
+  namespace: character
+  labels:
+    app: character-match-worker
+    domain: character
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: character-match-worker
+  minReplicas: 2  # 최소 2개 (가용성)
+  maxReplicas: 4  # 노드 공유 고려
+  metrics:
+  # CPU 기반 스케일링 (주 지표)
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70  # 캐시 조회: CPU 바운드
+  # Memory 기반 스케일링 (보조 지표)
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 180  # 3분간 안정화
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0  # 즉시 스케일업 (빠른 응답 필요)
+      policies:
+      - type: Pods
+        value: 2
+        periodSeconds: 30  # 빠른 스케일업
+      selectPolicy: Max
