@@ -1,0 +1,8 @@
+# Dev 환경 호스트 오버라이드
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: sse-gateway-external
+spec:
+  hosts:
+  - api.dev.growbin.app

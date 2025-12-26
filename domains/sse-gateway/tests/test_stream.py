@@ -12,20 +12,20 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 class TestStreamEndpoint:
-    """SSE Stream 엔드포인트 테스트."""
+    """SSE Stream 엔드포인트 테스트.
+
+    엔드포인트: GET /api/v1/stream?job_id=xxx
+    """
 
     def test_stream_invalid_job_id_short(self, client):
-        """짧은 job_id 거부."""
-        response = client.get("/api/v1/stream/abc")
-        assert response.status_code == 400
-        data = response.json()
-        assert "Invalid job_id" in data["detail"]
+        """짧은 job_id 거부 (min_length=10)."""
+        response = client.get("/api/v1/stream?job_id=abc")
+        assert response.status_code == 422  # Validation error
 
-    def test_stream_invalid_job_id_empty(self, client):
-        """빈 job_id 거부 (404 - 라우트 없음)."""
-        response = client.get("/api/v1/stream/")
-        # 빈 경로는 404 또는 다른 라우트로 매칭
-        assert response.status_code in [404, 405]
+    def test_stream_missing_job_id(self, client):
+        """job_id 누락 시 422."""
+        response = client.get("/api/v1/stream")
+        assert response.status_code == 422
 
     def test_stream_valid_job_id(self, client):
         """유효한 job_id 형식 (길이 >= 10)."""
@@ -40,7 +40,7 @@ class TestStreamEndpoint:
 
         with patch.object(SSEBroadcastManager, "get_instance", return_value=mock_manager):
             # SSE 엔드포인트 호출 - 200 응답과 text/event-stream 확인
-            response = client.get("/api/v1/stream/valid-job-id-12345")
+            response = client.get("/api/v1/stream?job_id=valid-job-id-12345")
             assert response.status_code == 200
             assert "text/event-stream" in response.headers.get("content-type", "")
 

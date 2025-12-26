@@ -1,34 +1,48 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Scan VirtualService
+# SSE Gateway 외부 라우팅
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 라우팅:
-# - POST /api/v1/scan → scan-api (비동기 제출)
-# - GET /api/v1/scan/result/{job_id} → scan-api (결과 조회)
-# - GET /api/v1/scan/classify → scan-api (동기 처리, 레거시)
+# - GET /api/v1/stream?job_id=xxx → sse-gateway (SSE 스트리밍)
 #
-# SSE 스트리밍은 별도 VirtualService:
-# - GET /api/v1/stream?job_id=xxx → sse-gateway
-#   (workloads/routing/sse-gateway)
+# Consistent Hash:
+# - X-Job-Id 헤더로 동일 job_id는 동일 Pod로 라우팅
+# - Istio sticky session
 #
 # 참조: docs/blogs/async/31-sse-fanout-optimization.md
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
-  name: scan-vs
-  namespace: scan
+  name: sse-gateway-external
+  namespace: default
+  labels:
+    app: sse-gateway
+    tier: integration
 spec:
   hosts:
   - api.growbin.app
   gateways:
   - istio-system/eco2-gateway
   http:
-  - name: scan-api
+  - name: sse-stream
     match:
     - uri:
-        prefix: /api/v1/scan
+        prefix: /api/v1/stream
+      method:
+        exact: GET
     route:
     - destination:
-        host: scan-api.scan.svc.cluster.local
+        host: sse-gateway.sse-consumer.svc.cluster.local
         port:
           number: 8000
+    # SSE는 long-lived connection, 24시간 timeout
+    timeout: 86400s
+    retries:
+      attempts: 0    # SSE는 재시도 불가
+    headers:
+      request:
+        # job_id 쿼리 파라미터를 X-Job-Id 헤더로 복사 (Consistent Hash용)
+        # Note: Istio는 쿼리 파라미터를 직접 해시할 수 없음
+        # 클라이언트가 X-Job-Id 헤더를 전송하도록 안내 필요
+        set:
+          x-sse-gateway: 'true'

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from time import perf_counter
 from typing import List
@@ -24,6 +25,7 @@ from domains.scan.schemas.scan import (
     ClassificationResponse,
     ScanCategory,
 )
+from domains._shared.events import get_async_redis_client
 from domains._shared.schemas.waste import WasteClassificationResult
 from domains._shared.waste_pipeline import PipelineError, process_waste_classification
 from domains._shared.waste_pipeline.utils import ITEM_CLASS_PATH, load_yaml
@@ -391,6 +393,31 @@ class ScanService:
             elif entry:
                 return True
         return False
+
+    async def get_result(self, job_id: str) -> ClassificationResponse | None:
+        """Redis Cache에서 작업 결과 조회.
+
+        Args:
+            job_id: 작업 ID (Celery task ID)
+
+        Returns:
+            ClassificationResponse if found, None otherwise
+        """
+        redis_client = await get_async_redis_client()
+        cache_key = f"scan:result:{job_id}"
+
+        try:
+            cached = await redis_client.get(cache_key)
+            if cached:
+                data = json.loads(cached)
+                return ClassificationResponse(**data)
+        except Exception as e:
+            logger.warning(
+                "scan_result_cache_error",
+                extra={"job_id": job_id, "error": str(e)},
+            )
+
+        return None
 
     # Alias for backward compatibility with tests
     async def classify(

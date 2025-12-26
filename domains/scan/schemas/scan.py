@@ -35,6 +35,21 @@ class ClassificationResponse(BaseModel):
     error: Optional[str] = None
 
 
+class ScanSubmitResponse(BaseModel):
+    """비동기 스캔 제출 응답.
+
+    클라이언트 흐름:
+    1. POST /api/v1/scan → 이 응답 수신
+    2. GET {stream_url} → SSE 스트리밍 구독
+    3. GET {result_url} → 최종 결과 조회
+    """
+
+    job_id: str = Field(description="작업 ID (UUID)")
+    stream_url: str = Field(description="SSE 스트리밍 URL")
+    result_url: str = Field(description="결과 조회 URL")
+    status: str = Field(default="queued", description="현재 상태")
+
+
 class ScanTask(BaseModel):
     """DEPRECATED: 로그 기반으로 전환됨. 추후 ES → DB 변환 시 사용."""
 

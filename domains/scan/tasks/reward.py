@@ -13,15 +13,21 @@ Note:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from typing import Any
+
+import redis
 
 from domains._shared.celery.base_task import BaseTask
 from domains._shared.events import get_sync_redis_client, publish_stage_event
 from domains.scan.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+
+# 결과 캐시 TTL (초)
+RESULT_CACHE_TTL = int(os.getenv("SCAN_RESULT_CACHE_TTL", "3600"))  # 1시간
 
 # 매칭 결과 대기 타임아웃 (초)
 MATCH_TIMEOUT = int(os.getenv("CHARACTER_MATCH_TIMEOUT", "10"))
@@ -141,20 +147,25 @@ def scan_reward_task(
     )
 
     # Redis Streams: done 이벤트 발행 (파이프라인 완료)
+    done_result = {
+        "task_id": task_id,
+        "status": "completed",
+        "result_url": f"/api/v1/scan/result/{task_id}",
+        "classification_result": result.get("classification_result"),
+        "disposal_rules": result.get("disposal_rules"),
+        "final_answer": result.get("final_answer"),
+        "reward": result.get("reward"),
+    }
     publish_stage_event(
         redis_client,
         task_id,
         "done",
         "completed",
-        result={
-            "task_id": task_id,
-            "result_url": f"/api/v1/scan/result/{task_id}",
-            "classification_result": result.get("classification_result"),
-            "disposal_rules": result.get("disposal_rules"),
-            "final_answer": result.get("final_answer"),
-            "reward": result.get("reward"),
-        },
+        result=done_result,
     )
+
+    # Cache-Redis에 결과 저장 (GET /scan/result/{job_id} 조회용)
+    _cache_result(task_id, done_result)
 
     # [Legacy] 커스텀 이벤트 발행 (Celery Events 방식, 마이그레이션 후 제거 예정)
     try:
@@ -177,6 +188,33 @@ def scan_reward_task(
 # ============================================================
 # Helper Functions
 # ============================================================
+
+
+def _get_cache_redis_client() -> redis.Redis:
+    """Cache Redis 클라이언트 (결과 저장용)."""
+    cache_url = os.getenv(
+        "REDIS_CACHE_URL", "redis://rfr-cache-redis.redis.svc.cluster.local:6379/0"
+    )
+    return redis.from_url(
+        cache_url,
+        decode_responses=True,
+        socket_timeout=5.0,
+        socket_connect_timeout=5.0,
+    )
+
+
+def _cache_result(task_id: str, result: dict[str, Any]) -> None:
+    """결과를 Cache Redis에 저장."""
+    cache_key = f"scan:result:{task_id}"
+    try:
+        client = _get_cache_redis_client()
+        client.setex(cache_key, RESULT_CACHE_TTL, json.dumps(result))
+        logger.debug("scan_result_cached", extra={"task_id": task_id, "ttl": RESULT_CACHE_TTL})
+    except Exception as e:
+        logger.warning(
+            "scan_result_cache_failed",
+            extra={"task_id": task_id, "error": str(e)},
+        )
 
 
 def _should_attempt_reward(

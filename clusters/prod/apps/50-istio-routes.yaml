@@ -25,6 +25,9 @@ spec:
       - name: scan
         namespace: scan
         path: workloads/routing/scan/prod
+      - name: sse-gateway
+        namespace: default
+        path: workloads/routing/sse-gateway/prod
       - name: image
         namespace: image
         path: workloads/routing/image/prod

@@ -1,22 +1,23 @@
 """SSE Stream 엔드포인트.
 
-/api/v1/stream/{job_id}
+GET /api/v1/stream?job_id=xxx
 - job_id에 대한 실시간 이벤트 스트림 제공
 - Server-Sent Events (text/event-stream)
+- Istio sticky session으로 동일 pod 라우팅
 """
 
 import json
 import logging
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from sse_starlette.sse import EventSourceResponse
 
 from core.broadcast_manager import SSEBroadcastManager
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/stream", tags=["SSE"])
+router = APIRouter(tags=["SSE"])
 
 
 async def event_generator(
@@ -70,7 +71,7 @@ async def event_generator(
 
 
 @router.get(
-    "/{job_id}",
+    "/stream",
     summary="SSE 스트림 구독",
     description="job_id에 대한 실시간 이벤트 스트림을 제공합니다.",
     responses={
@@ -82,21 +83,21 @@ async def event_generator(
     },
 )
 async def stream_events(
-    job_id: str,
     request: Request,
+    job_id: str = Query(..., description="작업 ID (UUID)", min_length=10),
 ) -> EventSourceResponse:
     """SSE 스트림 엔드포인트.
 
     Args:
-        job_id: Celery Chain root task ID (UUID)
         request: FastAPI Request
+        job_id: Celery Chain root task ID (UUID) - 쿼리 파라미터
 
     Returns:
         EventSourceResponse (text/event-stream)
 
     Example:
         ```javascript
-        const eventSource = new EventSource('/api/v1/stream/abc-123');
+        const eventSource = new EventSource('/api/v1/stream?job_id=abc-123');
         eventSource.addEventListener('vision', (e) => {
             console.log('Vision 완료:', JSON.parse(e.data));
         });
@@ -106,8 +107,8 @@ async def stream_events(
         });
         ```
     """
-    if not job_id or len(job_id) < 10:
-        raise HTTPException(status_code=400, detail="Invalid job_id")
+    if not job_id:
+        raise HTTPException(status_code=400, detail="job_id is required")
 
     logger.info(
         "sse_stream_started",
@@ -126,9 +127,3 @@ async def stream_events(
             "X-Accel-Buffering": "no",  # Nginx 버퍼링 비활성화
         },
     )
-
-
-@router.get("/health", include_in_schema=False)
-async def health() -> dict[str, str]:
-    """헬스 체크."""
-    return {"status": "ok"}

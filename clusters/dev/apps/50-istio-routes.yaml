@@ -28,6 +28,9 @@ spec:
       - name: scan
         namespace: scan
         path: workloads/routing/scan/dev
+      - name: sse-gateway
+        namespace: default
+        path: workloads/routing/sse-gateway/dev
       - name: image
         namespace: image
         path: workloads/routing/image/dev
