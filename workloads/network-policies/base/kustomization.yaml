@@ -17,4 +17,5 @@ resources:
 - allow-rabbitmq-access.yaml
 - allow-rabbitmq-egress.yaml
 - allow-keda-egress.yaml
+- allow-sse-gateway.yaml
 # - default-deny-all.yaml

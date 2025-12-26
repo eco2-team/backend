@@ -1,0 +1,32 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSE Gateway ArgoCD Application (Production)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-sse-gateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '42'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/eco2-team/backend.git
+    targetRevision: main
+    path: workloads/domains/sse-gateway/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sse-consumer
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas

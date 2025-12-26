@@ -63,6 +63,10 @@ k8s-logging ansible_host=${logging_public_ip} private_ip=${logging_private_ip} w
 [ingress_gateway]
 k8s-ingress-gateway ansible_host=${ingress_gateway_public_ip} private_ip=${ingress_gateway_private_ip} workload=gateway instance_type=t3.medium phase=5
 
+# SSE Gateway (Phase 5: Central Consumer + Fan-out)
+[sse_gateway]
+k8s-sse-gateway ansible_host=${sse_gateway_public_ip} private_ip=${sse_gateway_private_ip} workload=sse instance_type=t3.small phase=5
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Group Definitions
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -77,3 +81,4 @@ rabbitmq
 monitoring
 logging
 ingress_gateway
+sse_gateway

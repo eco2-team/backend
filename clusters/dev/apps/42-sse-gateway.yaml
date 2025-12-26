@@ -1,0 +1,38 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSE Gateway ArgoCD Application
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 중앙 Redis Consumer + Memory Fan-out 서비스
+# scan-api와 분리된 SSE 전용 게이트웨이
+#
+# 참조: docs/blogs/async/31-sse-fanout-optimization.md
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-sse-gateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '42'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/eco2-team/backend.git
+    targetRevision: develop
+    path: workloads/domains/sse-gateway/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sse-consumer
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+  # HPA/KEDA가 replicas를 관리하므로 ArgoCD에서 무시
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas

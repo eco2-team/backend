@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# 인프라 Pod를 Master 노드에 배치하기 위한 Patch 모음
+# 이 패치들은 kubeadm/Helm으로 설치된 컴포넌트에 적용됨
+# ArgoCD로 관리되지 않으므로 수동 적용 필요
+
+resources: []
+
+# Strategic Merge Patches
+patches:
+- path: coredns-patch.yaml
+  target:
+    kind: Deployment
+    name: coredns
+    namespace: kube-system
+- path: calico-kube-controllers-patch.yaml
+  target:
+    kind: Deployment
+    name: calico-kube-controllers
+    namespace: kube-system
+- path: ebs-csi-controller-patch.yaml
+  target:
+    kind: Deployment
+    name: ebs-csi-controller
+    namespace: kube-system
+- path: metrics-server-patch.yaml
+  target:
+    kind: Deployment
+    name: dev-metrics-server
+    namespace: kube-system
+- path: argocd-applicationset-patch.yaml
+  target:
+    kind: Deployment
+    name: argocd-applicationset-controller
+    namespace: argocd

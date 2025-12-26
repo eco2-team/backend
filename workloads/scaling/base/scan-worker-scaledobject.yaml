@@ -1,6 +1,17 @@
 # KEDA ScaledObject for scan-worker
 # RabbitMQ 큐 길이 기반 오토스케일링
 # 트리거: scan.* 큐에 메시지가 쌓이면 worker pod 증가
+#
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 리소스 계산 (k8s-worker-ai: t3.small, 2 vCPU, 3.7GB)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# - 노드 Allocatable: 2000m CPU, 3826Mi Memory
+# - 시스템 Pods (DaemonSets): ~330m CPU, ~200Mi Memory
+# - 기타 Pods (cert-manager 등): ~75m CPU, ~130Mi Memory
+# - 가용 리소스: ~1595m CPU, ~3500Mi Memory
+# - scan-worker 1개: 350m CPU (250m + 100m istio), 640Mi Memory
+# - 최대 파드 수: min(1595/350, 3500/640) = min(4.5, 5.5) = 4개
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -13,8 +24,8 @@ spec:
     name: scan-worker
     kind: Deployment
   # 스케일링 범위
-  minReplicaCount: 2  # 1 → 2 (기본 Worker 수 증가, 메트릭 실패 시에도 유지)
-  maxReplicaCount: 5
+  minReplicaCount: 2  # 기본 Worker 수 (메트릭 실패 시에도 유지)
+  maxReplicaCount: 4  # 5 → 4 (노드 리소스 용량 기반)
   # 쿨다운 기간 (스케일다운 전 최소 대기 시간)
   cooldownPeriod: 300  # 120s → 300s (5분, stabilizationWindow와 일치)
   # 폴링 간격
