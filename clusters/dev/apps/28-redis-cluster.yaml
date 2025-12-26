@@ -24,7 +24,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/mng990/eco2-backend.git
+    repoURL: https://github.com/eco2-team/backend.git
     targetRevision: develop
     path: workloads/redis/dev
   destination:

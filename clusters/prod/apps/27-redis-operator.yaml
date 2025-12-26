@@ -28,7 +28,7 @@ spec:
     helm:
       values: |
         # Operator 설정
-        replicaCount: 1
+        replicas: 1
 
         image:
           repository: quay.io/spotahome/redis-operator
@@ -57,18 +57,14 @@ spec:
             operator: Exists
             effect: NoSchedule
 
-        # RBAC
-        rbac:
-          create: true
-
         # ServiceAccount
         serviceAccount:
           create: true
 
         # Prometheus Metrics
-        serviceMonitor:
+        monitoring:
           enabled: true
-          namespace: prometheus
+          serviceMonitor: true
 
   destination:
     server: https://kubernetes.default.svc
