@@ -1,0 +1,96 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# NodePool - Worker Scalable
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Pending Pod 발생 시 자동으로 EC2 인스턴스 프로비저닝
+# KEDA ScaledObject → Pod 증가 → Pending → Karpenter NodePool → Node 생성
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: worker-scalable
+spec:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Node Template
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  template:
+    metadata:
+      labels:
+        # 기존 Terraform 노드와 구분
+        managed-by: karpenter
+        role: worker
+        tier: worker
+    spec:
+      # EC2NodeClass 참조
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # Instance Requirements
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      requirements:
+        # 인스턴스 타입 (비용 최적화)
+      - key: node.kubernetes.io/instance-type
+        operator: In
+        values:
+        - t3.medium         # 2 vCPU, 4GB  - $0.0416/hr
+        - t3.large          # 2 vCPU, 8GB  - $0.0832/hr
+        - t3.xlarge         # 4 vCPU, 16GB - $0.1664/hr
+
+        # Capacity Type (On-Demand only)
+      - key: karpenter.sh/capacity-type
+        operator: In
+        values:
+        - on-demand
+
+        # Architecture
+      - key: kubernetes.io/arch
+        operator: In
+        values:
+        - amd64
+
+        # Availability Zone
+      - key: topology.kubernetes.io/zone
+        operator: In
+        values:
+        - ap-northeast-2a
+        - ap-northeast-2b
+        - ap-northeast-2c
+
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # Taints (선택적 - 특정 워크로드만 스케줄링)
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # taints:
+      # - key: "karpenter.sh/provisioned"
+      #   value: "true"
+      #   effect: "NoSchedule"
+
+      # Node 만료 시간 (선택적)
+      # expireAfter: 720h  # 30일 후 교체
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Resource Limits (vCPU Quota 초과 방지)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 현재 vCPU Quota: 43
+  # 기존 노드 사용량: ~34 vCPU
+  # Karpenter 가용량: ~9 vCPU (여유 포함 20 설정)
+  limits:
+    cpu: 20
+    memory: 40Gi
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Disruption Policy (노드 축소)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  disruption:
+    # WhenEmpty: 노드에 Pod가 없으면 제거
+    # WhenEmptyOrUnderutilized: 활용도 낮아도 제거 (비용 최적화)
+    consolidationPolicy: WhenEmpty
+
+    # 노드가 비어있으면 30초 후 제거
+    consolidateAfter: 30s
+
+    # Disruption 예산
+    budgets:
+      # 동시에 중단할 수 있는 노드 수
+    - nodes: '1'

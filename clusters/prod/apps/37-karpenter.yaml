@@ -1,0 +1,96 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Karpenter - Node Autoscaling Controller (Production)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Pending Pod 감지 → EC2 Fleet API로 최적 인스턴스 자동 프로비저닝
+# HA 구성: 2 replicas with leader election
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-karpenter
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '37'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: public.ecr.aws/karpenter
+    chart: karpenter
+    targetRevision: 1.1.0
+    helm:
+      values: |
+        # HA Configuration
+        replicas: 2
+
+        # Service Account with IRSA
+        serviceAccount:
+          create: true
+          name: karpenter
+          annotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::339712974607:role/prod-karpenter-controller
+
+        # Controller Settings
+        settings:
+          clusterName: prod-eco2
+          clusterEndpoint: https://10.0.1.21:6443
+          interruptionQueue: ""
+          featureGates:
+            spotToSpotConsolidation: false
+
+        # Controller Resources (Production)
+        controller:
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+
+        # Webhook
+        webhook:
+          enabled: true
+          port: 8443
+
+        # Metrics
+        serviceMonitor:
+          enabled: true
+          additionalLabels:
+            release: prometheus
+
+        # Node Affinity - master 노드에 배치
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: role
+                  operator: In
+                  values:
+                  - control-plane
+          # HA: Anti-affinity
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: karpenter
+              topologyKey: kubernetes.io/hostname
+        tolerations:
+        - key: role
+          operator: Equal
+          value: control-plane
+          effect: NoSchedule
+
+        logLevel: info
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=false
+    - ServerSideApply=true

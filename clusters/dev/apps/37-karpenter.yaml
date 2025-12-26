@@ -1,0 +1,94 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Karpenter - Node Autoscaling Controller
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Pending Pod 감지 → EC2 Fleet API로 최적 인스턴스 자동 프로비저닝
+# KEDA(Pod) + Karpenter(Node) 조합으로 완전한 오토스케일링
+# 참조: docs/blogs/async/foundations/16-karpenter-node-autoscaling.md
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-karpenter
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '37'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: public.ecr.aws/karpenter
+    chart: karpenter
+    targetRevision: 1.1.0
+    helm:
+      values: |
+        # Replica Count (HA는 prod에서만)
+        replicas: 1
+
+        # Service Account with IRSA
+        serviceAccount:
+          create: true
+          name: karpenter
+          annotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::339712974607:role/dev-karpenter-controller
+
+        # Controller Settings
+        settings:
+          # 클러스터 정보
+          clusterName: dev-eco2
+          clusterEndpoint: https://10.0.1.21:6443
+          # kubeadm 클러스터용 설정
+          interruptionQueue: ""  # On-Demand only, SQS 불필요
+          # Feature Gates
+          featureGates:
+            spotToSpotConsolidation: false
+
+        # Controller Resources
+        controller:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+        # Webhook (Validating/Mutating)
+        webhook:
+          enabled: true
+          port: 8443
+
+        # Metrics for Prometheus
+        serviceMonitor:
+          enabled: true
+          additionalLabels:
+            release: prometheus
+
+        # Node Affinity - master 노드에 배치
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: role
+                  operator: In
+                  values:
+                  - control-plane
+        tolerations:
+        - key: role
+          operator: Equal
+          value: control-plane
+          effect: NoSchedule
+
+        # Logging
+        logLevel: info
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=false
+    - ServerSideApply=true

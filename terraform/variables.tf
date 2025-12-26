@@ -75,3 +75,25 @@ variable "dockerhub_password" {
   type        = string
   sensitive   = true
 }
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Karpenter Configuration
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+variable "enable_karpenter" {
+  description = "Karpenter 노드 오토스케일링 활성화 여부. IRSA 설정과 함께 사용됩니다."
+  type        = bool
+  default     = false
+}
+
+variable "karpenter_node_limits" {
+  description = "Karpenter가 프로비저닝할 수 있는 최대 리소스 제한"
+  type = object({
+    cpu    = number
+    memory = string
+  })
+  default = {
+    cpu    = 20
+    memory = "40Gi"
+  }
+}

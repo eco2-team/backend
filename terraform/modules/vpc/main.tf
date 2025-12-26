@@ -18,11 +18,16 @@ resource "aws_subnet" "public" {
   availability_zone       = var.azs[count.index]
   map_public_ip_on_launch = true
 
-  tags = {
-    Name                     = "${var.environment}-public-subnet-${count.index + 1}"
-    Environment              = var.environment
-    "kubernetes.io/role/elb" = "1"
-  }
+  tags = merge(
+    {
+      Name                     = "${var.environment}-public-subnet-${count.index + 1}"
+      Environment              = var.environment
+      "kubernetes.io/role/elb" = "1"
+    },
+    var.enable_karpenter ? {
+      "karpenter.sh/discovery" = "true"
+    } : {}
+  )
 }
 
 resource "aws_subnet" "private" {

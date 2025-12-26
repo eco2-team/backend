@@ -1,0 +1,169 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# EC2NodeClass - AWS EC2 설정
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Karpenter가 EC2 인스턴스 생성 시 사용하는 AWS 설정
+# AMI, Subnet, SecurityGroup, userData 등 정의
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # AMI Configuration
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Ubuntu 22.04 LTS (kubeadm 클러스터와 동일)
+  amiFamily: Ubuntu
+
+  # 또는 특정 AMI 지정 (권장)
+  # amiSelectorTerms:
+  # - id: ami-0c55b159cbfafe1f0  # Ubuntu 22.04 LTS
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # IAM Instance Profile
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Terraform에서 생성한 Karpenter Node Instance Profile
+  instanceProfile: dev-karpenter-node
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Network Configuration
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # karpenter.sh/discovery 태그가 있는 Subnet 자동 선택
+  subnetSelectorTerms:
+  - tags:
+      karpenter.sh/discovery: 'true'
+
+  # karpenter.sh/discovery 태그가 있는 Security Group 자동 선택
+  securityGroupSelectorTerms:
+  - tags:
+      karpenter.sh/discovery: 'true'
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Block Device Mappings
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  blockDeviceMappings:
+  - deviceName: /dev/sda1
+    ebs:
+      volumeSize: 40Gi
+      volumeType: gp3
+      encrypted: true
+      deleteOnTermination: true
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Instance Metadata Options (IMDSv2)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  metadataOptions:
+    httpEndpoint: enabled
+    httpProtocolIPv6: disabled
+    httpPutResponseHopLimit: 2
+    httpTokens: required  # IMDSv2 필수 (보안 강화)
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Tags for EC2 Instances
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  tags:
+    Name: karpenter-worker
+    Environment: dev
+    ManagedBy: karpenter
+    Project: SeSACTHON
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # User Data - kubeadm join 스크립트
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # ConfigMap 'karpenter-userdata'에서 주입
+  # 또는 inline 스크립트 사용 (아래 참조)
+  userData: |
+    #!/bin/bash
+    set -ex
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 환경 변수 (AWS SSM Parameter Store에서 가져오거나 하드코딩)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    CLUSTER_ENDPOINT="10.0.1.21"
+    CLUSTER_PORT="6443"
+
+    # Bootstrap Token (SSM에서 가져오기 권장)
+    # 주의: 실제 운영에서는 SSM Parameter Store 사용
+    BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN:-PLACEHOLDER}"
+    CA_CERT_HASH="${CA_CERT_HASH:-PLACEHOLDER}"
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 1. OS 설정
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    echo ">>> Disabling swap..."
+    swapoff -a
+    sed -i '/ swap / s/^/#/' /etc/fstab
+
+    # 커널 모듈
+    echo ">>> Loading kernel modules..."
+    cat <<EOF | tee /etc/modules-load.d/k8s.conf
+    overlay
+    br_netfilter
+    EOF
+    modprobe overlay
+    modprobe br_netfilter
+
+    # sysctl 설정
+    echo ">>> Configuring sysctl..."
+    cat <<EOF | tee /etc/sysctl.d/k8s.conf
+    net.bridge.bridge-nf-call-iptables  = 1
+    net.bridge.bridge-nf-call-ip6tables = 1
+    net.ipv4.ip_forward                 = 1
+    EOF
+    sysctl --system
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 2. containerd 설치 및 설정
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    echo ">>> Installing containerd..."
+    apt-get update
+    apt-get install -y containerd
+
+    mkdir -p /etc/containerd
+    containerd config default | tee /etc/containerd/config.toml
+    sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+
+    systemctl restart containerd
+    systemctl enable containerd
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 3. Kubernetes 패키지 설치
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    echo ">>> Installing Kubernetes packages..."
+    apt-get install -y apt-transport-https ca-certificates curl gpg
+
+    # Kubernetes APT 저장소
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | \
+      gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /' | \
+      tee /etc/apt/sources.list.d/kubernetes.list
+
+    apt-get update
+    apt-get install -y kubelet kubeadm kubectl
+    apt-mark hold kubelet kubeadm kubectl
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 4. AWS SSM에서 Bootstrap Token 가져오기 (선택적)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if [ "$BOOTSTRAP_TOKEN" == "PLACEHOLDER" ]; then
+      echo ">>> Fetching bootstrap token from SSM..."
+      BOOTSTRAP_TOKEN=$(aws ssm get-parameter --name "/sesacthon/dev/karpenter/bootstrap-token" --with-decryption --query "Parameter.Value" --output text 2>/dev/null || echo "")
+      CA_CERT_HASH=$(aws ssm get-parameter --name "/sesacthon/dev/karpenter/ca-cert-hash" --query "Parameter.Value" --output text 2>/dev/null || echo "")
+    fi
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 5. kubeadm join 실행
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if [ -n "$BOOTSTRAP_TOKEN" ] && [ -n "$CA_CERT_HASH" ]; then
+      echo ">>> Joining Kubernetes cluster..."
+      kubeadm join ${CLUSTER_ENDPOINT}:${CLUSTER_PORT} \
+        --token ${BOOTSTRAP_TOKEN} \
+        --discovery-token-ca-cert-hash sha256:${CA_CERT_HASH}
+    else
+      echo ">>> ERROR: Bootstrap token or CA cert hash not found!"
+      echo ">>> Please set up SSM parameters or provide values directly."
+      exit 1
+    fi
+
+    echo ">>> Node setup complete!"

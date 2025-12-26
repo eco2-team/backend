@@ -28,11 +28,16 @@ resource "aws_security_group" "k8s_cluster" {
   description = "Security group for Kubernetes cluster nodes (master & workers)"
   vpc_id      = var.vpc_id
 
-  tags = {
-    Name        = "${var.environment}-k8s-cluster-sg"
-    Environment = var.environment
-    ManagedBy   = "Terraform"
-  }
+  tags = merge(
+    {
+      Name        = "${var.environment}-k8s-cluster-sg"
+      Environment = var.environment
+      ManagedBy   = "Terraform"
+    },
+    var.enable_karpenter ? {
+      "karpenter.sh/discovery" = "true"
+    } : {}
+  )
 }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

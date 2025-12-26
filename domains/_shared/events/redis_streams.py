@@ -185,11 +185,30 @@ async def subscribe_events(
                 count=10,
             )
         except Exception as e:
+            error_msg = str(e)
             logger.error(
                 "subscribe_events_xread_error",
-                extra={"job_id": job_id, "error": str(e)},
+                extra={"job_id": job_id, "error": error_msg},
             )
-            yield {"type": "error", "error": "redis_error", "message": str(e)}
+
+            # 연결 오류 시 재연결 시도 (1회)
+            if "closed" in error_msg.lower() or "connection" in error_msg.lower():
+                from domains._shared.events.redis_client import reset_async_redis_client
+
+                try:
+                    redis_client = await reset_async_redis_client()
+                    logger.info(
+                        "subscribe_events_reconnected",
+                        extra={"job_id": job_id},
+                    )
+                    continue  # 재시도
+                except Exception as reconnect_error:
+                    logger.error(
+                        "subscribe_events_reconnect_failed",
+                        extra={"job_id": job_id, "error": str(reconnect_error)},
+                    )
+
+            yield {"type": "error", "error": "redis_error", "message": error_msg}
             return
 
         if not events:

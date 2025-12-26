@@ -92,9 +92,10 @@ locals {
 module "vpc" {
   source = "./modules/vpc"
 
-  vpc_cidr    = var.vpc_cidr
-  environment = var.environment
-  azs         = data.aws_availability_zones.available.names
+  vpc_cidr         = var.vpc_cidr
+  environment      = var.environment
+  azs              = data.aws_availability_zones.available.names
+  enable_karpenter = var.enable_karpenter
 }
 
 # Security Groups Module
@@ -104,6 +105,7 @@ module "security_groups" {
   vpc_id           = module.vpc.vpc_id
   allowed_ssh_cidr = var.allowed_ssh_cidr
   environment      = var.environment
+  enable_karpenter = var.enable_karpenter
 }
 
 # SSH Key Pair
