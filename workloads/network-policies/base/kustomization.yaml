@@ -16,4 +16,5 @@ resources:
 - allow-character-to-my-grpc.yaml
 - allow-rabbitmq-access.yaml
 - allow-rabbitmq-egress.yaml
+- allow-keda-egress.yaml
 # - default-deny-all.yaml

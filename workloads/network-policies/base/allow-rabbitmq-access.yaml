@@ -12,7 +12,7 @@ spec:
   policyTypes:
   - Ingress
   ingress:
-    # AMQP 포트 (5672) - API 서비스 + Celery Workers
+    # AMQP 포트 (5672) - API 서비스 + Celery Workers + KEDA
   - from:
         # scan-api, scan-worker
     - namespaceSelector:
@@ -34,6 +34,10 @@ spec:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: my
+        # KEDA (queue length monitoring for autoscaling)
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: keda
         # RabbitMQ 내부 클러스터 통신
     - namespaceSelector:
         matchLabels:
@@ -41,7 +45,7 @@ spec:
     ports:
     - protocol: TCP
       port: 5672
-    # Management UI (15672) - 모니터링 + Topology Operator 접근
+    # Management UI (15672) - 모니터링 + Topology Operator + KEDA 접근
   - from:
     - namespaceSelector:
         matchLabels:
@@ -52,6 +56,10 @@ spec:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: rabbitmq-system
+        # KEDA HTTP API for queue metrics
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: keda
     ports:
     - protocol: TCP
       port: 15672

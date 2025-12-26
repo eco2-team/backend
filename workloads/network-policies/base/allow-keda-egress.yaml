@@ -1,0 +1,41 @@
+# KEDA Operator Egress 허용 Network Policy
+# RabbitMQ 큐 메트릭 수집을 위한 외부 접근 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-keda-egress
+  namespace: keda
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  # RabbitMQ AMQP + Management API
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: rabbitmq
+    ports:
+    - protocol: TCP
+      port: 5672
+    - protocol: TCP
+      port: 15672
+  # Kubernetes API Server (HPA 관리)
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+  # DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
