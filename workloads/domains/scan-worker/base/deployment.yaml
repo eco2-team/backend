@@ -120,4 +120,8 @@ spec:
       # worker-ai 노드에 배치
       nodeSelector:
         domain: worker-ai
-      # Taint가 없으므로 toleration 불필요
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-ai
+        effect: NoSchedule
