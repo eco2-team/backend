@@ -1,0 +1,113 @@
+# ============================================================================
+# Auth Redis Failover - Blacklist + OAuth State 전용
+# ============================================================================
+# 용도: JWT Blacklist (ext-authz), OAuth State (auth-api)
+# 정책: noeviction (보안 데이터 보호)
+#
+# [Service 네이밍 규칙 - Spotahome Redis Operator]
+#   - rfr-auth-redis.redis.svc.cluster.local:6379   (Redis Master)
+#   - rfs-auth-redis.redis.svc.cluster.local:26379  (Sentinel)
+#   - rfr-auth-redis-readonly:6379                  (Read Replica)
+#
+# [DB 할당]
+#   - DB 0: JWT Blacklist (ext-authz, auth-api)
+#   - DB 3: OAuth State (auth-api)
+#
+# [HA 구성]
+#   - Prod: Sentinel 3 + Redis 3 (자동 failover)
+#   - Dev:  Sentinel 1 + Redis 1 (HA 비활성)
+# ============================================================================
+apiVersion: databases.spotahome.com/v1
+kind: RedisFailover
+metadata:
+  name: auth-redis
+  namespace: redis
+  labels:
+    app: auth-redis
+    tier: data
+    purpose: auth
+spec:
+  # Sentinel 설정 (HA)
+  sentinel:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+    customConfig:
+    - down-after-milliseconds 5000
+    - failover-timeout 10000
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: redis-cluster
+              operator: In
+              values:
+              - auth
+    tolerations:
+    - key: domain
+      operator: Equal
+      value: data
+      effect: NoSchedule
+
+  # Redis 설정
+  redis:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 512Mi
+    # 영속성 (Blacklist 데이터 보호)
+    storage:
+      persistentVolumeClaim:
+        metadata:
+          name: auth-redis-data
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          storageClassName: gp3
+          resources:
+            requests:
+              storage: 1Gi
+    # Redis 설정
+    customConfig:
+    - maxclients 50000
+    - maxmemory 256mb
+    - maxmemory-policy noeviction
+    - tcp-keepalive 300
+    - timeout 0
+    - appendonly yes
+    - appendfsync everysec
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: redis-cluster
+              operator: In
+              values:
+              - auth
+    tolerations:
+    - key: domain
+      operator: Equal
+      value: data
+      effect: NoSchedule
+    # Metrics Exporter
+    exporter:
+      enabled: true
+      image: oliver006/redis_exporter:v1.62.0
+      resources:
+        requests:
+          cpu: 25m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi

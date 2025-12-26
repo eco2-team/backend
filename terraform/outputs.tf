@@ -197,20 +197,52 @@ output "postgresql_private_ip" {
   value       = module.postgresql.private_ip
 }
 
-# Redis (Phase 1)
-output "redis_instance_id" {
-  description = "Redis 노드 Instance ID"
-  value       = module.redis.instance_id
+# Redis Auth (Phase 1) - Blacklist + OAuth
+output "redis_auth_instance_id" {
+  description = "Redis Auth Instance ID"
+  value       = module.redis_auth.instance_id
 }
 
-output "redis_public_ip" {
-  description = "Redis 노드 Public IP"
-  value       = module.redis.public_ip
+output "redis_auth_public_ip" {
+  description = "Redis Auth Public IP"
+  value       = module.redis_auth.public_ip
 }
 
-output "redis_private_ip" {
-  description = "Redis 노드 Private IP"
-  value       = module.redis.private_ip
+output "redis_auth_private_ip" {
+  description = "Redis Auth Private IP"
+  value       = module.redis_auth.private_ip
+}
+
+# Redis Streams (Phase 1) - SSE Events
+output "redis_streams_instance_id" {
+  description = "Redis Streams Instance ID"
+  value       = module.redis_streams.instance_id
+}
+
+output "redis_streams_public_ip" {
+  description = "Redis Streams Public IP"
+  value       = module.redis_streams.public_ip
+}
+
+output "redis_streams_private_ip" {
+  description = "Redis Streams Private IP"
+  value       = module.redis_streams.private_ip
+}
+
+# Redis Cache (Phase 1) - Celery + Domain Cache
+output "redis_cache_instance_id" {
+  description = "Redis Cache Instance ID"
+  value       = module.redis_cache.instance_id
+}
+
+output "redis_cache_public_ip" {
+  description = "Redis Cache Public IP"
+  value       = module.redis_cache.public_ip
+}
+
+output "redis_cache_private_ip" {
+  description = "Redis Cache Private IP"
+  value       = module.redis_cache.private_ip
 }
 
 # RabbitMQ (Phase 4: 2025-11-08 활성화)
@@ -281,7 +313,7 @@ output "ingress_gateway_public_ip" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "ansible_inventory" {
-  description = "Ansible Inventory 내용 (15-Node Architecture)"
+  description = "Ansible Inventory 내용 (17-Node Architecture)"
   value = templatefile("${path.module}/templates/hosts.tpl", {
     master_public_ip           = aws_eip.master.public_ip
     master_private_ip          = module.master.private_ip
@@ -305,8 +337,12 @@ output "ansible_inventory" {
     worker_ai_private_ip       = module.worker_ai.private_ip
     postgresql_public_ip       = module.postgresql.public_ip
     postgresql_private_ip      = module.postgresql.private_ip
-    redis_public_ip            = module.redis.public_ip
-    redis_private_ip           = module.redis.private_ip
+    redis_auth_public_ip       = module.redis_auth.public_ip
+    redis_auth_private_ip      = module.redis_auth.private_ip
+    redis_streams_public_ip    = module.redis_streams.public_ip
+    redis_streams_private_ip   = module.redis_streams.private_ip
+    redis_cache_public_ip      = module.redis_cache.public_ip
+    redis_cache_private_ip     = module.redis_cache.private_ip
     rabbitmq_public_ip         = module.rabbitmq.public_ip
     rabbitmq_private_ip        = module.rabbitmq.private_ip
     monitoring_public_ip       = module.monitoring.public_ip
@@ -323,7 +359,7 @@ output "ansible_inventory" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "ssh_commands" {
-  description = "SSH 접속 명령어 (15-Node Architecture)"
+  description = "SSH 접속 명령어 (17-Node Architecture)"
   value = {
     master         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${aws_eip.master.public_ip}"
     api_auth       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_auth.public_ip}"
@@ -336,7 +372,9 @@ output "ssh_commands" {
     worker_storage = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_storage.public_ip}"
     worker_ai      = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_ai.public_ip}"
     postgresql     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.postgresql.public_ip}"
-    redis          = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis.public_ip}"
+    redis_auth     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_auth.public_ip}"
+    redis_streams  = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_streams.public_ip}"
+    redis_cache    = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_cache.public_ip}"
     rabbitmq       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.rabbitmq.public_ip}"
     monitoring     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.monitoring.public_ip}"
     logging        = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.logging.public_ip}"
@@ -348,11 +386,11 @@ output "ssh_commands" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "cluster_info" {
-  description = "클러스터 정보 요약 (15-Node Architecture)"
+  description = "클러스터 정보 요약 (17-Node Architecture)"
   value = {
     vpc_id    = module.vpc.vpc_id
     master_ip = aws_eip.master.public_ip
-    phase     = "Phase 1-4 Complete - 15-Node Full Production Architecture"
+    phase     = "Phase 1-4 Complete - 17-Node Full Production Architecture"
     api_ips = [
       module.api_auth.public_ip,
       module.api_my.public_ip,
@@ -368,16 +406,18 @@ output "cluster_info" {
     ]
     infra_ips = [
       module.postgresql.public_ip,
-      module.redis.public_ip,
+      module.redis_auth.public_ip,
+      module.redis_streams.public_ip,
+      module.redis_cache.public_ip,
       module.rabbitmq.public_ip,
       module.monitoring.public_ip,
       module.logging.public_ip
     ]
-    # 15-Node Architecture (+ Logging)
-    total_nodes        = 15  # Master + 7 APIs + 2 Workers + 5 Infra
-    total_vcpu         = 34  # +2 (logging t3.large)
-    total_memory_gb    = 46  # +8 (logging t3.large)
-    estimated_cost_usd = 305 # +$60 (t3.large)
+    # 17-Node Architecture (Redis 3-node cluster)
+    total_nodes        = 17  # Master + 7 APIs + 2 Workers + 7 Infra
+    total_vcpu         = 38  # +4 (redis x2 small)
+    total_memory_gb    = 54  # +8 (redis medium + 2x small)
+    estimated_cost_usd = 335 # +30 (medium + 2x small)
   }
 }
 
@@ -386,7 +426,7 @@ output "cluster_info" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "node_roles" {
-  description = "노드별 역할 (15-Node Architecture)"
+  description = "노드별 역할 (17-Node Architecture)"
   value = {
     master         = "Control Plane (t3.xlarge, 16GB) - Phase 0"
     api_auth       = "Authentication API (t3.small, 2GB) - Phase 1"
@@ -399,7 +439,9 @@ output "node_roles" {
     worker_storage = "Storage Worker - I/O Bound (t3.medium, 4GB) - Phase 4"
     worker_ai      = "AI Worker - Network Bound (t3.medium, 4GB) - Phase 4"
     postgresql     = "PostgreSQL - 7 Domain Schemas (t3.large, 8GB) - Phase 1"
-    redis          = "Redis Cache + JWT BlackList (t3.medium, 4GB) - Phase 1"
+    redis_auth     = "Redis Auth - Blacklist + OAuth (t3.medium, 4GB) - Phase 1"
+    redis_streams  = "Redis Streams - SSE Events (t3.small, 2GB) - Phase 1"
+    redis_cache    = "Redis Cache - Celery + Domain (t3.small, 2GB) - Phase 1"
     rabbitmq       = "RabbitMQ Message Queue (t3.medium, 4GB) - Phase 4"
     monitoring     = "Prometheus + Grafana (t3.large, 8GB) - Phase 4"
     logging        = "ELK Stack - Elasticsearch + Logstash + Kibana (t3.large, 8GB) - Phase 4"

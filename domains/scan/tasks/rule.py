@@ -14,6 +14,7 @@ from time import perf_counter
 from typing import Any
 
 from domains._shared.celery.base_task import BaseTask
+from domains._shared.events import get_sync_redis_client, publish_stage_event
 from domains.scan.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,10 @@ def rule_task(
     }
     logger.info("Rule task started", extra=log_ctx)
 
+    # Redis Streams: 시작 이벤트 발행
+    redis_client = get_sync_redis_client()
+    publish_stage_event(redis_client, task_id, "rule", "started", progress=25)
+
     started = perf_counter()
 
     try:
@@ -89,6 +94,14 @@ def rule_task(
             "Rule retrieval failed",
             extra={**log_ctx, "elapsed_ms": elapsed_ms, "error": str(exc)},
         )
+        # Redis Streams: 실패 이벤트 발행
+        publish_stage_event(
+            redis_client,
+            task_id,
+            "rule",
+            "failed",
+            result={"error": str(exc)},
+        )
         raise self.retry(exc=exc)
 
     elapsed_ms = (perf_counter() - started) * 1000
@@ -100,6 +113,9 @@ def rule_task(
             "rules_found": disposal_rules is not None,
         },
     )
+
+    # Redis Streams: 완료 이벤트 발행
+    publish_stage_event(redis_client, task_id, "rule", "completed", progress=50)
 
     # 메타데이터 업데이트
     metadata = prev_result.get("metadata", {})

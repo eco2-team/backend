@@ -50,7 +50,7 @@ spec:
               name: character-secret
               key: CELERY_BROKER_URL
         - name: CELERY_RESULT_BACKEND
-          value: redis://dev-redis-node-0.dev-redis-headless.redis.svc.cluster.local:6379/0  # Master 직접 연결
+          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
         # OpenTelemetry
         - name: OTEL_SERVICE_NAME
           value: character-match-worker

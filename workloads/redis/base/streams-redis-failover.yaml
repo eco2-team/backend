@@ -1,0 +1,100 @@
+# ============================================================================
+# Streams Redis Failover - SSE 이벤트 전용
+# ============================================================================
+# 용도: Scan SSE 파이프라인 이벤트 (Redis Streams)
+# 정책: noeviction (이벤트 유실 방지, TTL로 자동 정리)
+#
+# [Service 네이밍 규칙 - Spotahome Redis Operator]
+#   - rfr-streams-redis.redis.svc.cluster.local:6379   (Redis Master)
+#   - rfs-streams-redis.redis.svc.cluster.local:26379  (Sentinel)
+#
+# [DB 할당]
+#   - DB 0: SSE 이벤트 스트림 (scan-api, scan-worker)
+#
+# [환경변수]
+#   - REDIS_STREAMS_URL=redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
+# ============================================================================
+apiVersion: databases.spotahome.com/v1
+kind: RedisFailover
+metadata:
+  name: streams-redis
+  namespace: redis
+  labels:
+    app: streams-redis
+    tier: data
+    purpose: streams
+spec:
+  # Sentinel 설정 (HA)
+  sentinel:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+    customConfig:
+    - down-after-milliseconds 5000
+    - failover-timeout 10000
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: redis-cluster
+              operator: In
+              values:
+              - streams
+    tolerations:
+    - key: domain
+      operator: Equal
+      value: data
+      effect: NoSchedule
+
+  # Redis 설정
+  redis:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+    # 휘발성 데이터 (PVC 불필요, emptyDir 사용)
+    storage:
+      emptyDir: {}
+    # Redis 설정
+    customConfig:
+    - maxmemory 256mb
+    - maxmemory-policy noeviction
+    - tcp-keepalive 300
+    - timeout 0
+    - appendonly no
+    - save ""
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: redis-cluster
+              operator: In
+              values:
+              - streams
+    tolerations:
+    - key: domain
+      operator: Equal
+      value: data
+      effect: NoSchedule
+    # Metrics Exporter
+    exporter:
+      enabled: true
+      image: oliver006/redis_exporter:v1.62.0
+      resources:
+        requests:
+          cpu: 25m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi

@@ -16,6 +16,7 @@ from time import perf_counter
 from typing import Any
 
 from domains._shared.celery.base_task import BaseTask
+from domains._shared.events import get_sync_redis_client, publish_stage_event
 from domains.scan.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,10 @@ def vision_task(
     }
     logger.info("Vision task started", extra=log_ctx)
 
+    # Redis Streams: 시작 이벤트 발행
+    redis_client = get_sync_redis_client()
+    publish_stage_event(redis_client, task_id, "vision", "started", progress=0)
+
     prompt_text = user_input or "이 폐기물을 어떻게 분리배출해야 하나요?"
     started = perf_counter()
 
@@ -80,6 +85,14 @@ def vision_task(
             "Vision analysis failed",
             extra={**log_ctx, "elapsed_ms": elapsed_ms, "error": str(exc)},
         )
+        # Redis Streams: 실패 이벤트 발행
+        publish_stage_event(
+            redis_client,
+            task_id,
+            "vision",
+            "failed",
+            result={"error": str(exc)},
+        )
         raise self.retry(exc=exc)
 
     elapsed_ms = (perf_counter() - started) * 1000
@@ -91,6 +104,9 @@ def vision_task(
             "major_category": classification_result.get("classification", {}).get("major_category"),
         },
     )
+
+    # Redis Streams: 완료 이벤트 발행
+    publish_stage_event(redis_client, task_id, "vision", "completed", progress=25)
 
     return {
         "task_id": task_id,

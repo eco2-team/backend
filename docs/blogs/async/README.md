@@ -26,6 +26,9 @@
 | 20 | [Gevent 전환 트러블슈팅](./20-gevent-migration-troubleshooting.md) | ✅ 완료 | 7개 문제 해결 과정, 핵심 교훈 |
 | 21 | [LLM API 큐잉 시스템 아키텍처](./21-llm-queue-system-architecture.md) | ✅ 완료 | Gevent Pool, Redis 상태저장, 큐 라우팅, HPA |
 | 22 | [큐잉 Scan API 성능 측정](./22-scan-sse-performance-benchmark.md) | ✅ 완료 | k6 부하 테스트, 동기 vs 비동기 비교, 병목 분석 |
+| 23 | [SSE 50 VU 병목 분석](./23-sse-bottleneck-analysis-50vu.md) | ✅ 완료 | RabbitMQ 연결 폭증, SSE:RabbitMQ 1:21 비율, 개선 방안 |
+| 24 | [Redis Streams SSE 전환](./24-redis-streams-sse-migration.md) | ✅ 완료 | Celery Events→Redis Streams, 연결 폭발 해결, 구현 가이드 |
+| 25 | [Redis 3-Node 클러스터 프로비저닝](./25-redis-3node-cluster-provisioning.md) | 🔄 진행 중 | 단일→3노드 분리, Terraform/Ansible, vCPU 트러블슈팅 |
 
 ---
 
@@ -105,6 +108,9 @@ EDA, MQ, 마이크로서비스 아키텍처의 핵심 패턴과 이론적 배경
 - [x] character-worker HPA (maxReplicas: 2)
 - [x] my-worker HPA (maxReplicas: 2)
 - [x] 부하 테스트 검증 (k6, 30~34 VU)
+- [x] 50 VU 병목 분석 (SSE:RabbitMQ 연결 비율 문제 발견)
+- [x] Redis Streams SSE 전환 (Celery Events 대체)
+- [ ] Redis 3-Node 클러스터 프로비저닝 (Auth, Streams, Cache 분리)
 
 ### 예정: ext-authz 캐시 동기화
 

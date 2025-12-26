@@ -159,6 +159,7 @@ jobs:
             domains/_base/**
             domains/_shared/waste_pipeline/**
             domains/_shared/celery/**
+            domains/_shared/events/**
             workloads/domains/auth/**
             workloads/domains/character/**
             workloads/domains/chat/**
@@ -199,6 +200,7 @@ jobs:
           shared_triggers = {
               "domains/_shared/waste_pipeline": ["chat", "scan"],
               "domains/_shared/celery": ["scan", "character", "my"],
+              "domains/_shared/events": ["scan"],  # Redis Streams SSE
               # Base 이미지 변경 시 모든 서비스 재빌드 (의존성 업데이트)
               "domains/_base": ["auth", "character", "chat", "image", "location", "my", "scan"],
           }
@@ -273,6 +275,16 @@ jobs:
     if: >
       needs.commit-filter.outputs.skip != 'true' &&
       needs.detect-api-changes.outputs.has_changes == 'true'
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     strategy:
       fail-fast: false
       matrix:

@@ -1,0 +1,74 @@
+# 새 노드 설정 Playbook
+# 용도: 신규 추가된 노드에 containerd, kubeadm 등 필수 패키지 설치
+# 사용: cd ansible && ansible-playbook -i inventory/hosts.ini playbooks/setup-new-nodes.yml -l redis
+
+- name: Wait for SSH connection
+  hosts: all
+  gather_facts: no
+  tasks:
+  - name: Wait for SSH port to be open
+    wait_for:
+      host: '{{ ansible_host }}'
+      port: 22
+      delay: 5
+      timeout: 300
+      state: started
+    delegate_to: localhost
+    become: no
+
+  - name: Test SSH connectivity
+    ping:
+    retries: 5
+    delay: 10
+    until: ping_result is succeeded
+    register: ping_result
+
+  - name: Wait for cloud-init to complete
+    command: cloud-init status --wait
+    changed_when: false
+    ignore_errors: yes
+
+- name: Prerequisites - OS 설정
+  hosts: all
+  become: yes
+  gather_facts: yes
+  roles:
+  - role: '{{ playbook_dir }}/../roles/common'
+
+- name: Docker/Containerd 설치
+  hosts: all
+  become: yes
+  roles:
+  - role: '{{ playbook_dir }}/../roles/docker'
+
+- name: Kubernetes 패키지 설치
+  hosts: all
+  become: yes
+  roles:
+  - role: '{{ playbook_dir }}/../roles/kubernetes'
+
+- name: 설치 완료 확인
+  hosts: all
+  become: yes
+  tasks:
+  - name: containerd 상태 확인
+    command: systemctl is-active containerd
+    register: containerd_status
+    changed_when: false
+
+  - name: kubeadm 버전 확인
+    command: kubeadm version -o short
+    register: kubeadm_version
+    changed_when: false
+
+  - name: kubelet 버전 확인
+    command: kubelet --version
+    register: kubelet_version
+    changed_when: false
+
+  - name: 설치 상태 출력
+    debug:
+      msg:
+      - 'containerd: {{ containerd_status.stdout }}'
+      - 'kubeadm: {{ kubeadm_version.stdout }}'
+      - 'kubelet: {{ kubelet_version.stdout }}'

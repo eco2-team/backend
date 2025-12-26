@@ -1,0 +1,44 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../base
+
+commonLabels:
+  env: dev
+
+# Dev 환경: 리소스 최소화 (replicas는 RedisFailover CR에서 관리)
+patches:
+  # Auth Redis: replicas 1로 축소
+- target:
+    kind: RedisFailover
+    name: auth-redis
+  patch: |-
+    - op: replace
+      path: /spec/sentinel/replicas
+      value: 1
+    - op: replace
+      path: /spec/redis/replicas
+      value: 1
+  # Streams Redis: replicas 1로 축소
+- target:
+    kind: RedisFailover
+    name: streams-redis
+  patch: |-
+    - op: replace
+      path: /spec/sentinel/replicas
+      value: 1
+    - op: replace
+      path: /spec/redis/replicas
+      value: 1
+  # Cache Redis: replicas 1로 축소
+- target:
+    kind: RedisFailover
+    name: cache-redis
+  patch: |-
+    - op: replace
+      path: /spec/sentinel/replicas
+      value: 1
+    - op: replace
+      path: /spec/redis/replicas
+      value: 1
