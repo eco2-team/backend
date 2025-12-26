@@ -49,3 +49,9 @@ spec:
           selfHeal: true
         syncOptions:
         - CreateNamespace=false  # API에서 이미 생성
+      # KEDA/HPA가 관리하는 replicas 필드 무시
+      ignoreDifferences:
+      - group: apps
+        kind: Deployment
+        jsonPointers:
+        - /spec/replicas
