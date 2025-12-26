@@ -1,5 +1,5 @@
-# Scan SSE Pipeline 대시보드 (Celery Chain + SSE Streaming)
-# 목적: SSE 스트리밍 성능, Celery Chain 단계별 지연, 큐 상태 추적
+# Scan SSE Pipeline 대시보드 (Celery Chain + Redis Streams + SSE Streaming)
+# 목적: SSE 스트리밍 성능, Celery Chain 단계별 지연, Redis Streams 상태, 큐 상태 추적
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -479,6 +479,142 @@ data:
             "defaults": {
               "unit": "decmbytes",
               "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "Redis Streams (SSE Event Source)",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 63 },
+          "collapsed": false
+        },
+        {
+          "title": "Stream Length (scan:events:*)",
+          "description": "SSE 이벤트 스트림 길이 - 처리 대기 중인 이벤트 수",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 64 },
+          "targets": [
+            {
+              "expr": "redis_stream_length{redis_cluster=\"streams-redis\"}",
+              "legendFormat": "{{ stream }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 100 },
+                  { "color": "red", "value": 500 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Stream Groups",
+          "description": "스트림별 Consumer Group 수",
+          "type": "stat",
+          "gridPos": { "h": 6, "w": 4, "x": 8, "y": 64 },
+          "targets": [
+            {
+              "expr": "sum(redis_stream_groups{redis_cluster=\"streams-redis\"})",
+              "legendFormat": "Groups"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            }
+          }
+        },
+        {
+          "title": "Pending Messages",
+          "description": "처리 중이지만 ACK되지 않은 메시지 수",
+          "type": "stat",
+          "gridPos": { "h": 6, "w": 4, "x": 12, "y": 64 },
+          "targets": [
+            {
+              "expr": "sum(redis_stream_pending_entries{redis_cluster=\"streams-redis\"})",
+              "legendFormat": "Pending"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 50 },
+                  { "color": "red", "value": 200 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "streams-redis Memory",
+          "description": "SSE 이벤트 저장용 Redis 메모리 사용량",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 64 },
+          "targets": [
+            {
+              "expr": "redis_memory_used_bytes{redis_cluster=\"streams-redis\"}",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Redis Commands (streams-redis)",
+          "description": "streams-redis 초당 명령어 처리량",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 70 },
+          "targets": [
+            {
+              "expr": "rate(redis_commands_processed_total{redis_cluster=\"streams-redis\"}[1m])",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Redis Connections (streams-redis)",
+          "description": "SSE 이벤트 소스 Redis 연결 수",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 70 },
+          "targets": [
+            {
+              "expr": "redis_connected_clients{redis_cluster=\"streams-redis\"}",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 50 },
+                  { "color": "red", "value": 100 }
+                ]
+              }
             }
           }
         }

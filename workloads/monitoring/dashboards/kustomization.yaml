@@ -19,6 +19,7 @@ resources:
 - scan-sse-pipeline.yaml
 # Infrastructure Dashboards
 - rabbitmq.yaml
+- redis-cluster.yaml
 
 commonLabels:
   monitoring: ecoeco-cluster

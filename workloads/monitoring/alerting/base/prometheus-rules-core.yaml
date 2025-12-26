@@ -164,6 +164,46 @@ spec:
         summary: Redis is down
         description: Redis instance {{ $labels.instance }} is not responding.
 
+    - alert: RedisMemoryHigh
+      expr: |
+        redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: Redis memory usage is high
+        description: Redis {{ $labels.redis_cluster }} memory usage is above 90% (current {{ $value | printf "%.1f" }}%).
+
+    - alert: RedisSentinelDown
+      expr: |
+        redis_sentinel_masters < 1
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: Redis Sentinel has no masters
+        description: Redis Sentinel {{ $labels.instance }} cannot find any master.
+
+    - alert: RedisReplicationBroken
+      expr: |
+        redis_connected_slaves == 0 and redis_instance_info{role="master"} == 1
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: Redis replication is broken
+        description: Redis master {{ $labels.redis_cluster }} has no connected slaves.
+
+    - alert: RedisConnectionsHigh
+      expr: |
+        redis_connected_clients > 1000
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: Redis has too many connections
+        description: Redis {{ $labels.redis_cluster }} has {{ $value }} connected clients.
+
     - alert: PostgreSQLDown
       expr: |
         up{job=~".*postgres.*"} == 0

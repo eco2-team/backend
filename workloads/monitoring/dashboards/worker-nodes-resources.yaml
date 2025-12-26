@@ -259,13 +259,14 @@ data:
           }
         },
         {
-          "title": "k8s-redis",
+          "title": "k8s-redis (3-node avg)",
+          "description": "Redis 3노드 평균 (auth/streams/cache)",
           "type": "stat",
           "gridPos": { "h": 4, "w": 4, "x": 16, "y": 17 },
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis.*\"}) * 100)",
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-auth.*|.*redis-streams.*|.*redis-cache.*\"}) * 100)",
               "legendFormat": "CPU %"
             }
           ],
@@ -421,13 +422,14 @@ data:
           }
         },
         {
-          "title": "k8s-redis (Mem)",
+          "title": "k8s-redis (3-node avg Mem)",
+          "description": "Redis 3노드 평균 (auth/streams/cache)",
           "type": "stat",
           "gridPos": { "h": 4, "w": 4, "x": 16, "y": 22 },
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "targets": [
             {
-              "expr": "(1 - avg(node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis.*\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis.*\"})) * 100",
+              "expr": "(1 - avg(node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-auth.*|.*redis-streams.*|.*redis-cache.*\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-auth.*|.*redis-streams.*|.*redis-cache.*\"})) * 100",
               "legendFormat": "Memory %"
             }
           ],
@@ -454,6 +456,168 @@ data:
           "targets": [
             {
               "expr": "(1 - avg(node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*ingress.*\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*ingress.*\"})) * 100",
+              "legendFormat": "Memory %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 85 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Redis 3-Node Cluster (auth/streams/cache)",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+          "collapsed": false
+        },
+        {
+          "title": "redis-auth CPU",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 27 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-auth.*\"}) * 100)",
+              "legendFormat": "CPU %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 60 },
+                  { "color": "red", "value": 80 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "redis-streams CPU",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 27 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-streams.*\"}) * 100)",
+              "legendFormat": "CPU %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 60 },
+                  { "color": "red", "value": 80 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "redis-cache CPU",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 8, "y": 27 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-cache.*\"}) * 100)",
+              "legendFormat": "CPU %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 60 },
+                  { "color": "red", "value": 80 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "redis-auth Mem",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 12, "y": 27 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "(1 - avg(node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-auth.*\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-auth.*\"})) * 100",
+              "legendFormat": "Memory %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 85 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "redis-streams Mem",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 16, "y": 27 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "(1 - avg(node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-streams.*\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-streams.*\"})) * 100",
+              "legendFormat": "Memory %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 85 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "redis-cache Mem",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 20, "y": 27 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "(1 - avg(node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-cache.*\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-cache.*\"})) * 100",
               "legendFormat": "Memory %"
             }
           ],

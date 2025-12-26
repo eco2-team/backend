@@ -5,6 +5,7 @@ resources:
 - auth-redis-failover.yaml       # Blacklist + OAuth State (noeviction, PVC)
 - streams-redis-failover.yaml    # SSE 이벤트 (noeviction, emptyDir)
 - cache-redis-failover.yaml      # Celery Result + Cache (allkeys-lru, emptyDir)
+- servicemonitor.yaml            # Prometheus 메트릭 수집
 
 commonLabels:
   managed-by: kustomize

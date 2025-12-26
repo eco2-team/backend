@@ -1,0 +1,44 @@
+# ============================================================================
+# Redis Cluster ServiceMonitor - Prometheus 메트릭 수집
+# ============================================================================
+# Spotahome Redis Operator가 생성한 Redis Pod의 Exporter 메트릭 수집
+#
+# [대상 Redis 인스턴스]
+#   - auth-redis:    JWT Blacklist, OAuth State
+#   - streams-redis: SSE 이벤트
+#   - cache-redis:   Celery Result, 도메인 캐시
+#
+# [Exporter 정보]
+#   - Image: oliver006/redis_exporter:v1.62.0
+#   - Port: 9121
+#   - Path: /metrics
+# ============================================================================
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: redis-cluster
+  namespace: redis
+  labels:
+    app: redis
+    tier: data
+    release: prometheus  # Prometheus Operator selector
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: redis
+  namespaceSelector:
+    matchNames:
+    - redis
+  endpoints:
+  # Redis Exporter (사이드카)
+  - port: metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics
+    relabelings:
+    # Redis 인스턴스 이름 라벨 추가
+    - sourceLabels: [__meta_kubernetes_pod_label_redisfailovers_databases_spotahome_com]
+      targetLabel: redis_cluster
+    # Pod 이름 라벨 추가
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
