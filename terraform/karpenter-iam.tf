@@ -3,47 +3,19 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 목적: Karpenter Controller에 EC2 Fleet API 권한 부여
 # 참조: docs/blogs/async/foundations/16-karpenter-node-autoscaling.md
+# 방식: EC2 Instance Profile (kubeadm 클러스터용, IRSA 미사용)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 1. Karpenter Controller IRSA Role
+# 1. Karpenter Controller Policy (기존 k8s_node role에 연결)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-resource "aws_iam_role" "karpenter_controller" {
-  count = var.enable_karpenter ? 1 : 0
-  name  = "${var.environment}-karpenter-controller"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Federated = local.oidc_provider_arn
-      }
-      Action = "sts:AssumeRoleWithWebIdentity"
-      Condition = {
-        StringEquals = {
-          "${local.oidc_provider_url}:sub" = "system:serviceaccount:kube-system:karpenter"
-          "${local.oidc_provider_url}:aud" = "sts.amazonaws.com"
-        }
-      }
-    }]
-  })
-
-  tags = {
-    Name        = "${var.environment}-karpenter-controller"
-    Description = "IRSA for Karpenter Controller (EC2 Fleet API)"
-  }
-}
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 2. Karpenter Controller Policy
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Karpenter Controller가 Master 노드의 Instance Profile을 사용하므로
+# 기존 k8s_node role에 Karpenter 권한 추가
 
 resource "aws_iam_role_policy" "karpenter_controller" {
   count = var.enable_karpenter ? 1 : 0
   name  = "KarpenterControllerPolicy"
-  role  = aws_iam_role.karpenter_controller[0].id
+  role  = aws_iam_role.k8s_node.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -93,7 +65,7 @@ resource "aws_iam_role_policy" "karpenter_controller" {
         Action = "iam:PassRole"
         Resource = [
           aws_iam_role.k8s_node.arn,
-          aws_iam_role.karpenter_node[0].arn
+          var.enable_karpenter ? aws_iam_role.karpenter_node[0].arn : aws_iam_role.k8s_node.arn
         ]
         Condition = {
           StringEquals = {
@@ -113,18 +85,9 @@ resource "aws_iam_role_policy" "karpenter_controller" {
       },
       # Pricing API for Cost Optimization
       {
-        Sid    = "PricingAPI"
-        Effect = "Allow"
-        Action = "pricing:GetProducts"
-        Resource = "*"
-      },
-      # EKS Cluster Information (optional, for EKS compatibility)
-      {
-        Sid    = "EKSDescribe"
-        Effect = "Allow"
-        Action = [
-          "eks:DescribeCluster"
-        ]
+        Sid      = "PricingAPI"
+        Effect   = "Allow"
+        Action   = "pricing:GetProducts"
         Resource = "*"
       }
     ]
@@ -132,10 +95,9 @@ resource "aws_iam_role_policy" "karpenter_controller" {
 }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 3. Karpenter Node IAM Role
+# 2. Karpenter Node IAM Role
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Karpenter가 생성하는 노드에 부여할 IAM Role
-# 기존 k8s_node role을 확장하거나 별도 생성
 
 resource "aws_iam_role" "karpenter_node" {
   count = var.enable_karpenter ? 1 : 0
@@ -190,7 +152,7 @@ resource "aws_iam_role_policy_attachment" "karpenter_node_ssm" {
 }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 4. Karpenter Node Instance Profile
+# 3. Karpenter Node Instance Profile
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 resource "aws_iam_instance_profile" "karpenter_node" {
@@ -205,22 +167,8 @@ resource "aws_iam_instance_profile" "karpenter_node" {
 }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 5. SSM Parameters for Karpenter
+# 4. SSM Parameters for Karpenter
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-resource "aws_ssm_parameter" "karpenter_controller_role_arn" {
-  count       = var.enable_karpenter ? 1 : 0
-  name        = "/sesacthon/${var.environment}/karpenter/controller-role-arn"
-  type        = "String"
-  value       = aws_iam_role.karpenter_controller[0].arn
-  description = "Karpenter Controller IRSA Role ARN"
-
-  tags = {
-    ManagedBy   = "terraform"
-    Scope       = "karpenter"
-    Environment = var.environment
-  }
-}
 
 resource "aws_ssm_parameter" "karpenter_node_instance_profile" {
   count       = var.enable_karpenter ? 1 : 0
@@ -239,11 +187,6 @@ resource "aws_ssm_parameter" "karpenter_node_instance_profile" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Outputs
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-output "karpenter_controller_role_arn" {
-  description = "ARN of the Karpenter Controller IAM role"
-  value       = var.enable_karpenter ? aws_iam_role.karpenter_controller[0].arn : ""
-}
 
 output "karpenter_node_role_arn" {
   description = "ARN of the Karpenter Node IAM role"
