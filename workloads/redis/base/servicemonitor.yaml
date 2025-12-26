@@ -31,7 +31,8 @@ spec:
     - redis
   endpoints:
   # Redis Exporter (사이드카)
-  - port: metrics
+  # Note: Spotahome Operator가 생성하는 Service 포트 이름은 "http-metrics"
+  - port: http-metrics
     interval: 30s
     scrapeTimeout: 10s
     path: /metrics
