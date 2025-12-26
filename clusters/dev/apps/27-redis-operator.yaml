@@ -26,16 +26,14 @@ spec:
     chart: redis-operator
     targetRevision: 3.3.0
     helm:
+      skipCrds: true
       values: |
-        # Operator 설정
         replicas: 1
-
         image:
           repository: quay.io/spotahome/redis-operator
-          tag: v1.3.0
+          tag: v1.2.4
           pullPolicy: IfNotPresent
 
-        # 리소스 제한
         resources:
           requests:
             cpu: 100m
@@ -44,7 +42,6 @@ spec:
             cpu: 200m
             memory: 256Mi
 
-        # Control Plane 노드에 배치
         nodeSelector:
           role: control-plane
 
@@ -57,11 +54,9 @@ spec:
             operator: Exists
             effect: NoSchedule
 
-        # ServiceAccount
         serviceAccount:
           create: true
 
-        # Prometheus Metrics
         monitoring:
           enabled: false
 

@@ -4,7 +4,8 @@
 # GitHub: https://github.com/spotahome/redis-operator
 # Helm Repo: https://spotahome.github.io/redis-operator
 # CRD: RedisFailover (databases.spotahome.com/v1)
-# Sync Wave 27: PostgreSQL(24) 이후, Redis Cluster CR(28) 이전
+# Sync Wave 27: PostgreSQL(24) -> Redis Cluster CR(28)
+# NOTE: CRD is installed separately via workloads/crds due to Helm template bug
 # ============================================================================
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -26,16 +27,13 @@ spec:
     chart: redis-operator
     targetRevision: 3.3.0
     helm:
+      skipCrds: true
       values: |
-        # Operator 설정
         replicas: 1
-
         image:
           repository: quay.io/spotahome/redis-operator
-          tag: v1.3.0
+          tag: v1.2.4
           pullPolicy: IfNotPresent
-
-        # 리소스 제한 (Prod는 더 여유있게)
         resources:
           requests:
             cpu: 100m
@@ -43,11 +41,8 @@ spec:
           limits:
             cpu: 300m
             memory: 512Mi
-
-        # Control Plane 노드에 배치
         nodeSelector:
           role: control-plane
-
         tolerations:
           - key: role
             operator: Equal
@@ -56,16 +51,11 @@ spec:
           - key: node-role.kubernetes.io/control-plane
             operator: Exists
             effect: NoSchedule
-
-        # ServiceAccount
         serviceAccount:
           create: true
-
-        # Prometheus Metrics
         monitoring:
           enabled: true
           serviceMonitor: true
-
   destination:
     server: https://kubernetes.default.svc
     namespace: redis-operator
@@ -75,7 +65,7 @@ spec:
       selfHeal: true
     syncOptions:
     - CreateNamespace=true
-    - ServerSideApply=true    # CRD 충돌 방지
+    - ServerSideApply=true
     retry:
       limit: 5
       backoff:
