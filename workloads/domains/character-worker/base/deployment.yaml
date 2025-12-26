@@ -1,8 +1,6 @@
-# Character Reward Worker Celery Deployment
-# character.reward 큐 처리 (fire & forget, 백그라운드 DB 저장)
-# gevent pool: DB I/O 바운드 작업에 최적화
+# Character Worker Celery Deployment
+# reward.character, my.sync 큐 처리
 # worker-storage 노드에 배포
-# Rebuild: 2024-12-24 - base image gevent + celery 5.4.0
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,27 +24,21 @@ spec:
         version: v1
         tier: worker
         domain: character
-      annotations:
-        # Istio proxy가 준비될 때까지 main container 시작 대기
-        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
     spec:
       containers:
       - name: character-worker
-        image: docker.io/mng990/eco2:character-worker-dev-latest
+        image: docker.io/mng990/eco2:character-api-dev-latest
         imagePullPolicy: Always
         command: [celery]
         args:
         - -A
-        - domains.character.celery_app
+        - domains.character.consumers
         - worker
         - --loglevel=info
-        - -E  # Events 활성화
-        - -P
-        - gevent  # I/O 바운드 DB 작업에 최적화
         - -Q
-        - character.reward
+        - reward.character,reward.persist,my.sync
         - -c
-        - '20'  # 동시 greenlet 수 (DB 배치 처리)
+        - '2'
         env:
         # Celery Broker (RabbitMQ)
         - name: CELERY_BROKER_URL
@@ -54,17 +46,6 @@ spec:
             secretKeyRef:
               name: character-secret
               key: CELERY_BROKER_URL
-        - name: CELERY_RESULT_BACKEND
-          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
-        # Database Pool (Worker 전용 - concurrency에 맞춤)
-        - name: DB_POOL_SIZE
-          value: '15'  # 상시 유지 커넥션
-        - name: DB_MAX_OVERFLOW
-          value: '20'  # 초과 허용 (합계 35 > concurrency 20)
-        - name: DB_POOL_TIMEOUT
-          value: '30'
-        - name: DB_POOL_RECYCLE
-          value: '1800'
         # OpenTelemetry
         - name: OTEL_SERVICE_NAME
           value: character-worker
@@ -76,9 +57,6 @@ spec:
           value: none
         - name: OTEL_LOGS_EXPORTER
           value: none
-        # Trace Context Propagation (API → Worker 연결)
-        - name: OTEL_PROPAGATORS
-          value: b3,tracecontext,baggage
         # Database
         - name: POSTGRES_HOST
           value: postgresql.postgres.svc.cluster.local
@@ -96,33 +74,37 @@ spec:
             name: character-secret
         resources:
           requests:
-            cpu: 100m
-            memory: 256Mi  # gevent pool은 메모리 효율적
-          limits:
-            cpu: 500m
+            cpu: 200m
             memory: 512Mi
-        # Startup probe: 초기 시작 시 충분한 시간 부여
-        startupProbe:
-          exec:
-            command: [celery, -A, domains.character.celery_app, inspect, ping, -t, '15']
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 20
-          failureThreshold: 12  # 30s + 12*10s = 최대 150초 대기
+          limits:
+            cpu: 1000m
+            memory: 2Gi
         livenessProbe:
           exec:
-            command: [celery, -A, domains.character.celery_app, inspect, ping, -t, '15']
-          initialDelaySeconds: 10  # startupProbe 통과 후 시작
+            command:
+            - celery
+            - -A
+            - domains.character.consumers.reward
+            - inspect
+            - ping
+            - -t
+            - '10'
+          initialDelaySeconds: 60
           periodSeconds: 30
-          timeoutSeconds: 20
-          failureThreshold: 3
+          timeoutSeconds: 15
         readinessProbe:
           exec:
-            command: [celery, -A, domains.character.celery_app, inspect, ping, -t, '15']
-          initialDelaySeconds: 5
-          periodSeconds: 20
-          timeoutSeconds: 20
-          failureThreshold: 3
+            command:
+            - celery
+            - -A
+            - domains.character.consumers.reward
+            - inspect
+            - ping
+            - -t
+            - '10'
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 15
       imagePullSecrets:
       - name: dockerhub-secret
       # worker-storage 노드에 배치

@@ -46,8 +46,6 @@ spec:
             secretKeyRef:
               name: scan-secret
               key: CELERY_BROKER_URL
-        - name: CELERY_RESULT_BACKEND
-          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/1  # Beat 스케줄러 DB
         # OpenTelemetry
         - name: OTEL_SERVICE_NAME
           value: celery-beat
@@ -59,9 +57,6 @@ spec:
           value: none
         - name: OTEL_LOGS_EXPORTER
           value: none
-        # Trace Context Propagation
-        - name: OTEL_PROPAGATORS
-          value: b3,tracecontext,baggage
         # Database (for DLQ tasks)
         - name: POSTGRES_HOST
           value: postgresql.postgres.svc.cluster.local

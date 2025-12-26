@@ -79,9 +79,7 @@ locals {
     "k8s-worker-ai"       = "--node-labels=role=worker,domain=worker-ai,worker-type=ai,workload=worker-ai,tier=worker,phase=4"
     "k8s-rabbitmq"        = "--node-labels=role=infrastructure,domain=integration,infra-type=rabbitmq,workload=message-queue,tier=platform,phase=4 --register-with-taints=domain=integration:NoSchedule"
     "k8s-postgresql"      = "--node-labels=role=infrastructure,domain=data,infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
-    "k8s-redis-auth"      = "--node-labels=role=infrastructure,domain=data,infra-type=redis-auth,redis-cluster=auth,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
-    "k8s-redis-streams"   = "--node-labels=role=infrastructure,domain=data,infra-type=redis-streams,redis-cluster=streams,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
-    "k8s-redis-cache"     = "--node-labels=role=infrastructure,domain=data,infra-type=redis-cache,redis-cluster=cache,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
+    "k8s-redis"           = "--node-labels=role=infrastructure,domain=data,infra-type=redis,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
     "k8s-monitoring"      = "--node-labels=role=infrastructure,domain=observability,infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule"
     "k8s-logging"         = "--node-labels=role=infrastructure,domain=observability,infra-type=logging,workload=logging,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule"
     "k8s-ingress-gateway" = "--node-labels=role=ingress-gateway,domain=gateway,infra-type=istio,workload=gateway,tier=network,phase=5 --register-with-taints=role=ingress-gateway:NoSchedule"
@@ -477,91 +475,30 @@ module "postgresql" {
   }
 }
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# EC2 Instances - Redis (3-Node Cluster: Auth, Streams, Cache)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-# Redis Auth - Blacklist + OAuth State (HA 필수)
-module "redis_auth" {
+# EC2 Instances - Redis (Cache)
+module "redis" {
   source = "./modules/ec2"
 
-  instance_name        = "k8s-redis-auth"
-  instance_type        = "t3.medium" # 4GB (HA: 3+3 Redis+Sentinel)
+  instance_name        = "k8s-redis"
+  instance_type        = "t3.medium" # 4GB (Redis only)
   ami_id               = data.aws_ami.ubuntu.id
   subnet_id            = module.vpc.public_subnet_ids[1]
   security_group_ids   = [module.security_groups.cluster_sg_id]
   key_name             = aws_key_pair.k8s.key_name
   iam_instance_profile = aws_iam_instance_profile.k8s.name
 
-  root_volume_size = 20 # PVC for AOF persistence
+  root_volume_size = 30 # Redis data (mostly in-memory)
   root_volume_type = "gp3"
 
   user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname           = "k8s-redis-auth"
-    kubelet_extra_args = local.kubelet_profiles["k8s-redis-auth"]
+    hostname           = "k8s-redis"
+    kubelet_extra_args = local.kubelet_profiles["k8s-redis"]
   })
 
   tags = {
-    Role         = "worker"
-    Workload     = "cache"
-    RedisCluster = "auth"
-    Phase        = "1"
-  }
-}
-
-# Redis Streams - SSE Events (휘발성, 경량)
-module "redis_streams" {
-  source = "./modules/ec2"
-
-  instance_name        = "k8s-redis-streams"
-  instance_type        = "t3.small" # 2GB (단일 Pod, emptyDir)
-  ami_id               = data.aws_ami.ubuntu.id
-  subnet_id            = module.vpc.public_subnet_ids[1]
-  security_group_ids   = [module.security_groups.cluster_sg_id]
-  key_name             = aws_key_pair.k8s.key_name
-  iam_instance_profile = aws_iam_instance_profile.k8s.name
-
-  root_volume_size = 10 # 최소 (emptyDir only)
-  root_volume_type = "gp3"
-
-  user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname           = "k8s-redis-streams"
-    kubelet_extra_args = local.kubelet_profiles["k8s-redis-streams"]
-  })
-
-  tags = {
-    Role         = "worker"
-    Workload     = "cache"
-    RedisCluster = "streams"
-    Phase        = "1"
-  }
-}
-
-# Redis Cache - Celery Result + Domain Cache (휘발성)
-module "redis_cache" {
-  source = "./modules/ec2"
-
-  instance_name        = "k8s-redis-cache"
-  instance_type        = "t3.small" # 2GB (단일 Pod, emptyDir)
-  ami_id               = data.aws_ami.ubuntu.id
-  subnet_id            = module.vpc.public_subnet_ids[1]
-  security_group_ids   = [module.security_groups.cluster_sg_id]
-  key_name             = aws_key_pair.k8s.key_name
-  iam_instance_profile = aws_iam_instance_profile.k8s.name
-
-  root_volume_size = 10 # 최소 (emptyDir only)
-  root_volume_type = "gp3"
-
-  user_data = templatefile("${path.module}/user-data/common.sh", {
-    hostname           = "k8s-redis-cache"
-    kubelet_extra_args = local.kubelet_profiles["k8s-redis-cache"]
-  })
-
-  tags = {
-    Role         = "worker"
-    Workload     = "cache"
-    RedisCluster = "cache"
-    Phase        = "1"
+    Role     = "worker"
+    Workload = "cache"
+    Phase    = "1"
   }
 }
 

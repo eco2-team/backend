@@ -30,10 +30,6 @@ spec:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: chat
-        # my-api, my-worker (유저 캐릭터 동기화)
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: my
         # RabbitMQ 내부 클러스터 통신
     - namespaceSelector:
         matchLabels:
@@ -57,9 +53,6 @@ spec:
       port: 15672
     # Prometheus 메트릭 (15692)
   - from:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: prometheus
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: monitoring

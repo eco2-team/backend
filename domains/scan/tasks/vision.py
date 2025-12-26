@@ -2,10 +2,6 @@
 Vision Classification Celery Task
 
 GPT Vision을 사용한 이미지 분류 (Pipeline Step 1)
-
-Note:
-    gevent pool: 동기 함수 호출 시 자동으로 I/O가 greenlet 전환됨.
-    asyncio 사용 시 event loop 충돌 발생하므로 동기 클라이언트 사용.
 """
 
 from __future__ import annotations
@@ -16,7 +12,6 @@ from time import perf_counter
 from typing import Any
 
 from domains._shared.celery.base_task import BaseTask
-from domains._shared.events import get_sync_redis_client, publish_stage_event
 from domains.scan.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -52,12 +47,7 @@ def vision_task(
 
     Returns:
         Dictionary containing task metadata and classification result
-
-    Note:
-        gevent pool: 동기 호출이 자동으로 greenlet 전환됨.
-        asyncio 대신 동기 클라이언트 사용 (event loop 충돌 방지).
     """
-    # gevent pool: 동기 함수 사용 (asyncio event loop 충돌 방지)
     from domains._shared.waste_pipeline.vision import analyze_images
 
     log_ctx = {
@@ -68,30 +58,17 @@ def vision_task(
     }
     logger.info("Vision task started", extra=log_ctx)
 
-    # Redis Streams: 시작 이벤트 발행
-    redis_client = get_sync_redis_client()
-    publish_stage_event(redis_client, task_id, "vision", "started", progress=0)
-
     prompt_text = user_input or "이 폐기물을 어떻게 분리배출해야 하나요?"
     started = perf_counter()
 
     try:
-        # gevent가 socket I/O를 자동으로 greenlet 전환
-        result_payload = analyze_images(prompt_text, image_url, save_result=False)
+        result_payload = analyze_images(prompt_text, image_url)
         classification_result = _to_dict(result_payload)
     except Exception as exc:
         elapsed_ms = (perf_counter() - started) * 1000
         logger.error(
             "Vision analysis failed",
             extra={**log_ctx, "elapsed_ms": elapsed_ms, "error": str(exc)},
-        )
-        # Redis Streams: 실패 이벤트 발행
-        publish_stage_event(
-            redis_client,
-            task_id,
-            "vision",
-            "failed",
-            result={"error": str(exc)},
         )
         raise self.retry(exc=exc)
 
@@ -104,9 +81,6 @@ def vision_task(
             "major_category": classification_result.get("classification", {}).get("major_category"),
         },
     )
-
-    # Redis Streams: 완료 이벤트 발행
-    publish_stage_event(redis_client, task_id, "vision", "completed", progress=25)
 
     return {
         "task_id": task_id,

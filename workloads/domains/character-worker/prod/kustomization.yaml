@@ -6,7 +6,7 @@ resources:
 
 images:
 - name: docker.io/mng990/eco2
-  newTag: character-worker-prod-latest
+  newTag: character-api-prod-latest
 
 # Prod 환경: replicas 증가
 patches:
