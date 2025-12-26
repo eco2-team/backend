@@ -28,6 +28,8 @@ spec:
     ports:
     - protocol: TCP
       port: 8000
+    - protocol: TCP
+      port: 15021  # istio-proxy health
     # scan namespace (internal routing)
   - from:
     - namespaceSelector:
@@ -44,6 +46,15 @@ spec:
     ports:
     - protocol: TCP
       port: 8000
+    # Kubelet probes (from node)
+  - from:
+    - ipBlock:
+        cidr: 10.0.0.0/8
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 15021
   egress:
     # Redis Streams
   - to:
@@ -63,11 +74,26 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
-    # OTEL Collector (Jaeger)
+    # Istio Control Plane (istiod) - mTLS 인증서 발급
   - to:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: istio-system
     ports:
     - protocol: TCP
-      port: 4317
+      port: 15010  # xDS (plaintext)
+    - protocol: TCP
+      port: 15012  # xDS (mTLS)
+    - protocol: TCP
+      port: 15014  # health
+    - protocol: TCP
+      port: 4317   # OTEL Collector
+    # Kubernetes API (for istio-proxy ServiceAccount token)
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443

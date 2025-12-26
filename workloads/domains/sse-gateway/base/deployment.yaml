@@ -42,6 +42,8 @@ spec:
         operator: Equal
         value: sse
         effect: NoSchedule
+      imagePullSecrets:
+      - name: dockerhub-secret
       containers:
       - name: sse-gateway
         image: mng990/eco2:sse-gateway-dev-latest
@@ -111,5 +113,3 @@ spec:
           runAsUser: 1000
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
-      imagePullSecrets:
-      - name: dockerhub-secret
