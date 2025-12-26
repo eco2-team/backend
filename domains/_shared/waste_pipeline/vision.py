@@ -99,8 +99,10 @@ def analyze_images(user_input_text: str, image_url: str, save_result: bool = Fal
     # 사용자 메시지 구성
     content_items.append({"type": "input_text", "text": user_input_text})
 
-    # 이미지 추가 (단일 URL)
-    content_items.append({"type": "input_image", "image_url": image_url})
+    # 이미지 추가 (단일 URL) - detail: low로 토큰 89% 절감
+    # low: 85 토큰 고정 (512x512 저해상도), high: 이미지 크기에 따라 765-2380 토큰
+    # 폐기물 대분류/중분류 판단에는 low로 충분
+    content_items.append({"type": "input_image", "image_url": image_url, "detail": "low"})
     logger.debug("Vision system items: %s", system_items)
     logger.debug("Vision content items: %s", content_items)
 
@@ -153,7 +155,8 @@ async def analyze_images_async(user_input_text: str, image_url: str) -> dict:
     system_items = [{"type": "input_text", "text": system_prompt}]
     content_items = [
         {"type": "input_text", "text": user_input_text},
-        {"type": "input_image", "image_url": image_url},
+        # detail: low로 토큰 89% 절감 (85 토큰 고정)
+        {"type": "input_image", "image_url": image_url, "detail": "low"},
     ]
 
     logger.info("Vision async API call starting")
