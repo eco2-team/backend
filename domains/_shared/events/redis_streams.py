@@ -127,7 +127,7 @@ def publish_stage_event(
 async def subscribe_events(
     redis_client: "aioredis.Redis",  # type: ignore[type-arg]
     job_id: str,
-    timeout_ms: int = 5000,
+    timeout_ms: int = 15000,  # 15초 (5초 → 15초, keepalive 빈도 3배 감소)
     max_wait_seconds: int = 300,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """SSE 엔드포인트가 호출: Redis Streams 이벤트 구독.

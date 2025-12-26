@@ -7,6 +7,11 @@ v2: Redis Streams 기반 이벤트 소싱
 - Celery Events (RabbitMQ) → Redis Streams
 - SSE:RabbitMQ 연결 폭발 문제 해결
 - 참고: docs/blogs/async/24-redis-streams-sse-migration.md
+
+v3: SSEBroadcastManager (Fan-out 아키텍처)
+- 연결당 XREAD → 단일 Consumer + Memory Fan-out
+- 50 CCU CPU 85% → 대폭 감소 예상
+- 참고: docs/blogs/async/31-sse-fanout-optimization.md
 """
 
 from __future__ import annotations
@@ -22,10 +27,9 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from domains._shared.events import (
-    get_async_redis_client,
+    SSEBroadcastManager,
     get_sync_redis_client,
     publish_stage_event,
-    subscribe_events,
 )
 from domains.scan.api.dependencies import CurrentUser, ScanServiceDep
 from domains.scan.metrics import (
@@ -119,13 +123,18 @@ async def _completion_generator_v2(
     user: CurrentUser,
     service: ScanServiceDep,
 ) -> AsyncGenerator[str, None]:
-    """SSE 스트림 생성기 (v2: Redis Streams 기반).
+    """SSE 스트림 생성기 (v3: SSEBroadcastManager Fan-out).
 
-    핵심 원칙: "구독 먼저, 발행 나중"
-    1. Redis Streams 구독 시작
-    2. queued 이벤트 발행 (구독 후)
+    핵심 변경 (v2 → v3):
+    - 연결당 XREAD 루프 → 단일 Consumer + Memory Fan-out
+    - 50 CCU = 50개 XREAD → 1개 XREAD + 50개 Queue.get()
+    - 참고: docs/blogs/async/31-sse-fanout-optimization.md
+
+    흐름:
+    1. BroadcastManager 인스턴스 획득 (싱글톤)
+    2. queued 이벤트 발행
     3. Celery Chain 발행
-    4. Streams 이벤트 → SSE 전송
+    4. manager.subscribe() → Queue에서 이벤트 수신
     5. done 이벤트 수신 시 종료
     """
     # 메트릭: 활성 연결 수 증가
@@ -153,13 +162,13 @@ async def _completion_generator_v2(
             "task_id": task_id,
             "user_id": user_id,
             "image_url": image_url,
-            "version": "v2_redis_streams",
+            "version": "v3_broadcast_manager",
         },
     )
 
     try:
-        # 1. Redis 클라이언트 획득
-        redis_client = await get_async_redis_client()
+        # 1. BroadcastManager 인스턴스 획득 (싱글톤, background consumer 자동 시작)
+        manager = await SSEBroadcastManager.get_instance()
         sync_redis = get_sync_redis_client()
 
         # 2. queued 이벤트 발행 (구독 전에 발행해도 리플레이로 수신 가능)
@@ -211,8 +220,8 @@ async def _completion_generator_v2(
             final_status = "failed"
             return
 
-        # 5. Redis Streams 구독 루프
-        async for event in subscribe_events(redis_client, task_id):
+        # 5. BroadcastManager 구독 (Queue에서 이벤트 수신)
+        async for event in manager.subscribe(task_id):
             # keepalive 이벤트
             if event.get("type") == "keepalive":
                 yield ": keepalive\n\n"
@@ -221,7 +230,7 @@ async def _completion_generator_v2(
             # 에러 이벤트
             if event.get("type") == "error":
                 logger.error(
-                    "subscribe_events_error",
+                    "broadcast_subscribe_error",
                     extra={"task_id": task_id, "error": event.get("error")},
                 )
                 yield _format_sse(event, event_type="error")
@@ -295,7 +304,7 @@ async def _completion_generator_v2(
                 "task_id": task_id,
                 "status": final_status,
                 "duration_seconds": round(chain_duration, 3),
-                "version": "v2_redis_streams",
+                "version": "v3_broadcast_manager",
             },
         )
 
