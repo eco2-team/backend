@@ -204,6 +204,13 @@ class CelerySettings(BaseSettings):
             "broker_transport_options": {
                 "confirm_publish": True,
             },
+            # Redis 결과 백엔드 연결 풀 튜닝 (연결 누수 방지)
+            "result_backend_transport_options": {
+                "socket_timeout": 30,  # 소켓 타임아웃 30초
+                "socket_connect_timeout": 5,  # 연결 타임아웃 5초
+                "retry_on_timeout": True,  # 타임아웃 시 재시도
+                "health_check_interval": 30,  # 30초마다 연결 상태 확인
+            },
             "task_serializer": self.task_serializer,
             "result_serializer": self.result_serializer,
             "accept_content": self.accept_content,

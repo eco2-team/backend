@@ -74,7 +74,7 @@ spec:
     - maxmemory 512mb
     - maxmemory-policy allkeys-lru
     - tcp-keepalive 300
-    - timeout 0
+    - timeout 300  # idle 연결 5분 후 자동 정리 (연결 누수 방지)
     - appendonly no
     - save ""
     affinity:
