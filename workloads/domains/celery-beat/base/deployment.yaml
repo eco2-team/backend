@@ -94,3 +94,8 @@ spec:
       # worker-ai 노드에 배치
       nodeSelector:
         domain: worker-ai
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-ai
+        effect: NoSchedule

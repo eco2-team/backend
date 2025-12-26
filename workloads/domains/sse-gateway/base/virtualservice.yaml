@@ -30,7 +30,8 @@ spec:
         host: sse-gateway.sse-consumer.svc.cluster.local
         port:
           number: 8000
-    timeout: 0s    # SSE는 long-lived connection
+    # timeout: SSE는 long-lived connection, 비활성화하려면 매우 긴 값 설정
+    timeout: 86400s    # 24시간 (0s는 invalid)
     retries:
       attempts: 0    # SSE는 재시도 불가
   - name: default
