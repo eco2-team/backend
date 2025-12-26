@@ -19,6 +19,7 @@ SSE:RabbitMQ 연결 폭발 문제를 해결합니다.
 from domains._shared.events.redis_client import (
     get_async_redis_client,
     get_sync_redis_client,
+    reset_async_redis_client,
 )
 from domains._shared.events.redis_streams import (
     STREAM_MAXLEN,
@@ -38,4 +39,5 @@ __all__ = [
     "subscribe_events",
     "get_sync_redis_client",
     "get_async_redis_client",
+    "reset_async_redis_client",
 ]
