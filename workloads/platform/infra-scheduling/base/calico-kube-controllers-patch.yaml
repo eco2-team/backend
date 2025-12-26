@@ -1,0 +1,22 @@
+# Calico Kube Controllers를 Master 노드에 배치
+# 적용: kubectl patch deployment calico-kube-controllers -n kube-system --patch-file calico-kube-controllers-patch.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calico-kube-controllers
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: role
+        operator: Equal
+        value: control-plane
+        effect: NoSchedule
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ''

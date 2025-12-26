@@ -1,0 +1,80 @@
+# 인프라 Pod를 Master 노드에 배치하는 Playbook
+# Usage: ansible-playbook -i inventory/hosts.ini playbooks/apply-infra-scheduling.yml -e kubectl_user=ubuntu
+- name: Apply Infrastructure Pod Scheduling to Master Node
+  hosts: masters
+  become: true
+  vars:
+    kubectl_user: ubuntu
+    patch_dir: '{{ playbook_dir }}/../../workloads/platform/infra-scheduling/base'
+
+  tasks:
+  - name: Copy patch files to master
+    copy:
+      src: '{{ patch_dir }}/{{ item }}'
+      dest: /tmp/{{ item }}
+    loop:
+    - coredns-patch.yaml
+    - calico-kube-controllers-patch.yaml
+    - ebs-csi-controller-patch.yaml
+    - metrics-server-patch.yaml
+    - argocd-applicationset-patch.yaml
+
+  - name: Patch coredns
+    become_user: '{{ kubectl_user }}'
+    shell: kubectl patch deployment coredns -n kube-system --type=strategic --patch-file=/tmp/coredns-patch.yaml
+    register: coredns_result
+    changed_when: "'patched' in coredns_result.stdout"
+    failed_when: false
+
+  - name: Patch calico-kube-controllers
+    become_user: '{{ kubectl_user }}'
+    shell: kubectl patch deployment calico-kube-controllers -n kube-system --type=strategic --patch-file=/tmp/calico-kube-controllers-patch.yaml
+    register: calico_result
+    changed_when: "'patched' in calico_result.stdout"
+    failed_when: false
+
+  - name: Patch ebs-csi-controller
+    become_user: '{{ kubectl_user }}'
+    shell: kubectl patch deployment ebs-csi-controller -n kube-system --type=strategic --patch-file=/tmp/ebs-csi-controller-patch.yaml
+    register: ebs_result
+    changed_when: "'patched' in ebs_result.stdout"
+    failed_when: false
+
+  - name: Patch metrics-server
+    become_user: '{{ kubectl_user }}'
+    shell: kubectl patch deployment dev-metrics-server -n kube-system --type=strategic --patch-file=/tmp/metrics-server-patch.yaml
+    register: metrics_result
+    changed_when: "'patched' in metrics_result.stdout"
+    failed_when: false
+
+  - name: Patch argocd-applicationset-controller
+    become_user: '{{ kubectl_user }}'
+    shell: kubectl patch deployment argocd-applicationset-controller -n argocd --type=strategic --patch-file=/tmp/argocd-applicationset-patch.yaml
+    register: argocd_result
+    changed_when: "'patched' in argocd_result.stdout"
+    failed_when: false
+
+  - name: Wait for pods to reschedule
+    pause:
+      seconds: 30
+
+  - name: Verify pods on master node
+    become_user: '{{ kubectl_user }}'
+    shell: |
+      kubectl get pods -A -o wide | grep k8s-master | grep -E "(coredns|calico-kube-controllers|ebs-csi-controller|metrics-server|applicationset)" | wc -l
+    register: master_pods
+
+  - name: Display result
+    debug:
+      msg: '{{ master_pods.stdout }} infrastructure pods now running on master node'
+
+  - name: Cleanup patch files
+    file:
+      path: /tmp/{{ item }}
+      state: absent
+    loop:
+    - coredns-patch.yaml
+    - calico-kube-controllers-patch.yaml
+    - ebs-csi-controller-patch.yaml
+    - metrics-server-patch.yaml
+    - argocd-applicationset-patch.yaml

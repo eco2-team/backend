@@ -165,3 +165,21 @@ metadata:
     app.kubernetes.io/part-of: ecoeco-backend
     tier: observability
     role: logging
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSE Consumer Namespace
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 목적: SSE Gateway 서비스 격리
+# - scan-api와 분리된 스케일링 정책 (연결 수 기반)
+# - Redis Streams 중앙 Consumer + Memory Fan-out
+# 참조: docs/blogs/async/31-sse-fanout-optimization.md
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sse-consumer
+  labels:
+    istio-injection: enabled
+    app.kubernetes.io/part-of: ecoeco-backend
+    tier: integration
+    role: sse-gateway
+    domain: sse

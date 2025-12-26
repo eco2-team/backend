@@ -303,6 +303,22 @@ output "ingress_gateway_public_ip" {
   value       = module.ingress_gateway.public_ip
 }
 
+# SSE Gateway (Phase 5)
+output "sse_gateway_instance_id" {
+  description = "SSE Gateway Instance ID"
+  value       = module.sse_gateway.instance_id
+}
+
+output "sse_gateway_public_ip" {
+  description = "SSE Gateway Public IP"
+  value       = module.sse_gateway.public_ip
+}
+
+output "sse_gateway_private_ip" {
+  description = "SSE Gateway Private IP"
+  value       = module.sse_gateway.private_ip
+}
+
 # output "rabbitmq_private_ip" {
 #   description = "RabbitMQ 노드 Private IP"
 #   value       = module.rabbitmq.private_ip
@@ -351,6 +367,8 @@ output "ansible_inventory" {
     logging_private_ip         = module.logging.private_ip
     ingress_gateway_public_ip  = module.ingress_gateway.public_ip
     ingress_gateway_private_ip = module.ingress_gateway.private_ip
+    sse_gateway_public_ip      = module.sse_gateway.public_ip
+    sse_gateway_private_ip     = module.sse_gateway.private_ip
   })
 }
 
@@ -378,6 +396,7 @@ output "ssh_commands" {
     rabbitmq       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.rabbitmq.public_ip}"
     monitoring     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.monitoring.public_ip}"
     logging        = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.logging.public_ip}"
+    sse_gateway    = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.sse_gateway.public_ip}"
   }
 }
 
@@ -413,11 +432,15 @@ output "cluster_info" {
       module.monitoring.public_ip,
       module.logging.public_ip
     ]
-    # 17-Node Architecture (Redis 3-node cluster)
-    total_nodes        = 17  # Master + 7 APIs + 2 Workers + 7 Infra
-    total_vcpu         = 38  # +4 (redis x2 small)
-    total_memory_gb    = 54  # +8 (redis medium + 2x small)
-    estimated_cost_usd = 335 # +30 (medium + 2x small)
+    gateway_ips = [
+      module.ingress_gateway.public_ip,
+      module.sse_gateway.public_ip
+    ]
+    # 18-Node Architecture (Redis 3-node cluster + SSE Gateway)
+    total_nodes        = 18  # Master + 7 APIs + 2 Workers + 7 Infra + 2 Gateway
+    total_vcpu         = 40  # +2 (sse-gateway t3.small)
+    total_memory_gb    = 56  # +2 (sse-gateway t3.small)
+    estimated_cost_usd = 350 # +15 (t3.small)
   }
 }
 
@@ -426,25 +449,27 @@ output "cluster_info" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "node_roles" {
-  description = "노드별 역할 (17-Node Architecture)"
+  description = "노드별 역할 (18-Node Architecture)"
   value = {
-    master         = "Control Plane (t3.xlarge, 16GB) - Phase 0"
-    api_auth       = "Authentication API (t3.small, 2GB) - Phase 1"
-    api_my         = "My Page API (t3.small, 2GB) - Phase 1"
-    api_scan       = "Waste Scan API (t3.medium, 4GB) - Phase 2"
-    api_character  = "Character & Mission API (t3.small, 2GB) - Phase 2"
-    api_location   = "Location & Map API (t3.small, 2GB) - Phase 2"
-    api_image      = "Image Delivery API (t3.small, 2GB) - Phase 3"
-    api_chat       = "Chat LLM API (t3.medium, 4GB) - Phase 3"
-    worker_storage = "Storage Worker - I/O Bound (t3.medium, 4GB) - Phase 4"
-    worker_ai      = "AI Worker - Network Bound (t3.medium, 4GB) - Phase 4"
-    postgresql     = "PostgreSQL - 7 Domain Schemas (t3.large, 8GB) - Phase 1"
-    redis_auth     = "Redis Auth - Blacklist + OAuth (t3.medium, 4GB) - Phase 1"
-    redis_streams  = "Redis Streams - SSE Events (t3.small, 2GB) - Phase 1"
-    redis_cache    = "Redis Cache - Celery + Domain (t3.small, 2GB) - Phase 1"
-    rabbitmq       = "RabbitMQ Message Queue (t3.medium, 4GB) - Phase 4"
-    monitoring     = "Prometheus + Grafana (t3.large, 8GB) - Phase 4"
-    logging        = "ELK Stack - Elasticsearch + Logstash + Kibana (t3.large, 8GB) - Phase 4"
+    master          = "Control Plane (t3.xlarge, 16GB) - Phase 0"
+    api_auth        = "Authentication API (t3.small, 2GB) - Phase 1"
+    api_my          = "My Page API (t3.small, 2GB) - Phase 1"
+    api_scan        = "Waste Scan API (t3.medium, 4GB) - Phase 2"
+    api_character   = "Character & Mission API (t3.small, 2GB) - Phase 2"
+    api_location    = "Location & Map API (t3.small, 2GB) - Phase 2"
+    api_image       = "Image Delivery API (t3.small, 2GB) - Phase 3"
+    api_chat        = "Chat LLM API (t3.medium, 4GB) - Phase 3"
+    worker_storage  = "Storage Worker - I/O Bound (t3.medium, 4GB) - Phase 4"
+    worker_ai       = "AI Worker - Network Bound (t3.medium, 4GB) - Phase 4"
+    postgresql      = "PostgreSQL - 7 Domain Schemas (t3.large, 8GB) - Phase 1"
+    redis_auth      = "Redis Auth - Blacklist + OAuth (t3.medium, 4GB) - Phase 1"
+    redis_streams   = "Redis Streams - SSE Events (t3.small, 2GB) - Phase 1"
+    redis_cache     = "Redis Cache - Celery + Domain (t3.small, 2GB) - Phase 1"
+    rabbitmq        = "RabbitMQ Message Queue (t3.medium, 4GB) - Phase 4"
+    monitoring      = "Prometheus + Grafana (t3.large, 8GB) - Phase 4"
+    logging         = "ELK Stack - Elasticsearch + Logstash + Kibana (t3.large, 8GB) - Phase 4"
+    ingress_gateway = "Istio Ingress Gateway (t3.medium, 4GB) - Phase 5"
+    sse_gateway     = "SSE Central Consumer + Fan-out (t3.small, 2GB) - Phase 5"
   }
 }
 

@@ -15,6 +15,7 @@ on:
       - "domains/location/**"
       - "domains/my/**"
       - "domains/scan/**"
+      - "domains/sse-gateway/**"
       - "domains/_shared/**"
       - "domains/_base/**"
       - "workloads/domains/auth/**"
@@ -24,6 +25,7 @@ on:
       - "workloads/domains/location/**"
       - "workloads/domains/my/**"
       - "workloads/domains/scan/**"
+      - "workloads/domains/sse-gateway/**"
       - "workloads/domains/character-worker/**"
       - "workloads/domains/scan-worker/**"
       - "workloads/domains/my-worker/**"
@@ -41,6 +43,7 @@ on:
       - "domains/location/**"
       - "domains/my/**"
       - "domains/scan/**"
+      - "domains/sse-gateway/**"
       - "domains/_shared/**"
       - "domains/_base/**"
       - "workloads/domains/auth/**"
@@ -50,6 +53,7 @@ on:
       - "workloads/domains/location/**"
       - "workloads/domains/my/**"
       - "workloads/domains/scan/**"
+      - "workloads/domains/sse-gateway/**"
       - "workloads/domains/character-worker/**"
       - "workloads/domains/scan-worker/**"
       - "workloads/domains/my-worker/**"
@@ -156,6 +160,7 @@ jobs:
             domains/location/**
             domains/my/**
             domains/scan/**
+            domains/sse-gateway/**
             domains/_base/**
             domains/_shared/waste_pipeline/**
             domains/_shared/celery/**
@@ -167,6 +172,7 @@ jobs:
             workloads/domains/location/**
             workloads/domains/my/**
             workloads/domains/scan/**
+            workloads/domains/sse-gateway/**
 
       - name: Prepare service matrix
         id: prepare
@@ -192,6 +198,7 @@ jobs:
               "location",
               "my",
               "scan",
+              "sse-gateway",
           ]
           
           alias_map = {

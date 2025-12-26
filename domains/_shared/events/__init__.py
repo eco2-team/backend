@@ -22,9 +22,11 @@ from domains._shared.events.redis_client import (
     reset_async_redis_client,
 )
 from domains._shared.events.redis_streams import (
+    DEFAULT_SHARD_COUNT,
     STREAM_MAXLEN,
     STREAM_PREFIX,
     STREAM_TTL,
+    get_shard_for_job,
     get_stream_key,
     publish_stage_event,
     subscribe_events,
@@ -34,6 +36,8 @@ __all__ = [
     "STREAM_PREFIX",
     "STREAM_MAXLEN",
     "STREAM_TTL",
+    "DEFAULT_SHARD_COUNT",
+    "get_shard_for_job",
     "get_stream_key",
     "publish_stage_event",
     "subscribe_events",

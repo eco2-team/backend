@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: sse-consumer
+resources:
+- ../base
+images:
+- name: mng990/eco2
+  newTag: sse-gateway-prod-latest
+patches:
+- patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 2
+  target:
+    kind: Deployment
+    name: sse-gateway
+- patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 2
+    - op: replace
+      path: /spec/maxReplicas
+      value: 10
+  target:
+    kind: HorizontalPodAutoscaler
+    name: sse-gateway-hpa

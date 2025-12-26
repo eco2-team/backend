@@ -3,9 +3,11 @@
 Celery Events 대신 Redis Streams를 사용하여
 SSE:RabbitMQ 연결 폭발 문제를 해결합니다.
 
-핵심 원칙: "구독 먼저, 발행 나중"
-- SSE 엔드포인트에서 Streams 구독을 먼저 시작한 후
-- Celery Chain을 발행하면 이벤트 누락 없음
+B안 샤딩 아키텍처:
+- 스트림을 N개로 샤딩: scan:events:0 ~ scan:events:N-1
+- shard = hash(job_id) % N
+- Worker는 sharded stream에 publish
+- SSE Gateway는 자기 shard만 XREAD
 
 참고:
 - [Redis Streams 문서](https://redis.io/docs/latest/develop/data-types/streams/)
@@ -16,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from typing import TYPE_CHECKING, Any, AsyncGenerator
 
@@ -30,20 +33,40 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────
 
 STREAM_PREFIX = "scan:events"
-STREAM_MAXLEN = 50  # 최근 50개 이벤트만 유지 (retention)
+STREAM_MAXLEN = 100  # shard당 최근 100개 이벤트만 유지
 STREAM_TTL = 3600  # 1시간 후 만료
 
+# 샤딩 설정 (환경 변수로 오버라이드 가능)
+DEFAULT_SHARD_COUNT = int(os.environ.get("SSE_SHARD_COUNT", "4"))
 
-def get_stream_key(job_id: str) -> str:
-    """Stream key 생성.
+
+def get_shard_for_job(job_id: str, shard_count: int | None = None) -> int:
+    """job_id에 대한 shard 계산.
+
+    Args:
+        job_id: Celery task ID (UUID)
+        shard_count: 전체 shard 수 (None이면 기본값 사용)
+
+    Returns:
+        shard ID (0-based)
+    """
+    if shard_count is None:
+        shard_count = DEFAULT_SHARD_COUNT
+    return hash(job_id) % shard_count
+
+
+def get_stream_key(job_id: str, shard_count: int | None = None) -> str:
+    """Sharded Stream key 생성 (B안).
 
     Args:
         job_id: Chain의 root task ID
+        shard_count: 전체 shard 수
 
     Returns:
-        Stream key (예: "scan:events:abc123")
+        Sharded Stream key (예: "scan:events:2")
     """
-    return f"{STREAM_PREFIX}:{job_id}"
+    shard = get_shard_for_job(job_id, shard_count)
+    return f"{STREAM_PREFIX}:{shard}"
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -59,10 +82,15 @@ def publish_stage_event(
     result: dict | None = None,
     progress: int | None = None,
 ) -> str:
-    """Worker가 호출: stage 이벤트를 Redis Streams에 발행.
+    """Worker가 호출: stage 이벤트를 Sharded Redis Streams에 발행 (B안).
 
     각 Celery Task의 시작/완료 시점에 호출하여
     SSE 클라이언트에게 진행 상황을 전달합니다.
+
+    B안 샤딩:
+    - shard = hash(job_id) % shard_count
+    - scan:events:{shard}에 발행
+    - 이벤트에 job_id 포함 (라우팅용)
 
     Args:
         redis_client: 동기 Redis 클라이언트 (Celery Worker용)
@@ -83,7 +111,9 @@ def publish_stage_event(
     """
     stream_key = get_stream_key(job_id)
 
+    # B안: job_id를 이벤트에 포함 (SSE Gateway에서 라우팅에 사용)
     event: dict[str, str] = {
+        "job_id": job_id,  # 라우팅 키
         "stage": stage,
         "status": status,
         "ts": str(time.time()),
@@ -106,10 +136,13 @@ def publish_stage_event(
     # Stream에 TTL 설정 (매번 갱신, 마지막 이벤트 기준)
     redis_client.expire(stream_key, STREAM_TTL)
 
+    shard = get_shard_for_job(job_id)
     logger.debug(
         "stage_event_published",
         extra={
             "job_id": job_id,
+            "shard": shard,
+            "stream_key": stream_key,
             "stage": stage,
             "status": status,
             "msg_id": msg_id,

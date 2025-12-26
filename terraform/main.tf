@@ -85,6 +85,7 @@ locals {
     "k8s-monitoring"      = "--node-labels=role=infrastructure,domain=observability,infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule"
     "k8s-logging"         = "--node-labels=role=infrastructure,domain=observability,infra-type=logging,workload=logging,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule"
     "k8s-ingress-gateway" = "--node-labels=role=ingress-gateway,domain=gateway,infra-type=istio,workload=gateway,tier=network,phase=5 --register-with-taints=role=ingress-gateway:NoSchedule"
+    "k8s-sse-gateway"     = "--node-labels=role=sse-gateway,domain=sse,service=sse-gateway,workload=sse,tier=integration,phase=5 --register-with-taints=domain=sse:NoSchedule"
   }
 }
 
@@ -650,6 +651,41 @@ module "ingress_gateway" {
   tags = {
     Role     = "worker"
     Workload = "gateway"
+    Phase    = "5"
+  }
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSE Gateway Node (Central Consumer + Fan-out)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# docs/blogs/async/31-sse-fanout-optimization.md 참조
+# - 단일 Redis Streams Consumer (XREAD 1개)
+# - Memory Fan-out to SSE Clients
+# - workers=1, Pod 스케일링
+
+module "sse_gateway" {
+  source = "./modules/ec2"
+
+  instance_name        = "k8s-sse-gateway"
+  instance_type        = "t3.small" # 2GB (Long-lived connections, Low CPU)
+  ami_id               = data.aws_ami.ubuntu.id
+  subnet_id            = module.vpc.public_subnet_ids[1]
+  security_group_ids   = [module.security_groups.cluster_sg_id]
+  key_name             = aws_key_pair.k8s.key_name
+  iam_instance_profile = aws_iam_instance_profile.k8s.name
+
+  root_volume_size = 20
+  root_volume_type = "gp3"
+
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname           = "k8s-sse-gateway"
+    kubelet_extra_args = local.kubelet_profiles["k8s-sse-gateway"]
+  })
+
+  tags = {
+    Role     = "worker"
+    Workload = "sse-gateway"
+    Domain   = "sse"
     Phase    = "5"
   }
 }

@@ -1,0 +1,20 @@
+# ArgoCD ApplicationSet Controller를 Master 노드에 배치
+# 적용: kubectl patch deployment argocd-applicationset-controller -n argocd --patch-file argocd-applicationset-patch.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-applicationset-controller
+  namespace: argocd
+spec:
+  template:
+    spec:
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: role
+        operator: Equal
+        value: control-plane
+        effect: NoSchedule
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ''

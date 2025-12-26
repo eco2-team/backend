@@ -1,0 +1,84 @@
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSE Gateway VirtualService (B안: Sharded Stream)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Consistent Hash 라우팅: job_id 기반
+# - URL 경로에서 job_id 추출 → hash(job_id) % shard_count
+# - 같은 job_id는 항상 같은 Pod로 라우팅
+# - Pod가 담당하는 shard와 일치하도록 보장
+#
+# 참조: docs/blogs/async/31-sse-fanout-optimization.md
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: sse-gateway
+  namespace: sse-consumer
+  labels:
+    app: sse-gateway
+spec:
+  hosts:
+  - sse-gateway.sse-consumer.svc.cluster.local
+  - sse-gateway
+  http:
+  - name: sse-stream
+    match:
+    - uri:
+        prefix: /api/v1/stream
+    route:
+    - destination:
+        host: sse-gateway.sse-consumer.svc.cluster.local
+        port:
+          number: 8000
+    timeout: 0s    # SSE는 long-lived connection
+    retries:
+      attempts: 0    # SSE는 재시도 불가
+  - name: default
+    route:
+    - destination:
+        host: sse-gateway.sse-consumer.svc.cluster.local
+        port:
+          number: 8000
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DestinationRule: Consistent Hash (B안)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# URL 경로 (/api/v1/stream/{job_id}) 기반 Consistent Hash
+# - hash(job_id)로 Pod 선택 → shard와 자동 매칭
+# - Pod가 늘어도 동일 job_id는 동일 Pod로 라우팅 (대부분)
+#
+# Note: useSourceIp=false로 하고 httpHeaderName 또는 path 사용
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: sse-gateway
+  namespace: sse-consumer
+  labels:
+    app: sse-gateway
+spec:
+  host: sse-gateway.sse-consumer.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      http:
+        h2UpgradePolicy: DO_NOT_UPGRADE
+        http1MaxPendingRequests: 1000
+        http2MaxRequests: 1000
+      tcp:
+        maxConnections: 1000
+        connectTimeout: 30s
+        tcpKeepalive:
+          time: 300s
+          interval: 75s
+          probes: 9
+    # Consistent Hash: X-Job-Id 헤더 또는 URI 경로 기반
+    # 클라이언트가 X-Job-Id 헤더를 보내면 그 값으로 해시
+    # 없으면 기본 라운드로빈 (첫 요청)
+    loadBalancer:
+      consistentHash:
+        # 방법 1: 커스텀 헤더 (권장 - 클라이언트가 X-Job-Id 헤더 전송)
+        httpHeaderName: X-Job-Id
+        # 방법 2: Cookie (첫 요청 후 쿠키 설정됨)
+        # httpCookie:
+        #   name: x-job-affinity
+        #   ttl: 300s

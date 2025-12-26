@@ -1,0 +1,29 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSE Gateway Service Dependencies
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 중앙 Redis Consumer + Memory Fan-out
+# workers=1, Pod 스케일링 전략
+
+# FastAPI Framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+sse-starlette==2.1.3
+
+# Redis
+redis==5.2.1
+
+# OpenTelemetry (Auto-instrumentation)
+opentelemetry-distro==0.49b2
+opentelemetry-instrumentation-fastapi==0.49b2
+opentelemetry-instrumentation-redis==0.49b2
+opentelemetry-exporter-otlp==1.28.2
+
+# Monitoring
+prometheus-client==0.21.1
+
+# Logging
+structlog==24.4.0
+python-json-logger==2.0.7
+
+# Utilities
+pydantic-settings==2.6.1

@@ -1,0 +1,115 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSE Gateway Deployment
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 특성:
+# - workers=1 (프로세스 1개, Pod 스케일링)
+# - 단일 Redis Stream Consumer
+# - Long-lived Connections (SSE)
+#
+# 스케일링: HPA로 연결 수 기반 Pod 스케일링
+# 참조: docs/blogs/async/31-sse-fanout-optimization.md
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sse-gateway
+  namespace: sse-consumer
+  labels:
+    app: sse-gateway
+    tier: integration
+    domain: sse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sse-gateway
+  template:
+    metadata:
+      labels:
+        app: sse-gateway
+        tier: integration
+        domain: sse
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8000'
+        prometheus.io/path: /metrics
+    spec:
+      # sse-gateway 노드에 배치
+      nodeSelector:
+        domain: sse
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: sse
+        effect: NoSchedule
+      containers:
+      - name: sse-gateway
+        image: mng990/eco2:sse-gateway-dev-latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        - name: REDIS_STREAMS_URL
+          value: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
+        - name: REDIS_CACHE_URL
+          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        - name: LOG_LEVEL
+          value: INFO
+        - name: ENVIRONMENT
+          value: development
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            # B안 샤딩 설정
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            # Pod Index를 shard ID로 사용 (StatefulSet 또는 Downward API)
+        - name: SSE_SHARD_COUNT
+          value: '4'
+            # Pod 이름에서 index 추출 (예: sse-gateway-0 → 0)
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+            # 초기값 (Kustomize patch로 오버라이드)
+        - name: SSE_SHARD_ID
+          value: '0'
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            # OTEL 설정 (샘플링 낮춤)
+        - name: OTEL_ENABLED
+          value: 'true'
+        - name: OTEL_SAMPLE_RATE
+          value: '0.1'
+        - name: OTEL_SERVICE_NAME
+          value: sse-gateway
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector.istio-system.svc.cluster.local:4317
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+      imagePullSecrets:
+      - name: dockerhub-secret
