@@ -16,6 +16,7 @@ from time import perf_counter
 from typing import Any
 
 from domains._shared.celery.base_task import BaseTask
+from domains._shared.events import get_sync_redis_client, publish_stage_event
 from domains.scan.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,10 @@ def answer_task(
     }
     logger.info("Answer task started", extra=log_ctx)
 
+    # Redis Streams: 시작 이벤트 발행
+    redis_client = get_sync_redis_client()
+    publish_stage_event(redis_client, task_id, "answer", "started", progress=50)
+
     started = perf_counter()
 
     # 배출 규정이 없으면 기본 답변 생성
@@ -91,6 +96,14 @@ def answer_task(
                 "Answer generation failed",
                 extra={**log_ctx, "elapsed_ms": elapsed_ms, "error": str(exc)},
             )
+            # Redis Streams: 실패 이벤트 발행
+            publish_stage_event(
+                redis_client,
+                task_id,
+                "answer",
+                "failed",
+                result={"error": str(exc)},
+            )
             raise self.retry(exc=exc)
 
         elapsed_ms = (perf_counter() - started) * 1000
@@ -99,6 +112,9 @@ def answer_task(
         "Answer task completed",
         extra={**log_ctx, "elapsed_ms": elapsed_ms},
     )
+
+    # Redis Streams: 완료 이벤트 발행
+    publish_stage_event(redis_client, task_id, "answer", "completed", progress=75)
 
     # 메타데이터 업데이트
     metadata = prev_result.get("metadata", {})

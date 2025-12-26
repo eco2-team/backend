@@ -18,6 +18,7 @@ import os
 from typing import Any
 
 from domains._shared.celery.base_task import BaseTask
+from domains._shared.events import get_sync_redis_client, publish_stage_event
 from domains.scan.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,10 @@ def scan_reward_task(
     }
     logger.info("Scan reward task started", extra=log_ctx)
 
+    # Redis Streams: 시작 이벤트 발행
+    redis_client = get_sync_redis_client()
+    publish_stage_event(redis_client, task_id, "reward", "started", progress=75)
+
     # 1. 조건 확인
     reward = None
     if _should_attempt_reward(classification_result, disposal_rules, final_answer):
@@ -125,7 +130,33 @@ def scan_reward_task(
         },
     )
 
-    # 커스텀 이벤트 발행 (task-succeeded 이벤트가 수신되지 않는 문제 우회)
+    # Redis Streams: 완료 이벤트 발행 (결과 포함)
+    publish_stage_event(
+        redis_client,
+        task_id,
+        "reward",
+        "completed",
+        progress=100,
+        result=result,
+    )
+
+    # Redis Streams: done 이벤트 발행 (파이프라인 완료)
+    publish_stage_event(
+        redis_client,
+        task_id,
+        "done",
+        "completed",
+        result={
+            "task_id": task_id,
+            "result_url": f"/api/v1/scan/result/{task_id}",
+            "classification_result": result.get("classification_result"),
+            "disposal_rules": result.get("disposal_rules"),
+            "final_answer": result.get("final_answer"),
+            "reward": result.get("reward"),
+        },
+    )
+
+    # [Legacy] 커스텀 이벤트 발행 (Celery Events 방식, 마이그레이션 후 제거 예정)
     try:
         self.send_event(
             "task-result",

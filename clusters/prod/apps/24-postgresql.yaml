@@ -7,7 +7,7 @@ metadata:
     env: prod
     tier: data
   annotations:
-    argocd.argoproj.io/sync-wave: '27'
+    argocd.argoproj.io/sync-wave: '24'
   finalizers:
   - resources-finalizer.argocd.argoproj.io
 spec:

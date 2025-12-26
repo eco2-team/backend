@@ -12,7 +12,9 @@
       k8s-worker-ai: --node-labels=role=worker,domain=worker-ai,worker-type=ai,workload=worker-ai,tier=worker,phase=4
       k8s-rabbitmq: --node-labels=role=infrastructure,domain=integration,infra-type=rabbitmq,workload=message-queue,tier=platform,phase=4 --register-with-taints=domain=integration:NoSchedule
       k8s-postgresql: --node-labels=role=infrastructure,domain=data,infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule
-      k8s-redis: --node-labels=role=infrastructure,domain=data,infra-type=redis,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule
+      k8s-redis-auth: --node-labels=role=infrastructure,domain=data,infra-type=redis-auth,redis-cluster=auth,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule
+      k8s-redis-streams: --node-labels=role=infrastructure,domain=data,infra-type=redis-streams,redis-cluster=streams,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule
+      k8s-redis-cache: --node-labels=role=infrastructure,domain=data,infra-type=redis-cache,redis-cluster=cache,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule
       k8s-monitoring: --node-labels=role=infrastructure,domain=observability,infra-type=monitoring,workload=monitoring,tier=observability,phase=4 --register-with-taints=domain=observability:NoSchedule
       k8s-ingress-gateway: --node-labels=role=ingress-gateway,domain=gateway,infra-type=istio,workload=gateway,tier=network,phase=5 --register-with-taints=role=ingress-gateway:NoSchedule
   block:

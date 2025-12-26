@@ -54,7 +54,10 @@ spec:
               name: scan-secret
               key: CELERY_BROKER_URL
         - name: CELERY_RESULT_BACKEND
-          value: redis://dev-redis-node-0.dev-redis-headless.redis.svc.cluster.local:6379/0  # Master 직접 연결
+          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        # Redis Streams (SSE 이벤트)
+        - name: REDIS_STREAMS_URL
+          value: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
         # Gevent Pool 설정
         - name: CELERY_WORKER_POOL
           value: gevent
