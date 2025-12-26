@@ -1,5 +1,51 @@
 # Performance Tests
 
+## SSE 스트리밍 성능 테스트
+
+### 테스트 대상
+
+| 구성요소 | 설명 |
+|---------|------|
+| **Endpoint** | `POST /api/v1/scan/classify/completion` |
+| **Pipeline** | vision → rule → answer → reward (4단계 Celery Chain) |
+| **Worker** | scan-worker, character-match-worker, character-worker, my-worker |
+
+### 실행 방법
+
+```bash
+# Web UI 모드
+ACCESS_COOKIE="your-cookie" locust -f tests/performance/locustfile_sse.py \
+    --host=https://api.dev.growbin.app
+
+# Headless 모드 (동시 10명, 초당 2명, 60초)
+ACCESS_COOKIE="your-cookie" locust -f tests/performance/locustfile_sse.py \
+    --host=https://api.dev.growbin.app \
+    --headless -u 10 -r 2 -t 60s
+
+# 결과 저장
+ACCESS_COOKIE="your-cookie" locust -f tests/performance/locustfile_sse.py \
+    --host=https://api.dev.growbin.app \
+    --headless -u 10 -r 2 -t 60s \
+    --csv=sse-results --html=sse-report.html
+```
+
+### 측정 항목
+
+| 지표 | 설명 | 목표 |
+|-----|------|-----|
+| **Total Time** | 전체 파이프라인 완료 시간 | < 30초 |
+| **TTFB** | 첫 이벤트 수신까지 시간 | < 3초 |
+| **Stage Completion** | 4단계 모두 완료 | 100% |
+| **Failure %** | 실패율 | < 5% |
+
+### 주의사항
+
+- SSE는 오래 걸리므로 동시 사용자 수를 적게 설정 (10-20명 권장)
+- OpenAI API 비용이 발생하므로 테스트 시간 제한 권장
+- `ACCESS_COOKIE` 환경변수 필수
+
+---
+
 ## ext-authz 부하 테스트
 
 ### 테스트 대상

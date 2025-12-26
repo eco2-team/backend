@@ -106,97 +106,6 @@ class ScanService:
             task_id, user_id, image_url, payload.user_input, log_ctx
         )
 
-    async def classify_async(
-        self, payload: ClassificationRequest, user_id: UUID
-    ) -> ClassificationResponse:
-        """비동기 방식으로 폐기물 분류 (SSE로 결과 수신)."""
-        image_url, error = self._validate_request(payload)
-        if error:
-            return error
-
-        task_id = uuid4()
-        log_ctx = {"task_id": str(task_id), "user_id": str(user_id)}
-
-        logger.info(
-            "scan_task_created",
-            extra={
-                "event_type": "scan_created",
-                "task_id": str(task_id),
-                "user_id": str(user_id),
-                "image_url": image_url,
-                "user_input": payload.user_input,
-                "mode": "async",
-            },
-        )
-
-        return await self._classify_async_internal(
-            task_id, user_id, image_url, payload.user_input, log_ctx
-        )
-
-    async def classify(
-        self, payload: ClassificationRequest, user_id: UUID
-    ) -> ClassificationResponse:
-        """[DEPRECATED] callback_url 여부로 동기/비동기 결정. classify_sync/classify_async 사용 권장."""
-        if payload.callback_url:
-            return await self.classify_async(payload, user_id)
-        return await self.classify_sync(payload, user_id)
-
-    async def _classify_async_internal(
-        self,
-        task_id: UUID,
-        user_id: UUID,
-        image_url: str,
-        user_input: str | None,
-        log_ctx: dict,
-    ) -> ClassificationResponse:
-        """Celery Chain을 발행하여 비동기 처리."""
-        from celery import chain
-
-        from domains.character.consumers.reward import scan_reward_task
-        from domains.scan.tasks.answer import answer_task
-        from domains.scan.tasks.rule import rule_task
-        from domains.scan.tasks.vision import vision_task
-
-        try:
-            # 4단계 Chain: vision → rule → answer → reward
-            # vision, rule, answer: scan-worker (worker-ai)
-            # reward: character-worker (worker-storage)
-            # 클라이언트는 SSE로 진행상황 및 최종 결과 수신
-            pipeline = chain(
-                vision_task.s(str(task_id), str(user_id), image_url, user_input),
-                rule_task.s(),
-                answer_task.s(),
-                scan_reward_task.s(),
-            )
-            pipeline.delay()
-
-            logger.info(
-                "scan_chain_dispatched",
-                extra={
-                    "event_type": "scan_chain_dispatched",
-                    "task_id": str(task_id),
-                    "user_id": str(user_id),
-                    "stages": ["vision", "rule", "answer", "reward"],
-                },
-            )
-        except Exception:
-            logger.exception(
-                "scan_chain_dispatch_failed",
-                extra={**log_ctx, "event_type": "scan_chain_failed"},
-            )
-            return ClassificationResponse(
-                task_id=str(task_id),
-                status="failed",
-                message="비동기 작업 발행에 실패했습니다.",
-                error="TASK_DISPATCH_ERROR",
-            )
-
-        return ClassificationResponse(
-            task_id=str(task_id),
-            status="processing",
-            message="AI 분석이 진행 중입니다. GET /scan/{task_id}/progress (SSE)로 진행상황을 확인하세요.",
-        )
-
     async def _classify_sync_internal(
         self,
         task_id: UUID,
@@ -482,3 +391,10 @@ class ScanService:
             elif entry:
                 return True
         return False
+
+    # Alias for backward compatibility with tests
+    async def classify(
+        self, payload: ClassificationRequest, user_id: UUID
+    ) -> ClassificationResponse:
+        """Alias for classify_sync (backward compatibility)."""
+        return await self.classify_sync(payload, user_id)

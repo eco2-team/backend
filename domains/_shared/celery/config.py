@@ -2,6 +2,7 @@
 Celery Configuration Module
 
 환경변수 기반 동적 설정 - 배포 환경별로 변경됨
+Classic queue 사용 (Celery global QoS 호환)
 """
 
 from functools import lru_cache
@@ -16,47 +17,93 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 default_exchange = Exchange("", type="direct")  # Default exchange
 dlx_exchange = Exchange("dlx", type="direct")  # Dead Letter Exchange
 
-# Queue 정의 (DLX 설정 포함)
+# Queue 정의 (DLX 설정 포함 - Topology CR과 완전 동기화)
+# Classic queue 사용 - x-queue-type 생략 (기본값)
 CELERY_QUEUES = (
     # Default queue
-    Queue("celery", default_exchange, routing_key="celery"),
+    Queue(
+        "celery",
+        default_exchange,
+        routing_key="celery",
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.celery",
+            "x-message-ttl": 3600000,  # 1시간
+        },
+    ),
     # Scan pipeline queues
     Queue(
         "scan.vision",
         default_exchange,
         routing_key="scan.vision",
-        queue_arguments={"x-dead-letter-exchange": "dlx"},
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.scan.vision",
+            "x-message-ttl": 3600000,  # 1시간
+        },
     ),
     Queue(
         "scan.rule",
         default_exchange,
         routing_key="scan.rule",
-        queue_arguments={"x-dead-letter-exchange": "dlx"},
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.scan.rule",
+            "x-message-ttl": 300000,  # 5분
+        },
     ),
     Queue(
         "scan.answer",
         default_exchange,
         routing_key="scan.answer",
-        queue_arguments={"x-dead-letter-exchange": "dlx"},
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.scan.answer",
+            "x-message-ttl": 3600000,  # 1시간
+        },
     ),
-    # Reward/Character queues
+    # Reward queues (도메인별 분리)
     Queue(
-        "reward.character",
+        "scan.reward",
         default_exchange,
-        routing_key="reward.character",
-        queue_arguments={"x-dead-letter-exchange": "dlx"},
+        routing_key="scan.reward",
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.scan.reward",
+            "x-message-ttl": 3600000,  # 1시간
+        },
+    ),
+    # Character match queue (빠른 응답용)
+    Queue(
+        "character.match",
+        default_exchange,
+        routing_key="character.match",
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.character.match",
+            "x-message-ttl": 30000,  # 30초 (빠른 응답)
+        },
+    ),
+    # Character reward queue (fire & forget, 백그라운드)
+    Queue(
+        "character.reward",
+        default_exchange,
+        routing_key="character.reward",
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.character.reward",
+            "x-message-ttl": 86400000,  # 24시간
+        },
     ),
     Queue(
-        "reward.persist",
+        "my.reward",
         default_exchange,
-        routing_key="reward.persist",
-        queue_arguments={"x-dead-letter-exchange": "dlx"},
-    ),
-    Queue(
-        "my.sync",
-        default_exchange,
-        routing_key="my.sync",
-        queue_arguments={"x-dead-letter-exchange": "dlx"},
+        routing_key="my.reward",
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.my.reward",
+            "x-message-ttl": 86400000,  # 24시간
+        },
     ),
 )
 
@@ -125,7 +172,11 @@ class CelerySettings(BaseSettings):
     )
     worker_concurrency: int = Field(
         2,
-        description="Number of concurrent worker processes",
+        description="Number of concurrent worker processes (prefork) or coroutines (asyncio)",
+    )
+    worker_pool: str = Field(
+        "prefork",
+        description="Worker pool type: prefork, asyncio, eventlet, gevent",
     )
 
     # Retry settings
@@ -149,6 +200,10 @@ class CelerySettings(BaseSettings):
         return {
             "broker_url": self.broker_url,
             "result_backend": self.result_backend,
+            # Classic queue는 global QoS 지원 - 명시적 설정 불필요
+            "broker_transport_options": {
+                "confirm_publish": True,
+            },
             "task_serializer": self.task_serializer,
             "result_serializer": self.result_serializer,
             "accept_content": self.accept_content,
@@ -161,25 +216,34 @@ class CelerySettings(BaseSettings):
             "worker_prefetch_multiplier": self.worker_prefetch_multiplier,
             "worker_concurrency": self.worker_concurrency,
             "task_default_retry_delay": self.task_default_retry_delay,
+            # Celery 6.0 deprecation 경고 해소
+            "broker_connection_retry_on_startup": True,
+            "worker_cancel_long_running_tasks_on_connection_loss": True,
             # Celery Events 활성화 (SSE 실시간 진행상황 + 최종 결과)
             "task_send_sent_event": True,  # task-sent 이벤트 발행
             "worker_send_task_events": True,  # worker에서 task 이벤트 발행
+            "task_track_started": True,  # task-started 이벤트 발행 (worker가 task 시작 시)
             "result_extended": True,  # task-succeeded에 result 포함
-            # Task routing (Phase 2+3: 4단계 Chain + Worker 분리)
+            # Task routing (도메인별 큐 분리)
             "task_routes": {
                 # Scan Chain (scan-worker: AI 처리)
                 "scan.vision": {"queue": "scan.vision"},
                 "scan.rule": {"queue": "scan.rule"},
                 "scan.answer": {"queue": "scan.answer"},
-                # Reward (character-worker: 판정 + DB 저장)
-                "scan.reward": {"queue": "reward.character"},  # 판정만 (빠른 응답)
-                "character.persist_reward": {"queue": "reward.persist"},  # dispatcher
-                "character.save_ownership": {"queue": "reward.persist"},  # character DB
-                "character.save_my_character": {"queue": "my.sync"},  # my DB (직접)
-                "reward.*": {"queue": "reward.character"},  # Legacy 호환
-                "character.sync_to_my": {"queue": "my.sync"},  # deprecated (gRPC)
-                # DLQ 재처리
-                "dlq.*": {"queue": "celery"},
+                "scan.reward": {"queue": "scan.reward"},
+                # Character match (동기 응답, 빠른 처리)
+                "character.match": {"queue": "character.match"},
+                # Character reward (fire & forget, 백그라운드)
+                "character.save_ownership": {"queue": "character.reward"},
+                # My reward (my-worker: my DB 저장)
+                "my.save_character": {"queue": "my.reward"},
+                # DLQ 재처리 → 각 도메인 worker가 처리
+                "dlq.reprocess_scan_vision": {"queue": "scan.vision"},
+                "dlq.reprocess_scan_rule": {"queue": "scan.rule"},
+                "dlq.reprocess_scan_answer": {"queue": "scan.answer"},
+                "dlq.reprocess_scan_reward": {"queue": "scan.reward"},
+                "dlq.reprocess_character_reward": {"queue": "character.reward"},
+                "dlq.reprocess_my_reward": {"queue": "my.reward"},
             },
             # Queue configuration (DLX 포함하여 명시적 정의)
             "task_queues": CELERY_QUEUES,
@@ -203,13 +267,18 @@ class CelerySettings(BaseSettings):
                     "schedule": 300.0,
                     "kwargs": {"max_messages": 10},
                 },
-                "reprocess-dlq-reward": {
-                    "task": "dlq.reprocess_reward",
+                "reprocess-dlq-scan-reward": {
+                    "task": "dlq.reprocess_scan_reward",
                     "schedule": 300.0,
                     "kwargs": {"max_messages": 10},
                 },
-                "reprocess-dlq-my-sync": {
-                    "task": "dlq.reprocess_my_sync",
+                "reprocess-dlq-character-reward": {
+                    "task": "dlq.reprocess_character_reward",
+                    "schedule": 300.0,
+                    "kwargs": {"max_messages": 10},
+                },
+                "reprocess-dlq-my-reward": {
+                    "task": "dlq.reprocess_my_reward",
                     "schedule": 300.0,
                     "kwargs": {"max_messages": 10},
                 },

@@ -15,8 +15,11 @@ resources:
 - domain-scan-api.yaml
 - domain-character.yaml
 - domain-my.yaml
+# SSE Pipeline Dashboard
+- scan-sse-pipeline.yaml
 # Infrastructure Dashboards
 - rabbitmq.yaml
+- redis-cluster.yaml
 
 commonLabels:
   monitoring: ecoeco-cluster

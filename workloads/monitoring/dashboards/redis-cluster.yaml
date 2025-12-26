@@ -1,0 +1,535 @@
+# Redis Cluster Dashboard (3-Node Architecture)
+# 목적: Auth/Streams/Cache Redis 클러스터 메트릭 모니터링
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-redis-cluster
+  namespace: prometheus
+  labels:
+    grafana_dashboard: '1'
+    app: grafana
+  annotations:
+    grafana_folder: Infrastructure
+data:
+  redis-cluster.json: |
+    {
+      "title": "Redis Cluster (3-Node)",
+      "uid": "redis-cluster-3node",
+      "version": 1,
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "refresh": "30s",
+      "time": { "from": "now-1h", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "type": "datasource",
+            "query": "prometheus",
+            "current": { "text": "Prometheus", "value": "prometheus" }
+          },
+          {
+            "name": "redis_cluster",
+            "type": "query",
+            "datasource": { "type": "prometheus", "uid": "${datasource}" },
+            "query": "label_values(redis_up, redis_cluster)",
+            "multi": true,
+            "includeAll": true,
+            "current": { "text": "All", "value": "$__all" }
+          }
+        ]
+      },
+      "panels": [
+        {
+          "title": "Overview",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "collapsed": false
+        },
+        {
+          "title": "Redis Up",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "sum(redis_up{redis_cluster=~\"$redis_cluster\"})",
+              "legendFormat": "Up"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 2 },
+                  { "color": "green", "value": 3 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Total Memory Used",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "sum(redis_memory_used_bytes{redis_cluster=~\"$redis_cluster\"})",
+              "legendFormat": "Used"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "bytes", "decimals": 1 } }
+        },
+        {
+          "title": "Total Connections",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "sum(redis_connected_clients{redis_cluster=~\"$redis_cluster\"})",
+              "legendFormat": "Clients"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short" } }
+        },
+        {
+          "title": "Commands/sec",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "sum(rate(redis_commands_processed_total{redis_cluster=~\"$redis_cluster\"}[1m]))",
+              "legendFormat": "Commands"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "ops", "decimals": 0 } }
+        },
+        {
+          "title": "Hit Rate",
+          "type": "gauge",
+          "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "sum(redis_keyspace_hits_total{redis_cluster=~\"$redis_cluster\"}) / (sum(redis_keyspace_hits_total{redis_cluster=~\"$redis_cluster\"}) + sum(redis_keyspace_misses_total{redis_cluster=~\"$redis_cluster\"})) * 100",
+              "legendFormat": "Hit %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 80 },
+                  { "color": "green", "value": 95 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Evicted Keys",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "sum(increase(redis_evicted_keys_total{redis_cluster=~\"$redis_cluster\"}[1h]))",
+              "legendFormat": "Evicted (1h)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 100 },
+                  { "color": "red", "value": 1000 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Memory Usage by Cluster",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "collapsed": false
+        },
+        {
+          "title": "auth-redis Memory",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 6 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "redis_memory_used_bytes{redis_cluster=\"auth-redis\"}",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "custom": { "fillOpacity": 20, "lineWidth": 2 }
+            }
+          },
+          "options": { "legend": { "displayMode": "table", "placement": "bottom" } }
+        },
+        {
+          "title": "streams-redis Memory",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 6 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "redis_memory_used_bytes{redis_cluster=\"streams-redis\"}",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "custom": { "fillOpacity": 20, "lineWidth": 2 }
+            }
+          },
+          "options": { "legend": { "displayMode": "table", "placement": "bottom" } }
+        },
+        {
+          "title": "cache-redis Memory",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 6 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "redis_memory_used_bytes{redis_cluster=\"cache-redis\"}",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "custom": { "fillOpacity": 20, "lineWidth": 2 }
+            }
+          },
+          "options": { "legend": { "displayMode": "table", "placement": "bottom" } }
+        },
+        {
+          "title": "Connected Clients by Cluster",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 },
+          "collapsed": false
+        },
+        {
+          "title": "auth-redis Clients",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 13 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "redis_connected_clients{redis_cluster=\"auth-redis\"}",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "fillOpacity": 20, "lineWidth": 2 }
+            }
+          }
+        },
+        {
+          "title": "streams-redis Clients",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 13 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "redis_connected_clients{redis_cluster=\"streams-redis\"}",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "fillOpacity": 20, "lineWidth": 2 }
+            }
+          }
+        },
+        {
+          "title": "cache-redis Clients",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 13 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "redis_connected_clients{redis_cluster=\"cache-redis\"}",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "fillOpacity": 20, "lineWidth": 2 }
+            }
+          }
+        },
+        {
+          "title": "Commands/sec by Cluster",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 },
+          "collapsed": false
+        },
+        {
+          "title": "Commands/sec - All Clusters",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 20 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "sum(rate(redis_commands_processed_total{redis_cluster=\"auth-redis\"}[1m]))",
+              "legendFormat": "auth-redis"
+            },
+            {
+              "expr": "sum(rate(redis_commands_processed_total{redis_cluster=\"streams-redis\"}[1m]))",
+              "legendFormat": "streams-redis"
+            },
+            {
+              "expr": "sum(rate(redis_commands_processed_total{redis_cluster=\"cache-redis\"}[1m]))",
+              "legendFormat": "cache-redis"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "fillOpacity": 20, "lineWidth": 2 }
+            }
+          }
+        },
+        {
+          "title": "Command Latency (Slowlog)",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 20 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "redis_slowlog_last_id{redis_cluster=~\"$redis_cluster\"}",
+              "legendFormat": "{{ redis_cluster }} slowlog"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "fillOpacity": 10, "lineWidth": 1 }
+            }
+          }
+        },
+        {
+          "title": "Keyspace",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+          "collapsed": false
+        },
+        {
+          "title": "Keys by DB (auth-redis)",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 27 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "redis_db_keys{redis_cluster=\"auth-redis\"}",
+              "legendFormat": "db{{ db }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "fillOpacity": 20, "lineWidth": 2 }
+            }
+          }
+        },
+        {
+          "title": "Keys by DB (streams-redis)",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 27 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "redis_db_keys{redis_cluster=\"streams-redis\"}",
+              "legendFormat": "db{{ db }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "fillOpacity": 20, "lineWidth": 2 }
+            }
+          }
+        },
+        {
+          "title": "Keys by DB (cache-redis)",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 27 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "redis_db_keys{redis_cluster=\"cache-redis\"}",
+              "legendFormat": "db{{ db }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "fillOpacity": 20, "lineWidth": 2 }
+            }
+          }
+        },
+        {
+          "title": "Replication & HA",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 },
+          "collapsed": false
+        },
+        {
+          "title": "Connected Slaves",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 34 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "sum(redis_connected_slaves{redis_cluster=~\"$redis_cluster\"})",
+              "legendFormat": "Slaves"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "green", "value": 2 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Replication Offset Lag",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 9, "x": 6, "y": 34 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "redis_master_repl_offset{redis_cluster=~\"$redis_cluster\"} - on(redis_cluster) group_left redis_slave_repl_offset{redis_cluster=~\"$redis_cluster\"}",
+              "legendFormat": "{{ redis_cluster }} lag"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "custom": { "fillOpacity": 10, "lineWidth": 2 }
+            }
+          }
+        },
+        {
+          "title": "Master Link Status",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 15, "y": 34 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "redis_master_link_up{redis_cluster=~\"$redis_cluster\"}",
+              "legendFormat": "{{ redis_cluster }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" } } },
+                { "type": "value", "options": { "1": { "text": "UP", "color": "green" } } }
+              ]
+            }
+          }
+        },
+        {
+          "title": "Blocked Clients",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 3, "x": 21, "y": 34 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "sum(redis_blocked_clients{redis_cluster=~\"$redis_cluster\"})",
+              "legendFormat": "Blocked"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red", "value": 20 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Network I/O",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
+          "collapsed": false
+        },
+        {
+          "title": "Network Input",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 41 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "rate(redis_net_input_bytes_total{redis_cluster=~\"$redis_cluster\"}[1m])",
+              "legendFormat": "{{ redis_cluster }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "custom": { "fillOpacity": 20, "lineWidth": 2 }
+            }
+          }
+        },
+        {
+          "title": "Network Output",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 41 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "rate(redis_net_output_bytes_total{redis_cluster=~\"$redis_cluster\"}[1m])",
+              "legendFormat": "{{ redis_cluster }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "custom": { "fillOpacity": 20, "lineWidth": 2 }
+            }
+          }
+        }
+      ]
+    }

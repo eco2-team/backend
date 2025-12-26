@@ -1,0 +1,51 @@
+# scan-api HPA (Horizontal Pod Autoscaler)
+# 노드 스펙: 2 CPU, 3.8GB Memory
+# Pod당 리소스: 350m CPU (app 250m + istio 100m), 384Mi Memory
+# 최대 replica: 4 (CPU 병목)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: scan-api-hpa
+  namespace: scan
+  labels:
+    app: scan-api
+    domain: scan
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: scan-api
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+  # CPU 기반 스케일링 (주 지표)
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70  # 70% CPU 사용 시 스케일아웃
+  # Memory 기반 스케일링 (보조 지표)
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80  # 80% Memory 사용 시 스케일아웃
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5분간 안정화 후 스케일다운
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60  # 1분당 50%씩 감소
+    scaleUp:
+      stabilizationWindowSeconds: 0  # 즉시 스케일업
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15  # 15초당 100% 증가 가능
+      - type: Pods
+        value: 2
+        periodSeconds: 15  # 15초당 최대 2개 추가
+      selectPolicy: Max

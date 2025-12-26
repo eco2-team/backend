@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cache-warmup
+  namespace: character
+  annotations:
+    # ArgoCD PostSync Hook - sync 완료 후 실행
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 120  # 2분 후 자동 삭제
+  activeDeadlineSeconds: 60     # 60초 타임아웃
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never      # 실패 시 재시도 안함 (backoffLimit으로 제어)
+      containers:
+      - name: cache-warmup
+        image: docker.io/mng990/eco2:character-worker-dev-latest
+        imagePullPolicy: Always
+        command: [python3, -m, domains.character.jobs.warmup_cache]
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        envFrom:
+        - secretRef:
+            name: character-secret
+        - configMapRef:
+            name: character-config
+      imagePullSecrets:
+      - name: dockerhub-secret

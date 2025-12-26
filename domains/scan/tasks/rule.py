@@ -2,6 +2,9 @@
 Rule-based Retrieval Celery Task
 
 RAG 기반 배출 규정 검색 (Pipeline Step 2)
+
+Note:
+    gevent pool 사용 시 파일 I/O도 greenlet으로 자동 전환됨.
 """
 
 from __future__ import annotations
@@ -11,6 +14,7 @@ from time import perf_counter
 from typing import Any
 
 from domains._shared.celery.base_task import BaseTask
+from domains._shared.events import get_sync_redis_client, publish_stage_event
 from domains.scan.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -48,6 +52,9 @@ def rule_task(
 
     Returns:
         prev_result에 disposal_rules와 metadata 추가
+
+    Note:
+        gevent pool에서는 파일 I/O가 greenlet으로 자동 전환됨.
     """
     from domains._shared.waste_pipeline.rag import get_disposal_rules
 
@@ -62,6 +69,10 @@ def rule_task(
         "stage": "rule",
     }
     logger.info("Rule task started", extra=log_ctx)
+
+    # Redis Streams: 시작 이벤트 발행
+    redis_client = get_sync_redis_client()
+    publish_stage_event(redis_client, task_id, "rule", "started", progress=25)
 
     started = perf_counter()
 
@@ -83,6 +94,14 @@ def rule_task(
             "Rule retrieval failed",
             extra={**log_ctx, "elapsed_ms": elapsed_ms, "error": str(exc)},
         )
+        # Redis Streams: 실패 이벤트 발행
+        publish_stage_event(
+            redis_client,
+            task_id,
+            "rule",
+            "failed",
+            result={"error": str(exc)},
+        )
         raise self.retry(exc=exc)
 
     elapsed_ms = (perf_counter() - started) * 1000
@@ -94,6 +113,9 @@ def rule_task(
             "rules_found": disposal_rules is not None,
         },
     )
+
+    # Redis Streams: 완료 이벤트 발행
+    publish_stage_event(redis_client, task_id, "rule", "completed", progress=50)
 
     # 메타데이터 업데이트
     metadata = prev_result.get("metadata", {})

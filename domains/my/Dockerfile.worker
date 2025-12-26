@@ -1,0 +1,17 @@
+# ============================================================================
+# My Worker Dockerfile
+# Celery Worker 전용 이미지 (FastAPI, uvicorn 제외)
+# 처리 큐: my.reward (유저 캐릭터 DB 동기화)
+# ============================================================================
+FROM docker.io/mng990/eco2:base-dev-latest
+
+WORKDIR /app
+
+# 애플리케이션 코드 복사
+COPY domains/_shared /app/domains/_shared
+COPY domains/my /app/domains/my
+
+USER appuser
+
+# Celery Worker 실행
+CMD ["celery", "-A", "domains.my.celery_app", "worker", "-E", "--loglevel=info", "-Q", "my.reward", "-c", "2"]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import nullcontext
 from typing import Sequence
 from uuid import UUID
@@ -26,6 +27,41 @@ from domains.character.schemas.reward import (
 from domains.character.services.evaluators import EvaluationResult, get_evaluator
 
 logger = logging.getLogger(__name__)
+
+
+def _publish_cache_event(event_type: str, character: Character | None = None) -> None:
+    """Worker 로컬 캐시 동기화를 위한 MQ 이벤트 발행.
+
+    Args:
+        event_type: "upsert" 또는 "delete"
+        character: 대상 캐릭터 (delete 시 character_id만 사용)
+    """
+    broker_url = os.getenv("CELERY_BROKER_URL")
+    if not broker_url:
+        logger.debug("cache_event_skipped_no_broker")
+        return
+
+    try:
+        from domains._shared.cache import get_cache_publisher
+
+        publisher = get_cache_publisher(broker_url)
+
+        if event_type == "upsert" and character:
+            publisher.publish_upsert(
+                {
+                    "id": str(character.id),
+                    "code": character.code,
+                    "name": character.name,
+                    "type_label": character.type_label,
+                    "dialog": character.dialog,
+                    "match_label": character.match_label,
+                }
+            )
+        elif event_type == "delete" and character:
+            publisher.publish_delete(str(character.id))
+
+    except Exception:
+        logger.exception("cache_event_publish_failed", extra={"event_type": event_type})
 
 
 class CharacterService:
@@ -283,8 +319,7 @@ class CharacterService:
                 user_id=user_id, character_id=match.id
             )
             if existing:
-                # my 도메인과의 정합성 보장을 위해 sync 재시도 (idempotent)
-                self._sync_to_my_domain(user_id=user_id, character=match, source=source_label)
+                # 이미 소유한 캐릭터
                 return self._to_profile(match), True, None
 
             try:
@@ -312,75 +347,21 @@ class CharacterService:
         character: Character,
         source: str,
     ) -> None:
-        """캐릭터 소유권 저장 및 my 도메인 동기화.
+        """캐릭터 소유권 저장.
 
-        Transaction Semantics:
-            1. character 스키마에 ownership 저장 후 commit
-            2. my 도메인으로 gRPC 동기화 (best-effort)
-
-        Consistency Model:
-            - gRPC 동기화 실패해도 로컬 ownership은 유지됨 (eventual consistency)
-            - my 도메인과의 정합성은 후속 동기화 배치로 보장
-            - 동시 요청 시 IntegrityError는 호출자가 처리
+        Note:
+            my 도메인 동기화는 비동기 flow (scan_reward_task → persist_reward_task)에서
+            별도로 처리됩니다. 동기 API 호출 시에는 character_ownerships만 저장됩니다.
 
         Raises:
             IntegrityError: 동시 요청으로 인한 중복 ownership 시도 시
         """
-        # 1. character.character_ownerships에 저장 (SELECT 없이 직접 INSERT)
         await self.ownership_repo.insert_owned(
             user_id=user_id,
             character=character,
             source=source,
         )
         await self.session.commit()
-
-        # 2. my 도메인에 Celery task로 비동기 동기화 (Fire & Forget)
-        self._sync_to_my_domain(user_id=user_id, character=character, source=source)
-
-    def _sync_to_my_domain(
-        self,
-        user_id: UUID,
-        character: Character,
-        source: str,
-    ) -> None:
-        """my 도메인의 user_characters 테이블에 캐릭터 소유 정보 비동기 동기화.
-
-        Celery task로 발행하여 gRPC 호출을 비동기로 처리합니다.
-        character.character_ownerships 저장 후 즉시 반환되며,
-        my 도메인 동기화는 별도 worker에서 처리됩니다.
-
-        Consistency Model:
-            - 로컬 ownership 저장은 동기로 완료됨
-            - my 도메인 동기화는 비동기 (eventual consistency)
-            - 실패 시 Celery가 자동 재시도 (max 5회, exponential backoff)
-        """
-        from domains.character.consumers.sync_my import sync_to_my_task
-
-        log_ctx = {
-            "user_id": str(user_id),
-            "character_id": str(character.id),
-            "character_name": character.name,
-            "source": source,
-        }
-
-        try:
-            sync_to_my_task.delay(
-                user_id=str(user_id),
-                character_id=str(character.id),
-                character_code=character.code,
-                character_name=character.name,
-                character_type=character.type_label,
-                character_dialog=character.dialog,
-                source=source,
-            )
-            logger.info(
-                "Sync to my domain task dispatched",
-                extra=log_ctx,
-            )
-        except Exception:
-            # Task 발행 실패해도 로컬 ownership은 유지 (eventual consistency)
-            # 후속 배치 동기화로 복구 가능
-            logger.exception("Failed to dispatch sync task", extra=log_ctx)
 
     @staticmethod
     def _to_profile(character: Character) -> CharacterProfile:

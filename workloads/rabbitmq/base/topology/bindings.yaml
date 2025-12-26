@@ -51,69 +51,72 @@ spec:
     namespace: rabbitmq
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Reward Bindings
+# Scan Reward Binding (scan.direct → scan.reward)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: rabbitmq.com/v1beta1
 kind: Binding
 metadata:
-  name: reward-character-binding
+  name: scan-reward-binding
   namespace: rabbitmq
 spec:
-  source: reward.direct
-  destination: reward.character
+  source: scan.direct
+  destination: scan.reward
   destinationType: queue
-  routingKey: reward.character
-  vhost: eco2
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
----
-apiVersion: rabbitmq.com/v1beta1
-kind: Binding
-metadata:
-  name: reward-persist-binding
-  namespace: rabbitmq
-spec:
-  source: reward.direct
-  destination: reward.persist
-  destinationType: queue
-  routingKey: reward.persist
+  routingKey: scan.reward
   vhost: eco2
   rabbitmqClusterReference:
     name: eco2-rabbitmq
     namespace: rabbitmq
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# My Domain Sync Bindings
+# Character Match Binding (동기 응답용)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: rabbitmq.com/v1beta1
 kind: Binding
 metadata:
-  name: my-sync-binding
+  name: character-match-binding
+  namespace: rabbitmq
+spec:
+  source: character.direct
+  destination: character.match
+  destinationType: queue
+  routingKey: character.match
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Character Reward Binding (fire & forget)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: character-reward-binding
+  namespace: rabbitmq
+spec:
+  source: character.direct
+  destination: character.reward
+  destinationType: queue
+  routingKey: character.reward
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# My Reward Binding (my.direct → my.reward)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: my-reward-binding
   namespace: rabbitmq
 spec:
   source: my.direct
-  destination: my.sync
+  destination: my.reward
   destinationType: queue
-  routingKey: my.sync
-  vhost: eco2
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
----
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# My Domain Sync Bindings
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-apiVersion: rabbitmq.com/v1beta1
-kind: Binding
-metadata:
-  name: my-sync-binding
-  namespace: rabbitmq
-spec:
-  source: my.direct
-  destination: my.sync
-  destinationType: queue
-  routingKey: my.sync
+  routingKey: my.reward
   vhost: eco2
   rabbitmqClusterReference:
     name: eco2-rabbitmq
@@ -170,13 +173,13 @@ spec:
 apiVersion: rabbitmq.com/v1beta1
 kind: Binding
 metadata:
-  name: dlq-reward-binding
+  name: dlq-scan-reward-binding
   namespace: rabbitmq
 spec:
   source: dlx
-  destination: dlq.reward
+  destination: dlq.scan.reward
   destinationType: queue
-  routingKey: dlq.reward
+  routingKey: dlq.scan.reward
   vhost: eco2
   rabbitmqClusterReference:
     name: eco2-rabbitmq
@@ -185,13 +188,43 @@ spec:
 apiVersion: rabbitmq.com/v1beta1
 kind: Binding
 metadata:
-  name: dlq-my-sync-binding
+  name: dlq-character-match-binding
   namespace: rabbitmq
 spec:
   source: dlx
-  destination: dlq.my.sync
+  destination: dlq.character.match
   destinationType: queue
-  routingKey: dlq.my.sync
+  routingKey: dlq.character.match
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: dlq-character-reward-binding
+  namespace: rabbitmq
+spec:
+  source: dlx
+  destination: dlq.character.reward
+  destinationType: queue
+  routingKey: dlq.character.reward
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: dlq-my-reward-binding
+  namespace: rabbitmq
+spec:
+  source: dlx
+  destination: dlq.my.reward
+  destinationType: queue
+  routingKey: dlq.my.reward
   vhost: eco2
   rabbitmqClusterReference:
     name: eco2-rabbitmq
@@ -207,21 +240,6 @@ spec:
   destination: dlq.celery
   destinationType: queue
   routingKey: dlq.celery
-  vhost: eco2
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
----
-apiVersion: rabbitmq.com/v1beta1
-kind: Binding
-metadata:
-  name: dlq-reward-persist-binding
-  namespace: rabbitmq
-spec:
-  source: dlx
-  destination: dlq.reward.persist
-  destinationType: queue
-  routingKey: dlq.reward.persist
   vhost: eco2
   rabbitmqClusterReference:
     name: eco2-rabbitmq

@@ -1,0 +1,138 @@
+# My Worker Celery Deployment
+# my.reward 큐 처리 (my DB 유저 캐릭터 동기화)
+# gevent pool: DB I/O 바운드 작업에 최적화
+# worker-storage 노드에 배포
+# Rebuild: 2024-12-24 - base image gevent + celery 5.4.0
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-worker
+  namespace: my
+  labels:
+    app: my-worker
+    version: v1
+    tier: worker
+    domain: my
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-worker
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: my-worker
+        version: v1
+        tier: worker
+        domain: my
+      annotations:
+        # Istio proxy가 준비될 때까지 main container 시작 대기
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+    spec:
+      containers:
+      - name: my-worker
+        image: docker.io/mng990/eco2:my-worker-dev-latest
+        imagePullPolicy: Always
+        command: [celery]
+        args:
+        - -A
+        - domains.my.celery_app
+        - worker
+        - --loglevel=info
+        - -E  # Events 활성화
+        - -P
+        - gevent  # I/O 바운드 DB 작업에 최적화
+        - -Q
+        - my.reward
+        - -c
+        - '20'  # 동시 greenlet 수 (DB 배치 처리)
+        env:
+        # Celery Broker (RabbitMQ)
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              name: my-secret
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        # Database Pool (Worker 전용 - concurrency에 맞춤)
+        - name: DB_POOL_SIZE
+          value: '15'  # 상시 유지 커넥션
+        - name: DB_MAX_OVERFLOW
+          value: '20'  # 초과 허용 (합계 35 > concurrency 20)
+        - name: DB_POOL_TIMEOUT
+          value: '30'
+        - name: DB_POOL_RECYCLE
+          value: '1800'
+        # OpenTelemetry
+        - name: OTEL_SERVICE_NAME
+          value: my-worker
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        # Trace Context Propagation (API → Worker 연결)
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
+        # Database
+        - name: MY_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: my-secret
+              key: MY_DATABASE_URL
+        envFrom:
+        - configMapRef:
+            name: my-worker-config
+        - secretRef:
+            name: my-secret
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi  # gevent pool은 메모리 효율적
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          exec:
+            command:
+            - celery
+            - -A
+            - domains.my.celery_app
+            - inspect
+            - ping
+            - -t
+            - '15'
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          timeoutSeconds: 20
+          failureThreshold: 5
+        readinessProbe:
+          exec:
+            command:
+            - celery
+            - -A
+            - domains.my.celery_app
+            - inspect
+            - ping
+            - -t
+            - '15'
+          initialDelaySeconds: 45
+          periodSeconds: 20
+          timeoutSeconds: 20
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: dockerhub-secret
+      # worker-storage 노드에 배치
+      nodeSelector:
+        domain: worker-storage
+      # Taint 허용
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-storage
+        effect: NoSchedule

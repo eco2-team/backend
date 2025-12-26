@@ -1,0 +1,122 @@
+# Character Match Worker Celery Deployment
+# character.match 큐 처리 (캐릭터 매칭 - 동기 응답)
+# 빠른 응답 필요, 높은 concurrency
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: character-match-worker
+  namespace: character
+  labels:
+    app: character-match-worker
+    version: v1
+    tier: worker
+    domain: character
+spec:
+  replicas: 2  # 부하 분산
+  selector:
+    matchLabels:
+      app: character-match-worker
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: character-match-worker
+        version: v1
+        tier: worker
+        domain: character
+    spec:
+      containers:
+      - name: character-match-worker
+        image: docker.io/mng990/eco2:character-worker-dev-latest
+        imagePullPolicy: Always
+        command: [celery]
+        args:
+        - -A
+        - domains.character.celery_app
+        - worker
+        - --loglevel=info
+        - -E  # Events 활성화
+        - -P
+        - threads  # 스레드 pool (MainProcess 캐시 공유)
+        - -Q
+        - character.match  # match 큐만 소비
+        - -c
+        - '16'  # 높은 concurrency (캐시 조회 위주, 스레드 pool)
+        env:
+        # Celery Broker (RabbitMQ)
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              name: character-secret
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        # OpenTelemetry
+        - name: OTEL_SERVICE_NAME
+          value: character-match-worker
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        # Trace Context Propagation (API → Worker 연결)
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
+        # Database (캐시 fallback용)
+        - name: POSTGRES_HOST
+          value: postgresql.postgres.svc.cluster.local
+        - name: REDIS_HOST
+          value: redis.redis.svc.cluster.local
+        envFrom:
+        - configMapRef:
+            name: character-match-worker-config
+        - secretRef:
+            name: character-secret
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          exec:
+            command:
+            - celery
+            - -A
+            - domains.character.celery_app
+            - inspect
+            - ping
+            - -t
+            - '15'
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          timeoutSeconds: 20
+          failureThreshold: 5
+        readinessProbe:
+          exec:
+            command:
+            - celery
+            - -A
+            - domains.character.celery_app
+            - inspect
+            - ping
+            - -t
+            - '15'
+          initialDelaySeconds: 45
+          periodSeconds: 20
+          timeoutSeconds: 20
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: dockerhub-secret
+      # worker-storage 노드에 배치
+      nodeSelector:
+        domain: worker-storage
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-storage
+        effect: NoSchedule

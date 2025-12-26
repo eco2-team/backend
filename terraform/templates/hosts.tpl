@@ -13,7 +13,7 @@ ansible_python_interpreter=/usr/bin/python3
 k8s-master ansible_host=${master_public_ip} private_ip=${master_private_ip} instance_type=t3.large
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# API Nodes (Phase 1&2: 5 nodes)
+# API Nodes (Phase 1&2: 7 nodes)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [api_nodes]
@@ -41,9 +41,11 @@ k8s-worker-ai ansible_host=${worker_ai_public_ip} private_ip=${worker_ai_private
 [postgresql]
 k8s-postgresql ansible_host=${postgresql_public_ip} private_ip=${postgresql_private_ip} workload=database instance_type=t3.medium phase=1
 
-# Redis (Phase 1)
+# Redis (Phase 1) - 3-Node Cluster
 [redis]
-k8s-redis ansible_host=${redis_public_ip} private_ip=${redis_private_ip} workload=cache instance_type=t3.small phase=1
+k8s-redis-auth ansible_host=${redis_auth_public_ip} private_ip=${redis_auth_private_ip} workload=cache redis_cluster=auth instance_type=t3.medium phase=1
+k8s-redis-streams ansible_host=${redis_streams_public_ip} private_ip=${redis_streams_private_ip} workload=cache redis_cluster=streams instance_type=t3.small phase=1
+k8s-redis-cache ansible_host=${redis_cache_public_ip} private_ip=${redis_cache_private_ip} workload=cache redis_cluster=cache instance_type=t3.small phase=1
 
 # RabbitMQ (Phase 4: 2025-11-08 활성화)
 [rabbitmq]

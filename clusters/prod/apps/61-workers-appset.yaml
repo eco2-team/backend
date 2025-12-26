@@ -17,12 +17,18 @@ spec:
       - name: celery-beat
         namespace: scan
         phase: '2'
+      - name: character-match-worker
+        namespace: character
+        phase: '3'
       - name: character-worker
         namespace: character
         phase: '3'
+      - name: my-worker
+        namespace: my
+        phase: '3'
   template:
     metadata:
-      name: prod-worker-{{name}}
+      name: prod-{{name}}
       namespace: argocd
       labels:
         tier: worker

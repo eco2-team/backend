@@ -1,5 +1,7 @@
 # Scan Worker Celery Deployment
-# 비동기 AI 파이프라인 처리
+# 비동기 AI 파이프라인 처리 (vision, rule, answer, reward)
+# Gevent Pool 사용으로 100+ 동시 I/O 처리
+# Rebuild: 2024-12-24 - base image gevent + celery 5.4.0
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -11,7 +13,7 @@ metadata:
     tier: worker
     domain: scan
 spec:
-  replicas: 1
+  replicas: 3  # 부하 분산
   selector:
     matchLabels:
       app: scan-worker
@@ -23,10 +25,13 @@ spec:
         version: v1
         tier: worker
         domain: scan
+      annotations:
+        # Istio proxy가 준비될 때까지 main container 시작 대기
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
     spec:
       containers:
       - name: scan-worker
-        image: docker.io/mng990/eco2:scan-api-dev-latest
+        image: docker.io/mng990/eco2:scan-worker-dev-latest
         imagePullPolicy: Always
         command: [celery]
         args:
@@ -34,10 +39,13 @@ spec:
         - domains.scan.celery_app
         - worker
         - --loglevel=info
+        - -E  # Events 활성화 (SSE 스트리밍용)
+        - -P
+        - gevent  # Gevent pool (높은 동시성 I/O)
         - -Q
-        - scan.vision,scan.rule,scan.answer
+        - scan.vision,scan.rule,scan.answer,scan.reward
         - -c
-        - '2'
+        - '100'  # 동시 greenlet 수 (OpenAI API 병렬 호출)
         env:
         # Celery Broker (RabbitMQ)
         - name: CELERY_BROKER_URL
@@ -45,6 +53,14 @@ spec:
             secretKeyRef:
               name: scan-secret
               key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        # Redis Streams (SSE 이벤트)
+        - name: REDIS_STREAMS_URL
+          value: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
+        # Gevent Pool 설정
+        - name: CELERY_WORKER_POOL
+          value: gevent
         # OpenTelemetry
         - name: OTEL_SERVICE_NAME
           value: scan-worker
@@ -56,6 +72,9 @@ spec:
           value: none
         - name: OTEL_LOGS_EXPORTER
           value: none
+        # Trace Context Propagation (API → Worker 연결)
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
         # Database & Redis
         - name: POSTGRES_HOST
           value: postgresql.postgres.svc.cluster.local
@@ -69,37 +88,33 @@ spec:
             name: scan-secret
         resources:
           requests:
-            cpu: 500m
-            memory: 1Gi
+            cpu: 250m
+            memory: 512Mi  # Gevent pool은 메모리 효율적
           limits:
-            cpu: 2000m
-            memory: 4Gi
+            cpu: 1000m
+            memory: 1Gi  # prefork 대비 75% 감소
+        # Startup probe: 초기 시작 시 충분한 시간 부여
+        startupProbe:
+          exec:
+            command: [celery, -A, domains.scan.celery_app, inspect, ping, -t, '15']
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 20
+          failureThreshold: 12  # 30s + 12*10s = 최대 150초 대기
         livenessProbe:
           exec:
-            command:
-            - celery
-            - -A
-            - domains.scan.celery_app
-            - inspect
-            - ping
-            - -t
-            - '10'
-          initialDelaySeconds: 60
+            command: [celery, -A, domains.scan.celery_app, inspect, ping, -t, '15']
+          initialDelaySeconds: 10
           periodSeconds: 30
-          timeoutSeconds: 15
+          timeoutSeconds: 20
+          failureThreshold: 3
         readinessProbe:
           exec:
-            command:
-            - celery
-            - -A
-            - domains.scan.celery_app
-            - inspect
-            - ping
-            - -t
-            - '10'
-          initialDelaySeconds: 30
-          periodSeconds: 15
-          timeoutSeconds: 15
+            command: [celery, -A, domains.scan.celery_app, inspect, ping, -t, '15']
+          initialDelaySeconds: 5
+          periodSeconds: 20
+          timeoutSeconds: 20
+          failureThreshold: 3
       imagePullSecrets:
       - name: dockerhub-secret
       # worker-ai 노드에 배치

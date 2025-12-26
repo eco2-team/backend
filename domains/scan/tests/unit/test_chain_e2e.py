@@ -37,7 +37,9 @@ class TestChainDataFlow:
         """Step 1: vision_task 출력 구조 검증."""
         from domains.scan.tasks.vision import vision_task
 
-        with patch("domains._shared.waste_pipeline.vision.analyze_images") as mock:
+        with patch(
+            "domains._shared.waste_pipeline.vision.analyze_images",
+        ) as mock:
             mock.return_value = {
                 "classification": {
                     "major_category": "재활용폐기물",
@@ -131,7 +133,9 @@ class TestChainDataFlow:
             },
         }
 
-        with patch("domains._shared.waste_pipeline.answer.generate_answer") as mock:
+        with patch(
+            "domains._shared.waste_pipeline.answer.generate_answer",
+        ) as mock:
             mock.return_value = {
                 "user_answer": "페트병은 라벨을 제거하고 투명 페트병 수거함에 배출하세요.",
                 "insufficiencies": [],
@@ -169,7 +173,7 @@ class TestFullChainAssembly:
     @patch("domains._shared.waste_pipeline.vision.analyze_images")
     def test_recyclable_with_reward(self, mock_vision, mock_rule, mock_answer, task_id, user_id):
         """시나리오 1: 재활용 폐기물 + 리워드 획득."""
-        from domains.character.consumers.reward import _should_attempt_reward
+        from domains.scan.tasks.reward import _should_attempt_reward
         from domains.scan.tasks.answer import answer_task
         from domains.scan.tasks.rule import rule_task
         from domains.scan.tasks.vision import vision_task
@@ -235,7 +239,7 @@ class TestFullChainAssembly:
         self, mock_vision, mock_rule, mock_answer, task_id, user_id
     ):
         """시나리오 2: 재활용 폐기물 + insufficiencies로 리워드 미획득."""
-        from domains.character.consumers.reward import _should_attempt_reward
+        from domains.scan.tasks.reward import _should_attempt_reward
         from domains.scan.tasks.answer import answer_task
         from domains.scan.tasks.rule import rule_task
         from domains.scan.tasks.vision import vision_task
@@ -281,7 +285,7 @@ class TestFullChainAssembly:
     @patch("domains._shared.waste_pipeline.vision.analyze_images")
     def test_non_recyclable(self, mock_vision, mock_rule, mock_answer, task_id, user_id):
         """시나리오 3: 일반 폐기물 (리워드 대상 아님)."""
-        from domains.character.consumers.reward import _should_attempt_reward
+        from domains.scan.tasks.reward import _should_attempt_reward
         from domains.scan.tasks.answer import answer_task
         from domains.scan.tasks.rule import rule_task
         from domains.scan.tasks.vision import vision_task
@@ -462,7 +466,7 @@ class TestSSEFinalEventFormat:
         """SSE 이벤트가 JSON 직렬화 가능한지 검증."""
         import json
 
-        from domains.scan.api.v1.endpoints.progress import _format_sse_with_id
+        from domains.scan.api.v1.endpoints.completion import _format_sse
 
         sse_data = {
             "step": "reward",
@@ -481,10 +485,9 @@ class TestSSEFinalEventFormat:
         }
 
         # JSON 직렬화 테스트
-        formatted = _format_sse_with_id(sse_data, event_id=5)
+        formatted = _format_sse(sse_data)
 
         # SSE 형식 검증
-        assert formatted.startswith("id: 5\n")
         assert "data: " in formatted
         assert formatted.endswith("\n\n")
 

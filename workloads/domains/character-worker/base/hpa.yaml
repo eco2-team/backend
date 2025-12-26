@@ -1,0 +1,47 @@
+# character-worker HPA (Horizontal Pod Autoscaler)
+# 노드: k8s-worker-storage (2 CPU, 3.8GB) - 다른 worker와 공유
+# Pod당: 200m CPU (app 100m + istio 100m), 384Mi Memory
+# Fire-and-forget DB 저장 (celery-batches)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: character-worker-hpa
+  namespace: character
+  labels:
+    app: character-worker
+    domain: character
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: character-worker
+  minReplicas: 1
+  maxReplicas: 2  # Fire-and-forget: 낮은 우선순위
+  metrics:
+  # CPU 기반 스케일링
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75  # DB I/O 바운드
+  # Memory 기반 스케일링
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5분 안정화
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 120
+    scaleUp:
+      stabilizationWindowSeconds: 60  # 1분 대기 (fire-and-forget)
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 60

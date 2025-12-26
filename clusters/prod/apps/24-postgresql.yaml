@@ -1,0 +1,149 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-postgresql
+  namespace: argocd
+  labels:
+    env: prod
+    tier: data
+  annotations:
+    argocd.argoproj.io/sync-wave: '24'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: prod
+  source:
+    repoURL: https://charts.bitnami.com/bitnami
+    chart: postgresql
+    targetRevision: 18.1.11  # 최신 안정 버전
+    helm:
+      values: |
+        global:
+          storageClass: gp3
+          postgresql:
+            auth:
+              username: sesacthon
+              database: sesacthon
+              existingSecret: postgresql-secret
+              secretKeys:
+                adminPasswordKey: postgres-password
+                userPasswordKey: password
+
+        # PostgreSQL 16 이미지 명시적 지정
+        image:
+          registry: docker.io
+          repository: bitnami/postgresql
+          tag: 16.4.0
+          digest: ""
+          pullPolicy: IfNotPresent
+
+        architecture: replication
+
+        auth:
+          existingSecret: postgresql-secret
+          secretKeys:
+            adminPasswordKey: postgres-password
+            userPasswordKey: password
+          username: sesacthon
+          database: sesacthon
+          replicationUsername: replicator
+          replicationPassword: ""
+
+        primary:
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 2Gi
+            limits:
+              cpu: 4000m
+              memory: 8Gi
+
+          persistence:
+            enabled: true
+            storageClass: gp3
+            size: 50Gi
+
+          volumePermissions:
+            enabled: true
+
+          nodeSelector:
+            domain: data
+
+          tolerations:
+            - key: domain
+              operator: Equal
+              value: data
+              effect: NoSchedule
+
+          extendedConfiguration: |
+            max_connections = 300
+            shared_buffers = 512MB
+            effective_cache_size = 2GB
+            maintenance_work_mem = 128MB
+            checkpoint_completion_target = 0.9
+            wal_buffers = 16MB
+            default_statistics_target = 100
+            random_page_cost = 1.1
+            effective_io_concurrency = 200
+            work_mem = 2621kB
+            huge_pages = off
+            min_wal_size = 2GB
+            max_wal_size = 8GB
+            max_worker_processes = 4
+            max_parallel_workers_per_gather = 2
+            max_parallel_workers = 4
+
+        # Read Replica 설정
+        readReplicas:
+          replicaCount: 1
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 2Gi
+            limits:
+              cpu: 4000m
+              memory: 8Gi
+
+          persistence:
+            enabled: true
+            storageClass: gp3
+            size: 50Gi
+
+          volumePermissions:
+            enabled: true
+
+          nodeSelector:
+            domain: data
+
+          tolerations:
+            - key: domain
+              operator: Equal
+              value: data
+              effect: NoSchedule
+
+        metrics:
+          enabled: true
+          serviceMonitor:
+            enabled: true
+            namespace: prometheus
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+
+        commonLabels:
+          tier: data
+          app: postgresql
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: postgres
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

@@ -1,0 +1,114 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-postgresql
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '24'
+  labels:
+    env: dev
+    tier: data
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://charts.bitnami.com/bitnami
+    chart: postgresql
+    targetRevision: 18.1.11  # 최신 안정 버전
+    helm:
+      values: |
+        global:
+          storageClass: gp3
+          postgresql:
+            auth:
+              # 사용자 이름과 데이터베이스 이름
+              username: sesacthon
+              database: ecoeco
+              # 비밀번호는 existingSecret에서 가져옴
+              existingSecret: postgresql-secret
+              secretKeys:
+                adminPasswordKey: postgres-password
+                userPasswordKey: password
+
+        # PostgreSQL 16 이미지 - Bitnami Chart가 자동으로 적절한 이미지 선택
+        # image 섹션을 제거하고 Chart 기본값 사용 (PostgreSQL 16.x)
+
+        architecture: standalone
+
+        auth:
+          # AWS SSM Parameter Store에서 가져온 비밀번호 사용
+          existingSecret: postgresql-secret
+          secretKeys:
+            adminPasswordKey: postgres-password
+            userPasswordKey: password
+          username: sesacthon
+          database: ecoeco
+          # postgres superuser도 동일한 비밀번호 사용 (단순화)
+          postgresPassword: ""
+
+        primary:
+          # 리소스 할당
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+
+          # Persistence 설정
+          persistence:
+            enabled: true
+            storageClass: gp3
+            size: 20Gi
+
+          # EBS 볼륨 권한 자동 수정을 위해 initContainer 활성화
+          volumePermissions:
+            enabled: true
+
+          # Node 배치
+          nodeSelector:
+            domain: data
+
+          tolerations:
+            - key: domain
+              operator: Equal
+              value: data
+              effect: NoSchedule
+
+          # PostgreSQL 설정
+          extendedConfiguration: |
+            max_connections = 200
+            shared_buffers = 256MB
+            effective_cache_size = 1GB
+            maintenance_work_mem = 64MB
+            checkpoint_completion_target = 0.9
+            wal_buffers = 16MB
+            default_statistics_target = 100
+            random_page_cost = 1.1
+            effective_io_concurrency = 200
+            work_mem = 1310kB
+            huge_pages = off
+            min_wal_size = 1GB
+            max_wal_size = 4GB
+
+        metrics:
+          enabled: false
+          # 필요시 나중에 활성화
+          # serviceMonitor:
+          #   enabled: true
+
+        commonLabels:
+          tier: data
+          app: postgresql
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: postgres
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

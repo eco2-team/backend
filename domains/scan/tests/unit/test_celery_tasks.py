@@ -286,8 +286,17 @@ class TestCeleryConfig:
         assert routes["scan.vision"]["queue"] == "scan.vision"
         assert routes["scan.rule"]["queue"] == "scan.rule"
         assert routes["scan.answer"]["queue"] == "scan.answer"
-        assert routes["reward.*"]["queue"] == "reward.character"
-        assert routes["dlq.*"]["queue"] == "celery"
+        assert routes["scan.reward"]["queue"] == "scan.reward"
+        assert routes["character.save_ownership"]["queue"] == "character.reward"
+        assert routes["my.save_character"]["queue"] == "my.reward"
+
+        # DLQ reprocess task → 각 도메인 큐로 분리 라우팅
+        assert routes["dlq.reprocess_scan_vision"]["queue"] == "scan.vision"
+        assert routes["dlq.reprocess_scan_rule"]["queue"] == "scan.rule"
+        assert routes["dlq.reprocess_scan_answer"]["queue"] == "scan.answer"
+        assert routes["dlq.reprocess_scan_reward"]["queue"] == "scan.reward"
+        assert routes["dlq.reprocess_character_reward"]["queue"] == "character.reward"
+        assert routes["dlq.reprocess_my_reward"]["queue"] == "my.reward"
 
     def test_get_celery_config_beat_schedule(self):
         """Beat 스케줄 설정 확인."""
@@ -302,7 +311,9 @@ class TestCeleryConfig:
         assert "reprocess-dlq-scan-vision" in schedule
         assert "reprocess-dlq-scan-rule" in schedule
         assert "reprocess-dlq-scan-answer" in schedule
-        assert "reprocess-dlq-reward" in schedule
+        assert "reprocess-dlq-scan-reward" in schedule
+        assert "reprocess-dlq-character-reward" in schedule
+        assert "reprocess-dlq-my-reward" in schedule
 
         # 5분마다 실행
         assert schedule["reprocess-dlq-scan-vision"]["schedule"] == 300.0

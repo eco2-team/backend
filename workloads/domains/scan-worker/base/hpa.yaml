@@ -1,0 +1,51 @@
+# scan-worker HPA (Horizontal Pod Autoscaler)
+# 노드: k8s-worker-ai (2 CPU, 3.8GB) - 독점
+# Pod당: 350m CPU (app 250m + istio 100m), 640Mi Memory
+# OpenAI API 호출 위주 (I/O 바운드)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: scan-worker-hpa
+  namespace: scan
+  labels:
+    app: scan-worker
+    domain: scan
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: scan-worker
+  minReplicas: 1
+  maxReplicas: 5  # 노드 CPU 한계 (2000m / 350m ≈ 5)
+  metrics:
+  # CPU 기반 스케일링 (주 지표)
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60  # I/O 바운드: 낮은 임계값
+  # Memory 기반 스케일링 (보조 지표)
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 75
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5분간 안정화 후 스케일다운
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 60  # 1분당 1개씩 감소 (급격한 축소 방지)
+    scaleUp:
+      stabilizationWindowSeconds: 30  # 30초 대기 후 스케일업
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30  # 30초당 100% 증가 가능
+      - type: Pods
+        value: 2
+        periodSeconds: 30  # 30초당 최대 2개 추가
+      selectPolicy: Max

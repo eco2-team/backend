@@ -1,0 +1,23 @@
+# ============================================================================
+# Scan Worker Dockerfile
+# Celery Worker 전용 이미지 (FastAPI, uvicorn 제외)
+# AI 파이프라인 처리: vision, rule, answer, reward tasks
+# ============================================================================
+FROM docker.io/mng990/eco2:base-dev-latest
+
+WORKDIR /app
+
+# Worker 전용 추가 의존성 (root로 설치)
+USER root
+COPY domains/scan/requirements-worker.txt /tmp/requirements-worker.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-worker.txt
+
+# 애플리케이션 코드 복사
+COPY domains/_shared /app/domains/_shared
+COPY domains/character /app/domains/character
+COPY domains/scan /app/domains/scan
+
+USER appuser
+
+# Celery Worker 실행 (scan 파이프라인 전체 + 보상 판정)
+CMD ["celery", "-A", "domains.scan.celery_app", "worker", "-E", "--loglevel=info", "-Q", "scan.vision,scan.rule,scan.answer,scan.reward", "-c", "2"]

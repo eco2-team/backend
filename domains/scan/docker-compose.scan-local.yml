@@ -2,6 +2,7 @@ x-shared:
   postgres_url: &postgres_url postgresql+asyncpg://sesacthon:sesacthon@local-db:5432/ecoeco
   redis_blacklist_url: &redis_blacklist_url redis://local-redis:6379/0
   redis_oauth_url: &redis_oauth_url redis://local-redis:6379/3
+  rabbitmq_url: &rabbitmq_url amqp://guest:guest@local-rabbitmq:5672/
   shared_jwt_secret: &shared_jwt_secret ${SHARED_JWT_SECRET:-local-shared-secret}
 
 services:
@@ -29,6 +30,21 @@ services:
     command: [redis-server, --appendonly, no]
     ports:
     - 6380:6379
+
+  local-rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: scan-local-rabbitmq
+    ports:
+    - 5672:5672
+    - 15672:15672  # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, check_port_connectivity]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   character-seed:
     build:
@@ -214,6 +230,35 @@ services:
     - 0.0.0.0
     - --port
     - '8000'
+
+  scan-worker:
+    build:
+      context: ../..
+      dockerfile: domains/scan/Dockerfile.worker
+    container_name: scan-local-worker
+    restart: unless-stopped
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      CELERY_BROKER_URL: *rabbitmq_url
+      CELERY_RESULT_BACKEND: rpc://
+      SCAN_CHARACTER_API_BASE_URL: http://character-api:8000
+    depends_on:
+      local-rabbitmq:
+        condition: service_healthy
+      character-api:
+        condition: service_started
+    command:
+    - celery
+    - -A
+    - domains.scan.celery_app
+    - worker
+    - --loglevel=info
+    - -P
+    - gevent  # Gevent pool (높은 동시성 I/O)
+    - -Q
+    - scan.vision,scan.rule,scan.answer,scan.reward
+    - -c
+    - '50'  # 로컬 테스트용 동시 greenlet
 
 volumes:
   local-db-data:

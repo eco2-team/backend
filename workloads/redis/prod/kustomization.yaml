@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../base
+
+commonLabels:
+  env: prod
+
+# Prod 환경: base 설정 그대로 사용 (3 replicas)
+# 필요시 리소스 증가
+patches:
+  # Cache Redis: 메모리 증가
+- target:
+    kind: RedisFailover
+    name: cache-redis
+  patch: |-
+    - op: replace
+      path: /spec/redis/resources/limits/memory
+      value: 1Gi
+    - op: replace
+      path: /spec/redis/resources/requests/memory
+      value: 512Mi
+    - op: replace
+      path: /spec/redis/customConfig
+      value:
+        - "maxmemory 768mb"
+        - "maxmemory-policy allkeys-lru"
+        - "tcp-keepalive 300"
+        - "timeout 0"
+        - "appendonly no"
+        - "save \"\""

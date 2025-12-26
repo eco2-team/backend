@@ -1,0 +1,622 @@
+# Scan SSE Pipeline 대시보드 (Celery Chain + Redis Streams + SSE Streaming)
+# 목적: SSE 스트리밍 성능, Celery Chain 단계별 지연, Redis Streams 상태, 큐 상태 추적
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-scan-sse-pipeline
+  namespace: prometheus
+  labels:
+    grafana_dashboard: '1'
+    app: grafana
+  annotations:
+    grafana_folder: Domain APIs
+data:
+  scan-sse-pipeline.json: |
+    {
+      "title": "📡 Scan SSE Pipeline (Celery Chain)",
+      "uid": "scan-sse-pipeline",
+      "version": 1,
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "refresh": "10s",
+      "time": { "from": "now-30m", "to": "now" },
+      "panels": [
+        {
+          "title": "🔥 SSE 핵심 지표",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "collapsed": false
+        },
+        {
+          "title": "Active Connections",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+          "targets": [
+            {
+              "expr": "scan_sse_connections_active",
+              "legendFormat": "Active"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 50 },
+                  { "color": "red", "value": 100 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Chain Avg Duration",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+          "targets": [
+            {
+              "expr": "sum(rate(scan_sse_chain_duration_seconds_sum[5m])) / sum(rate(scan_sse_chain_duration_seconds_count[5m]))",
+              "legendFormat": "Avg"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s", "decimals": 1 } }
+        },
+        {
+          "title": "TTFB (p50)",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(scan_sse_ttfb_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p50"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s", "decimals": 2 } }
+        },
+        {
+          "title": "Success Rate",
+          "type": "gauge",
+          "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+          "targets": [
+            {
+              "expr": "sum(rate(scan_sse_requests_total{status=\"success\"}[5m])) / sum(rate(scan_sse_requests_total[5m])) * 100",
+              "legendFormat": "Success %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 90 },
+                  { "color": "green", "value": 98 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Requests/sec",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+          "targets": [
+            {
+              "expr": "sum(rate(scan_sse_requests_total[1m]))",
+              "legendFormat": "RPS"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 2 } }
+        },
+        {
+          "title": "Timeout Rate",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+          "targets": [
+            {
+              "expr": "sum(rate(scan_sse_requests_total{status=\"timeout\"}[5m])) / sum(rate(scan_sse_requests_total[5m])) * 100",
+              "legendFormat": "Timeout %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 2,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red", "value": 10 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "⏱️ 스테이지별 성능",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "collapsed": false
+        },
+        {
+          "title": "스테이지별 평균 소요 시간",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+          "targets": [
+            {
+              "expr": "sum by (stage) (rate(scan_sse_stage_duration_seconds_sum[5m])) / sum by (stage) (rate(scan_sse_stage_duration_seconds_count[5m]))",
+              "legendFormat": "{{stage}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "lineWidth": 2, "fillOpacity": 20, "drawStyle": "line" }
+            },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "vision" }, "properties": [{ "id": "color", "value": { "fixedColor": "#7eb26d" } }] },
+              { "matcher": { "id": "byName", "options": "rule" }, "properties": [{ "id": "color", "value": { "fixedColor": "#6ed0e0" } }] },
+              { "matcher": { "id": "byName", "options": "answer" }, "properties": [{ "id": "color", "value": { "fixedColor": "#eab839" } }] },
+              { "matcher": { "id": "byName", "options": "reward" }, "properties": [{ "id": "color", "value": { "fixedColor": "#ef843c" } }] }
+            ]
+          }
+        },
+        {
+          "title": "스테이지별 p99 소요 시간",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum by (stage, le) (rate(scan_sse_stage_duration_seconds_bucket[1m])))",
+              "legendFormat": "{{stage}} p99"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "스테이지별 처리량 비율",
+          "type": "piechart",
+          "gridPos": { "h": 8, "w": 6, "x": 0, "y": 14 },
+          "targets": [
+            {
+              "expr": "sum by (stage) (rate(scan_sse_stage_duration_seconds_sum[5m]))",
+              "legendFormat": "{{stage}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "s" }
+          },
+          "options": {
+            "legend": { "displayMode": "list", "placement": "right" },
+            "pieType": "donut"
+          }
+        },
+        {
+          "title": "Chain 전체 소요 시간 분포",
+          "type": "histogram",
+          "gridPos": { "h": 8, "w": 10, "x": 6, "y": 14 },
+          "targets": [
+            {
+              "expr": "sum by (le) (rate(scan_sse_chain_duration_seconds_bucket[5m]))",
+              "legendFormat": "{{le}}s",
+              "format": "heatmap"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s" } }
+        },
+        {
+          "title": "TTFB 분포",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 14 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(scan_sse_ttfb_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(scan_sse_ttfb_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p95"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(scan_sse_ttfb_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p99"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "🐇 Celery & RabbitMQ",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+          "collapsed": false
+        },
+        {
+          "title": "🔗 SSE vs RabbitMQ 연결 수",
+          "description": "SSE 연결 1개당 RabbitMQ 연결이 몇 개 생성되는지 확인 (SSE 병목 분석)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+          "targets": [
+            {
+              "expr": "scan_sse_connections_active",
+              "legendFormat": "SSE Active Connections"
+            },
+            {
+              "expr": "rabbitmq_connections",
+              "legendFormat": "RabbitMQ Total Connections"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "SSE Active Connections" }, "properties": [{ "id": "color", "value": { "fixedColor": "#6ed0e0" } }] },
+              { "matcher": { "id": "byName", "options": "RabbitMQ Total Connections" }, "properties": [{ "id": "color", "value": { "fixedColor": "#ef843c" } }] }
+            ]
+          }
+        },
+        {
+          "title": "📈 RabbitMQ 연결 증가율",
+          "description": "테스트 중 연결 생성 속도 (SSE당 AMQP 연결 생성 확인)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+          "targets": [
+            {
+              "expr": "rate(rabbitmq_connections_opened_total[1m])",
+              "legendFormat": "Connections Opened/sec"
+            },
+            {
+              "expr": "rate(rabbitmq_connections_closed_total[1m])",
+              "legendFormat": "Connections Closed/sec"
+            },
+            {
+              "expr": "rate(scan_sse_requests_total[1m])",
+              "legendFormat": "SSE Requests/sec"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "Celery Stage 평균 처리 시간",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 31 },
+          "targets": [
+            {
+              "expr": "sum by (stage) (rate(scan_sse_stage_duration_seconds_sum[1m])) / sum by (stage) (rate(scan_sse_stage_duration_seconds_count[1m]))",
+              "legendFormat": "{{stage}} avg"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Celery Stage p99",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 31 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum by (stage, le) (rate(scan_sse_stage_duration_seconds_bucket[1m])))",
+              "legendFormat": "{{stage}} p99"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "RabbitMQ 큐 메시지 수",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 31 },
+          "targets": [
+            {
+              "expr": "rabbitmq_queue_messages_ready{queue=~\"scan\\\\..*|character\\\\..*|my\\\\..*\"}",
+              "legendFormat": "{{queue}} (ready)"
+            },
+            {
+              "expr": "rabbitmq_queue_messages_unacked{queue=~\"scan\\\\..*|character\\\\..*|my\\\\..*\"}",
+              "legendFormat": "{{queue}} (unacked)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "📊 요청 상태별 분포",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 },
+          "collapsed": false
+        },
+        {
+          "title": "SSE 요청 상태 (req/m)",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 40 },
+          "targets": [
+            {
+              "expr": "sum by (status) (rate(scan_sse_requests_total[1m])) * 60",
+              "legendFormat": "{{status}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20, "stacking": { "mode": "normal" } }
+            },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "success" }, "properties": [{ "id": "color", "value": { "fixedColor": "#73bf69" } }] },
+              { "matcher": { "id": "byName", "options": "failed" }, "properties": [{ "id": "color", "value": { "fixedColor": "#f2495c" } }] },
+              { "matcher": { "id": "byName", "options": "timeout" }, "properties": [{ "id": "color", "value": { "fixedColor": "#ff9830" } }] }
+            ]
+          }
+        },
+        {
+          "title": "Active Connections (시계열)",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 40 },
+          "targets": [
+            {
+              "expr": "scan_sse_connections_active",
+              "legendFormat": "Active SSE Connections"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 30 }
+            }
+          }
+        },
+        {
+          "title": "🖥️ Worker 리소스 사용량",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 46 },
+          "collapsed": false
+        },
+        {
+          "title": "Worker CPU 사용률",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 47 },
+          "targets": [
+            {
+              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=~\"scan|character|my\", container=~\".*worker.*\"}[5m])) * 100",
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Worker Memory 사용량",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 47 },
+          "targets": [
+            {
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=~\"scan|character|my\", container=~\".*worker.*\"}) / 1024 / 1024",
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "decmbytes",
+              "min": 0,
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Worker CPU Request vs Usage",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 55 },
+          "targets": [
+            {
+              "expr": "sum by (pod) (kube_pod_container_resource_requests{namespace=~\"scan|character|my\", container=~\".*worker.*\", resource=\"cpu\"})",
+              "legendFormat": "{{pod}} request"
+            },
+            {
+              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=~\"scan|character|my\", container=~\".*worker.*\"}[5m]))",
+              "legendFormat": "{{pod}} usage"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "Worker Memory Request vs Usage",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 55 },
+          "targets": [
+            {
+              "expr": "sum by (pod) (kube_pod_container_resource_requests{namespace=~\"scan|character|my\", container=~\".*worker.*\", resource=\"memory\"}) / 1024 / 1024",
+              "legendFormat": "{{pod}} request"
+            },
+            {
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=~\"scan|character|my\", container=~\".*worker.*\"}) / 1024 / 1024",
+              "legendFormat": "{{pod}} usage"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "decmbytes",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "Redis Streams (SSE Event Source)",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 63 },
+          "collapsed": false
+        },
+        {
+          "title": "Stream Length (scan:events:*)",
+          "description": "SSE 이벤트 스트림 길이 - 처리 대기 중인 이벤트 수",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 64 },
+          "targets": [
+            {
+              "expr": "redis_stream_length{redis_cluster=\"streams-redis\"}",
+              "legendFormat": "{{ stream }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 100 },
+                  { "color": "red", "value": 500 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Stream Groups",
+          "description": "스트림별 Consumer Group 수",
+          "type": "stat",
+          "gridPos": { "h": 6, "w": 4, "x": 8, "y": 64 },
+          "targets": [
+            {
+              "expr": "sum(redis_stream_groups{redis_cluster=\"streams-redis\"})",
+              "legendFormat": "Groups"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            }
+          }
+        },
+        {
+          "title": "Pending Messages",
+          "description": "처리 중이지만 ACK되지 않은 메시지 수",
+          "type": "stat",
+          "gridPos": { "h": 6, "w": 4, "x": 12, "y": 64 },
+          "targets": [
+            {
+              "expr": "sum(redis_stream_pending_entries{redis_cluster=\"streams-redis\"})",
+              "legendFormat": "Pending"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 50 },
+                  { "color": "red", "value": 200 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "streams-redis Memory",
+          "description": "SSE 이벤트 저장용 Redis 메모리 사용량",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 64 },
+          "targets": [
+            {
+              "expr": "redis_memory_used_bytes{redis_cluster=\"streams-redis\"}",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Redis Commands (streams-redis)",
+          "description": "streams-redis 초당 명령어 처리량",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 70 },
+          "targets": [
+            {
+              "expr": "rate(redis_commands_processed_total{redis_cluster=\"streams-redis\"}[1m])",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Redis Connections (streams-redis)",
+          "description": "SSE 이벤트 소스 Redis 연결 수",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 70 },
+          "targets": [
+            {
+              "expr": "redis_connected_clients{redis_cluster=\"streams-redis\"}",
+              "legendFormat": "{{ pod }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 50 },
+                  { "color": "red", "value": 100 }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }

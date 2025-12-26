@@ -375,8 +375,6 @@ class TestEvaluateReward:
         # list_all이 전체 캐릭터 반환
         service.character_repo.list_all = AsyncMock(return_value=[mock_character])
         service.ownership_repo.get_by_user_and_character = AsyncMock(return_value=mock_ownership)
-        # Celery task dispatch mock (이미 소유해도 sync 호출됨)
-        service._sync_to_my_domain = MagicMock()
 
         result = await service.evaluate_reward(payload)
 
@@ -427,93 +425,6 @@ class TestApplyRewardRaceCondition:
         assert already_owned is True
         assert failure is None
         service.session.rollback.assert_called_once()
-
-
-class TestSyncToMyDomain:
-    """Tests for _sync_to_my_domain method."""
-
-    @pytest.fixture
-    def mock_session(self):
-        return AsyncMock()
-
-    @pytest.fixture
-    def service(self, mock_session):
-        from domains.character.services.character import CharacterService
-
-        service = CharacterService.__new__(CharacterService)
-        service.session = mock_session
-        service.character_repo = MagicMock()
-        service.ownership_repo = MagicMock()
-        return service
-
-    def test_sync_dispatches_celery_task(self, service):
-        """Celery task dispatch 성공 시 로그 남김."""
-        user_id = uuid4()
-        mock_character = MagicMock()
-        mock_character.id = uuid4()
-        mock_character.name = "이코"
-        mock_character.code = "ECO001"
-        mock_character.type_label = "기본"
-        mock_character.dialog = "안녕!"
-
-        mock_task = MagicMock()
-
-        with patch(
-            "domains.character.consumers.sync_my.sync_to_my_task",
-            mock_task,
-        ):
-            service._sync_to_my_domain(user_id=user_id, character=mock_character, source="test")
-
-        mock_task.delay.assert_called_once_with(
-            user_id=str(user_id),
-            character_id=str(mock_character.id),
-            character_code="ECO001",
-            character_name="이코",
-            character_type="기본",
-            character_dialog="안녕!",
-            source="test",
-        )
-
-    def test_sync_failure_does_not_raise(self, service):
-        """Task dispatch 실패해도 예외 발생 안함 (eventual consistency)."""
-        user_id = uuid4()
-        mock_character = MagicMock()
-        mock_character.id = uuid4()
-        mock_character.name = "이코"
-        mock_character.code = "ECO001"
-        mock_character.type_label = "기본"
-        mock_character.dialog = "안녕!"
-
-        mock_task = MagicMock()
-        mock_task.delay.side_effect = Exception("Celery broker error")
-
-        with patch(
-            "domains.character.consumers.sync_my.sync_to_my_task",
-            mock_task,
-        ):
-            # 예외가 발생하지 않아야 함
-            service._sync_to_my_domain(user_id=user_id, character=mock_character, source="test")
-
-    def test_sync_is_fire_and_forget(self, service):
-        """Task dispatch는 fire-and-forget (결과 기다리지 않음)."""
-        user_id = uuid4()
-        mock_character = MagicMock()
-        mock_character.id = uuid4()
-        mock_character.name = "이코"
-        mock_character.code = "ECO001"
-        mock_character.type_label = "기본"
-        mock_character.dialog = "안녕!"
-
-        mock_task = MagicMock()
-        # delay() 반환값 (AsyncResult)은 무시됨
-        mock_task.delay.return_value = MagicMock()
-
-        with patch(
-            "domains.character.consumers.sync_my.sync_to_my_task",
-            mock_task,
-        ):
-            # 동기적으로 즉시 반환
-            service._sync_to_my_domain(user_id=user_id, character=mock_character, source="test")
 
 
 class TestCreateForTest:
@@ -570,7 +481,7 @@ class TestGrantAndSync:
 
     @pytest.mark.asyncio
     async def test_grant_and_sync_inserts_ownership(self, service, mock_session):
-        """ownership 삽입 후 commit 호출, 그 후 Celery task dispatch."""
+        """ownership 삽입 후 commit 호출."""
         user_id = uuid4()
         mock_character = MagicMock()
         mock_character.id = uuid4()
@@ -579,18 +490,10 @@ class TestGrantAndSync:
         mock_character.type_label = "기본"
         mock_character.dialog = "안녕!"
 
-        mock_task = MagicMock()
+        await service._grant_and_sync(
+            user_id=user_id, character=mock_character, source="test-source"
+        )
 
-        with patch(
-            "domains.character.consumers.sync_my.sync_to_my_task",
-            mock_task,
-        ):
-            await service._grant_and_sync(
-                user_id=user_id, character=mock_character, source="test-source"
-            )
-
-        # 1. ownership 저장
+        # ownership 저장 및 commit
         service.ownership_repo.insert_owned.assert_called_once()
         mock_session.commit.assert_called_once()
-        # 2. Celery task dispatch (비동기 동기화)
-        mock_task.delay.assert_called_once()
