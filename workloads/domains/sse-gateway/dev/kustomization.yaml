@@ -6,5 +6,3 @@ resources:
 images:
 - name: mng990/eco2
   newTag: sse-gateway-dev-latest
-- name: docker.io/mng990/eco2
-  newTag: sse-gateway-api-dev-latest

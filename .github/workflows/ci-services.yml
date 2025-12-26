@@ -366,7 +366,12 @@ jobs:
           SHORT_SHA=$(git rev-parse --short=6 HEAD)
           SERVICE="${{ matrix.service }}"
           IMAGE_REPO="docker.io/mng990/eco2"
-          SERVICE_SLUG="${SERVICE}-api"
+          # sse-gateway는 이미 이름에 역할이 포함되어 있으므로 -api suffix 제외
+          if [[ "$SERVICE" == *"-gateway"* ]]; then
+            SERVICE_SLUG="${SERVICE}"
+          else
+            SERVICE_SLUG="${SERVICE}-api"
+          fi
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             IS_PR=true
             BASE_REF="${{ github.event.pull_request.base.ref }}"
