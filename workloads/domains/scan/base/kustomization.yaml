@@ -5,7 +5,8 @@ resources:
 - deployment.yaml
 - service.yaml
 - configmap.yaml
-- hpa.yaml
+# HPA removed - managed by workloads/scaling (Prometheus Adapter based)
+# - hpa.yaml
 labels:
 - includeSelectors: true
   pairs:

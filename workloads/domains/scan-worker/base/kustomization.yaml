@@ -6,7 +6,8 @@ namespace: scan
 resources:
 - deployment.yaml
 - configmap.yaml
-- hpa.yaml
+# HPA removed - managed by workloads/scaling (KEDA ScaledObject)
+# - hpa.yaml
 
 commonLabels:
   app.kubernetes.io/name: scan-worker
