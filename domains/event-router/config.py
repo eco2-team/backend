@@ -1,19 +1,20 @@
 """Event Router 설정.
 
 환경 변수:
-- REDIS_STREAMS_URL: Redis Streams 연결 URL (XREADGROUP/XACK)
-- REDIS_PUBSUB_URL: Redis Pub/Sub 연결 URL (PUBLISH + State KV)
+- REDIS_STREAMS_URL: Redis Streams 연결 URL (XREADGROUP/XACK + State KV)
+- REDIS_PUBSUB_URL: Redis Pub/Sub 연결 URL (PUBLISH only)
 - CONSUMER_GROUP: Consumer Group 이름 (default: eventrouter)
 - POD_NAME: Pod 이름 (Consumer 이름으로 사용)
 - SSE_SHARD_COUNT: Shard 수 (default: 4)
 - LOG_LEVEL: 로그 레벨 (default: INFO)
 
-Event Router 역할:
-- Redis Streams에서 XREADGROUP으로 이벤트 소비
-- State KV 갱신 (seq 비교)
-- Redis Pub/Sub로 발행
-- XACK로 메시지 확인
-- XAUTOCLAIM으로 장애 복구
+Redis 역할 분리:
+- Streams Redis (내구성): XREADGROUP, XACK, State KV (scan:state:{job_id})
+- Pub/Sub Redis (실시간): PUBLISH only (sse:events:{job_id})
+
+State KV는 Streams Redis에 둬야 함:
+- 복구/재접속 시 현재 상태 조회 필요 (Source of Truth)
+- Pub/Sub는 저장 안됨 → State로 부적합
 
 참조: docs/blogs/async/34-sse-HA-architecture.md
 """
@@ -32,10 +33,11 @@ class Settings(BaseSettings):
     service_version: str = "1.0.0"
     environment: str = "development"
 
-    # Redis Streams (XREADGROUP/XACK)
+    # Redis Streams + State KV (XREADGROUP/XACK + SETEX)
+    # State는 내구성 있는 저장소에 두어야 함
     redis_streams_url: str = "redis://rfr-streams-redis.redis.svc.cluster.local:6379/0"
 
-    # Redis Pub/Sub + State KV (PUBLISH/SETEX)
+    # Redis Pub/Sub (PUBLISH only - 실시간 전달용)
     redis_pubsub_url: str = "redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0"
 
     # Consumer Group 설정

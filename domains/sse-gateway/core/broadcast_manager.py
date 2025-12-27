@@ -111,6 +111,10 @@ class SubscriberQueue:
 class SSEBroadcastManager:
     """Redis Pub/Sub 기반 SSE Broadcast Manager.
 
+    Redis 역할 분리:
+    - Streams Redis: State KV 조회 (scan:state:{job_id}) - 복구용
+    - Pub/Sub Redis: 실시간 이벤트 구독 (sse:events:{job_id})
+
     Event Router가 발행하는 Pub/Sub 메시지를 구독하여
     해당 job_id의 클라이언트들에게 전달.
 
@@ -129,22 +133,17 @@ class SSEBroadcastManager:
         self._subscribers: dict[str, set[SubscriberQueue]] = defaultdict(set)
         # job_id → Pub/Sub listener task
         self._pubsub_tasks: dict[str, asyncio.Task[None]] = {}
-        # Redis 클라이언트
-        self._redis_client: aioredis.Redis | None = None
+        # Redis 클라이언트 (역할별 분리)
+        self._streams_client: aioredis.Redis | None = None  # State 조회용
+        self._pubsub_client: aioredis.Redis | None = None  # Pub/Sub 구독용
         # 종료 플래그
         self._shutdown: bool = False
         # 설정
         self._state_timeout_seconds: int = 30
 
     @classmethod
-    async def get_instance(
-        cls,
-        redis_url: str = "",
-    ) -> SSEBroadcastManager:
+    async def get_instance(cls) -> SSEBroadcastManager:
         """싱글톤 인스턴스 반환.
-
-        Args:
-            redis_url: Redis URL (Pub/Sub + State KV)
 
         Returns:
             SSEBroadcastManager 인스턴스
@@ -152,22 +151,32 @@ class SSEBroadcastManager:
         async with cls._lock:
             if cls._instance is None:
                 cls._instance = cls()
-                await cls._instance._initialize(redis_url)
+                await cls._instance._initialize()
                 logger.info("broadcast_manager_initialized")
             return cls._instance
 
-    async def _initialize(self, redis_url: str) -> None:
-        """Redis 클라이언트 초기화."""
+    async def _initialize(self) -> None:
+        """Redis 클라이언트 초기화 (역할별 분리)."""
         import redis.asyncio as aioredis
 
         from config import get_settings
 
         settings = get_settings()
-        redis_url = redis_url or settings.redis_pubsub_url
         self._state_timeout_seconds = settings.state_timeout_seconds
 
-        self._redis_client = aioredis.from_url(
-            redis_url,
+        # Streams Redis - State 조회용 (내구성)
+        self._streams_client = aioredis.from_url(
+            settings.redis_streams_url,
+            decode_responses=True,
+            socket_timeout=60.0,
+            socket_connect_timeout=5.0,
+            retry_on_timeout=True,
+            health_check_interval=30,
+        )
+
+        # Pub/Sub Redis - 실시간 구독용
+        self._pubsub_client = aioredis.from_url(
+            settings.redis_pubsub_url,
             decode_responses=True,
             socket_timeout=60.0,
             socket_connect_timeout=5.0,
@@ -177,7 +186,10 @@ class SSEBroadcastManager:
 
         logger.info(
             "broadcast_manager_redis_connected",
-            extra={"redis_url": redis_url},
+            extra={
+                "streams_url": settings.redis_streams_url,
+                "pubsub_url": settings.redis_pubsub_url,
+            },
         )
 
     @classmethod
@@ -195,8 +207,10 @@ class SSEBroadcastManager:
                     except asyncio.CancelledError:
                         pass
 
-                if cls._instance._redis_client:
-                    await cls._instance._redis_client.close()
+                if cls._instance._streams_client:
+                    await cls._instance._streams_client.close()
+                if cls._instance._pubsub_client:
+                    await cls._instance._pubsub_client.close()
 
                 cls._instance = None
                 logger.info("broadcast_manager_shutdown")
@@ -346,11 +360,11 @@ class SSEBroadcastManager:
         Redis Pub/Sub 채널을 구독하고 이벤트를 해당 job_id의
         모든 SubscriberQueue에 분배.
         """
-        if not self._redis_client:
+        if not self._pubsub_client:
             return
 
         channel = f"{PUBSUB_CHANNEL_PREFIX}{job_id}"
-        pubsub = self._redis_client.pubsub()
+        pubsub = self._pubsub_client.pubsub()
 
         try:
             await pubsub.subscribe(channel)
@@ -403,16 +417,17 @@ class SSEBroadcastManager:
             logger.debug("pubsub_unsubscribed", extra={"job_id": job_id})
 
     async def _get_state_snapshot(self, job_id: str) -> dict[str, Any] | None:
-        """State KV에서 현재 상태 스냅샷 조회.
+        """State KV에서 현재 상태 스냅샷 조회 (Streams Redis).
 
         재접속/늦은 연결 시 마지막 상태를 즉시 반환.
+        State는 내구성 있는 Streams Redis에 저장됨.
         """
-        if not self._redis_client:
+        if not self._streams_client:
             return None
 
         try:
             key = f"{STATE_KEY_PREFIX}{job_id}"
-            data = await self._redis_client.get(key)
+            data = await self._streams_client.get(key)
             if data:
                 return json.loads(data)
         except Exception as e:

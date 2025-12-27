@@ -82,7 +82,7 @@ async def startup() -> None:
         health_check_interval=30,
     )
 
-    # Redis Pub/Sub + State KV 연결 (PUBLISH/SETEX)
+    # Redis Pub/Sub 연결 (PUBLISH only - 실시간 전달용)
     redis_pubsub_client = aioredis.from_url(
         settings.redis_pubsub_url,
         decode_responses=False,
@@ -92,9 +92,12 @@ async def startup() -> None:
         health_check_interval=30,
     )
 
-    # EventProcessor 초기화 (Pub/Sub 클라이언트 사용)
+    # EventProcessor 초기화
+    # - Streams Redis: State KV 갱신 (내구성)
+    # - Pub/Sub Redis: 실시간 브로드캐스트
     processor = EventProcessor(
-        redis_client=redis_pubsub_client,
+        streams_client=redis_streams_client,
+        pubsub_client=redis_pubsub_client,
         state_key_prefix=settings.state_key_prefix,
         published_key_prefix=settings.router_published_prefix,
         pubsub_channel_prefix=settings.pubsub_channel_prefix,

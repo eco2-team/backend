@@ -1,14 +1,16 @@
 """SSE Gateway 설정.
 
 환경 변수:
-- REDIS_STREAMS_URL: Redis 연결 URL (Pub/Sub + State KV)
+- REDIS_STREAMS_URL: Redis Streams + State KV (내구성 저장소)
+- REDIS_PUBSUB_URL: Redis Pub/Sub (실시간 구독)
 - OTEL_EXPORTER_OTLP_ENDPOINT: OTEL Collector 엔드포인트
 - LOG_LEVEL: 로그 레벨 (default: INFO)
 
-Event Router + Pub/Sub 아키텍처:
-- SSE-Gateway는 Redis Pub/Sub를 통해 이벤트 수신
-- 어느 Pod에 연결되든 동일한 이벤트를 받을 수 있음
-- State KV에서 재접속 시 상태 복구
+Redis 역할 분리:
+- Streams Redis: State KV 조회 (scan:state:{job_id}) - 복구/재접속용
+- Pub/Sub Redis: 실시간 이벤트 구독 (sse:events:{job_id})
+
+State는 내구성 저장소에 있어야 복구/재접속 시 사용 가능
 
 참조: docs/blogs/async/34-sse-HA-architecture.md
 """
@@ -26,8 +28,12 @@ class Settings(BaseSettings):
     service_version: str = "1.0.0"
     environment: str = "development"
 
-    # Redis Pub/Sub + State KV
-    # Event Router가 발행한 이벤트를 구독하고 State를 조회
+    # Redis Streams + State KV (내구성 저장소)
+    # State 조회용 (복구/재접속 시 현재 상태)
+    redis_streams_url: str = "redis://rfr-streams-redis.redis.svc.cluster.local:6379/0"
+
+    # Redis Pub/Sub (실시간 구독)
+    # Event Router가 발행한 이벤트 수신
     redis_pubsub_url: str = "redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0"
 
     # Redis Cache (하위 호환성 유지)
