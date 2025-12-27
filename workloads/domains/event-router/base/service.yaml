@@ -1,0 +1,20 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Event Router Service
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: v1
+kind: Service
+metadata:
+  name: event-router
+  namespace: event-router
+  labels:
+    app: event-router
+    tier: integration
+spec:
+  type: ClusterIP
+  selector:
+    app: event-router
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP

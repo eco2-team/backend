@@ -11,6 +11,7 @@ on:
       - "domains/auth/**"
       - "domains/character/**"
       - "domains/chat/**"
+      - "domains/event-router/**"
       - "domains/image/**"
       - "domains/location/**"
       - "domains/my/**"
@@ -21,6 +22,7 @@ on:
       - "workloads/domains/auth/**"
       - "workloads/domains/character/**"
       - "workloads/domains/chat/**"
+      - "workloads/domains/event-router/**"
       - "workloads/domains/image/**"
       - "workloads/domains/location/**"
       - "workloads/domains/my/**"
@@ -39,6 +41,7 @@ on:
       - "domains/auth/**"
       - "domains/character/**"
       - "domains/chat/**"
+      - "domains/event-router/**"
       - "domains/image/**"
       - "domains/location/**"
       - "domains/my/**"
@@ -49,6 +52,7 @@ on:
       - "workloads/domains/auth/**"
       - "workloads/domains/character/**"
       - "workloads/domains/chat/**"
+      - "workloads/domains/event-router/**"
       - "workloads/domains/image/**"
       - "workloads/domains/location/**"
       - "workloads/domains/my/**"
@@ -156,6 +160,7 @@ jobs:
             domains/auth/**
             domains/character/**
             domains/chat/**
+            domains/event-router/**
             domains/image/**
             domains/location/**
             domains/my/**
@@ -168,6 +173,7 @@ jobs:
             workloads/domains/auth/**
             workloads/domains/character/**
             workloads/domains/chat/**
+            workloads/domains/event-router/**
             workloads/domains/image/**
             workloads/domains/location/**
             workloads/domains/my/**
@@ -194,6 +200,7 @@ jobs:
               "auth",
               "character",
               "chat",
+              "event-router",
               "image",
               "location",
               "my",

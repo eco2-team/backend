@@ -4,11 +4,11 @@
 # 라우팅:
 # - GET /api/v1/stream?job_id=xxx → sse-gateway (SSE 스트리밍)
 #
-# Consistent Hash:
-# - X-Job-Id 헤더로 동일 job_id는 동일 Pod로 라우팅
-# - Istio sticky session
+# Event Router + Pub/Sub 아키텍처:
+# - 어느 Pod에 연결되든 Redis Pub/Sub를 통해 동일 이벤트 수신
+# - LEAST_REQUEST 로드밸런싱으로 연결 분산
 #
-# 참조: docs/blogs/async/31-sse-fanout-optimization.md
+# 참조: docs/blogs/async/34-sse-HA-architecture.md
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: networking.istio.io/v1
 kind: VirtualService
@@ -41,8 +41,5 @@ spec:
       attempts: 0    # SSE는 재시도 불가
     headers:
       request:
-        # job_id 쿼리 파라미터를 X-Job-Id 헤더로 복사 (Consistent Hash용)
-        # Note: Istio는 쿼리 파라미터를 직접 해시할 수 없음
-        # 클라이언트가 X-Job-Id 헤더를 전송하도록 안내 필요
         set:
           x-sse-gateway: 'true'

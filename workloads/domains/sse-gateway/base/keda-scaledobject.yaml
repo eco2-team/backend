@@ -1,0 +1,29 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSE-Gateway KEDA ScaledObject
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Prometheus Scaler를 사용하여 SSE 연결 수 기반 스케일링.
+# 단일 노드 제약으로 maxReplicaCount를 3으로 제한.
+#
+# 참조: docs/blogs/async/34-sse-HA-architecture.md
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: sse-gateway-scaledobject
+  namespace: sse-consumer
+  labels:
+    app: sse-gateway
+spec:
+  scaleTargetRef:
+    name: sse-gateway
+  minReplicaCount: 1    # 항상 최소 1개
+  maxReplicaCount: 3    # 단일 노드 제약
+  pollingInterval: 15   # 15초마다 메트릭 확인
+  cooldownPeriod: 60    # 스케일 다운 대기 시간
+  triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus-server.monitoring.svc.cluster.local:80
+      query: |
+        sum(sse_gateway_connections_active) or vector(0)
+      threshold: '100'   # 100 연결당 1 Pod

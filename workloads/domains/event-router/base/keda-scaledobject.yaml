@@ -1,0 +1,32 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Event Router KEDA ScaledObject
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Prometheus Scaler를 사용하여 Redis Streams Pending 메시지 기반 스케일링.
+# 단일 노드 제약으로 maxReplicaCount를 2로 제한.
+#
+# 참조: docs/blogs/async/34-sse-HA-architecture.md
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: event-router-scaledobject
+  namespace: event-router
+  labels:
+    app: event-router
+spec:
+  scaleTargetRef:
+    name: event-router
+  minReplicaCount: 1    # 항상 최소 1개 (이벤트 대기)
+  maxReplicaCount: 2    # 단일 노드 제약
+  pollingInterval: 15   # 15초마다 메트릭 확인
+  cooldownPeriod: 60    # 스케일 다운 대기 시간
+  triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus-server.monitoring.svc.cluster.local:80
+      query: |
+        sum(redis_stream_groups_pending{
+          stream=~"scan:events:.*",
+          group="eventrouter"
+        }) or vector(0)
+      threshold: '100'   # Pending 100개 이상 → 스케일업

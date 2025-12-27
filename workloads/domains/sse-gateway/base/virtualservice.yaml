@@ -1,13 +1,13 @@
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# SSE Gateway VirtualService (B안: Sharded Stream)
+# SSE Gateway VirtualService
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Consistent Hash 라우팅: job_id 기반
-# - URL 경로에서 job_id 추출 → hash(job_id) % shard_count
-# - 같은 job_id는 항상 같은 Pod로 라우팅
-# - Pod가 담당하는 shard와 일치하도록 보장
+# Event Router + Pub/Sub 아키텍처:
+# - 어느 Pod에 연결되든 Redis Pub/Sub를 통해 동일 이벤트 수신
+# - LEAST_REQUEST 로드밸런싱으로 연결 분산
+# - SSE 장기 연결에 적합
 #
-# 참조: docs/blogs/async/31-sse-fanout-optimization.md
+# 참조: docs/blogs/async/34-sse-HA-architecture.md
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: networking.istio.io/v1
 kind: VirtualService
@@ -30,8 +30,8 @@ spec:
         host: sse-gateway.sse-consumer.svc.cluster.local
         port:
           number: 8000
-    # timeout: SSE는 long-lived connection, 비활성화하려면 매우 긴 값 설정
-    timeout: 86400s    # 24시간 (0s는 invalid)
+    # timeout: SSE는 long-lived connection
+    timeout: 86400s    # 24시간
     retries:
       attempts: 0    # SSE는 재시도 불가
   - name: default
@@ -42,13 +42,12 @@ spec:
           number: 8000
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# DestinationRule: Consistent Hash (B안)
+# DestinationRule: LEAST_REQUEST 로드밸런싱
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# URL 경로 (/api/v1/stream/{job_id}) 기반 Consistent Hash
-# - hash(job_id)로 Pod 선택 → shard와 자동 매칭
-# - Pod가 늘어도 동일 job_id는 동일 Pod로 라우팅 (대부분)
-#
-# Note: useSourceIp=false로 하고 httpHeaderName 또는 path 사용
+# SSE 장기 연결에 적합한 로드밸런싱:
+# - 가장 적은 활성 연결을 가진 Pod로 라우팅
+# - 연결 수 기반 자동 분산
+# - HTTP/1.1 강제 (SSE 호환)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -72,14 +71,6 @@ spec:
           time: 300s
           interval: 75s
           probes: 9
-    # Consistent Hash: X-Job-Id 헤더 또는 URI 경로 기반
-    # 클라이언트가 X-Job-Id 헤더를 보내면 그 값으로 해시
-    # 없으면 기본 라운드로빈 (첫 요청)
+    # LEAST_REQUEST: 가장 적은 연결을 가진 Pod로 라우팅
     loadBalancer:
-      consistentHash:
-        # 방법 1: 커스텀 헤더 (권장 - 클라이언트가 X-Job-Id 헤더 전송)
-        httpHeaderName: X-Job-Id
-        # 방법 2: Cookie (첫 요청 후 쿠키 설정됨)
-        # httpCookie:
-        #   name: x-job-affinity
-        #   ttl: 300s
+      simple: LEAST_REQUEST

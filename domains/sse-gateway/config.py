@@ -1,40 +1,21 @@
 """SSE Gateway 설정.
 
 환경 변수:
-- REDIS_STREAMS_URL: Redis Streams 연결 URL
-- REDIS_CACHE_URL: Redis Cache 연결 URL (KV 스냅샷용)
-- POD_NAME: StatefulSet Pod 이름 (예: sse-gateway-0)
-- SSE_SHARD_COUNT: 전체 shard 수 (default: 4)
+- REDIS_STREAMS_URL: Redis 연결 URL (Pub/Sub + State KV)
 - OTEL_EXPORTER_OTLP_ENDPOINT: OTEL Collector 엔드포인트
 - LOG_LEVEL: 로그 레벨 (default: INFO)
 
-B안 샤딩 아키텍처 (StatefulSet 기반):
-- 스트림을 N개로 샤딩: scan:events:0 ~ scan:events:N-1
-- Pod Index = Shard ID (sse-gateway-0 → shard 0)
-- Istio Consistent Hash 라우팅으로 동일 job_id는 동일 Pod로
+Event Router + Pub/Sub 아키텍처:
+- SSE-Gateway는 Redis Pub/Sub를 통해 이벤트 수신
+- 어느 Pod에 연결되든 동일한 이벤트를 받을 수 있음
+- State KV에서 재접속 시 상태 복구
 
-참조: docs/blogs/async/32-sse-sharding-troubleshooting.md
+참조: docs/blogs/async/34-sse-HA-architecture.md
 """
 
-import os
-import re
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings
-
-
-def get_pod_index() -> int:
-    """POD_NAME에서 StatefulSet 인덱스 추출.
-
-    StatefulSet Pod 이름 형식: {name}-{index}
-    예: sse-gateway-2 → 2
-
-    Returns:
-        Pod 인덱스 (0-based). 추출 실패 시 0 반환.
-    """
-    pod_name = os.environ.get("POD_NAME", "sse-gateway-0")
-    match = re.search(r"-(\d+)$", pod_name)
-    return int(match.group(1)) if match else 0
 
 
 class Settings(BaseSettings):
@@ -45,32 +26,22 @@ class Settings(BaseSettings):
     service_version: str = "1.0.0"
     environment: str = "development"
 
-    # Redis Streams (SSE 이벤트 소스)
-    redis_streams_url: str = "redis://rfr-streams-redis.redis.svc.cluster.local:6379/0"
+    # Redis Pub/Sub + State KV
+    # Event Router가 발행한 이벤트를 구독하고 State를 조회
+    redis_pubsub_url: str = "redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0"
 
-    # Redis Cache (KV 스냅샷용 - 재접속 시 상태 복구)
+    # Redis Cache (하위 호환성 유지)
     redis_cache_url: str = "redis://rfr-cache-redis.redis.svc.cluster.local:6379/0"
-
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 샤딩 설정 (B안 - StatefulSet 기반)
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # shard = hash(job_id) % shard_count
-    # Pod Index = Shard ID (sse-gateway-0 → shard 0)
-    sse_shard_count: int = 4  # 전체 shard 수 (권장: Pod 수와 동일)
-
-    @property
-    def sse_shard_id(self) -> int:
-        """이 Pod가 담당하는 shard ID (POD_NAME에서 동적 추출)."""
-        return get_pod_index()
 
     # SSE 설정
     sse_keepalive_interval: float = 15.0  # keepalive 주기 (초)
     sse_max_wait_seconds: int = 300  # 최대 대기 시간 (5분)
     sse_queue_maxsize: int = 100  # 클라이언트별 Queue 최대 크기
 
-    # Redis Consumer 설정
-    consumer_xread_block_ms: int = 5000  # XREAD 블로킹 시간
-    consumer_xread_count: int = 100  # 한 번에 읽을 최대 메시지 수
+    # Pub/Sub 설정
+    pubsub_channel_prefix: str = "sse:events"  # 채널 접두사 (sse:events:{job_id})
+    state_key_prefix: str = "scan:state"  # State KV 접두사 (scan:state:{job_id})
+    state_timeout_seconds: int = 30  # State 재조회 타임아웃 (무소식 시)
 
     # 로깅
     log_level: str = "INFO"
@@ -88,39 +59,3 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """설정 싱글톤."""
     return Settings()
-
-
-def get_shard_for_job(job_id: str, shard_count: int | None = None) -> int:
-    """job_id에 대한 shard 계산.
-
-    일관된 해시를 위해 hashlib.md5 사용 (Python hash()는 세션마다 다름).
-
-    Args:
-        job_id: Celery task ID (UUID)
-        shard_count: 전체 shard 수 (None이면 설정값 사용)
-
-    Returns:
-        shard ID (0-based)
-    """
-    import hashlib
-
-    if shard_count is None:
-        shard_count = get_settings().sse_shard_count
-    # MD5 해시의 첫 8바이트를 정수로 변환
-    hash_bytes = hashlib.md5(job_id.encode()).digest()[:8]
-    hash_int = int.from_bytes(hash_bytes, byteorder="big")
-    return hash_int % shard_count
-
-
-def get_sharded_stream_key(job_id: str, shard_count: int | None = None) -> str:
-    """job_id에 해당하는 sharded stream key 반환.
-
-    Args:
-        job_id: Celery task ID (UUID)
-        shard_count: 전체 shard 수
-
-    Returns:
-        Stream key (예: "scan:events:2")
-    """
-    shard = get_shard_for_job(job_id, shard_count)
-    return f"scan:events:{shard}"

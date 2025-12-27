@@ -1,0 +1,38 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Event Router ArgoCD Application
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Redis Streams → Redis Pub/Sub 브릿지 서비스
+# Consumer Group으로 이벤트 소비 후 Pub/Sub로 발행
+#
+# 참조: docs/blogs/async/34-sse-HA-architecture.md
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-event-router
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '43'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/eco2-team/backend.git
+    targetRevision: develop
+    path: workloads/domains/event-router/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: event-router
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+  # KEDA가 replicas를 관리하므로 ArgoCD에서 무시
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas

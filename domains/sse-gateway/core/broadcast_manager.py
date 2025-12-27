@@ -1,16 +1,16 @@
-"""개선된 SSE Broadcast Manager - Sharded Stream + Memory Fan-out (B안).
+"""SSE Broadcast Manager - Redis Pub/Sub 기반.
 
-B안 샤딩 아키텍처 (StatefulSet 기반):
-1. 스트림을 N개로 샤딩: scan:events:0 ~ scan:events:N-1
-2. StatefulSet Pod Index = Shard ID (sse-gateway-0 → shard 0)
-3. Istio Consistent Hash 라우팅: X-Job-Id 헤더로 동일 Pod 선택
+Event Router + Pub/Sub 아키텍처:
+1. Event Router가 Redis Streams 소비 → Pub/Sub 발행
+2. SSE-Gateway는 job_id별 채널 구독
+3. 어느 Pod에 연결되든 동일 이벤트 수신
 
 이점:
-- Pod Index 기반 shard 할당으로 안정적인 매핑
-- Redis 읽기는 pod당 1개 shard로 제한
-- "job 이벤트가 다른 pod로 가서 클라가 못 받는" 문제가 구조적으로 해결
+- Pod 수와 무관하게 자유로운 수평확장
+- Consistent Hash 불필요
+- 장애 복구 용이 (State KV 활용)
 
-참조: docs/blogs/async/32-sse-sharding-troubleshooting.md
+참조: docs/blogs/async/34-sse-HA-architecture.md
 """
 
 from __future__ import annotations
@@ -28,10 +28,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Sharded Stream 접두사
-STREAM_PREFIX = "scan:events"
-# 상태 스냅샷 KV 접두사
+# State KV 접두사
 STATE_KEY_PREFIX = "scan:state:"
+# Pub/Sub 채널 접두사
+PUBSUB_CHANNEL_PREFIX = "sse:events:"
 
 
 @dataclass
@@ -47,17 +47,18 @@ class SubscriberQueue:
     queue: asyncio.Queue[dict[str, Any]] = field(default_factory=lambda: asyncio.Queue(maxsize=100))
     created_at: float = field(default_factory=time.time)
     last_event_at: float = field(default_factory=time.time)
+    last_seq: int = field(default=-1)  # seq 기반 중복 필터링
 
     def __hash__(self) -> int:
         """set에 추가할 수 있도록 hash 구현."""
-        return id(self)  # 인스턴스별 고유 ID 사용
+        return id(self)
 
     def __eq__(self, other: object) -> bool:
         """동일 인스턴스 비교."""
         return self is other
 
     async def put_event(self, event: dict[str, Any]) -> bool:
-        """이벤트 추가 (Drop 정책 적용).
+        """이벤트 추가 (seq 기반 중복/역순 필터링 + Drop 정책).
 
         Args:
             event: 이벤트 딕셔너리
@@ -65,13 +66,24 @@ class SubscriberQueue:
         Returns:
             성공 여부
         """
+        # seq 기반 중복/역순 필터링
+        event_seq = event.get("seq", 0)
+        try:
+            event_seq = int(event_seq)
+        except (ValueError, TypeError):
+            event_seq = 0
+
+        if event_seq <= self.last_seq:
+            # 이미 전달했거나 역순
+            return False
+
+        self.last_seq = event_seq
+
         # done/error는 항상 보존 - Queue가 가득 차면 오래된 것 제거
         if self.queue.full():
             try:
-                # 가장 오래된 이벤트 제거 (done/error가 아닌 경우만)
                 old_event = self.queue.get_nowait()
                 if old_event.get("stage") in ("done", "error"):
-                    # done/error는 다시 넣고 새 이벤트 드롭
                     await self.queue.put(old_event)
                     logger.warning(
                         "queue_event_dropped",
@@ -97,21 +109,15 @@ class SubscriberQueue:
 
 
 class SSEBroadcastManager:
-    """Sharded Redis Stream Consumer + Memory Fan-out (B안).
+    """Redis Pub/Sub 기반 SSE Broadcast Manager.
 
-    B안 샤딩 아키텍처:
-    - 스트림을 N개로 샤딩: scan:events:0 ~ scan:events:N-1
-    - 이 Pod는 shard_id에 해당하는 스트림만 XREAD
-    - Istio consistent hash 라우팅으로 동일 job_id는 동일 Pod로
+    Event Router가 발행하는 Pub/Sub 메시지를 구독하여
+    해당 job_id의 클라이언트들에게 전달.
 
     사용법:
         manager = await SSEBroadcastManager.get_instance()
         async for event in manager.subscribe(job_id):
             yield format_sse(event)
-
-    환경 변수:
-        - SSE_SHARD_ID: 이 Pod가 담당하는 shard ID (0-based)
-        - SSE_SHARD_COUNT: 전체 shard 수 (default: 4)
     """
 
     _instance: ClassVar[SSEBroadcastManager | None] = None
@@ -121,30 +127,24 @@ class SSEBroadcastManager:
         """초기화."""
         # job_id → SubscriberQueue 집합
         self._subscribers: dict[str, set[SubscriberQueue]] = defaultdict(set)
-        # background consumer task
-        self._background_task: asyncio.Task[None] | None = None
+        # job_id → Pub/Sub listener task
+        self._pubsub_tasks: dict[str, asyncio.Task[None]] = {}
         # Redis 클라이언트
-        self._streams_client: aioredis.Redis | None = None
-        self._cache_client: aioredis.Redis | None = None
+        self._redis_client: aioredis.Redis | None = None
         # 종료 플래그
         self._shutdown: bool = False
-        # Shard 설정
-        self._shard_id: int = 0
-        self._shard_count: int = 4
-        # 마지막으로 읽은 Stream ID (자기 shard용)
-        self._last_id: str = "$"  # tail부터 시작 (과거 이벤트 스킵)
+        # 설정
+        self._state_timeout_seconds: int = 30
 
     @classmethod
     async def get_instance(
         cls,
-        streams_url: str = "",
-        cache_url: str = "",
+        redis_url: str = "",
     ) -> SSEBroadcastManager:
         """싱글톤 인스턴스 반환.
 
         Args:
-            streams_url: Redis Streams URL
-            cache_url: Redis Cache URL (KV 스냅샷용)
+            redis_url: Redis URL (Pub/Sub + State KV)
 
         Returns:
             SSEBroadcastManager 인스턴스
@@ -152,50 +152,32 @@ class SSEBroadcastManager:
         async with cls._lock:
             if cls._instance is None:
                 cls._instance = cls()
-                await cls._instance._initialize(streams_url, cache_url)
+                await cls._instance._initialize(redis_url)
                 logger.info("broadcast_manager_initialized")
             return cls._instance
 
-    async def _initialize(self, streams_url: str, cache_url: str) -> None:
-        """Redis 클라이언트 및 shard 설정 초기화."""
+    async def _initialize(self, redis_url: str) -> None:
+        """Redis 클라이언트 초기화."""
         import redis.asyncio as aioredis
 
         from config import get_settings
 
         settings = get_settings()
-        streams_url = streams_url or settings.redis_streams_url
-        cache_url = cache_url or settings.redis_cache_url
+        redis_url = redis_url or settings.redis_pubsub_url
+        self._state_timeout_seconds = settings.state_timeout_seconds
 
-        # Shard 설정 (StatefulSet 기반: Pod Index = Shard ID)
-        # settings.sse_shard_id는 POD_NAME에서 동적 추출 (예: sse-gateway-2 → 2)
-        self._shard_id = settings.sse_shard_id
-        self._shard_count = settings.sse_shard_count
-
-        self._streams_client = aioredis.from_url(
-            streams_url,
-            decode_responses=False,
+        self._redis_client = aioredis.from_url(
+            redis_url,
+            decode_responses=True,
             socket_timeout=60.0,
             socket_connect_timeout=5.0,
             retry_on_timeout=True,
             health_check_interval=30,
         )
 
-        self._cache_client = aioredis.from_url(
-            cache_url,
-            decode_responses=True,
-            socket_timeout=5.0,
-            socket_connect_timeout=5.0,
-        )
-
-        # Background Consumer 시작
-        self._background_task = asyncio.create_task(self._consumer_loop())
         logger.info(
-            "broadcast_manager_consumer_started",
-            extra={
-                "shard_id": self._shard_id,
-                "shard_count": self._shard_count,
-                "stream_key": f"{STREAM_PREFIX}:{self._shard_id}",
-            },
+            "broadcast_manager_redis_connected",
+            extra={"redis_url": redis_url},
         )
 
     @classmethod
@@ -204,16 +186,18 @@ class SSEBroadcastManager:
         async with cls._lock:
             if cls._instance is not None:
                 cls._instance._shutdown = True
-                if cls._instance._background_task is not None:
-                    cls._instance._background_task.cancel()
+
+                # 모든 Pub/Sub tasks 취소
+                for job_id, task in cls._instance._pubsub_tasks.items():
+                    task.cancel()
                     try:
-                        await cls._instance._background_task
+                        await task
                     except asyncio.CancelledError:
                         pass
-                if cls._instance._streams_client:
-                    await cls._instance._streams_client.close()
-                if cls._instance._cache_client:
-                    await cls._instance._cache_client.close()
+
+                if cls._instance._redis_client:
+                    await cls._instance._redis_client.close()
+
                 cls._instance = None
                 logger.info("broadcast_manager_shutdown")
 
@@ -234,30 +218,46 @@ class SSEBroadcastManager:
             이벤트 딕셔너리
         """
         subscriber = SubscriberQueue(job_id=job_id)
+
+        # 1. State에서 현재 상태 복구
+        state = await self._get_state_snapshot(job_id)
+        if state:
+            state_seq = state.get("seq", -1)
+            try:
+                state_seq = int(state_seq)
+            except (ValueError, TypeError):
+                state_seq = -1
+            subscriber.last_seq = state_seq
+            yield state  # 현재 상태 먼저 전달
+
+            # 이미 완료된 경우
+            if state.get("stage") == "done" or state.get("status") == "failed":
+                logger.info(
+                    "broadcast_subscribe_already_done",
+                    extra={"job_id": job_id},
+                )
+                return
+
+        # 2. 구독자 등록
         self._subscribers[job_id].add(subscriber)
+
+        # 3. Pub/Sub 구독 시작 (첫 구독자인 경우)
+        if job_id not in self._pubsub_tasks or self._pubsub_tasks[job_id].done():
+            self._pubsub_tasks[job_id] = asyncio.create_task(self._pubsub_listener(job_id))
 
         logger.info(
             "broadcast_subscribe_started",
             extra={
                 "job_id": job_id,
                 "total_subscribers": self._total_subscriber_count(),
+                "last_seq": subscriber.last_seq,
             },
         )
 
         start_time = time.time()
+        last_event_time = time.time()
 
         try:
-            # 1. Redis Streams에서 이미 발행된 이벤트 리플레이 (Race Condition 해결)
-            async for event in self._replay_events_for_job(job_id):
-                yield event
-                if event.get("stage") == "done" or event.get("status") == "failed":
-                    logger.info(
-                        "broadcast_subscribe_done_from_replay",
-                        extra={"job_id": job_id},
-                    )
-                    return
-
-            # 2. 실시간 이벤트 수신
             while True:
                 elapsed = time.time() - start_time
                 if elapsed > max_wait_seconds:
@@ -277,6 +277,7 @@ class SSEBroadcastManager:
                         subscriber.queue.get(),
                         timeout=timeout_seconds,
                     )
+                    last_event_time = time.time()
                     yield event
 
                     # done/error면 종료
@@ -291,14 +292,45 @@ class SSEBroadcastManager:
                         return
 
                 except asyncio.TimeoutError:
+                    # 무소식 타임아웃 → State 재조회
+                    if time.time() - last_event_time > self._state_timeout_seconds:
+                        state = await self._get_state_snapshot(job_id)
+                        if state:
+                            state_seq = state.get("seq", 0)
+                            try:
+                                state_seq = int(state_seq)
+                            except (ValueError, TypeError):
+                                state_seq = 0
+
+                            if state_seq > subscriber.last_seq:
+                                subscriber.last_seq = state_seq
+                                last_event_time = time.time()
+                                yield state
+
+                                if state.get("stage") == "done":
+                                    logger.info(
+                                        "broadcast_subscribe_done_from_state",
+                                        extra={"job_id": job_id},
+                                    )
+                                    return
+
                     # keepalive
                     yield {"type": "keepalive"}
 
         finally:
             # 구독 해제
             self._subscribers[job_id].discard(subscriber)
+
+            # 마지막 구독자면 Pub/Sub 취소
             if not self._subscribers[job_id]:
                 del self._subscribers[job_id]
+                if job_id in self._pubsub_tasks:
+                    self._pubsub_tasks[job_id].cancel()
+                    try:
+                        await self._pubsub_tasks[job_id]
+                    except asyncio.CancelledError:
+                        pass
+                    del self._pubsub_tasks[job_id]
 
             logger.info(
                 "broadcast_subscribe_ended",
@@ -308,62 +340,79 @@ class SSEBroadcastManager:
                 },
             )
 
-    async def _replay_events_for_job(self, job_id: str) -> AsyncGenerator[dict[str, Any], None]:
-        """Redis Streams에서 해당 job_id의 이벤트 리플레이.
+    async def _pubsub_listener(self, job_id: str) -> None:
+        """job_id별 Pub/Sub 리스너.
 
-        클라이언트가 구독을 시작할 때 이미 발행된 이벤트를 즉시 전달합니다.
-        이로써 Race Condition (SSE 연결 전 이벤트 발행) 문제를 해결합니다.
+        Redis Pub/Sub 채널을 구독하고 이벤트를 해당 job_id의
+        모든 SubscriberQueue에 분배.
         """
-        if not self._streams_client:
+        if not self._redis_client:
             return
 
-        # 이 job_id가 속한 shard의 Stream 키
-        from config import get_settings
-        from domains._shared.events.redis_streams import get_shard_for_job
-
-        settings = get_settings()
-        shard = get_shard_for_job(job_id, settings.sse_shard_count)
-        stream_key = f"{STREAM_PREFIX}:{shard}"
+        channel = f"{PUBSUB_CHANNEL_PREFIX}{job_id}"
+        pubsub = self._redis_client.pubsub()
 
         try:
-            # 처음부터 모든 이벤트 읽기 (XRANGE)
-            messages = await self._streams_client.xrange(stream_key, min="-", max="+")
+            await pubsub.subscribe(channel)
+            logger.debug(
+                "pubsub_subscribed",
+                extra={"job_id": job_id, "channel": channel},
+            )
 
-            for msg_id, data in messages:
-                event = self._parse_event(data)
-                # 해당 job_id의 이벤트만 필터링
-                if event.get("job_id") == job_id:
+            async for message in pubsub.listen():
+                if self._shutdown:
+                    break
+
+                if message["type"] != "message":
+                    continue
+
+                try:
+                    event = json.loads(message["data"])
+                except json.JSONDecodeError:
+                    logger.warning(
+                        "pubsub_message_parse_error",
+                        extra={"job_id": job_id, "data": message["data"]},
+                    )
+                    continue
+
+                # 해당 job_id의 모든 구독자에게 분배
+                subscribers = self._subscribers.get(job_id, set())
+                for subscriber in subscribers:
+                    await subscriber.put_event(event)
+
+                if subscribers:
                     logger.debug(
-                        "broadcast_replay_event",
+                        "pubsub_event_distributed",
                         extra={
                             "job_id": job_id,
                             "stage": event.get("stage"),
-                            "shard": shard,
+                            "queue_count": len(subscribers),
                         },
                     )
-                    yield event
 
+        except asyncio.CancelledError:
+            logger.debug("pubsub_listener_cancelled", extra={"job_id": job_id})
         except Exception as e:
-            logger.warning(
-                "broadcast_replay_error",
+            logger.error(
+                "pubsub_listener_error",
                 extra={"job_id": job_id, "error": str(e)},
             )
+        finally:
+            await pubsub.unsubscribe(channel)
+            await pubsub.close()
+            logger.debug("pubsub_unsubscribed", extra={"job_id": job_id})
 
     async def _get_state_snapshot(self, job_id: str) -> dict[str, Any] | None:
         """State KV에서 현재 상태 스냅샷 조회.
 
-        재접속/늦은 연결 시 마지막 상태를 즉시 반환할 수 있음.
-
-        Note:
-            State KV는 Streams Redis에 저장됨 (publish_stage_event에서 저장)
-            따라서 _streams_client를 사용해야 함
+        재접속/늦은 연결 시 마지막 상태를 즉시 반환.
         """
-        if not self._streams_client:
+        if not self._redis_client:
             return None
 
         try:
             key = f"{STATE_KEY_PREFIX}{job_id}"
-            data = await self._streams_client.get(key)
+            data = await self._redis_client.get(key)
             if data:
                 return json.loads(data)
         except Exception as e:
@@ -373,115 +422,6 @@ class SSEBroadcastManager:
             )
 
         return None
-
-    async def _consumer_loop(self) -> None:
-        """Sharded Redis Stream Consumer (B안).
-
-        이 Pod가 담당하는 shard의 Stream에서만 이벤트를 읽고,
-        job_id 필드로 라우팅하여 해당 Queue들에 분배.
-
-        shard = hash(job_id) % shard_count
-        이 Pod는 shard_id에 해당하는 Stream만 XREAD
-        """
-        from config import get_settings
-
-        settings = get_settings()
-
-        # 이 Pod가 담당하는 Stream 키
-        my_stream_key = f"{STREAM_PREFIX}:{self._shard_id}"
-
-        logger.info(
-            "broadcast_consumer_loop_starting",
-            extra={
-                "shard_id": self._shard_id,
-                "stream_key": my_stream_key,
-            },
-        )
-
-        while not self._shutdown:
-            try:
-                # 활성 구독자가 없어도 계속 읽기 (새 구독자 대비)
-                # 하지만 구독자가 없으면 짧게 sleep
-                if not self._subscribers:
-                    await asyncio.sleep(0.5)
-                    continue
-
-                if not self._streams_client:
-                    await asyncio.sleep(1)
-                    continue
-
-                # 자기 Shard Stream만 XREAD (O(1))
-                events = await self._streams_client.xread(
-                    {my_stream_key: self._last_id},
-                    block=settings.consumer_xread_block_ms,
-                    count=settings.consumer_xread_count,
-                )
-
-                if not events:
-                    continue
-
-                for stream_key, messages in events:
-                    for msg_id, data in messages:
-                        # last_id 업데이트
-                        self._last_id = msg_id.decode() if isinstance(msg_id, bytes) else msg_id
-
-                        # 이벤트 파싱
-                        event = self._parse_event(data)
-                        job_id = event.get("job_id")
-
-                        if not job_id:
-                            continue
-
-                        # 해당 job_id의 모든 Queue에 이벤트 분배
-                        subscribers = self._subscribers.get(job_id, set())
-                        for subscriber in subscribers:
-                            await subscriber.put_event(event)
-
-                        if subscribers:
-                            logger.debug(
-                                "broadcast_event_distributed",
-                                extra={
-                                    "job_id": job_id,
-                                    "shard_id": self._shard_id,
-                                    "stage": event.get("stage"),
-                                    "queue_count": len(subscribers),
-                                },
-                            )
-
-            except asyncio.CancelledError:
-                logger.info("broadcast_consumer_cancelled")
-                break
-            except Exception as e:
-                logger.error(
-                    "broadcast_consumer_error",
-                    extra={"shard_id": self._shard_id, "error": str(e)},
-                )
-                await asyncio.sleep(1)
-
-    def _parse_event(self, data: dict[bytes | str, bytes | str]) -> dict[str, Any]:
-        """Redis 메시지 파싱."""
-        event: dict[str, Any] = {}
-
-        for k, v in data.items():
-            key = k.decode() if isinstance(k, bytes) else k
-            value = v.decode() if isinstance(v, bytes) else v
-            event[key] = value
-
-        # result JSON 파싱
-        if "result" in event and isinstance(event["result"], str):
-            try:
-                event["result"] = json.loads(event["result"])
-            except json.JSONDecodeError:
-                pass
-
-        # progress 정수 변환
-        if "progress" in event:
-            try:
-                event["progress"] = int(event["progress"])
-            except (ValueError, TypeError):
-                pass
-
-        return event
 
     def _total_subscriber_count(self) -> int:
         """총 구독자 수."""
