@@ -50,6 +50,19 @@ class ScanSubmitResponse(BaseModel):
     status: str = Field(default="queued", description="현재 상태")
 
 
+class ScanProcessingResponse(BaseModel):
+    """처리 중 응답 (202 Accepted).
+
+    결과가 아직 준비되지 않았을 때 반환됩니다.
+    클라이언트는 Retry-After 헤더를 확인하고 재시도해야 합니다.
+    """
+
+    status: str = Field(default="processing", description="처리 상태")
+    message: str = Field(default="결과 준비 중입니다.", description="상태 메시지")
+    current_stage: Optional[str] = Field(None, description="현재 처리 단계")
+    progress: Optional[int] = Field(None, description="진행률 (0-100)")
+
+
 class ScanTask(BaseModel):
     """DEPRECATED: 로그 기반으로 전환됨. 추후 ES → DB 변환 시 사용."""
 

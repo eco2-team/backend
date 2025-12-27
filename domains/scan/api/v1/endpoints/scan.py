@@ -25,6 +25,7 @@ from domains.scan.schemas.scan import (
     ClassificationRequest,
     ClassificationResponse,
     ScanCategory,
+    ScanProcessingResponse,
     ScanSubmitResponse,
 )
 from domains.scan.tasks.answer import answer_task
@@ -63,22 +64,24 @@ async def submit_scan(
     Returns:
         ScanSubmitResponse: job_id, stream_url, result_url
     """
+    import json
+
     image_url = str(payload.image_url) if payload.image_url else None
     if not image_url:
         raise HTTPException(status_code=400, detail="image_url is required")
 
+    # Idempotency Key 캐시 키 (None이면 저장 안 함)
+    idempotency_cache_key = f"scan:idempotency:{x_idempotency_key}" if x_idempotency_key else None
+
     # Idempotency Key 체크 (중복 제출 방지)
-    if x_idempotency_key:
+    if idempotency_cache_key:
         redis_client = await get_async_redis_client()
-        idempotency_cache_key = f"scan:idempotency:{x_idempotency_key}"
         existing = await redis_client.get(idempotency_cache_key)
         if existing:
             logger.info(
                 "scan_idempotent_hit",
                 extra={"idempotency_key": x_idempotency_key},
             )
-            import json
-
             return ScanSubmitResponse(**json.loads(existing))
 
     job_id = str(uuid4())
@@ -122,9 +125,7 @@ async def submit_scan(
     )
 
     # Idempotency Key 저장
-    if x_idempotency_key:
-        import json
-
+    if idempotency_cache_key:
         redis_client = await get_async_redis_client()
         await redis_client.setex(
             idempotency_cache_key,
@@ -157,25 +158,24 @@ async def classify(
 
 @router.get(
     "/result/{job_id}",
-    response_model=ClassificationResponse,
     summary="Get scan result by job_id",
     responses={
-        200: {"description": "결과 반환"},
-        202: {"description": "처리 중 - Retry-After 헤더 확인"},
+        200: {"model": ClassificationResponse, "description": "결과 반환"},
+        202: {"model": ScanProcessingResponse, "description": "처리 중 - Retry-After 헤더 확인"},
         404: {"description": "작업을 찾을 수 없음"},
     },
 )
 async def get_result(
     job_id: str,
     service: ScanServiceDep,
-) -> ClassificationResponse:
+) -> ClassificationResponse | JSONResponse:
     """작업 ID로 분류 결과를 조회합니다.
 
     Redis Cache에서 결과를 조회합니다.
 
     Returns:
-        200: 결과 반환
-        202: 아직 처리 중 (Retry-After: 2초 후 재시도)
+        200: 결과 반환 (ClassificationResponse)
+        202: 아직 처리 중 (ScanProcessingResponse + Retry-After: 2초)
         404: job_id에 해당하는 작업 없음
     """
     result = await service.get_result(job_id)
@@ -184,14 +184,15 @@ async def get_result(
         state = await service.get_state(job_id)
         if state is not None:
             # 작업이 존재하지만 결과가 아직 없음 → 202 Accepted
+            processing_response = ScanProcessingResponse(
+                status="processing",
+                message="결과 준비 중입니다.",
+                current_stage=state.get("stage"),
+                progress=int(state["progress"]) if state.get("progress") else None,
+            )
             return JSONResponse(
                 status_code=202,
-                content={
-                    "status": "processing",
-                    "message": "결과 준비 중입니다.",
-                    "current_stage": state.get("stage"),
-                    "progress": state.get("progress"),
-                },
+                content=processing_response.model_dump(),
                 headers={"Retry-After": "2"},
             )
         # 작업 자체가 없음 → 404
