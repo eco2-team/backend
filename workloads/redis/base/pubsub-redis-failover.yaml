@@ -1,0 +1,110 @@
+# ============================================================================
+# Pub/Sub Redis Failover - 실시간 이벤트 브로드캐스트 전용
+# ============================================================================
+# 용도: SSE HA Architecture의 실시간 이벤트 전달
+# 정책: allkeys-lru (Pub/Sub은 메시지 저장 안함, 연결 정보만 관리)
+#
+# [Service 네이밍 규칙 - Spotahome Redis Operator]
+#   - rfr-pubsub-redis.redis.svc.cluster.local:6379   (Redis Master)
+#   - rfs-pubsub-redis.redis.svc.cluster.local:26379  (Sentinel)
+#
+# [채널 패턴]
+#   - sse:events:{job_id}  (job별 이벤트 채널)
+#
+# [환경변수]
+#   - REDIS_PUBSUB_URL=redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0
+#
+# [특성]
+#   - 메시지 저장 없음 (Fire & Forget)
+#   - 구독자 없으면 메시지 drop (정상 동작)
+#   - 낮은 메모리 요구 (연결 정보만)
+#   - 빠른 반응 필수
+# ============================================================================
+apiVersion: databases.spotahome.com/v1
+kind: RedisFailover
+metadata:
+  name: pubsub-redis
+  namespace: redis
+  labels:
+    app: pubsub-redis
+    tier: data
+    purpose: pubsub
+spec:
+  # Sentinel 설정 (HA)
+  sentinel:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+    customConfig:
+    - down-after-milliseconds 3000    # 빠른 장애 감지 (3초)
+    - failover-timeout 6000           # 빠른 페일오버 (6초)
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: redis-cluster
+              operator: In
+              values:
+              - pubsub
+    tolerations:
+    - key: domain
+      operator: Equal
+      value: data
+      effect: NoSchedule
+
+  # Redis 설정
+  redis:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 256Mi      # Pub/Sub은 메모리 적게 사용
+    # 휘발성 데이터 (PVC 불필요, emptyDir 사용)
+    storage:
+      emptyDir: {}
+    # Redis 설정 - Pub/Sub 최적화
+    customConfig:
+    - maxmemory 128mb              # 낮은 메모리 (연결 정보만)
+    - maxmemory-policy allkeys-lru # LRU 정책
+    - tcp-keepalive 60             # 빠른 연결 유지 확인
+    - timeout 0                    # 무제한 연결
+    - appendonly no                # AOF 비활성화
+    - save ""                      # RDB 비활성화
+    - tcp-backlog 511              # TCP 백로그 증가
+    - client-output-buffer-limit pubsub 32mb 8mb 60  # Pub/Sub 버퍼 제한
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: redis-cluster
+              operator: In
+              values:
+              - pubsub
+    tolerations:
+    - key: domain
+      operator: Equal
+      value: data
+      effect: NoSchedule
+    # Metrics Exporter
+    exporter:
+      enabled: true
+      image: oliver006/redis_exporter:v1.62.0
+      args:
+      - --include-system-metrics
+      resources:
+        requests:
+          cpu: 25m
+          memory: 32Mi
+        limits:
+          cpu: 50m
+          memory: 64Mi
