@@ -6,6 +6,9 @@
 # OpenAI API (Vision, Answer tasks)
 openai>=1.51.0
 
+# OpenTelemetry instrumentation for OpenAI
+opentelemetry-instrumentation-openai-v2>=2.0b0
+
 # Celery 5.6.0 with gevent pool for high-concurrency I/O
 celery==5.6.0
 gevent>=24.2.1  # Celery official gevent pool

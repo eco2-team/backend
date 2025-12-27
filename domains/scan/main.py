@@ -18,6 +18,7 @@ from domains.scan.core.tracing import (
     configure_tracing,
     instrument_fastapi,
     instrument_httpx,
+    instrument_openai,
     instrument_redis,
     shutdown_tracing,
 )
@@ -37,6 +38,7 @@ configure_tracing(
 # 글로벌 instrumentation
 instrument_httpx()
 instrument_redis(None)  # Redis Streams/Cache 추적
+instrument_openai()  # OpenAI Vision/Answer API 추적
 
 
 @asynccontextmanager

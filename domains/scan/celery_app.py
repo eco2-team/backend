@@ -84,6 +84,15 @@ def _setup_celery_tracing() -> None:
         RedisInstrumentor().instrument()
         logger.info("Redis tracing enabled (Streams/Cache)")
 
+        # OpenAI Instrumentation (Vision, Answer API 호출 추적)
+        try:
+            from opentelemetry.instrumentation.openai_v2 import OpenAIInstrumentor
+
+            OpenAIInstrumentor().instrument()
+            logger.info("OpenAI tracing enabled (Vision/Answer)")
+        except ImportError:
+            logger.warning("OpenAI instrumentor not available")
+
     except ImportError as e:
         logger.warning(f"Celery/Redis tracing not available: {e}")
     except Exception as e:

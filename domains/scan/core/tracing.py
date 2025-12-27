@@ -196,6 +196,23 @@ def instrument_httpx() -> None:
         logger.error(f"Failed to instrument HTTPX: {e}")
 
 
+def instrument_openai() -> None:
+    """OpenAI API 자동 계측 (Vision, Answer 호출 추적)"""
+    if not OTEL_ENABLED:
+        return
+
+    try:
+        from opentelemetry.instrumentation.openai_v2 import OpenAIInstrumentor
+
+        OpenAIInstrumentor().instrument()
+        logger.info("OpenAI instrumentation enabled")
+
+    except ImportError:
+        logger.warning("OpenAIInstrumentor not available")
+    except Exception as e:
+        logger.error(f"Failed to instrument OpenAI: {e}")
+
+
 def shutdown_tracing() -> None:
     """트레이싱 종료 (graceful shutdown)"""
     global _tracer_provider
