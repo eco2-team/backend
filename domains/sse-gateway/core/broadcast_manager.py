@@ -246,12 +246,14 @@ class SSEBroadcastManager:
         start_time = time.time()
 
         try:
-            # 1. KV 스냅샷에서 현재 상태 확인 (재접속 지원)
-            snapshot = await self._get_state_snapshot(job_id)
-            if snapshot:
-                yield snapshot
-                # 이미 완료된 경우 종료
-                if snapshot.get("stage") == "done":
+            # 1. Redis Streams에서 이미 발행된 이벤트 리플레이 (Race Condition 해결)
+            async for event in self._replay_events_for_job(job_id):
+                yield event
+                if event.get("stage") == "done" or event.get("status") == "failed":
+                    logger.info(
+                        "broadcast_subscribe_done_from_replay",
+                        extra={"job_id": job_id},
+                    )
                     return
 
             # 2. 실시간 이벤트 수신
@@ -303,6 +305,47 @@ class SSEBroadcastManager:
                     "job_id": job_id,
                     "remaining_subscribers": self._total_subscriber_count(),
                 },
+            )
+
+    async def _replay_events_for_job(self, job_id: str) -> AsyncGenerator[dict[str, Any], None]:
+        """Redis Streams에서 해당 job_id의 이벤트 리플레이.
+
+        클라이언트가 구독을 시작할 때 이미 발행된 이벤트를 즉시 전달합니다.
+        이로써 Race Condition (SSE 연결 전 이벤트 발행) 문제를 해결합니다.
+        """
+        if not self._streams_client:
+            return
+
+        # 이 job_id가 속한 shard의 Stream 키
+        from config import get_settings
+        from domains._shared.events.redis_streams import get_shard_for_job
+
+        settings = get_settings()
+        shard = get_shard_for_job(job_id, settings.sse_shard_count)
+        stream_key = f"{STREAM_PREFIX}:{shard}"
+
+        try:
+            # 처음부터 모든 이벤트 읽기 (XRANGE)
+            messages = await self._streams_client.xrange(stream_key, min="-", max="+")
+
+            for msg_id, data in messages:
+                event = self._parse_event(data)
+                # 해당 job_id의 이벤트만 필터링
+                if event.get("job_id") == job_id:
+                    logger.debug(
+                        "broadcast_replay_event",
+                        extra={
+                            "job_id": job_id,
+                            "stage": event.get("stage"),
+                            "shard": shard,
+                        },
+                    )
+                    yield event
+
+        except Exception as e:
+            logger.warning(
+                "broadcast_replay_error",
+                extra={"job_id": job_id, "error": str(e)},
             )
 
     async def _get_state_snapshot(self, job_id: str) -> dict[str, Any] | None:
