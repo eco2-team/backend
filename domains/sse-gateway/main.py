@@ -16,11 +16,11 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import Counter, Gauge, make_asgi_app
 
 from api.v1.stream import router as stream_router
 from config import get_settings
 from core.broadcast_manager import SSEBroadcastManager
+from metrics import register_metrics
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Logging 설정
@@ -35,24 +35,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Prometheus Metrics
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-sse_connections_active = Gauge(
-    "sse_gateway_connections_active",
-    "Active SSE connections",
-)
-sse_connections_total = Counter(
-    "sse_gateway_connections_total",
-    "Total SSE connections",
-)
-sse_events_distributed = Counter(
-    "sse_gateway_events_distributed",
-    "Total events distributed",
-    ["stage"],
-)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -101,8 +83,7 @@ app.add_middleware(
 )
 
 # Prometheus metrics
-metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
+register_metrics(app)
 
 # Routers
 app.include_router(stream_router, prefix="/api/v1")
