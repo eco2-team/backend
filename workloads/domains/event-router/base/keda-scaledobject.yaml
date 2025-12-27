@@ -23,7 +23,7 @@ spec:
   triggers:
   - type: prometheus
     metadata:
-      serverAddress: http://prometheus-server.monitoring.svc.cluster.local:80
+      serverAddress: http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090
       query: |
         sum(redis_stream_groups_pending{
           stream=~"scan:events:.*",

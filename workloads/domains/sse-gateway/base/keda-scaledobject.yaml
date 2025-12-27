@@ -23,7 +23,7 @@ spec:
   triggers:
   - type: prometheus
     metadata:
-      serverAddress: http://prometheus-server.monitoring.svc.cluster.local:80
+      serverAddress: http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090
       query: |
         sum(sse_gateway_connections_active) or vector(0)
       threshold: '100'   # 100 연결당 1 Pod
