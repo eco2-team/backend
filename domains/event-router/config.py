@@ -35,10 +35,12 @@ class Settings(BaseSettings):
 
     # Redis Streams + State KV (XREADGROUP/XACK + SETEX)
     # State는 내구성 있는 저장소에 두어야 함
-    redis_streams_url: str = "redis://rfr-streams-redis.redis.svc.cluster.local:6379/0"
+    # 기본값: 로컬 개발용, K8s에서는 deployment.yaml에서 오버라이드
+    redis_streams_url: str = "redis://localhost:6379/0"
 
     # Redis Pub/Sub (PUBLISH only - 실시간 전달용)
-    redis_pubsub_url: str = "redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0"
+    # 기본값: 로컬 개발용, K8s에서는 deployment.yaml에서 오버라이드
+    redis_pubsub_url: str = "redis://localhost:6379/1"
 
     # Consumer Group 설정
     consumer_group: str = "eventrouter"

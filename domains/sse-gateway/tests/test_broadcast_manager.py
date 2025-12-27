@@ -22,7 +22,7 @@ class TestSubscriberQueue:
         from core.broadcast_manager import SubscriberQueue
 
         queue = SubscriberQueue(job_id="test-job")
-        event = {"stage": "vision", "status": "success"}
+        event = {"stage": "vision", "status": "success", "seq": 1}
 
         result = await queue.put_event(event)
 
@@ -39,27 +39,33 @@ class TestSubscriberQueue:
         initial_time = queue.last_event_at
 
         await asyncio.sleep(0.01)
-        await queue.put_event({"stage": "vision"})
+        await queue.put_event({"stage": "vision", "seq": 1})
 
         assert queue.last_event_at > initial_time
 
     @pytest.mark.asyncio
-    async def test_put_event_queue_full_drops_old(self):
-        """Queue 가득 찼을 때 오래된 이벤트 드롭."""
+    async def test_put_event_duplicate_seq_rejected(self):
+        """중복 seq 이벤트 거부."""
         from core.broadcast_manager import SubscriberQueue
 
-        # 작은 Queue 생성
         queue = SubscriberQueue(job_id="test-job")
-        queue.queue = asyncio.Queue(maxsize=2)
 
-        # Queue 채우기
-        await queue.put_event({"stage": "vision"})
-        await queue.put_event({"stage": "rule"})
+        # 첫 번째 이벤트 성공
+        result1 = await queue.put_event({"stage": "vision", "seq": 1})
+        assert result1 is True
 
-        # 새 이벤트 추가 (오래된 것 드롭)
-        await queue.put_event({"stage": "answer"})
+        # 같은 seq 거부
+        result2 = await queue.put_event({"stage": "rule", "seq": 1})
+        assert result2 is False
 
-        # Queue에 2개만 있어야 함
+        # 작은 seq 거부
+        result3 = await queue.put_event({"stage": "rule", "seq": 0})
+        assert result3 is False
+
+        # 큰 seq 성공
+        result4 = await queue.put_event({"stage": "rule", "seq": 2})
+        assert result4 is True
+
         assert queue.queue.qsize() == 2
 
     @pytest.mark.asyncio
@@ -71,13 +77,14 @@ class TestSubscriberQueue:
         queue.queue = asyncio.Queue(maxsize=2)
 
         # done 이벤트로 Queue 채우기
-        await queue.put_event({"stage": "done"})
-        await queue.put_event({"stage": "done"})
+        await queue.put_event({"stage": "done", "seq": 1})
+        await queue.put_event({"stage": "done", "seq": 2})
 
-        # 새 이벤트는 드롭되어야 함
-        await queue.put_event({"stage": "vision"})
+        # 새 이벤트는 done을 보존하므로 드롭
+        result = await queue.put_event({"stage": "vision", "seq": 3})
+        assert result is False
 
-        # done이 유지되면 새 이벤트가 드롭될 수 있음
+        # done이 유지됨
         assert queue.queue.qsize() == 2
 
 
@@ -93,86 +100,6 @@ class TestSSEBroadcastManager:
         yield
         SSEBroadcastManager._instance = None
 
-    def test_parse_event_bytes(self):
-        """바이트 데이터 파싱."""
-        from core.broadcast_manager import SSEBroadcastManager
-
-        manager = SSEBroadcastManager()
-        data = {
-            b"job_id": b"test-123",
-            b"stage": b"vision",
-            b"status": b"success",
-        }
-
-        result = manager._parse_event(data)
-
-        assert result["job_id"] == "test-123"
-        assert result["stage"] == "vision"
-        assert result["status"] == "success"
-
-    def test_parse_event_string(self):
-        """문자열 데이터 파싱."""
-        from core.broadcast_manager import SSEBroadcastManager
-
-        manager = SSEBroadcastManager()
-        data = {
-            "job_id": "test-456",
-            "stage": "rule",
-            "status": "success",
-        }
-
-        result = manager._parse_event(data)
-
-        assert result["job_id"] == "test-456"
-        assert result["stage"] == "rule"
-
-    def test_parse_event_with_json_result(self):
-        """JSON result 필드 파싱."""
-        from core.broadcast_manager import SSEBroadcastManager
-
-        manager = SSEBroadcastManager()
-        result_data = {"classification": "recyclable", "confidence": 0.95}
-        data = {
-            b"job_id": b"test-789",
-            b"stage": b"vision",
-            b"result": json.dumps(result_data).encode(),
-        }
-
-        result = manager._parse_event(data)
-
-        assert result["result"] == result_data
-
-    def test_parse_event_with_progress(self):
-        """progress 정수 변환."""
-        from core.broadcast_manager import SSEBroadcastManager
-
-        manager = SSEBroadcastManager()
-        data = {
-            b"job_id": b"test-progress",
-            b"stage": b"vision",
-            b"progress": b"75",
-        }
-
-        result = manager._parse_event(data)
-
-        assert result["progress"] == 75
-
-    def test_parse_event_invalid_json_result(self):
-        """잘못된 JSON result 처리."""
-        from core.broadcast_manager import SSEBroadcastManager
-
-        manager = SSEBroadcastManager()
-        data = {
-            "job_id": "test-invalid",
-            "stage": "vision",
-            "result": "not-json{",
-        }
-
-        result = manager._parse_event(data)
-
-        # JSON 파싱 실패 시 원래 문자열 유지
-        assert result["result"] == "not-json{"
-
     def test_total_subscriber_count_empty(self):
         """구독자 없을 때 카운트."""
         from core.broadcast_manager import SSEBroadcastManager
@@ -187,8 +114,6 @@ class TestSSEBroadcastManager:
         manager = SSEBroadcastManager()
 
         # _subscribers는 job_id -> set 매핑
-        # 실제 코드에서는 subscribe()를 통해 추가되지만
-        # 여기서는 단순히 키의 개수만 테스트
         manager._subscribers["job-1"] = set()
         manager._subscribers["job-2"] = set()
 
@@ -198,12 +123,12 @@ class TestSSEBroadcastManager:
         assert manager.total_subscriber_count == 0
 
     @pytest.mark.asyncio
-    async def test_get_state_snapshot_no_cache(self):
-        """캐시 클라이언트 없을 때 스냅샷 조회."""
+    async def test_get_state_snapshot_no_client(self):
+        """Streams 클라이언트 없을 때 스냅샷 조회."""
         from core.broadcast_manager import SSEBroadcastManager
 
         manager = SSEBroadcastManager()
-        manager._cache_client = None
+        manager._streams_client = None
 
         result = await manager._get_state_snapshot("test-job")
 
@@ -217,7 +142,7 @@ class TestSSEBroadcastManager:
         manager = SSEBroadcastManager()
         mock_streams = AsyncMock()
         mock_streams.get = AsyncMock(return_value=None)
-        manager._streams_client = mock_streams  # State KV는 Streams Redis에 저장됨
+        manager._streams_client = mock_streams
 
         result = await manager._get_state_snapshot("test-job")
 
@@ -231,23 +156,23 @@ class TestSSEBroadcastManager:
 
         manager = SSEBroadcastManager()
         mock_streams = AsyncMock()
-        snapshot_data = {"stage": "vision", "status": "success"}
+        snapshot_data = {"stage": "vision", "status": "success", "seq": 1}
         mock_streams.get = AsyncMock(return_value=json.dumps(snapshot_data))
-        manager._streams_client = mock_streams  # State KV는 Streams Redis에 저장됨
+        manager._streams_client = mock_streams
 
         result = await manager._get_state_snapshot("test-job")
 
         assert result == snapshot_data
 
     @pytest.mark.asyncio
-    async def test_get_state_snapshot_cache_error(self):
-        """캐시 오류 시 None 반환."""
+    async def test_get_state_snapshot_error(self):
+        """Redis 오류 시 None 반환."""
         from core.broadcast_manager import SSEBroadcastManager
 
         manager = SSEBroadcastManager()
         mock_streams = AsyncMock()
         mock_streams.get = AsyncMock(side_effect=Exception("Redis error"))
-        manager._streams_client = mock_streams  # State KV는 Streams Redis에 저장됨
+        manager._streams_client = mock_streams
 
         result = await manager._get_state_snapshot("test-job")
 
@@ -264,12 +189,11 @@ class TestSSEBroadcastManager:
 
         # Mock 클라이언트 설정
         mock_streams = AsyncMock()
-        mock_cache = AsyncMock()
+        mock_pubsub = AsyncMock()
 
         manager._streams_client = mock_streams
-        manager._cache_client = mock_cache
-        # background_task는 None으로 설정 (테스트에서는 consumer loop 없음)
-        manager._background_task = None
+        manager._pubsub_client = mock_pubsub
+        manager._pubsub_tasks = {}
 
         # shutdown 호출
         await SSEBroadcastManager.shutdown()
@@ -277,4 +201,4 @@ class TestSSEBroadcastManager:
         # 정리 확인
         assert SSEBroadcastManager._instance is None
         mock_streams.close.assert_called_once()
-        mock_cache.close.assert_called_once()
+        mock_pubsub.close.assert_called_once()

@@ -30,14 +30,17 @@ class Settings(BaseSettings):
 
     # Redis Streams + State KV (내구성 저장소)
     # State 조회용 (복구/재접속 시 현재 상태)
-    redis_streams_url: str = "redis://rfr-streams-redis.redis.svc.cluster.local:6379/0"
+    # 기본값: 로컬 개발용, K8s에서는 deployment.yaml에서 오버라이드
+    redis_streams_url: str = "redis://localhost:6379/0"
 
     # Redis Pub/Sub (실시간 구독)
     # Event Router가 발행한 이벤트 수신
-    redis_pubsub_url: str = "redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0"
+    # 기본값: 로컬 개발용, K8s에서는 deployment.yaml에서 오버라이드
+    redis_pubsub_url: str = "redis://localhost:6379/1"
 
     # Redis Cache (하위 호환성 유지)
-    redis_cache_url: str = "redis://rfr-cache-redis.redis.svc.cluster.local:6379/0"
+    # 기본값: 로컬 개발용, K8s에서는 deployment.yaml에서 오버라이드
+    redis_cache_url: str = "redis://localhost:6379/2"
 
     # SSE 설정
     sse_keepalive_interval: float = 15.0  # keepalive 주기 (초)

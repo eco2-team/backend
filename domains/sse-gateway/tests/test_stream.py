@@ -38,7 +38,12 @@ class TestStreamEndpoint:
         mock_manager = AsyncMock()
         mock_manager.subscribe = mock_subscribe
 
-        with patch.object(SSEBroadcastManager, "get_instance", return_value=mock_manager):
+        # get_instance는 async 함수이므로 AsyncMock 사용
+        with patch.object(
+            SSEBroadcastManager,
+            "get_instance",
+            new=AsyncMock(return_value=mock_manager),
+        ):
             # SSE 엔드포인트 호출 - 200 응답과 text/event-stream 확인
             response = client.get("/api/v1/stream?job_id=valid-job-id-12345")
             assert response.status_code == 200
@@ -65,7 +70,12 @@ class TestEventGenerator:
         mock_manager = AsyncMock()
         mock_manager.subscribe = mock_subscribe
 
-        with patch.object(SSEBroadcastManager, "get_instance", return_value=mock_manager):
+        # get_instance는 async 함수이므로 AsyncMock 사용
+        with patch.object(
+            SSEBroadcastManager,
+            "get_instance",
+            new=AsyncMock(return_value=mock_manager),
+        ):
             events = []
             async for event in event_generator("test-job-id-12345", mock_request):
                 events.append(event)
@@ -92,7 +102,11 @@ class TestEventGenerator:
         mock_manager = AsyncMock()
         mock_manager.subscribe = mock_subscribe
 
-        with patch.object(SSEBroadcastManager, "get_instance", return_value=mock_manager):
+        with patch.object(
+            SSEBroadcastManager,
+            "get_instance",
+            new=AsyncMock(return_value=mock_manager),
+        ):
             events = []
             async for event in event_generator("test-job-id-12345", mock_request):
                 events.append(event)
@@ -121,7 +135,11 @@ class TestEventGenerator:
         mock_manager = AsyncMock()
         mock_manager.subscribe = mock_subscribe
 
-        with patch.object(SSEBroadcastManager, "get_instance", return_value=mock_manager):
+        with patch.object(
+            SSEBroadcastManager,
+            "get_instance",
+            new=AsyncMock(return_value=mock_manager),
+        ):
             events = []
             async for event in event_generator("test-job-id-12345", mock_request):
                 events.append(event)
@@ -149,7 +167,11 @@ class TestEventGenerator:
         mock_manager = AsyncMock()
         mock_manager.subscribe = mock_subscribe
 
-        with patch.object(SSEBroadcastManager, "get_instance", return_value=mock_manager):
+        with patch.object(
+            SSEBroadcastManager,
+            "get_instance",
+            new=AsyncMock(return_value=mock_manager),
+        ):
             events = []
             async for event in event_generator("test-job-id-12345", mock_request):
                 events.append(event)
@@ -176,7 +198,11 @@ class TestEventGenerator:
         mock_manager = AsyncMock()
         mock_manager.subscribe = mock_subscribe
 
-        with patch.object(SSEBroadcastManager, "get_instance", return_value=mock_manager):
+        with patch.object(
+            SSEBroadcastManager,
+            "get_instance",
+            new=AsyncMock(return_value=mock_manager),
+        ):
             events = []
             async for event in event_generator("test-job-id-12345", mock_request):
                 events.append(event)

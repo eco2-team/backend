@@ -17,16 +17,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 def mock_redis_streams():
     """Redis Streams 클라이언트 Mock."""
     mock = AsyncMock()
-    mock.xread = AsyncMock(return_value=[])
+    mock.get = AsyncMock(return_value=None)  # State KV 조회
     mock.close = AsyncMock()
     return mock
 
 
 @pytest.fixture
-def mock_redis_cache():
-    """Redis Cache 클라이언트 Mock."""
+def mock_redis_pubsub():
+    """Redis Pub/Sub 클라이언트 Mock."""
     mock = AsyncMock()
-    mock.get = AsyncMock(return_value=None)
+    mock.pubsub = MagicMock()
     mock.close = AsyncMock()
     return mock
 
@@ -39,14 +39,14 @@ def mock_settings():
     mock.service_version = "1.0.0"
     mock.environment = "test"
     mock.redis_streams_url = "redis://localhost:6379/0"
-    mock.redis_cache_url = "redis://localhost:6379/1"
-    mock.sse_shard_id = 0
-    mock.sse_shard_count = 4
+    mock.redis_pubsub_url = "redis://localhost:6379/1"
+    mock.redis_cache_url = "redis://localhost:6379/2"
+    mock.pubsub_channel_prefix = "sse:events"
+    mock.state_key_prefix = "scan:state"
+    mock.state_timeout_seconds = 30
     mock.sse_keepalive_interval = 15.0
     mock.sse_max_wait_seconds = 300
     mock.sse_queue_maxsize = 100
-    mock.consumer_xread_block_ms = 5000
-    mock.consumer_xread_count = 100
     mock.log_level = "DEBUG"
     mock.otel_enabled = False
     mock.otel_sample_rate = 0.1
@@ -73,12 +73,15 @@ def client(mock_settings):
     """FastAPI TestClient fixture."""
     with patch("config.get_settings", return_value=mock_settings):
         with patch("main.get_settings", return_value=mock_settings):
-            with patch("core.broadcast_manager.SSEBroadcastManager.get_instance") as mock_manager:
-                mock_instance = AsyncMock()
-                mock_instance.active_job_count = 0
-                mock_instance.total_subscriber_count = 0
-                mock_manager.return_value = mock_instance
+            # get_instance는 async 함수이므로 AsyncMock 사용
+            mock_instance = AsyncMock()
+            mock_instance.active_job_count = 0
+            mock_instance.total_subscriber_count = 0
 
+            with patch(
+                "core.broadcast_manager.SSEBroadcastManager.get_instance",
+                new=AsyncMock(return_value=mock_instance),
+            ):
                 from fastapi.testclient import TestClient
 
                 from main import app
