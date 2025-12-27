@@ -251,7 +251,7 @@ data:
         {
           "title": "Events by Stage",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
           "targets": [
             {
               "expr": "sum by (stage) (rate(event_router_events_processed_total[1m]))",
@@ -275,7 +275,7 @@ data:
         {
           "title": "Process Latency (p50/p95/p99)",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
           "targets": [
             {
               "expr": "histogram_quantile(0.50, sum(rate(event_router_process_latency_seconds_bucket[5m])) by (le))",
@@ -300,7 +300,7 @@ data:
         {
           "title": "XREADGROUP Operations",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 14 },
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 21 },
           "targets": [
             {
               "expr": "sum by (result) (rate(event_router_xreadgroup_total[1m]))",
@@ -322,7 +322,7 @@ data:
         {
           "title": "Pub/Sub Published by Stage",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 14 },
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 21 },
           "targets": [
             {
               "expr": "sum by (stage) (rate(event_router_pubsub_published_total[1m]))",
@@ -339,7 +339,7 @@ data:
         {
           "title": "Events Skipped (Idempotency)",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 14 },
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 21 },
           "targets": [
             {
               "expr": "sum by (reason) (rate(event_router_events_skipped_total[1m]))",
@@ -356,13 +356,13 @@ data:
         {
           "title": "🌐 SSE Gateway",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 20 },
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
           "collapsed": false
         },
         {
           "title": "Active Connections",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 21 },
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 28 },
           "targets": [
             {
               "expr": "sum(sse_gateway_connections_active)",
@@ -383,7 +383,7 @@ data:
         {
           "title": "Events Distributed",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 21 },
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 28 },
           "targets": [
             {
               "expr": "sum by (status) (rate(sse_gateway_events_distributed_total[1m]))",
@@ -404,7 +404,7 @@ data:
         {
           "title": "Connection Close Reasons",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 21 },
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 28 },
           "targets": [
             {
               "expr": "sum by (reason) (rate(sse_gateway_connections_closed_total[1m]))",
@@ -421,7 +421,7 @@ data:
         {
           "title": "TTFB Distribution",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 27 },
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 34 },
           "targets": [
             {
               "expr": "histogram_quantile(0.50, sum(rate(sse_gateway_ttfb_seconds_bucket[5m])) by (le))",
@@ -446,7 +446,7 @@ data:
         {
           "title": "Write Latency",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 27 },
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 34 },
           "targets": [
             {
               "expr": "histogram_quantile(0.50, sum(rate(sse_gateway_write_latency_seconds_bucket[5m])) by (le))",
@@ -467,7 +467,7 @@ data:
         {
           "title": "Queue Backlog",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 27 },
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 34 },
           "targets": [
             {
               "expr": "sse_gateway_queue_size_total",
@@ -488,14 +488,14 @@ data:
         {
           "title": "🐇 Celery & RabbitMQ",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 },
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
           "collapsed": false
         },
         {
           "title": "🔗 SSE vs RabbitMQ 연결 수",
           "description": "SSE 연결 vs RabbitMQ 연결 비교",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
           "targets": [
             {
               "expr": "sum(sse_gateway_connections_active)",
@@ -520,7 +520,7 @@ data:
         {
           "title": "RabbitMQ 큐 메시지 수",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
           "targets": [
             {
               "expr": "rabbitmq_queue_messages_ready{queue=~\"scan\\\\..*|character\\\\..*|my\\\\..*\"}",
@@ -541,13 +541,13 @@ data:
         {
           "title": "🖥️ Worker 리소스 사용량",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 49 },
           "collapsed": false
         },
         {
           "title": "Worker CPU 사용률",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 43 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 50 },
           "targets": [
             {
               "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=~\"scan|character|my\", container=~\".*worker.*\"}[5m])) * 100",
@@ -565,7 +565,7 @@ data:
         {
           "title": "Worker Memory 사용량",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 43 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 50 },
           "targets": [
             {
               "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=~\"scan|character|my\", container=~\".*worker.*\"}) / 1024 / 1024",
@@ -583,14 +583,14 @@ data:
         {
           "title": "Redis Streams (Durable Buffer)",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 51 },
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 58 },
           "collapsed": false
         },
         {
           "title": "Stream Length (scan:events:*)",
           "description": "SSE 이벤트 스트림 길이 - 처리 대기 중인 이벤트 수",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 52 },
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 59 },
           "targets": [
             {
               "expr": "redis_stream_length{job=\"rfr-streams-redis\"}",
@@ -616,7 +616,7 @@ data:
           "title": "Consumer Groups",
           "description": "스트림별 Consumer Group 수",
           "type": "stat",
-          "gridPos": { "h": 6, "w": 4, "x": 8, "y": 52 },
+          "gridPos": { "h": 6, "w": 4, "x": 8, "y": 59 },
           "targets": [
             {
               "expr": "sum(redis_stream_groups{job=\"rfr-streams-redis\"})",
@@ -633,7 +633,7 @@ data:
           "title": "Pending Messages",
           "description": "처리 중이지만 ACK되지 않은 메시지 수",
           "type": "stat",
-          "gridPos": { "h": 6, "w": 4, "x": 12, "y": 52 },
+          "gridPos": { "h": 6, "w": 4, "x": 12, "y": 59 },
           "targets": [
             {
               "expr": "sum(redis_stream_pending_entries{job=\"rfr-streams-redis\"})",
@@ -658,7 +658,7 @@ data:
           "title": "streams-redis Memory",
           "description": "SSE 이벤트 저장용 Redis 메모리 사용량",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 52 },
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 59 },
           "targets": [
             {
               "expr": "redis_memory_used_bytes{job=\"rfr-streams-redis\"}",
@@ -676,7 +676,7 @@ data:
           "title": "Redis Commands (streams-redis)",
           "description": "streams-redis 초당 명령어 처리량",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 58 },
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 65 },
           "targets": [
             {
               "expr": "rate(redis_commands_processed_total{job=\"rfr-streams-redis\"}[1m])",
@@ -694,7 +694,7 @@ data:
           "title": "Redis Connections (streams-redis)",
           "description": "Streams Redis 연결 수",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 58 },
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 65 },
           "targets": [
             {
               "expr": "redis_connected_clients{job=\"rfr-streams-redis\"}",
@@ -719,13 +719,13 @@ data:
         {
           "title": "📡 Redis Pub/Sub (Real-time)",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 64 },
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 71 },
           "collapsed": false
         },
         {
           "title": "Pub/Sub Clients",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 65 },
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 72 },
           "targets": [
             {
               "expr": "redis_connected_clients{job=\"rfr-pubsub-redis\"}",
@@ -742,7 +742,7 @@ data:
         {
           "title": "Pub/Sub Commands/sec",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 65 },
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 72 },
           "targets": [
             {
               "expr": "rate(redis_commands_processed_total{job=\"rfr-pubsub-redis\"}[1m])",
@@ -759,7 +759,7 @@ data:
         {
           "title": "Pub/Sub Memory",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 65 },
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 72 },
           "targets": [
             {
               "expr": "redis_memory_used_bytes{job=\"rfr-pubsub-redis\"}",
@@ -776,13 +776,13 @@ data:
         {
           "title": "🔧 Reclaimer (Fault Recovery)",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 71 },
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 78 },
           "collapsed": false
         },
         {
           "title": "Reclaim Runs",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 72 },
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 79 },
           "targets": [
             {
               "expr": "sum by (result) (rate(event_router_reclaim_runs_total[5m]))",
@@ -799,7 +799,7 @@ data:
         {
           "title": "Messages Reclaimed",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 72 },
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 79 },
           "targets": [
             {
               "expr": "sum by (shard) (rate(event_router_reclaim_messages_total[5m]))",
@@ -816,7 +816,7 @@ data:
         {
           "title": "Reclaim Latency",
           "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 72 },
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 79 },
           "targets": [
             {
               "expr": "histogram_quantile(0.95, sum by (shard, le) (rate(event_router_reclaim_latency_seconds_bucket[5m])))",
