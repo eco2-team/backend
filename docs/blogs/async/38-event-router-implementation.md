@@ -464,7 +464,89 @@ $ kubectl get scaledobject -n event-router -o jsonpath='{.items[0].status.condit
 
 ---
 
-## 9. 결론
+## 9. 실측 로그
+
+### 9.1 Event Router Startup
+
+```log
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+2025-12-27 11:11:45,307 INFO main: event_router_starting
+2025-12-27 11:11:45,332 INFO core.consumer: consumer_group_created
+2025-12-27 11:11:45,334 INFO core.consumer: consumer_group_created
+2025-12-27 11:11:45,336 INFO core.consumer: consumer_group_created
+2025-12-27 11:11:45,338 INFO core.consumer: consumer_group_created
+2025-12-27 11:11:45,338 INFO main: event_router_started
+2025-12-27 11:11:45,338 INFO core.consumer: consumer_started
+2025-12-27 11:11:45,338 INFO core.reclaimer: reclaimer_started
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+```
+
+**확인 사항**:
+- ✅ Consumer Group 4개 shard 모두 생성 (`consumer_group_created` x4)
+- ✅ Consumer 루프 시작 (`consumer_started`)
+- ✅ Reclaimer 루프 시작 (`reclaimer_started`)
+
+### 9.2 SSE-Gateway Startup
+
+```log
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+2025-12-27 11:28:02,032 - main - INFO - sse_gateway_starting
+2025-12-27 11:28:02,296 - core.broadcast_manager - INFO - broadcast_manager_redis_connected
+2025-12-27 11:28:02,296 - core.broadcast_manager - INFO - broadcast_manager_initialized
+2025-12-27 11:28:02,296 - main - INFO - sse_gateway_started
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+```
+
+**확인 사항**:
+- ✅ Redis 연결 성공 (`broadcast_manager_redis_connected`)
+- ✅ BroadcastManager 초기화 완료 (`broadcast_manager_initialized`)
+
+### 9.3 Pod 배치 현황
+
+```bash
+$ kubectl get pods -n event-router -o wide
+NAME                            READY   STATUS    RESTARTS   AGE   IP              NODE
+event-router-6c7c68bbff-hpshk   1/1     Running   0          13m   192.168.202.5   k8s-event-router
+
+$ kubectl get pods -n sse-consumer -o wide
+NAME                           READY   STATUS    RESTARTS   AGE   IP               NODE
+sse-gateway-5dfc8f8ddb-79j4j   2/2     Running   0          85m   192.168.25.160   k8s-sse-gateway
+
+$ kubectl get pods -n redis -l app=pubsub-redis -o wide
+NAME                                READY   STATUS    RESTARTS   AGE    IP               NODE
+rfr-pubsub-redis-0                  3/3     Running   0          117m   192.168.236.3    k8s-redis-pubsub
+rfr-pubsub-redis-1                  3/3     Running   0          117m   192.168.236.6    k8s-redis-pubsub
+rfr-pubsub-redis-2                  3/3     Running   0          117m   192.168.236.7    k8s-redis-pubsub
+rfs-pubsub-redis-668574d5c7-kdxws   2/2     Running   0          105m   192.168.236.11   k8s-redis-pubsub
+rfs-pubsub-redis-668574d5c7-lxcbl   2/2     Running   0          106m   192.168.236.10   k8s-redis-pubsub
+rfs-pubsub-redis-668574d5c7-pc6tn   2/2     Running   0          107m   192.168.236.9    k8s-redis-pubsub
+```
+
+**노드별 배치**:
+- `k8s-event-router`: Event Router Pod (nodeSelector + toleration)
+- `k8s-sse-gateway`: SSE-Gateway Pod
+- `k8s-redis-pubsub`: Redis Pub/Sub 클러스터 (3 masters + 3 sentinels)
+
+### 9.4 KEDA ScaledObject 상태
+
+```bash
+$ kubectl get scaledobject -n event-router -o jsonpath='{.items[0].status.conditions}'
+[
+  {"type": "Ready", "status": "True", "reason": "ScaledObjectReady"},
+  {"type": "Active", "status": "False", "reason": "ScalerNotActive"}
+]
+```
+
+- ✅ `Ready: True` - Prometheus 연결 성공
+- ℹ️ `Active: False` - Pending 메시지가 threshold(100) 미만이라 스케일업 조건 아님 (정상)
+
+---
+
+## 10. 결론
 
 | 단계 | 내용 | 결과 |
 |------|------|------|
