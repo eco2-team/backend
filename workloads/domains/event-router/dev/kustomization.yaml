@@ -1,6 +1,3 @@
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Event Router - Dev Kustomization
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -8,3 +5,5 @@ resources:
 images:
 - name: mng990/eco2
   newTag: event-router-dev-latest
+- name: docker.io/mng990/eco2
+  newTag: event-router-api-dev-latest
