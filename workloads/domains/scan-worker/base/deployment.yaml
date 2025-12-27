@@ -61,9 +61,9 @@ spec:
         # Redis Cache (결과 캐싱)
         - name: REDIS_CACHE_URL
           value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
-        # SSE Shard 설정 (SSE-Gateway와 동일해야 함)
+        # SSE Shard 설정 (SSE-Gateway StatefulSet과 동일해야 함)
         - name: SSE_SHARD_COUNT
-          value: '1'
+          value: '4'
         # Gevent Pool 설정
         - name: CELERY_WORKER_POOL
           value: gevent

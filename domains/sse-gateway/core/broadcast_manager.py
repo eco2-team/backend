@@ -1,16 +1,16 @@
 """개선된 SSE Broadcast Manager - Sharded Stream + Memory Fan-out (B안).
 
-B안 샤딩 아키텍처:
+B안 샤딩 아키텍처 (StatefulSet 기반):
 1. 스트림을 N개로 샤딩: scan:events:0 ~ scan:events:N-1
-2. Pod마다 assigned_shards가 있고, 자기 shard만 XREAD
-3. Istio 라우팅도 동일한 hash(job_id)%N으로 Pod 선택
+2. StatefulSet Pod Index = Shard ID (sse-gateway-0 → shard 0)
+3. Istio Consistent Hash 라우팅: X-Job-Id 헤더로 동일 Pod 선택
 
 이점:
-- Pod가 늘면 shard를 재분배하여 자연스럽게 수평 확장
-- Redis 읽기는 pod당 "담당 shard 수"만큼으로 제한
+- Pod Index 기반 shard 할당으로 안정적인 매핑
+- Redis 읽기는 pod당 1개 shard로 제한
 - "job 이벤트가 다른 pod로 가서 클라가 못 받는" 문제가 구조적으로 해결
 
-참조: docs/blogs/async/31-sse-fanout-optimization.md
+참조: docs/blogs/async/32-sse-sharding-troubleshooting.md
 """
 
 from __future__ import annotations
@@ -166,7 +166,8 @@ class SSEBroadcastManager:
         streams_url = streams_url or settings.redis_streams_url
         cache_url = cache_url or settings.redis_cache_url
 
-        # Shard 설정
+        # Shard 설정 (StatefulSet 기반: Pod Index = Shard ID)
+        # settings.sse_shard_id는 POD_NAME에서 동적 추출 (예: sse-gateway-2 → 2)
         self._shard_id = settings.sse_shard_id
         self._shard_count = settings.sse_shard_count
 

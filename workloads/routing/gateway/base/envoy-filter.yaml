@@ -1,3 +1,16 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# EnvoyFilter: Cookie to Header + Query to Header
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 1. Cookie → Header 변환:
+#    - s_access → Authorization: Bearer {token}
+#    - s_refresh → X-Refresh-Token: Bearer {token}
+#
+# 2. Query → Header 변환 (SSE Consistent Hash용):
+#    - /api/v1/stream?job_id=xxx → X-Job-Id: xxx
+#    - Istio DestinationRule에서 X-Job-Id 기반 Consistent Hash 라우팅
+#
+# 참조: docs/blogs/async/32-sse-sharding-troubleshooting.md
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -25,6 +38,9 @@ spec:
           '@type': type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
           inlineCode: |
             function envoy_on_request(request_handle)
+              -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+              -- 1. Cookie → Header 변환 (인증)
+              -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
               local cookie_header = request_handle:headers():get("cookie")
               if cookie_header then
                 local function extract(name)
@@ -42,6 +58,18 @@ spec:
                 local refresh_token = extract("s_refresh")
                 if refresh_token then
                   request_handle:headers():replace("X-Refresh-Token", "Bearer " .. refresh_token)
+                end
+              end
+
+              -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+              -- 2. Query → Header 변환 (SSE Consistent Hash 라우팅)
+              -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+              -- /api/v1/stream?job_id=xxx → X-Job-Id: xxx
+              local path = request_handle:headers():get(":path")
+              if path and string.find(path, "/api/v1/stream") then
+                local job_id = string.match(path, "job_id=([^&]+)")
+                if job_id then
+                  request_handle:headers():replace("X-Job-Id", job_id)
                 end
               end
             end

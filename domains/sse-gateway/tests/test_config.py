@@ -11,6 +11,45 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
+class TestPodIndex:
+    """get_pod_index 함수 테스트 (StatefulSet 기반 동적 shard_id)."""
+
+    def test_get_pod_index_default(self):
+        """POD_NAME이 없으면 0 반환."""
+        with patch.dict(os.environ, {}, clear=True):
+            # 환경변수 제거
+            os.environ.pop("POD_NAME", None)
+            from config import get_pod_index
+
+            assert get_pod_index() == 0
+
+    def test_get_pod_index_from_statefulset_name(self):
+        """StatefulSet Pod 이름에서 인덱스 추출."""
+        from config import get_pod_index
+
+        test_cases = [
+            ("sse-gateway-0", 0),
+            ("sse-gateway-1", 1),
+            ("sse-gateway-2", 2),
+            ("sse-gateway-10", 10),
+            ("my-app-5", 5),
+        ]
+
+        for pod_name, expected_index in test_cases:
+            with patch.dict(os.environ, {"POD_NAME": pod_name}):
+                assert get_pod_index() == expected_index
+
+    def test_get_pod_index_invalid_format(self):
+        """잘못된 형식이면 0 반환."""
+        from config import get_pod_index
+
+        with patch.dict(os.environ, {"POD_NAME": "invalid-pod-name"}):
+            assert get_pod_index() == 0
+
+        with patch.dict(os.environ, {"POD_NAME": "sse-gateway"}):
+            assert get_pod_index() == 0
+
+
 class TestSettings:
     """Settings 클래스 테스트."""
 
@@ -24,17 +63,16 @@ class TestSettings:
         assert settings.service_version == "1.0.0"
         assert settings.environment == "development"
         assert settings.sse_shard_count >= 1
-        assert settings.sse_shard_id >= 0
+        assert settings.sse_shard_id >= 0  # property로 동적 계산
         assert settings.sse_keepalive_interval > 0
         assert settings.sse_max_wait_seconds > 0
         assert settings.sse_queue_maxsize > 0
 
-    def test_settings_from_env(self):
-        """환경변수에서 설정 로드."""
+    def test_settings_shard_count_from_env(self):
+        """환경변수에서 shard_count 로드."""
         with patch.dict(
             os.environ,
             {
-                "SSE_SHARD_ID": "2",
                 "SSE_SHARD_COUNT": "8",
                 "LOG_LEVEL": "DEBUG",
             },
@@ -42,9 +80,16 @@ class TestSettings:
             from config import Settings
 
             settings = Settings()
-            assert settings.sse_shard_id == 2
             assert settings.sse_shard_count == 8
             assert settings.log_level == "DEBUG"
+
+    def test_settings_shard_id_from_pod_name(self):
+        """sse_shard_id는 POD_NAME에서 동적으로 추출."""
+        with patch.dict(os.environ, {"POD_NAME": "sse-gateway-3"}):
+            from config import Settings
+
+            settings = Settings()
+            assert settings.sse_shard_id == 3  # POD_NAME에서 추출
 
     def test_get_settings_singleton(self):
         """get_settings 싱글톤 동작 확인."""

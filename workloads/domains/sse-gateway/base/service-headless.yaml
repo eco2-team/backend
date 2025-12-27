@@ -1,0 +1,26 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSE Gateway Headless Service
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# StatefulSet에서 필요한 Headless Service
+# - clusterIP: None으로 개별 Pod에 직접 접근 가능
+# - DNS: sse-gateway-0.sse-gateway-headless.sse-consumer.svc.cluster.local
+#
+# 참조: docs/blogs/async/32-sse-sharding-troubleshooting.md
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: v1
+kind: Service
+metadata:
+  name: sse-gateway-headless
+  namespace: sse-consumer
+  labels:
+    app: sse-gateway
+    tier: integration
+spec:
+  clusterIP: None
+  selector:
+    app: sse-gateway
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP

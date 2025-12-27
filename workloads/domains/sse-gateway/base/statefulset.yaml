@@ -1,16 +1,21 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# SSE Gateway Deployment
+# SSE Gateway StatefulSet
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 특성:
-# - workers=1 (프로세스 1개, Pod 스케일링)
-# - 단일 Redis Stream Consumer
-# - Long-lived Connections (SSE)
+# StatefulSet 사용 이유:
+# - Pod 이름 보장 (sse-gateway-0, sse-gateway-1, ...)
+# - Pod Index = Shard ID (hash(job_id) % shard_count)
+# - Istio Consistent Hash 라우팅과 연동
 #
-# 스케일링: HPA로 연결 수 기반 Pod 스케일링
-# 참조: docs/blogs/async/31-sse-fanout-optimization.md
+# B안 샤딩 아키텍처:
+# - Worker: hash(job_id) % 4 → scan:events:N에 publish
+# - SSE-Gateway: Pod Index N → scan:events:N만 XREAD
+# - Istio: X-Job-Id 헤더 기반 Consistent Hash → 동일 Pod로 라우팅
+#
+# 스케일링: HPA 비활성화 (shard_count 고정)
+# 참조: docs/blogs/async/32-sse-sharding-troubleshooting.md
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: sse-gateway
   namespace: sse-consumer
@@ -19,7 +24,9 @@ metadata:
     tier: integration
     domain: sse
 spec:
-  replicas: 1
+  serviceName: sse-gateway-headless
+  replicas: 4
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: sse-gateway
@@ -61,22 +68,20 @@ spec:
           value: INFO
         - name: ENVIRONMENT
           value: development
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # B안 샤딩 설정
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # Pod Index를 shard ID로 사용 (StatefulSet 또는 Downward API)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # B안 샤딩 설정 (StatefulSet 기반)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # shard_count는 고정, Pod Index가 shard_id
         - name: SSE_SHARD_COUNT
-          value: '1'  # 단일 SSE-Gateway는 모든 이벤트 처리 (scale-out 시 증가)
-            # Pod 이름에서 index 추출 (예: sse-gateway-0 → 0)
+          value: '4'
+        # Pod 이름 (sse-gateway-0, sse-gateway-1, ...)
         - name: POD_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-            # 초기값 (Kustomize patch로 오버라이드)
-        - name: SSE_SHARD_ID
-          value: '0'
-            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # OTEL 설정 (샘플링 낮춤)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # OTEL 설정 (샘플링 낮춤)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         - name: OTEL_ENABLED
           value: 'true'
         - name: OTEL_SAMPLE_RATE

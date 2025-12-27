@@ -3,20 +3,38 @@
 환경 변수:
 - REDIS_STREAMS_URL: Redis Streams 연결 URL
 - REDIS_CACHE_URL: Redis Cache 연결 URL (KV 스냅샷용)
-- SSE_SHARD_ID: 이 Pod가 담당하는 shard ID (0-based)
+- POD_NAME: StatefulSet Pod 이름 (예: sse-gateway-0)
 - SSE_SHARD_COUNT: 전체 shard 수 (default: 4)
 - OTEL_EXPORTER_OTLP_ENDPOINT: OTEL Collector 엔드포인트
 - LOG_LEVEL: 로그 레벨 (default: INFO)
 
-B안 샤딩 아키텍처:
+B안 샤딩 아키텍처 (StatefulSet 기반):
 - 스트림을 N개로 샤딩: scan:events:0 ~ scan:events:N-1
-- Pod마다 assigned_shards가 있고, 자기 shard만 XREAD
-- Istio 라우팅도 동일한 hash(job_id)%N으로 Pod 선택
+- Pod Index = Shard ID (sse-gateway-0 → shard 0)
+- Istio Consistent Hash 라우팅으로 동일 job_id는 동일 Pod로
+
+참조: docs/blogs/async/32-sse-sharding-troubleshooting.md
 """
 
+import os
+import re
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings
+
+
+def get_pod_index() -> int:
+    """POD_NAME에서 StatefulSet 인덱스 추출.
+
+    StatefulSet Pod 이름 형식: {name}-{index}
+    예: sse-gateway-2 → 2
+
+    Returns:
+        Pod 인덱스 (0-based). 추출 실패 시 0 반환.
+    """
+    pod_name = os.environ.get("POD_NAME", "sse-gateway-0")
+    match = re.search(r"-(\d+)$", pod_name)
+    return int(match.group(1)) if match else 0
 
 
 class Settings(BaseSettings):
@@ -34,12 +52,16 @@ class Settings(BaseSettings):
     redis_cache_url: str = "redis://rfr-cache-redis.redis.svc.cluster.local:6379/0"
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 샤딩 설정 (B안)
+    # 샤딩 설정 (B안 - StatefulSet 기반)
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # shard = hash(job_id) % shard_count
-    # Pod는 자신의 shard_id에 해당하는 스트림만 XREAD
-    sse_shard_id: int = 0  # 이 Pod가 담당하는 shard ID
+    # Pod Index = Shard ID (sse-gateway-0 → shard 0)
     sse_shard_count: int = 4  # 전체 shard 수 (권장: Pod 수와 동일)
+
+    @property
+    def sse_shard_id(self) -> int:
+        """이 Pod가 담당하는 shard ID (POD_NAME에서 동적 추출)."""
+        return get_pod_index()
 
     # SSE 설정
     sse_keepalive_interval: float = 15.0  # keepalive 주기 (초)
