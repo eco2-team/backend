@@ -20,6 +20,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.v1.stream import router as stream_router
 from config import get_settings
 from core.broadcast_manager import SSEBroadcastManager
+from core.tracing import (
+    configure_tracing,
+    instrument_fastapi,
+    instrument_redis,
+    shutdown_tracing,
+)
 from metrics import register_metrics
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -35,6 +41,10 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+# OpenTelemetry 분산 트레이싱 설정
+configure_tracing()
+instrument_redis()
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -57,6 +67,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 종료
     logger.info("sse_gateway_shutting_down")
     await SSEBroadcastManager.shutdown()
+    shutdown_tracing()
     logger.info("sse_gateway_stopped")
 
 
@@ -84,6 +95,9 @@ app.add_middleware(
 
 # Prometheus metrics
 register_metrics(app)
+
+# OpenTelemetry FastAPI instrumentation
+instrument_fastapi(app)
 
 # Routers
 app.include_router(stream_router, prefix="/api/v1")

@@ -20,6 +20,7 @@ from config import get_settings
 from core.consumer import StreamConsumer
 from core.processor import EventProcessor
 from core.reclaimer import PendingReclaimer
+from core.tracing import configure_tracing, instrument_redis, shutdown_tracing
 from metrics import register_metrics
 
 # ─────────────────────────────────────────────────────────────────
@@ -34,6 +35,10 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
+
+# OpenTelemetry 분산 트레이싱 설정
+configure_tracing()
+instrument_redis()
 
 # ─────────────────────────────────────────────────────────────────
 # FastAPI 앱
@@ -175,6 +180,9 @@ async def shutdown() -> None:
         await redis_streams_client.close()
     if redis_pubsub_client:
         await redis_pubsub_client.close()
+
+    # OpenTelemetry 종료
+    shutdown_tracing()
 
     logger.info("event_router_stopped")
 

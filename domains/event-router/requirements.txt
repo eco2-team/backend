@@ -4,6 +4,14 @@ uvicorn[standard]>=0.25.0
 pydantic-settings>=2.1.0
 redis>=5.0.0
 
+# OpenTelemetry (분산 추적)
+opentelemetry-distro==0.50b0
+opentelemetry-exporter-otlp==1.29.0
+opentelemetry-instrumentation-redis==0.50b0
+
+# Monitoring
+prometheus-client>=0.21.0
+
 # Test Dependencies
 httpx>=0.25.0
 pytest>=8.0.0
