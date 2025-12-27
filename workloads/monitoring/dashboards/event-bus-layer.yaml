@@ -1,0 +1,590 @@
+# Event Bus Layer 대시보드 (Event Router + SSE Gateway)
+# 목적: Composite Event Bus 전체 파이프라인 모니터링
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-event-bus-layer
+  namespace: prometheus
+  labels:
+    grafana_dashboard: '1'
+    app: grafana
+  annotations:
+    grafana_folder: Event Bus
+data:
+  event-bus-layer.json: |
+    {
+      "title": "⚡ Event Bus Layer (Router + Gateway)",
+      "uid": "event-bus-layer",
+      "version": 1,
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "refresh": "5s",
+      "time": { "from": "now-15m", "to": "now" },
+      "panels": [
+        {
+          "title": "🎯 핵심 지표",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "collapsed": false
+        },
+        {
+          "title": "SSE Active Connections (CCU)",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+          "targets": [
+            {
+              "expr": "sum(sse_gateway_connections_active)",
+              "legendFormat": "CCU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 50 },
+                  { "color": "red", "value": 100 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Events Processed/sec",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+          "targets": [
+            {
+              "expr": "sum(rate(event_router_events_processed_total[1m]))",
+              "legendFormat": "Processed"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "ops", "decimals": 2 } }
+        },
+        {
+          "title": "Events Published/sec",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+          "targets": [
+            {
+              "expr": "sum(rate(event_router_pubsub_published_total[1m]))",
+              "legendFormat": "Published"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "ops", "decimals": 2 } }
+        },
+        {
+          "title": "Skip Rate",
+          "type": "gauge",
+          "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+          "targets": [
+            {
+              "expr": "sum(rate(event_router_events_skipped_total[5m])) / (sum(rate(event_router_events_processed_total[5m])) + sum(rate(event_router_events_skipped_total[5m]))) * 100",
+              "legendFormat": "Skip %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red", "value": 20 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Router Status",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+          "targets": [
+            {
+              "expr": "event_router_consumer_status",
+              "legendFormat": "Consumer"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+              ]
+            }
+          }
+        },
+        {
+          "title": "Pending Messages",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+          "targets": [
+            {
+              "expr": "sum(event_router_consumer_lag)",
+              "legendFormat": "Pending"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 50 },
+                  { "color": "red", "value": 200 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "⚡ Event Router",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "collapsed": false
+        },
+        {
+          "title": "Events Processed by Stage",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+          "targets": [
+            {
+              "expr": "sum by (stage) (rate(event_router_events_processed_total[1m]))",
+              "legendFormat": "{{stage}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "vision" }, "properties": [{ "id": "color", "value": { "fixedColor": "#7eb26d" } }] },
+              { "matcher": { "id": "byName", "options": "rule" }, "properties": [{ "id": "color", "value": { "fixedColor": "#6ed0e0" } }] },
+              { "matcher": { "id": "byName", "options": "answer" }, "properties": [{ "id": "color", "value": { "fixedColor": "#eab839" } }] },
+              { "matcher": { "id": "byName", "options": "reward" }, "properties": [{ "id": "color", "value": { "fixedColor": "#ef843c" } }] },
+              { "matcher": { "id": "byName", "options": "done" }, "properties": [{ "id": "color", "value": { "fixedColor": "#e24d42" } }] }
+            ]
+          }
+        },
+        {
+          "title": "Process Latency (p50/p95/p99)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(event_router_process_latency_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(event_router_process_latency_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p95"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(event_router_process_latency_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p99"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "XREADGROUP Operations",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 14 },
+          "targets": [
+            {
+              "expr": "sum by (result) (rate(event_router_xreadgroup_total[1m]))",
+              "legendFormat": "{{result}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "success" }, "properties": [{ "id": "color", "value": { "fixedColor": "#73bf69" } }] },
+              { "matcher": { "id": "byName", "options": "empty" }, "properties": [{ "id": "color", "value": { "fixedColor": "#ff9830" } }] },
+              { "matcher": { "id": "byName", "options": "error" }, "properties": [{ "id": "color", "value": { "fixedColor": "#f2495c" } }] }
+            ]
+          }
+        },
+        {
+          "title": "XREADGROUP Batch Size",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 14 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(event_router_xreadgroup_batch_size_bucket[5m])) by (le))",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(event_router_xreadgroup_batch_size_bucket[5m])) by (le))",
+              "legendFormat": "p95"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "Events Skipped (Idempotency)",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 14 },
+          "targets": [
+            {
+              "expr": "sum by (reason) (rate(event_router_events_skipped_total[1m]))",
+              "legendFormat": "{{reason}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "📡 Pub/Sub",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 20 },
+          "collapsed": false
+        },
+        {
+          "title": "Pub/Sub Published by Stage",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 21 },
+          "targets": [
+            {
+              "expr": "sum by (stage) (rate(event_router_pubsub_published_total[1m]))",
+              "legendFormat": "{{stage}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "lineWidth": 2, "fillOpacity": 20, "stacking": { "mode": "normal" } }
+            }
+          }
+        },
+        {
+          "title": "Pub/Sub Publish Latency",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 21 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(event_router_pubsub_publish_latency_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(event_router_pubsub_publish_latency_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p99"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "🌐 SSE Gateway",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
+          "collapsed": false
+        },
+        {
+          "title": "Active Connections (CCU)",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 28 },
+          "targets": [
+            {
+              "expr": "sum(sse_gateway_connections_active)",
+              "legendFormat": "Active"
+            },
+            {
+              "expr": "sum(rate(sse_gateway_connections_opened_total[1m]))",
+              "legendFormat": "Opened/sec"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Events Distributed",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 28 },
+          "targets": [
+            {
+              "expr": "sum by (status) (rate(sse_gateway_events_distributed_total[1m]))",
+              "legendFormat": "{{status}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "success" }, "properties": [{ "id": "color", "value": { "fixedColor": "#73bf69" } }] },
+              { "matcher": { "id": "byName", "options": "dropped" }, "properties": [{ "id": "color", "value": { "fixedColor": "#f2495c" } }] }
+            ]
+          }
+        },
+        {
+          "title": "Connection Duration",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 28 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(sse_gateway_connection_duration_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(sse_gateway_connection_duration_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p95"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "Write Latency",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 34 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(sse_gateway_write_latency_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(sse_gateway_write_latency_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p99"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "Connection Close Reasons",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 34 },
+          "targets": [
+            {
+              "expr": "sum by (reason) (rate(sse_gateway_connections_closed_total[1m]))",
+              "legendFormat": "{{reason}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Queue Backlog",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 34 },
+          "targets": [
+            {
+              "expr": "sse_gateway_queue_size_total",
+              "legendFormat": "Queue Size"
+            },
+            {
+              "expr": "sum(rate(sse_gateway_queue_dropped_total[1m]))",
+              "legendFormat": "Dropped/sec"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "🔴 Redis",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
+          "collapsed": false
+        },
+        {
+          "title": "Redis Streams - Stream Length",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 41 },
+          "targets": [
+            {
+              "expr": "redis_stream_length{job=\"rfr-streams-redis\"}",
+              "legendFormat": "{{stream}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Redis Streams - Pending Entries",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 41 },
+          "targets": [
+            {
+              "expr": "redis_stream_pending_entries{job=\"rfr-streams-redis\"}",
+              "legendFormat": "{{stream}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 50 },
+                  { "color": "red", "value": 200 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Redis Pub/Sub - Connected Clients",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 41 },
+          "targets": [
+            {
+              "expr": "redis_connected_clients{job=\"rfr-pubsub-redis\"}",
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Redis Streams - Commands/sec",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 47 },
+          "targets": [
+            {
+              "expr": "rate(redis_commands_processed_total{job=\"rfr-streams-redis\"}[1m])",
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Redis Pub/Sub - Commands/sec",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 47 },
+          "targets": [
+            {
+              "expr": "rate(redis_commands_processed_total{job=\"rfr-pubsub-redis\"}[1m])",
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "🔧 Reclaimer (Fault Recovery)",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 53 },
+          "collapsed": false
+        },
+        {
+          "title": "Reclaim Runs",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 54 },
+          "targets": [
+            {
+              "expr": "sum by (result) (rate(event_router_reclaim_runs_total[5m]))",
+              "legendFormat": "{{result}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Messages Reclaimed by Shard",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 54 },
+          "targets": [
+            {
+              "expr": "sum by (shard) (rate(event_router_reclaim_messages_total[5m]))",
+              "legendFormat": "shard-{{shard}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            }
+          }
+        },
+        {
+          "title": "Reclaim Latency",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 54 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (shard, le) (rate(event_router_reclaim_latency_seconds_bucket[5m])))",
+              "legendFormat": "shard-{{shard}} p95"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        }
+      ]
+    }

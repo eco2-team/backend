@@ -17,6 +17,8 @@ resources:
 - domain-my.yaml
 # SSE Pipeline Dashboard
 - scan-sse-pipeline.yaml
+# Event Bus Layer Dashboard
+- event-bus-layer.yaml
 # Infrastructure Dashboards
 - rabbitmq.yaml
 - redis-cluster.yaml

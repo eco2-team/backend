@@ -20,6 +20,7 @@ from config import get_settings
 from core.consumer import StreamConsumer
 from core.processor import EventProcessor
 from core.reclaimer import PendingReclaimer
+from metrics import register_metrics
 
 # ─────────────────────────────────────────────────────────────────
 # 로깅 설정
@@ -43,6 +44,9 @@ app = FastAPI(
     version=settings.service_version,
     docs_url="/docs" if settings.environment != "production" else None,
 )
+
+# Prometheus 메트릭 등록
+register_metrics(app)
 
 # 전역 상태
 redis_streams_client: aioredis.Redis | None = None
