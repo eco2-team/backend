@@ -1,5 +1,5 @@
 # KEDA Operator Egress 허용 Network Policy
-# RabbitMQ 큐 메트릭 수집을 위한 외부 접근 허용
+# RabbitMQ/Prometheus 메트릭 수집을 위한 외부 접근 허용
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -20,6 +20,14 @@ spec:
       port: 9666  # gRPC metrics service
     - protocol: TCP
       port: 8080  # metrics
+  # Prometheus (KEDA Prometheus Scaler)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: prometheus
+    ports:
+    - protocol: TCP
+      port: 9090  # Prometheus API
   # RabbitMQ AMQP + Management API
   - to:
     - namespaceSelector:
