@@ -150,12 +150,14 @@ def scan_reward_task(
     done_result = {
         "task_id": task_id,
         "status": "completed",
+        "message": "classification completed",
         "pipeline_result": {
             "classification_result": result.get("classification_result"),
             "disposal_rules": result.get("disposal_rules"),
             "final_answer": result.get("final_answer"),
         },
         "reward": result.get("reward"),
+        "error": None,
     }
 
     # ⚠️ 순서 중요: Cache 저장 → done 이벤트 (Race Condition #2 방지)
