@@ -16,7 +16,7 @@ from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import JSONResponse
 
 from domains._shared.events import (
-    get_async_redis_client,
+    get_async_cache_client,
     get_sync_redis_client,
     publish_stage_event,
 )
@@ -73,10 +73,10 @@ async def submit_scan(
     # Idempotency Key 캐시 키 (None이면 저장 안 함)
     idempotency_cache_key = f"scan:idempotency:{x_idempotency_key}" if x_idempotency_key else None
 
-    # Idempotency Key 체크 (중복 제출 방지)
+    # Idempotency Key 체크 (중복 제출 방지) - Cache Redis 사용
     if idempotency_cache_key:
-        redis_client = await get_async_redis_client()
-        existing = await redis_client.get(idempotency_cache_key)
+        cache_client = await get_async_cache_client()
+        existing = await cache_client.get(idempotency_cache_key)
         if existing:
             logger.info(
                 "scan_idempotent_hit",
@@ -124,10 +124,10 @@ async def submit_scan(
         status="queued",
     )
 
-    # Idempotency Key 저장
+    # Idempotency Key 저장 - Cache Redis 사용
     if idempotency_cache_key:
-        redis_client = await get_async_redis_client()
-        await redis_client.setex(
+        cache_client = await get_async_cache_client()
+        await cache_client.setex(
             idempotency_cache_key,
             IDEMPOTENCY_TTL,
             json.dumps(response.model_dump()),
