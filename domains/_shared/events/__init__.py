@@ -1,7 +1,9 @@
-"""Redis Streams 기반 이벤트 발행/구독 모듈.
+"""Redis Streams 기반 이벤트 발행 모듈.
 
-Celery Events 대신 Redis Streams를 사용하여
-SSE:RabbitMQ 연결 폭발 문제를 해결합니다.
+Event Router + Pub/Sub 아키텍처:
+- Worker는 Redis Streams에 이벤트 발행 (멱등성 보장)
+- Event Router가 Streams를 소비하여 Pub/Sub로 발행
+- SSE-Gateway는 Pub/Sub를 구독하여 클라이언트에게 전달
 
 사용 예시:
     # Worker (동기)
@@ -9,11 +11,7 @@ SSE:RabbitMQ 연결 폭발 문제를 해결합니다.
     redis_client = get_sync_redis_client()
     publish_stage_event(redis_client, job_id, "vision", "started")
 
-    # API (비동기)
-    from domains._shared.events import get_async_redis_client, subscribe_events
-    redis_client = await get_async_redis_client()
-    async for event in subscribe_events(redis_client, job_id):
-        yield format_sse(event)
+참조: docs/blogs/async/34-sse-HA-architecture.md
 """
 
 from domains._shared.events.redis_client import (
@@ -30,7 +28,7 @@ from domains._shared.events.redis_streams import (
     get_shard_for_job,
     get_stream_key,
     publish_stage_event,
-    subscribe_events,
+    subscribe_events,  # DEPRECATED: 하위 호환성
 )
 
 __all__ = [
@@ -40,7 +38,7 @@ __all__ = [
     "get_shard_for_job",
     "get_stream_key",
     "publish_stage_event",
-    "subscribe_events",
+    "subscribe_events",  # DEPRECATED: 하위 호환성
     "get_sync_redis_client",
     "get_async_redis_client",
     "get_async_cache_client",

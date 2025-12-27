@@ -239,3 +239,37 @@ def publish_stage_event(
         )
 
     return msg_id
+
+
+# ─────────────────────────────────────────────────────────────────
+# DEPRECATED: 이전 아키텍처 호환 (Event Router + Pub/Sub로 대체됨)
+# ─────────────────────────────────────────────────────────────────
+
+
+async def subscribe_events(redis_client, job_id: str, timeout: int = 300):
+    """DEPRECATED: 직접 Redis Streams 구독은 더 이상 사용되지 않습니다.
+
+    새로운 아키텍처:
+    - POST /api/v1/scan → job_id 반환
+    - GET /api/v1/stream?job_id=xxx → SSE Gateway (Pub/Sub 구독)
+    - GET /api/v1/scan/result/{job_id} → 결과 조회
+
+    이 함수는 하위 호환성을 위해 유지되지만, 사용을 권장하지 않습니다.
+    대신 SSE Gateway (/api/v1/stream)를 사용하세요.
+
+    참조: docs/blogs/async/34-sse-HA-architecture.md
+    """
+    import warnings
+
+    warnings.warn(
+        "subscribe_events is deprecated. Use SSE Gateway (/api/v1/stream) instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    # Stub: 즉시 종료 (실제 구독 없음)
+    yield {
+        "type": "error",
+        "error": "DEPRECATED",
+        "message": "subscribe_events is deprecated. Use /api/v1/stream endpoint.",
+    }
