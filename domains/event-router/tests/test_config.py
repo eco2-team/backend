@@ -56,12 +56,12 @@ class TestSettings:
         settings2 = get_settings()
         assert settings1 is settings2
 
-    def test_stream_keys(self):
-        """Stream key 접두사 확인."""
+    def test_stream_prefix(self):
+        """Stream 접두사 확인."""
         from config import Settings
 
         settings = Settings()
-        assert settings.stream_key_prefix == "scan:events"
+        assert settings.stream_prefix == "scan:events"
 
     def test_pubsub_channel_prefix(self):
         """Pub/Sub 채널 접두사 확인."""
@@ -82,6 +82,6 @@ class TestSettings:
         from config import Settings
 
         settings = Settings()
-        assert settings.consumer_group == "event-router-group"
+        assert settings.consumer_group == "eventrouter"
         assert settings.reclaim_interval_seconds > 0
         assert settings.reclaim_min_idle_ms > 0

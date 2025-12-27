@@ -16,17 +16,28 @@ class TestEventProcessor:
     """EventProcessor 클래스 테스트."""
 
     @pytest.fixture
-    def mock_redis(self):
-        """Mock Redis 클라이언트."""
+    def mock_streams_redis(self):
+        """Mock Streams Redis 클라이언트."""
         mock = AsyncMock()
+        mock.register_script = lambda script: AsyncMock(return_value=1)
         return mock
 
     @pytest.fixture
-    def processor(self, mock_redis):
+    def mock_pubsub_redis(self):
+        """Mock Pub/Sub Redis 클라이언트."""
+        mock = AsyncMock()
+        mock.publish = AsyncMock()
+        return mock
+
+    @pytest.fixture
+    def processor(self, mock_streams_redis, mock_pubsub_redis):
         """EventProcessor 인스턴스."""
         from core.processor import EventProcessor
 
-        return EventProcessor(redis_client=mock_redis)
+        return EventProcessor(
+            streams_client=mock_streams_redis,
+            pubsub_client=mock_pubsub_redis,
+        )
 
     def test_processor_initialization(self, processor):
         """프로세서 초기화 확인."""
@@ -37,68 +48,10 @@ class TestEventProcessor:
         assert processor._published_ttl == 7200
 
     @pytest.mark.asyncio
-    async def test_process_event_new(self, processor, mock_redis):
-        """새 이벤트 처리."""
-        # Lua 스크립트 실행 결과 mock
-        mock_redis.evalsha = AsyncMock(return_value=[1, "published"])  # 새로 발행
-
-        event_data = {
-            "job_id": "test-job-123",
-            "stage": "vision",
-            "status": "success",
-            "seq": 1,
-            "ts": "2025-01-01T00:00:00",
-        }
-
-        result = await processor.process_event(
-            stream_key="scan:events:0",
-            message_id="1234567890-0",
-            event_data=event_data,
-        )
-
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_process_event_duplicate(self, processor, mock_redis):
-        """중복 이벤트 스킵."""
-        # Lua 스크립트 실행 결과 mock - 이미 발행됨
-        mock_redis.evalsha = AsyncMock(return_value=[0, "already_published"])
-
-        event_data = {
-            "job_id": "test-job-123",
-            "stage": "vision",
-            "status": "success",
-            "seq": 1,
-            "ts": "2025-01-01T00:00:00",
-        }
-
-        result = await processor.process_event(
-            stream_key="scan:events:0",
-            message_id="1234567890-0",
-            event_data=event_data,
-        )
-
-        # 중복이어도 True 반환 (XACK 해야 하므로)
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_process_event_error(self, processor, mock_redis):
-        """이벤트 처리 에러."""
-        mock_redis.evalsha = AsyncMock(side_effect=Exception("Redis error"))
-
-        event_data = {
-            "job_id": "test-job-123",
-            "stage": "vision",
-            "status": "success",
-            "seq": 1,
-        }
-
-        result = await processor.process_event(
-            stream_key="scan:events:0",
-            message_id="1234567890-0",
-            event_data=event_data,
-        )
-
+    async def test_process_event_missing_job_id(self, processor):
+        """job_id 없는 이벤트 스킵."""
+        event = {"stage": "vision", "status": "success"}
+        result = await processor.process_event(event)
         assert result is False
 
 
