@@ -1,0 +1,24 @@
+# SSE Gateway Prometheus ServiceMonitor
+# Prometheus Operator가 SSE Gateway 메트릭을 수집
+# 메트릭: sse_gateway_connections_active, sse_gateway_events_*, sse_gateway_pubsub_* 등
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sse-gateway
+  namespace: prometheus
+  labels:
+    app: sse-gateway
+    tier: event-bus
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: sse-gateway
+  namespaceSelector:
+    matchNames:
+    - sse-consumer
+  endpoints:
+  - port: http
+    interval: 15s
+    scrapeTimeout: 10s
+    path: /metrics

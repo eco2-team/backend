@@ -1,0 +1,24 @@
+# Event Router Prometheus ServiceMonitor
+# Prometheus Operator가 Event Router 메트릭을 수집
+# 메트릭: event_router_consumer_status, event_router_xreadgroup_*, event_router_reclaimer_* 등
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: event-router
+  namespace: prometheus
+  labels:
+    app: event-router
+    tier: event-bus
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: event-router
+  namespaceSelector:
+    matchNames:
+    - event-router
+  endpoints:
+  - port: http
+    interval: 15s
+    scrapeTimeout: 10s
+    path: /metrics
