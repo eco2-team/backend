@@ -550,10 +550,9 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
   - **Event Router**: Consumer Group(`XREADGROUP`)으로 Streams 소비, Pub/Sub Fan-out, 멱등성 보장
   - **SSE Gateway**: Pub/Sub 구독 기반 실시간 전달, State 복구, Streams Catch-up
   - 부하 테스트 결과 (이전 Celery Events 대비 2.8배 향상)
-  - **200 VU (기준)**: **99.8%** 완료율, **370 req/m**, E2E p95 33초 ⭐
+  - **250 VU (기준)**: **99.9%** 완료율, **418 req/m**, E2E p95 40초 ⭐
+  - 200 VU: **99.8%** 완료율, **370 req/m**, E2E p95 33초
   - 50 VU: **99.7%** 완료율, **198 req/m**, E2E p95 17.7초
-  - 250 VU: **83.3%** 완료율, **204 req/m**, E2E p95 78초
-  - 300 VU: **67.3%** 완료율, **186 req/m**, E2E p95 76.6초
 
 - **KEDA 이벤트 드리븐 오토스케일링** ✅
   - **scan-worker**: RabbitMQ 큐 길이 기반 자동 스케일링 (1-3 replicas)
@@ -574,7 +573,7 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 - **인프라 확장** ✅
   - **21-Node 클러스터**: Event Router, Redis Pub/Sub 전용 노드 추가
   - **Redis 인스턴스 분리**: Streams(내구성) / Pub/Sub(실시간) / Cache(LRU)
-  - **부하 테스트 검증**: 50/200/250/300 VU 테스트 완료 (200 VU 기준 동시접속)
+  - **부하 테스트 검증**: 50/200/250 VU 테스트 완료 (250 VU 기준 동시접속)
 
 - **EFK 로깅 파이프라인** ✅
   - **Fluent Bit**이 모든 Pod의 stdout/stderr 로그를 수집하여 **Elasticsearch**로 포워딩
@@ -596,7 +595,7 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 - ✅ Event Router, SSE Gateway 컴포넌트 개발 완료
 - ✅ KEDA 이벤트 드리븐 오토스케일링 적용 (scan-worker, event-router, character-match-worker)
 - ✅ Celery 비동기 AI 파이프라인 완료 (Vision→Rule→Answer→Reward)
-- ✅ 부하 테스트 완료: **200 VU 기준 99.8% 완료율** (50/200/250/300 VU 검증)
+- ✅ 부하 테스트 완료: **250 VU 기준 99.9% 완료율** (50/200/250 VU 검증)
 
 ### v1.0.6 - Observability
 - ✅ EFK 로깅 파이프라인 (Fluent Bit → Elasticsearch → Kibana)
