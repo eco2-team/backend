@@ -25,7 +25,7 @@ spec:
     metadata:
       serverAddress: http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090
       query: |
-        sum(redis_stream_groups_pending{
+        sum(redis_stream_group_messages_pending{
           stream=~"scan:events:.*",
           group="eventrouter"
         }) or vector(0)
