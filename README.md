@@ -172,28 +172,27 @@ flowchart TB
 ```yaml
 Edge Layer        : Route 53, AWS ALB, Istio Ingress Gateway
 Service Layer     : auth, my, scan, character, location, chat (w/ Envoy Sidecar)
-Integration Layer : Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
-                  : RabbitMQ, Celery Workers (scan-worker, character-worker, celery-beat)
+Integration Layer(Event Bus) : Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
+Integration Layer(Message Queue) : RabbitMQ, Celery Workers (scan-worker, character-worker, celery-beat)
 Persistence Layer : PostgreSQL, Redis
 Platform Layer    : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, EFK Stack
 ```
 
-본 서비스는 6-Layer Architecture로 구성되었습니다.
+본 서비스는 4-Layer Architecture로 구성되었습니다.
 
 - **Edge Layer**: AWS ALB가 SSL Termination을 처리하고, 트래픽을 `Istio Ingress Gateway`로 전달합니다. Gateway는 `VirtualService` 규칙에 따라 North-South 트래픽을 라우팅합니다.
 - **Service Layer**: 모든 마이크로서비스는 **Istio Service Mesh** 내에서 동작하며, `Envoy Sidecar`를 통해 mTLS 통신, 트래픽 제어, 메트릭 수집을 수행합니다.
-- **Event Bus Layer**: **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처로 SSE 파이프라인을 처리합니다. **Event Router**가 Consumer Group(`XREADGROUP`)으로 Streams를 소비하고 Pub/Sub로 Fan-out하며, **SSE Gateway**가 클라이언트에 실시간 이벤트를 전달합니다.
-- **Messaging Layer**: **RabbitMQ + Celery** 비동기 Task Queue로 AI 파이프라인(Vision→Rule→Answer→Reward)을 처리합니다. **KEDA**가 RabbitMQ 큐 길이 기반으로 Worker를 자동 스케일링합니다.
+- **Integration Layer, Event Bus**: **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처로 SSE 파이프라인을 처리합니다. **Event Router**가 Consumer Group(`XREADGROUP`)으로 Streams를 소비하고 Pub/Sub로 Fan-out하며, **SSE Gateway**가 클라이언트에 실시간 이벤트를 전달합니다.
+- **Integration Layer, Message Queue**: **RabbitMQ + Celery** 비동기 Task Queue로 AI 파이프라인(Vision→Rule→Answer→Reward)을 처리합니다. **KEDA**가 RabbitMQ 큐 길이 기반으로 Worker를 자동 스케일링합니다.
 - **Persistence Layer**: 서비스는 영속성을 위해 PostgreSQL, Redis를 사용합니다. Helm Chart로 관리되는 독립적인 데이터 인프라입니다.
 - **Platform Layer**: `Istiod`가 Service Mesh를 제어하고, `ArgoCD`가 GitOps 동기화를 담당합니다. `KEDA`가 이벤트 드리븐 오토스케일링을 수행하고, Observability 스택(`Prometheus/Grafana/Kiali`, `Jaeger`, `EFK Stack`)이 메트릭·트레이싱·로깅을 통합 관리합니다.
 
-각 계층은 서로 독립적으로 기능하도록 설계되었으며, Platform Layer가 전 계층을 횡단하며 제어 및 관측합니다.
+각 계층은 서로 독립적으로 기능하도록 설계되었으며, Platform Layer가 전 계층을 제어 및 관측합니다.
 프로덕션 환경을 전제로 한 Self-manged Kubernetes 기반 클러스터로 컨테이너화된 어플리케이션의 오케스트레이션을 지원합니다.
 **Istio Service Mesh**를 도입하여 mTLS 보안 통신, 트래픽 제어(VirtualService), 인증 위임(Auth Offloading)을 구현했습니다.
 클러스터의 안정성과 성능을 보장하기 위해 모니터링 시스템을 도입, IaC(Infrastructure as Code) 및 GitOps 파이프라인을 구축해 모노레포 기반 코드베이스가 SSOT(Single Source Of Truth)로 기능하도록 제작되었습니다.
 
 ---
-
 
 ## Services Snapshot
 
