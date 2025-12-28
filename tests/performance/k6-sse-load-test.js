@@ -307,62 +307,73 @@ export function teardown(data) {
 // Summary
 // ============================================================================
 
+// ============================================================================
+// Formatting Utilities
+// ============================================================================
+
 function formatMs(value) {
   if (value === undefined || value === null) return '-';
   const num = parseFloat(value);
   if (isNaN(num)) return '-';
+  if (num >= 60000) return `${(num / 60000).toFixed(1)}m`;
   if (num >= 1000) return `${(num / 1000).toFixed(2)}s`;
   return `${num.toFixed(0)}ms`;
 }
 
 function formatPercent(value) {
   if (value === undefined || value === null) return '-';
-  return `${(value * 100).toFixed(2)}%`;
+  return `${(value * 100).toFixed(1)}%`;
 }
 
 function formatNumber(value) {
   if (value === undefined || value === null) return '0';
-  return value.toLocaleString();
+  return String(value);
 }
 
 function getMetricValue(data, metricName, key) {
   return data.metrics?.[metricName]?.values?.[key];
 }
 
+function pad(str, len) {
+  const s = String(str);
+  return s + ' '.repeat(Math.max(0, len - s.length));
+}
+
 export function handleSummary(data) {
   const timestamp = new Date().toISOString();
   const testDurationSec = ((data.state?.testRunDurationMs || 0) / 1000).toFixed(1);
 
-  // 메트릭 추출
+  // 메트릭 추출 (k6 Trend 메트릭: avg, min, max, med, p(90), p(95))
+  // NOTE: p(50)은 'med', p(99)는 기본 제공 안됨 → p(90) 사용
   const scanTotal = getMetricValue(data, 'scan_requests_total', 'count') || 0;
   const scanSuccess = getMetricValue(data, 'scan_success_total', 'count') || 0;
   const scanFailed = getMetricValue(data, 'scan_failed_total', 'count') || 0;
   const scanRate = getMetricValue(data, 'scan_success_rate', 'rate');
-  const scanP50 = getMetricValue(data, 'scan_latency_ms', 'p(50)');
+  const scanMed = getMetricValue(data, 'scan_latency_ms', 'med');
+  const scanP90 = getMetricValue(data, 'scan_latency_ms', 'p(90)');
   const scanP95 = getMetricValue(data, 'scan_latency_ms', 'p(95)');
-  const scanP99 = getMetricValue(data, 'scan_latency_ms', 'p(99)');
   const scanAvg = getMetricValue(data, 'scan_latency_ms', 'avg');
   const scanMax = getMetricValue(data, 'scan_latency_ms', 'max');
 
   const completedTotal = getMetricValue(data, 'completed_jobs_total', 'count') || 0;
   const completionRate = getMetricValue(data, 'completion_rate', 'rate');
-  const completeP50 = getMetricValue(data, 'time_to_complete_ms', 'p(50)');
+  const completeMed = getMetricValue(data, 'time_to_complete_ms', 'med');
+  const completeP90 = getMetricValue(data, 'time_to_complete_ms', 'p(90)');
   const completeP95 = getMetricValue(data, 'time_to_complete_ms', 'p(95)');
-  const completeP99 = getMetricValue(data, 'time_to_complete_ms', 'p(99)');
   const completeAvg = getMetricValue(data, 'time_to_complete_ms', 'avg');
   const completeMin = getMetricValue(data, 'time_to_complete_ms', 'min');
   const completeMax = getMetricValue(data, 'time_to_complete_ms', 'max');
 
-  const e2eP50 = getMetricValue(data, 'e2e_latency_ms', 'p(50)');
+  const e2eMed = getMetricValue(data, 'e2e_latency_ms', 'med');
+  const e2eP90 = getMetricValue(data, 'e2e_latency_ms', 'p(90)');
   const e2eP95 = getMetricValue(data, 'e2e_latency_ms', 'p(95)');
-  const e2eP99 = getMetricValue(data, 'e2e_latency_ms', 'p(99)');
   const e2eAvg = getMetricValue(data, 'e2e_latency_ms', 'avg');
 
   const rewardsTotal = getMetricValue(data, 'rewards_received_total', 'count') || 0;
   const rewardRate = getMetricValue(data, 'reward_rate', 'rate');
 
   const pollTotal = getMetricValue(data, 'poll_requests_total', 'count') || 0;
-  const pollP50 = getMetricValue(data, 'poll_latency_ms', 'p(50)');
+  const pollMed = getMetricValue(data, 'poll_latency_ms', 'med');
   const pollP95 = getMetricValue(data, 'poll_latency_ms', 'p(95)');
   const pollAvg = getMetricValue(data, 'poll_latency_ms', 'avg');
 
@@ -376,49 +387,77 @@ export function handleSummary(data) {
   const throughput = scanTotal > 0 ? (scanTotal / parseFloat(testDurationSec)).toFixed(2) : '0';
   const completedThroughput = completedTotal > 0 ? (completedTotal / parseFloat(testDurationSec)).toFixed(2) : '0';
 
-  // 콘솔 출력 (가독성 좋은 형태)
+  // Threshold 상태
+  const thresholdStatus = data.thresholds || {};
+  const getStatus = (key) => thresholdStatus[key]?.ok === false ? 'FAIL' : 'PASS';
+
+  // 콘솔 출력
   const output = `
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                         🚀 SSE LOAD TEST RESULTS                             ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║  Test Time: ${timestamp.padEnd(45)}║
-║  Duration: ${testDurationSec.padEnd(46)}s ║
-║  Target VUs: ${String(TARGET_VUS).padEnd(44)}║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║                              📊 SCAN API                                     ║
-╠─────────────────────────────────────────────────────────────────────────────╣
-║  Total Requests:  ${formatNumber(scanTotal).padEnd(15)} Success Rate: ${formatPercent(scanRate).padEnd(18)}║
-║  ✓ Success: ${formatNumber(scanSuccess).padEnd(20)} ✗ Failed: ${formatNumber(scanFailed).padEnd(21)}║
-║  Latency:  avg=${formatMs(scanAvg).padEnd(10)} p50=${formatMs(scanP50).padEnd(10)} p95=${formatMs(scanP95).padEnd(8)}║
-║           p99=${formatMs(scanP99).padEnd(10)} max=${formatMs(scanMax).padEnd(30)}║
-║  Throughput: ${throughput.padEnd(10)} req/s                                      ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║                            ⏱️  COMPLETION                                    ║
-╠─────────────────────────────────────────────────────────────────────────────╣
-║  Completed Jobs: ${formatNumber(completedTotal).padEnd(15)} Rate: ${formatPercent(completionRate).padEnd(25)}║
-║  Time to Complete:                                                           ║
-║    min=${formatMs(completeMin).padEnd(10)} avg=${formatMs(completeAvg).padEnd(10)} max=${formatMs(completeMax).padEnd(18)}║
-║    p50=${formatMs(completeP50).padEnd(10)} p95=${formatMs(completeP95).padEnd(10)} p99=${formatMs(completeP99).padEnd(18)}║
-║  Throughput: ${completedThroughput.padEnd(10)} jobs/s                                    ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║                             🎯 E2E LATENCY                                   ║
-╠─────────────────────────────────────────────────────────────────────────────╣
-║  avg=${formatMs(e2eAvg).padEnd(12)} p50=${formatMs(e2eP50).padEnd(12)} p95=${formatMs(e2eP95).padEnd(12)} p99=${formatMs(e2eP99).padEnd(8)}║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║                             🎁 REWARDS                                       ║
-╠─────────────────────────────────────────────────────────────────────────────╣
-║  Total: ${formatNumber(rewardsTotal).padEnd(20)} Rate: ${formatPercent(rewardRate).padEnd(28)}║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║                           📈 STAGE BREAKDOWN                                 ║
-╠─────────────────────────────────────────────────────────────────────────────╣
-║  vision: ${formatNumber(stageVision).padEnd(8)} → rule: ${formatNumber(stageRule).padEnd(8)} → answer: ${formatNumber(stageAnswer).padEnd(8)} → reward: ${formatNumber(stageReward).padEnd(5)}║
-║  done: ${formatNumber(stageDone).padEnd(68)}║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║                            🔄 POLLING                                        ║
-╠─────────────────────────────────────────────────────────────────────────────╣
-║  Total Requests: ${formatNumber(pollTotal).padEnd(56)}║
-║  Latency: avg=${formatMs(pollAvg).padEnd(12)} p50=${formatMs(pollP50).padEnd(12)} p95=${formatMs(pollP95).padEnd(14)}║
-╚══════════════════════════════════════════════════════════════════════════════╝
+================================================================================
+                           SSE LOAD TEST RESULTS
+================================================================================
+
+  Test Time   : ${timestamp}
+  Duration    : ${testDurationSec}s
+  Target VUs  : ${TARGET_VUS}
+
+--------------------------------------------------------------------------------
+  SCAN API
+--------------------------------------------------------------------------------
+  Requests    : ${pad(scanTotal, 8)} total | ${pad(scanSuccess, 6)} success | ${pad(scanFailed, 4)} failed
+  Success Rate: ${formatPercent(scanRate)}  [${getStatus('scan_success_rate')}]
+  Throughput  : ${throughput} req/s
+
+  Latency     : avg ${pad(formatMs(scanAvg), 8)} | med ${pad(formatMs(scanMed), 8)} | max ${formatMs(scanMax)}
+                p90 ${pad(formatMs(scanP90), 8)} | p95 ${formatMs(scanP95)}
+
+--------------------------------------------------------------------------------
+  COMPLETION (done stage reached)
+--------------------------------------------------------------------------------
+  Completed   : ${pad(completedTotal, 6)} / ${scanSuccess} jobs
+  Rate        : ${formatPercent(completionRate)}  [${getStatus('completion_rate')}]
+  Throughput  : ${completedThroughput} jobs/s
+
+  Time        : min ${pad(formatMs(completeMin), 8)} | avg ${pad(formatMs(completeAvg), 8)} | max ${formatMs(completeMax)}
+                med ${pad(formatMs(completeMed), 8)} | p90 ${pad(formatMs(completeP90), 8)} | p95 ${formatMs(completeP95)}  [${getStatus('time_to_complete_ms')}]
+
+--------------------------------------------------------------------------------
+  E2E LATENCY (request to done)
+--------------------------------------------------------------------------------
+  Latency     : avg ${pad(formatMs(e2eAvg), 8)} | med ${pad(formatMs(e2eMed), 8)}
+                p90 ${pad(formatMs(e2eP90), 8)} | p95 ${formatMs(e2eP95)}  [${getStatus('e2e_latency_ms')}]
+
+--------------------------------------------------------------------------------
+  REWARDS
+--------------------------------------------------------------------------------
+  Total       : ${rewardsTotal}
+  Rate        : ${formatPercent(rewardRate)}
+
+--------------------------------------------------------------------------------
+  STAGE BREAKDOWN
+--------------------------------------------------------------------------------
+  vision      : ${stageVision}
+  rule        : ${stageRule}
+  answer      : ${stageAnswer}
+  reward      : ${stageReward}
+  done        : ${stageDone}
+
+--------------------------------------------------------------------------------
+  POLLING
+--------------------------------------------------------------------------------
+  Requests    : ${pollTotal}
+  Latency     : avg ${pad(formatMs(pollAvg), 8)} | med ${pad(formatMs(pollMed), 8)} | p95 ${formatMs(pollP95)}
+
+================================================================================
+  THRESHOLD SUMMARY
+================================================================================
+  scan_success_rate    : ${formatPercent(scanRate)} (threshold: >90%)     [${getStatus('scan_success_rate')}]
+  completion_rate      : ${formatPercent(completionRate)} (threshold: >85%)     [${getStatus('completion_rate')}]
+  scan_latency_ms p95  : ${formatMs(scanP95)} (threshold: <5s)        [${getStatus('scan_latency_ms')}]
+  time_to_complete p95 : ${formatMs(completeP95)} (threshold: <60s)      [${getStatus('time_to_complete_ms')}]
+  e2e_latency_ms p95   : ${formatMs(e2eP95)} (threshold: <90s)      [${getStatus('e2e_latency_ms')}]
+
+================================================================================
 `;
 
   console.log(output);
@@ -440,9 +479,9 @@ export function handleSummary(data) {
       throughput_rps: parseFloat(throughput),
       latency_ms: {
         avg: scanAvg,
-        p50: scanP50,
+        med: scanMed,
+        p90: scanP90,
         p95: scanP95,
-        p99: scanP99,
         max: scanMax,
       },
     },
@@ -453,17 +492,17 @@ export function handleSummary(data) {
       time_ms: {
         min: completeMin,
         avg: completeAvg,
-        p50: completeP50,
+        med: completeMed,
+        p90: completeP90,
         p95: completeP95,
-        p99: completeP99,
         max: completeMax,
       },
     },
     e2e_latency_ms: {
       avg: e2eAvg,
-      p50: e2eP50,
+      med: e2eMed,
+      p90: e2eP90,
       p95: e2eP95,
-      p99: e2eP99,
     },
     rewards: {
       total: rewardsTotal,
@@ -480,11 +519,11 @@ export function handleSummary(data) {
       total: pollTotal,
       latency_ms: {
         avg: pollAvg,
-        p50: pollP50,
+        med: pollMed,
         p95: pollP95,
       },
     },
-    thresholds: data.thresholds,
+    thresholds: thresholdStatus,
   };
 
   return {
