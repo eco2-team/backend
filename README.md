@@ -6,7 +6,7 @@
 
 
 - **GPT Vision + Rule-based-retrieval** 기반 AI 어시스턴트로, 폐기물 이미지 분류·분리배출 안내·챗봇 기능을 제공합니다.
-- Self-managed Kubernetes 18-Nodes 클러스터에서 **Istio Service Mesh**(mTLS, Auth Offloading)와 **ArgoCD GitOps**로 운영합니다.
+- Self-managed Kubernetes 21-Nodes 클러스터에서 **Istio Service Mesh**(mTLS, Auth Offloading)와 **ArgoCD GitOps**로 운영합니다.
 - **Redis Streams + Pub/Sub + State KV** 기반 Event Bus Layer로 실시간 SSE 이벤트를 처리하고, **KEDA**로 이벤트 드리븐 오토스케일링을 수행합니다.
 - **RabbitMQ + Celery** 비동기 Task Queue로 AI 파이프라인을 처리하고, **EFK + Jaeger**로 로깅·트레이싱을 수집합니다.
 - 7개 도메인 마이크로서비스(auth, my, scan, chat, character, location, image)를 모노레포로 관리합니다.
@@ -456,7 +456,7 @@ flowchart LR
 ## Bootstrap Overview
 
 ```yaml
-Cluster   : kubeadm Self-Managed (18 Nodes)
+Cluster   : kubeadm Self-Managed (21 Nodes)
 GitOps    :
   Layer0 - Terraform (AWS 인프라)
   Layer1 - Ansible (kubeadm, CNI)
