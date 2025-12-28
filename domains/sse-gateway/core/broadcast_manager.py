@@ -262,15 +262,29 @@ class SSEBroadcastManager:
         if state:
             yield state  # 현재 상태 먼저 전달 (last_seq 갱신 없이!)
 
-            # 이미 완료된 경우: grace period 후 종료 (큐 drain 대기)
+            # 이미 완료된 경우: Streams에서 catch-up 후 종료
             if state.get("stage") == "done" or state.get("status") == "failed":
+                state_seq = state.get("seq", 0)
+                try:
+                    state_seq = int(state_seq)
+                except (ValueError, TypeError):
+                    state_seq = 0
+
                 logger.info(
-                    "broadcast_subscribe_already_done_with_grace",
-                    extra={"job_id": job_id, "state_seq": state.get("seq")},
+                    "broadcast_subscribe_already_done_catch_up",
+                    extra={
+                        "job_id": job_id,
+                        "state_seq": state_seq,
+                        "last_seq": subscriber.last_seq,
+                    },
                 )
-                # Grace period: 2초 동안 큐에 쌓인 Pub/Sub 이벤트 drain
-                async for event in self._drain_queue_with_grace(subscriber, grace_seconds=2.0):
+
+                # Streams에서 누락된 이벤트 catch-up (Pub/Sub 유실 대비)
+                async for event in self._catch_up_from_streams(
+                    job_id, from_seq=subscriber.last_seq, to_seq=state_seq
+                ):
                     yield event
+
                 return
 
         logger.info(
@@ -338,12 +352,16 @@ class SSEBroadcastManager:
 
                                 if state.get("stage") == "done":
                                     logger.info(
-                                        "broadcast_subscribe_done_from_state_with_grace",
-                                        extra={"job_id": job_id, "state_seq": state_seq},
+                                        "broadcast_subscribe_done_from_state_catch_up",
+                                        extra={
+                                            "job_id": job_id,
+                                            "state_seq": state_seq,
+                                            "last_seq": subscriber.last_seq,
+                                        },
                                     )
-                                    # Grace period: 큐에 남은 이벤트 drain
-                                    async for event in self._drain_queue_with_grace(
-                                        subscriber, grace_seconds=2.0
+                                    # Streams에서 누락된 이벤트 catch-up
+                                    async for event in self._catch_up_from_streams(
+                                        job_id, from_seq=subscriber.last_seq, to_seq=state_seq
                                     ):
                                         yield event
                                     return
@@ -514,6 +532,83 @@ class SSEBroadcastManager:
                     "job_id": subscriber.job_id,
                     "drained_count": drained_count,
                     "elapsed_seconds": time.time() - start_time,
+                },
+            )
+
+    async def _catch_up_from_streams(
+        self, job_id: str, from_seq: int, to_seq: int
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Streams에서 누락된 이벤트를 catch-up.
+
+        Pub/Sub 구독 전 이벤트가 유실된 경우, Streams에서 직접 읽어 전달.
+
+        Args:
+            job_id: job ID
+            from_seq: 마지막으로 수신한 seq (이 이후부터 읽음)
+            to_seq: 목표 seq (이 seq까지 읽음)
+
+        Yields:
+            누락된 이벤트들 (seq 순서대로)
+        """
+        if not self._streams_client:
+            return
+
+        # job_id 기반 shard 계산
+        import hashlib
+
+        shard = (
+            int.from_bytes(hashlib.md5(job_id.encode()).digest()[:8], "big") % 4
+        )  # shard_count = 4
+        stream_key = f"scan:events:{shard}"
+
+        try:
+            # Streams에서 전체 이벤트 읽기 (최근 100개)
+            messages = await self._streams_client.xrevrange(stream_key, count=100)
+
+            # seq 순서대로 정렬을 위해 먼저 필터링
+            events_to_yield = []
+            for msg_id, data in messages:
+                if data.get(b"job_id", b"").decode() != job_id:
+                    continue
+
+                seq = int(data.get(b"seq", b"0").decode())
+                if from_seq < seq <= to_seq:
+                    event = {k.decode(): v.decode() for k, v in data.items()}
+                    # result 필드 JSON 파싱
+                    if event.get("result"):
+                        try:
+                            event["result"] = json.loads(event["result"])
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                    # seq를 int로 변환
+                    event["seq"] = seq
+                    events_to_yield.append((seq, event))
+
+            # seq 순서대로 정렬 후 yield
+            events_to_yield.sort(key=lambda x: x[0])
+
+            caught_up_count = 0
+            for seq, event in events_to_yield:
+                caught_up_count += 1
+                yield event
+
+            if caught_up_count > 0:
+                logger.info(
+                    "streams_catch_up_completed",
+                    extra={
+                        "job_id": job_id,
+                        "from_seq": from_seq,
+                        "to_seq": to_seq,
+                        "caught_up_count": caught_up_count,
+                    },
+                )
+
+        except Exception as e:
+            logger.warning(
+                "streams_catch_up_error",
+                extra={
+                    "job_id": job_id,
+                    "error": str(e),
                 },
             )
 
