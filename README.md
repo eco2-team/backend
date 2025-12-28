@@ -602,7 +602,7 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 - ✅ Event Router, SSE Gateway 컴포넌트 개발 완료
 - ✅ KEDA 이벤트 드리븐 오토스케일링 적용 (scan-worker, event-router, character-match-worker)
 - ✅ Celery 비동기 AI 파이프라인 완료 (Vision→Rule→Answer→Reward)
-- ✅ 50/250/300 VU 부하 테스트 완료 (99.7% 완료율 @ 50 VU)
+- ✅ 50/250/300 VU 부하 테스트 완료 (38% -> 99.7% @ 50 VU, 83.3% 250 VU, 67.7% 300 VU)
 
 ### v1.0.6 - Observability
 - ✅ EFK 로깅 파이프라인 (Fluent Bit → Elasticsearch → Kibana)
