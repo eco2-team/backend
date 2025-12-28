@@ -562,6 +562,7 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
   - **Event Router**: Consumer Group(`XREADGROUP`)으로 Streams 소비, Pub/Sub Fan-out, 멱등성 보장
   - **SSE Gateway**: Pub/Sub 구독 기반 실시간 전달, State 복구, Streams Catch-up
   - 50 VU 테스트 완료율: 35% → **99.7%** (이전 Celery Events 대비 2.8배 향상)
+  - 250 VU 테스트: **99.8%** Scan API 성공률, **83.3%** 완료율, **3.40 jobs/s** 처리량
 
 - **KEDA 이벤트 드리븐 오토스케일링** ✅
   - **scan-worker**: RabbitMQ 큐 길이 기반 자동 스케일링 (1-3 replicas)
