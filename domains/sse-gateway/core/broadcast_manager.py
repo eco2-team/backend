@@ -572,14 +572,15 @@ class SSEBroadcastManager:
             messages = await self._streams_client.xrevrange(stream_key, count=100)
 
             # seq 순서대로 정렬을 위해 먼저 필터링
+            # NOTE: decode_responses=True이므로 키/값이 이미 문자열
             events_to_yield = []
             for msg_id, data in messages:
-                if data.get(b"job_id", b"").decode() != job_id:
+                if data.get("job_id", "") != job_id:
                     continue
 
-                seq = int(data.get(b"seq", b"0").decode())
+                seq = int(data.get("seq", "0"))
                 if from_seq < seq <= to_seq:
-                    event = {k.decode(): v.decode() for k, v in data.items()}
+                    event = dict(data)  # 이미 문자열
                     # result 필드 JSON 파싱
                     if event.get("result"):
                         try:
