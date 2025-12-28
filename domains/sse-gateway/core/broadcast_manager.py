@@ -255,22 +255,22 @@ class SSEBroadcastManager:
                 )
 
         # 3. State에서 현재 상태 복구 (구독 후 조회 = 누락 방지)
+        # NOTE: State에서 last_seq를 갱신하지 않음!
+        # - State 조회 시점에 done(seq=51)이면, 이후 Pub/Sub로 오는 중간 이벤트(seq=20,30)가 필터링됨
+        # - last_seq는 Pub/Sub 이벤트로만 갱신하여 모든 이벤트 수신 보장
         state = await self._get_state_snapshot(job_id)
         if state:
-            state_seq = state.get("seq", -1)
-            try:
-                state_seq = int(state_seq)
-            except (ValueError, TypeError):
-                state_seq = -1
-            subscriber.last_seq = state_seq
-            yield state  # 현재 상태 먼저 전달
+            yield state  # 현재 상태 먼저 전달 (last_seq 갱신 없이!)
 
-            # 이미 완료된 경우
+            # 이미 완료된 경우: grace period 후 종료 (큐 drain 대기)
             if state.get("stage") == "done" or state.get("status") == "failed":
                 logger.info(
-                    "broadcast_subscribe_already_done",
-                    extra={"job_id": job_id},
+                    "broadcast_subscribe_already_done_with_grace",
+                    extra={"job_id": job_id, "state_seq": state.get("seq")},
                 )
+                # Grace period: 2초 동안 큐에 쌓인 Pub/Sub 이벤트 drain
+                async for event in self._drain_queue_with_grace(subscriber, grace_seconds=2.0):
+                    yield event
                 return
 
         logger.info(
@@ -330,16 +330,22 @@ class SSEBroadcastManager:
                             except (ValueError, TypeError):
                                 state_seq = 0
 
+                            # NOTE: last_seq 갱신 없이 State만 emit
+                            # 중간 이벤트 필터링 방지
                             if state_seq > subscriber.last_seq:
-                                subscriber.last_seq = state_seq
                                 last_event_time = time.time()
                                 yield state
 
                                 if state.get("stage") == "done":
                                     logger.info(
-                                        "broadcast_subscribe_done_from_state",
-                                        extra={"job_id": job_id},
+                                        "broadcast_subscribe_done_from_state_with_grace",
+                                        extra={"job_id": job_id, "state_seq": state_seq},
                                     )
+                                    # Grace period: 큐에 남은 이벤트 drain
+                                    async for event in self._drain_queue_with_grace(
+                                        subscriber, grace_seconds=2.0
+                                    ):
+                                        yield event
                                     return
 
                     # keepalive
@@ -464,6 +470,52 @@ class SSEBroadcastManager:
             )
 
         return None
+
+    async def _drain_queue_with_grace(
+        self, subscriber: SubscriberQueue, grace_seconds: float = 2.0
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Grace period 동안 큐에 남은 이벤트 drain.
+
+        State에서 done을 발견해도 Pub/Sub 큐에 중간 이벤트가 쌓여있을 수 있음.
+        grace_seconds 동안 큐에서 이벤트를 꺼내 yield.
+
+        Args:
+            subscriber: 구독자 큐
+            grace_seconds: 최대 대기 시간
+
+        Yields:
+            큐에서 꺼낸 이벤트들
+        """
+        start_time = time.time()
+        drained_count = 0
+
+        while time.time() - start_time < grace_seconds:
+            try:
+                event = await asyncio.wait_for(
+                    subscriber.queue.get(),
+                    timeout=0.5,  # 0.5초마다 체크
+                )
+                drained_count += 1
+                yield event
+
+                # done/error면 즉시 종료
+                if event.get("stage") == "done" or event.get("status") == "failed":
+                    break
+
+            except asyncio.TimeoutError:
+                # 큐가 비었으면 종료
+                if subscriber.queue.empty():
+                    break
+
+        if drained_count > 0:
+            logger.info(
+                "queue_drained_with_grace",
+                extra={
+                    "job_id": subscriber.job_id,
+                    "drained_count": drained_count,
+                    "elapsed_seconds": time.time() - start_time,
+                },
+            )
 
     def _total_subscriber_count(self) -> int:
         """총 구독자 수."""
