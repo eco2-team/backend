@@ -618,7 +618,7 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 - ✅ Istio Service Mesh Migration 완료
 - ✅ gRPC 내부 통신 Migration 완료
 - ✅ Auth-Offloading 완료, 도메인별 독립성 확보
-- ✅ ext-authz 성능 튜닝 ([Grafana](https://snapshots.raintank.io/dashboard/snapshot/1qhkHr5rWubb29VtWCAXYB66bHMmN5Ad?orgId=0): RPS 1100, p99 200-300ms)
+- ✅ ext-authz 성능 튜닝 ([Grafana](https://snapshots.raintank.io/dashboard/snapshot/1qhkHr5rWubb29VtWCAXYB66bHMmN5Ad?orgId=0): VU 2500, RPS 1200, p99 200-300ms)
 
 ### v1.0.0 - Initial Release
 - ✅ Terraform · Ansible bootstrap · ArgoCD Sync-wave
