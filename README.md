@@ -543,18 +543,6 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 
 ---
 
-### Troubleshooting
-
-| 이슈 | 증상 & 해결 |
-|------|------------|
-| **Istio Webhook Sync Error** | ArgoCD Sync 시 `istiod-default-validator`가 `OutOfSync` 및 `Deleting` 상태 반복 → `ignoreDifferences`에 `failurePolicy` 추가하여 Istio의 런타임 패치 무시 설정 |
-| **NetworkPolicy Egress 차단** | `allow-istiod` 정책 적용 후 `my`, `chat` 등 서비스가 DB/DNS 접속 실패 (`ConnectionRefused`, `i/o timeout`) → `allow-dns`, `allow-database-access` 정책을 모든 애플리케이션 네임스페이스로 확장 |
-| **Auth OAuth 콜백 리다이렉트 실패** | OAuth 성공 후에도 API JSON 응답에서 멈추고 `.growbin.app` 외 서브도메인으로 쿠키가 전달되지 않음 → `X-Frontend-Origin` 헤더 기반 리다이렉트 분기 |
-| **OAuth Provider HTTPS egress 차단** | Auth/Scan/Chat 파드가 외부 OAuth 엔드포인트 연결 실패 → `allow-external-https` 정책으로 TCP 443 egress 허용 |
-| **ArgoCD Deployment CrashLoopBackOff** | Ansible의 Deployment 직접 패치 방식 충돌 → ConfigMap 기반 `server.insecure` 설정으로 전환 |
-
----
-
 ## Release Summary (v1.0.7)
 
 - **Integration Layer 도입** ✅
@@ -563,7 +551,7 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
   - **SSE Gateway**: Pub/Sub 구독 기반 실시간 전달, State 복구, Streams Catch-up
   - 부하 테스트 결과 (이전 Celery Events 대비 2.8배 향상)
   - 50 VU: **99.7%** 완료율, **198 req/m**, E2E p95 17.7초
-  - 250 VU: **83.3%** 완료율, **204 req/m**, E2E p95 1.3분
+  - 250 VU: **83.3%** 완료율, **204 req/m**, E2E p95 78초
   - 300 VU: **67.3%** 완료율, **186 req/m**, E2E p95 76.6초
 
 - **KEDA 이벤트 드리븐 오토스케일링** ✅
