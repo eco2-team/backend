@@ -256,20 +256,16 @@ class SSEBroadcastManager:
 
         # 3. State에서 현재 상태 복구 (구독 후 조회 = 누락 방지)
         # NOTE: State에서 last_seq를 갱신하지 않음!
-        # - State 조회 시점에 done(seq=51)이면, 이후 Pub/Sub로 오는 중간 이벤트(seq=20,30)가 필터링됨
-        # - last_seq는 Pub/Sub 이벤트로만 갱신하여 모든 이벤트 수신 보장
         state = await self._get_state_snapshot(job_id)
         if state:
-            yield state  # 현재 상태 먼저 전달 (last_seq 갱신 없이!)
+            state_seq = state.get("seq", 0)
+            try:
+                state_seq = int(state_seq)
+            except (ValueError, TypeError):
+                state_seq = 0
 
-            # 이미 완료된 경우: Streams에서 catch-up 후 종료
+            # 이미 완료된 경우: Streams에서 catch-up (done 제외) 후 done yield
             if state.get("stage") == "done" or state.get("status") == "failed":
-                state_seq = state.get("seq", 0)
-                try:
-                    state_seq = int(state_seq)
-                except (ValueError, TypeError):
-                    state_seq = 0
-
                 logger.info(
                     "broadcast_subscribe_already_done_catch_up",
                     extra={
@@ -279,13 +275,19 @@ class SSEBroadcastManager:
                     },
                 )
 
-                # Streams에서 누락된 이벤트 catch-up (Pub/Sub 유실 대비)
+                # Streams에서 누락된 이벤트 catch-up (done 직전까지)
+                # done 이벤트는 마지막에 State에서 yield
                 async for event in self._catch_up_from_streams(
-                    job_id, from_seq=subscriber.last_seq, to_seq=state_seq
+                    job_id, from_seq=subscriber.last_seq, to_seq=state_seq - 1
                 ):
                     yield event
 
+                # 마지막에 done/failed yield
+                yield state
                 return
+
+            # 진행 중인 경우: State yield만
+            yield state
 
         logger.info(
             "broadcast_subscribe_started",
@@ -359,11 +361,15 @@ class SSEBroadcastManager:
                                             "last_seq": subscriber.last_seq,
                                         },
                                     )
-                                    # Streams에서 누락된 이벤트 catch-up
+                                    # Streams에서 누락된 이벤트 catch-up (done 직전까지)
                                     async for event in self._catch_up_from_streams(
-                                        job_id, from_seq=subscriber.last_seq, to_seq=state_seq
+                                        job_id,
+                                        from_seq=subscriber.last_seq,
+                                        to_seq=state_seq - 1,
                                     ):
                                         yield event
+                                    # 마지막에 done yield
+                                    yield state
                                     return
 
                     # keepalive
