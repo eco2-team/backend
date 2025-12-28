@@ -579,7 +579,7 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
   - **OpenTelemetry 확장**: Event Router, SSE Gateway, Redis, OpenAI API 트레이싱
 
 - **인프라 확장** ✅
-  - **18-Node 클러스터**: Event Router, Redis Pub/Sub 전용 노드 추가
+  - **21-Node 클러스터**: Event Router, Redis Pub/Sub 전용 노드 추가
   - **Redis 인스턴스 분리**: Streams(내구성) / Pub/Sub(실시간) / Cache(LRU)
   - **부하 테스트 검증**: 50/250/300 VU 테스트 완료
 
