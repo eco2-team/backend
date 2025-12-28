@@ -264,7 +264,7 @@ class SSEBroadcastManager:
             except (ValueError, TypeError):
                 state_seq = 0
 
-            # 이미 완료된 경우: Streams에서 catch-up (done 제외) 후 done yield
+            # 이미 완료된 경우: Streams에서 catch-up (done 포함)
             if state.get("stage") == "done" or state.get("status") == "failed":
                 logger.info(
                     "broadcast_subscribe_already_done_catch_up",
@@ -275,15 +275,15 @@ class SSEBroadcastManager:
                     },
                 )
 
-                # Streams에서 누락된 이벤트 catch-up (done 직전까지)
-                # done 이벤트는 마지막에 State에서 yield
+                # Streams에서 모든 이벤트 catch-up (done 포함)
+                # NOTE: Pub/Sub에서 이미 done을 수신했을 수 있으므로,
+                #       catch-up에서 done을 포함하여 중복 제거는 클라이언트에서 처리
                 async for event in self._catch_up_from_streams(
-                    job_id, from_seq=subscriber.last_seq, to_seq=state_seq - 1
+                    job_id, from_seq=subscriber.last_seq, to_seq=state_seq
                 ):
                     yield event
 
-                # 마지막에 done/failed yield
-                yield state
+                # catch-up에서 done이 이미 yield되었으므로 State yield 불필요
                 return
 
             # 진행 중인 경우: State yield만
@@ -361,15 +361,14 @@ class SSEBroadcastManager:
                                             "last_seq": subscriber.last_seq,
                                         },
                                     )
-                                    # Streams에서 누락된 이벤트 catch-up (done 직전까지)
+                                    # Streams에서 모든 이벤트 catch-up (done 포함)
                                     async for event in self._catch_up_from_streams(
                                         job_id,
                                         from_seq=subscriber.last_seq,
-                                        to_seq=state_seq - 1,
+                                        to_seq=state_seq,
                                     ):
                                         yield event
-                                    # 마지막에 done yield
-                                    yield state
+                                    # catch-up에서 done이 이미 yield됨
                                     return
 
                     # keepalive
