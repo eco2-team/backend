@@ -266,12 +266,16 @@ export default function () {
 // ============================================================================
 
 export function setup() {
-  console.log('========================================');
-  console.log('SSE Load Test Starting');
-  console.log(`Target VUs: ${TARGET_VUS}`);
-  console.log(`Duration: ${TEST_DURATION}`);
-  console.log(`Base URL: ${BASE_URL}`);
-  console.log('========================================');
+  console.log(`
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                      🚀 SSE LOAD TEST STARTING                               ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  Target VUs: ${String(TARGET_VUS).padEnd(62)}║
+║  Duration:   ${TEST_DURATION.padEnd(62)}║
+║  Base URL:   ${BASE_URL.padEnd(62)}║
+║  Image:      ${IMAGE_URL.substring(0, 60).padEnd(62)}║
+╚══════════════════════════════════════════════════════════════════════════════╝
+`);
 
   // 토큰 검증
   if (!TOKEN) {
@@ -281,7 +285,9 @@ export function setup() {
   // API 연결 테스트
   const healthRes = http.get(`${BASE_URL}/health`, { timeout: '10s' });
   if (healthRes.status !== 200) {
-    console.warn(`Health check failed: ${healthRes.status}`);
+    console.warn(`⚠️  Health check failed: ${healthRes.status}`);
+  } else {
+    console.log('✅ Health check passed');
   }
 
   return { startTime: Date.now() };
@@ -289,75 +295,200 @@ export function setup() {
 
 export function teardown(data) {
   const duration = (Date.now() - data.startTime) / 1000;
-  console.log('========================================');
-  console.log('SSE Load Test Completed');
-  console.log(`Total Duration: ${duration.toFixed(1)}s`);
-  console.log('========================================');
+  console.log(`
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                      ✅ SSE LOAD TEST COMPLETED                              ║
+║  Total Runtime: ${duration.toFixed(1).padEnd(59)}s ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+`);
 }
 
 // ============================================================================
 // Summary
 // ============================================================================
 
+function formatMs(value) {
+  if (value === undefined || value === null) return '-';
+  const num = parseFloat(value);
+  if (isNaN(num)) return '-';
+  if (num >= 1000) return `${(num / 1000).toFixed(2)}s`;
+  return `${num.toFixed(0)}ms`;
+}
+
+function formatPercent(value) {
+  if (value === undefined || value === null) return '-';
+  return `${(value * 100).toFixed(2)}%`;
+}
+
+function formatNumber(value) {
+  if (value === undefined || value === null) return '0';
+  return value.toLocaleString();
+}
+
+function getMetricValue(data, metricName, key) {
+  return data.metrics?.[metricName]?.values?.[key];
+}
+
 export function handleSummary(data) {
   const timestamp = new Date().toISOString();
+  const testDurationSec = ((data.state?.testRunDurationMs || 0) / 1000).toFixed(1);
 
-  const summary = {
-    timestamp,
-    config: {
+  // 메트릭 추출
+  const scanTotal = getMetricValue(data, 'scan_requests_total', 'count') || 0;
+  const scanSuccess = getMetricValue(data, 'scan_success_total', 'count') || 0;
+  const scanFailed = getMetricValue(data, 'scan_failed_total', 'count') || 0;
+  const scanRate = getMetricValue(data, 'scan_success_rate', 'rate');
+  const scanP50 = getMetricValue(data, 'scan_latency_ms', 'p(50)');
+  const scanP95 = getMetricValue(data, 'scan_latency_ms', 'p(95)');
+  const scanP99 = getMetricValue(data, 'scan_latency_ms', 'p(99)');
+  const scanAvg = getMetricValue(data, 'scan_latency_ms', 'avg');
+  const scanMax = getMetricValue(data, 'scan_latency_ms', 'max');
+
+  const completedTotal = getMetricValue(data, 'completed_jobs_total', 'count') || 0;
+  const completionRate = getMetricValue(data, 'completion_rate', 'rate');
+  const completeP50 = getMetricValue(data, 'time_to_complete_ms', 'p(50)');
+  const completeP95 = getMetricValue(data, 'time_to_complete_ms', 'p(95)');
+  const completeP99 = getMetricValue(data, 'time_to_complete_ms', 'p(99)');
+  const completeAvg = getMetricValue(data, 'time_to_complete_ms', 'avg');
+  const completeMin = getMetricValue(data, 'time_to_complete_ms', 'min');
+  const completeMax = getMetricValue(data, 'time_to_complete_ms', 'max');
+
+  const e2eP50 = getMetricValue(data, 'e2e_latency_ms', 'p(50)');
+  const e2eP95 = getMetricValue(data, 'e2e_latency_ms', 'p(95)');
+  const e2eP99 = getMetricValue(data, 'e2e_latency_ms', 'p(99)');
+  const e2eAvg = getMetricValue(data, 'e2e_latency_ms', 'avg');
+
+  const rewardsTotal = getMetricValue(data, 'rewards_received_total', 'count') || 0;
+  const rewardRate = getMetricValue(data, 'reward_rate', 'rate');
+
+  const pollTotal = getMetricValue(data, 'poll_requests_total', 'count') || 0;
+  const pollP50 = getMetricValue(data, 'poll_latency_ms', 'p(50)');
+  const pollP95 = getMetricValue(data, 'poll_latency_ms', 'p(95)');
+  const pollAvg = getMetricValue(data, 'poll_latency_ms', 'avg');
+
+  const stageVision = getMetricValue(data, 'stage_vision_count', 'count') || 0;
+  const stageRule = getMetricValue(data, 'stage_rule_count', 'count') || 0;
+  const stageAnswer = getMetricValue(data, 'stage_answer_count', 'count') || 0;
+  const stageReward = getMetricValue(data, 'stage_reward_count', 'count') || 0;
+  const stageDone = getMetricValue(data, 'stage_done_count', 'count') || 0;
+
+  // 처리량 계산
+  const throughput = scanTotal > 0 ? (scanTotal / parseFloat(testDurationSec)).toFixed(2) : '0';
+  const completedThroughput = completedTotal > 0 ? (completedTotal / parseFloat(testDurationSec)).toFixed(2) : '0';
+
+  // 콘솔 출력 (가독성 좋은 형태)
+  const output = `
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         🚀 SSE LOAD TEST RESULTS                             ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  Test Time: ${timestamp.padEnd(45)}║
+║  Duration: ${testDurationSec.padEnd(46)}s ║
+║  Target VUs: ${String(TARGET_VUS).padEnd(44)}║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                              📊 SCAN API                                     ║
+╠─────────────────────────────────────────────────────────────────────────────╣
+║  Total Requests:  ${formatNumber(scanTotal).padEnd(15)} Success Rate: ${formatPercent(scanRate).padEnd(18)}║
+║  ✓ Success: ${formatNumber(scanSuccess).padEnd(20)} ✗ Failed: ${formatNumber(scanFailed).padEnd(21)}║
+║  Latency:  avg=${formatMs(scanAvg).padEnd(10)} p50=${formatMs(scanP50).padEnd(10)} p95=${formatMs(scanP95).padEnd(8)}║
+║           p99=${formatMs(scanP99).padEnd(10)} max=${formatMs(scanMax).padEnd(30)}║
+║  Throughput: ${throughput.padEnd(10)} req/s                                      ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                            ⏱️  COMPLETION                                    ║
+╠─────────────────────────────────────────────────────────────────────────────╣
+║  Completed Jobs: ${formatNumber(completedTotal).padEnd(15)} Rate: ${formatPercent(completionRate).padEnd(25)}║
+║  Time to Complete:                                                           ║
+║    min=${formatMs(completeMin).padEnd(10)} avg=${formatMs(completeAvg).padEnd(10)} max=${formatMs(completeMax).padEnd(18)}║
+║    p50=${formatMs(completeP50).padEnd(10)} p95=${formatMs(completeP95).padEnd(10)} p99=${formatMs(completeP99).padEnd(18)}║
+║  Throughput: ${completedThroughput.padEnd(10)} jobs/s                                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                             🎯 E2E LATENCY                                   ║
+╠─────────────────────────────────────────────────────────────────────────────╣
+║  avg=${formatMs(e2eAvg).padEnd(12)} p50=${formatMs(e2eP50).padEnd(12)} p95=${formatMs(e2eP95).padEnd(12)} p99=${formatMs(e2eP99).padEnd(8)}║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                             🎁 REWARDS                                       ║
+╠─────────────────────────────────────────────────────────────────────────────╣
+║  Total: ${formatNumber(rewardsTotal).padEnd(20)} Rate: ${formatPercent(rewardRate).padEnd(28)}║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                           📈 STAGE BREAKDOWN                                 ║
+╠─────────────────────────────────────────────────────────────────────────────╣
+║  vision: ${formatNumber(stageVision).padEnd(8)} → rule: ${formatNumber(stageRule).padEnd(8)} → answer: ${formatNumber(stageAnswer).padEnd(8)} → reward: ${formatNumber(stageReward).padEnd(5)}║
+║  done: ${formatNumber(stageDone).padEnd(68)}║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                            🔄 POLLING                                        ║
+╠─────────────────────────────────────────────────────────────────────────────╣
+║  Total Requests: ${formatNumber(pollTotal).padEnd(56)}║
+║  Latency: avg=${formatMs(pollAvg).padEnd(12)} p50=${formatMs(pollP50).padEnd(12)} p95=${formatMs(pollP95).padEnd(14)}║
+╚══════════════════════════════════════════════════════════════════════════════╝
+`;
+
+  console.log(output);
+
+  // JSON 결과 (파일 저장용)
+  const jsonResult = {
+    meta: {
+      timestamp,
+      test_duration_sec: parseFloat(testDurationSec),
       target_vus: TARGET_VUS,
-      duration: TEST_DURATION,
+      duration_config: TEST_DURATION,
       base_url: BASE_URL,
     },
-    results: {
-      scan: {
-        total: data.metrics.scan_requests_total?.values?.count || 0,
-        success: data.metrics.scan_success_total?.values?.count || 0,
-        failed: data.metrics.scan_failed_total?.values?.count || 0,
-        success_rate: (data.metrics.scan_success_rate?.values?.rate * 100 || 0).toFixed(2) + '%',
-        latency_p50: (data.metrics.scan_latency_ms?.values?.['p(50)'] || 0).toFixed(0) + 'ms',
-        latency_p95: (data.metrics.scan_latency_ms?.values?.['p(95)'] || 0).toFixed(0) + 'ms',
-        latency_p99: (data.metrics.scan_latency_ms?.values?.['p(99)'] || 0).toFixed(0) + 'ms',
+    scan_api: {
+      total: scanTotal,
+      success: scanSuccess,
+      failed: scanFailed,
+      success_rate: scanRate,
+      throughput_rps: parseFloat(throughput),
+      latency_ms: {
+        avg: scanAvg,
+        p50: scanP50,
+        p95: scanP95,
+        p99: scanP99,
+        max: scanMax,
       },
-      completion: {
-        total: data.metrics.completed_jobs_total?.values?.count || 0,
-        rate: (data.metrics.completion_rate?.values?.rate * 100 || 0).toFixed(2) + '%',
-        time_p50: (data.metrics.time_to_complete_ms?.values?.['p(50)'] || 0).toFixed(0) + 'ms',
-        time_p95: (data.metrics.time_to_complete_ms?.values?.['p(95)'] || 0).toFixed(0) + 'ms',
-        time_p99: (data.metrics.time_to_complete_ms?.values?.['p(99)'] || 0).toFixed(0) + 'ms',
+    },
+    completion: {
+      total: completedTotal,
+      rate: completionRate,
+      throughput_jps: parseFloat(completedThroughput),
+      time_ms: {
+        min: completeMin,
+        avg: completeAvg,
+        p50: completeP50,
+        p95: completeP95,
+        p99: completeP99,
+        max: completeMax,
       },
-      e2e: {
-        latency_p50: (data.metrics.e2e_latency_ms?.values?.['p(50)'] || 0).toFixed(0) + 'ms',
-        latency_p95: (data.metrics.e2e_latency_ms?.values?.['p(95)'] || 0).toFixed(0) + 'ms',
-        latency_p99: (data.metrics.e2e_latency_ms?.values?.['p(99)'] || 0).toFixed(0) + 'ms',
-      },
-      rewards: {
-        total: data.metrics.rewards_received_total?.values?.count || 0,
-        rate: (data.metrics.reward_rate?.values?.rate * 100 || 0).toFixed(2) + '%',
-      },
-      stages: {
-        vision: data.metrics.stage_vision_count?.values?.count || 0,
-        rule: data.metrics.stage_rule_count?.values?.count || 0,
-        answer: data.metrics.stage_answer_count?.values?.count || 0,
-        reward: data.metrics.stage_reward_count?.values?.count || 0,
-        done: data.metrics.stage_done_count?.values?.count || 0,
-      },
-      polling: {
-        total_requests: data.metrics.poll_requests_total?.values?.count || 0,
-        latency_p50: (data.metrics.poll_latency_ms?.values?.['p(50)'] || 0).toFixed(0) + 'ms',
-        latency_p95: (data.metrics.poll_latency_ms?.values?.['p(95)'] || 0).toFixed(0) + 'ms',
+    },
+    e2e_latency_ms: {
+      avg: e2eAvg,
+      p50: e2eP50,
+      p95: e2eP95,
+      p99: e2eP99,
+    },
+    rewards: {
+      total: rewardsTotal,
+      rate: rewardRate,
+    },
+    stages: {
+      vision: stageVision,
+      rule: stageRule,
+      answer: stageAnswer,
+      reward: stageReward,
+      done: stageDone,
+    },
+    polling: {
+      total: pollTotal,
+      latency_ms: {
+        avg: pollAvg,
+        p50: pollP50,
+        p95: pollP95,
       },
     },
     thresholds: data.thresholds,
   };
 
-  // 콘솔 출력
-  console.log('\n========== LOAD TEST SUMMARY ==========\n');
-  console.log(JSON.stringify(summary, null, 2));
-  console.log('\n=========================================\n');
-
   return {
-    'stdout': JSON.stringify(summary, null, 2) + '\n',
-    [`k6-load-test-vu${TARGET_VUS}-${timestamp.replace(/[:.]/g, '-')}.json`]: JSON.stringify(summary, null, 2),
+    'stdout': output + '\n',
+    [`k6-load-test-vu${TARGET_VUS}-${timestamp.replace(/[:.]/g, '-')}.json`]: JSON.stringify(jsonResult, null, 2),
   };
 }

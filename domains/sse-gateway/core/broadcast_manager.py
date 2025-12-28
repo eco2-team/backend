@@ -23,6 +23,23 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, AsyncGenerator, ClassVar
 
+from metrics import (
+    SSE_ACTIVE_JOBS,
+    SSE_CONNECTIONS_ACTIVE,
+    SSE_CONNECTIONS_CLOSED,
+    SSE_CONNECTIONS_OPENED,
+    SSE_CONNECTION_DURATION,
+    SSE_EVENTS_DISTRIBUTED,
+    SSE_EVENTS_PER_CONNECTION,
+    SSE_PUBSUB_CONNECTED,
+    SSE_PUBSUB_MESSAGES_RECEIVED,
+    SSE_PUBSUB_SUBSCRIBE_LATENCY,
+    SSE_QUEUE_DROPPED,
+    SSE_STATE_SNAPSHOT_HITS,
+    SSE_STATE_SNAPSHOT_MISSES,
+    SSE_TTFB,
+)
+
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
 
@@ -232,9 +249,18 @@ class SSEBroadcastManager:
             이벤트 딕셔너리
         """
         subscriber = SubscriberQueue(job_id=job_id)
+        connection_start = time.time()
+        first_event_time: float | None = None
+        event_count = 0
+        close_reason = "normal"
+
+        # 메트릭: 연결 시작
+        SSE_CONNECTIONS_OPENED.inc()
+        SSE_CONNECTIONS_ACTIVE.inc()
 
         # 1. 구독자 등록 (먼저!)
         self._subscribers[job_id].add(subscriber)
+        SSE_ACTIVE_JOBS.set(len(self._subscribers))
 
         # 2. Pub/Sub 구독 시작 + 완료 대기 (핵심: 먼저 구독해야 이벤트 누락 방지)
         subscribed_event: asyncio.Event | None = None
@@ -246,9 +272,12 @@ class SSEBroadcastManager:
 
         # 구독 완료 대기 (최대 1초)
         if subscribed_event:
+            subscribe_start = time.time()
             try:
                 await asyncio.wait_for(subscribed_event.wait(), timeout=1.0)
+                SSE_PUBSUB_SUBSCRIBE_LATENCY.observe(time.time() - subscribe_start)
             except asyncio.TimeoutError:
+                SSE_PUBSUB_SUBSCRIBE_LATENCY.observe(1.0)
                 logger.warning(
                     "pubsub_subscribe_timeout",
                     extra={"job_id": job_id},
@@ -281,12 +310,27 @@ class SSEBroadcastManager:
                 async for event in self._catch_up_from_streams(
                     job_id, from_seq=subscriber.last_seq, to_seq=state_seq
                 ):
+                    event_count += 1
+                    if first_event_time is None:
+                        first_event_time = time.time()
+                        SSE_TTFB.observe(first_event_time - connection_start)
+                    SSE_EVENTS_DISTRIBUTED.labels(
+                        stage=event.get("stage", "unknown"), status="success"
+                    ).inc()
                     yield event
 
                 # catch-up에서 done이 이미 yield되었으므로 State yield 불필요
+                close_reason = "normal"
                 return
 
             # 진행 중인 경우: State yield만
+            event_count += 1
+            if first_event_time is None:
+                first_event_time = time.time()
+                SSE_TTFB.observe(first_event_time - connection_start)
+            SSE_EVENTS_DISTRIBUTED.labels(
+                stage=state.get("stage", "unknown"), status="success"
+            ).inc()
             yield state
 
         logger.info(
@@ -305,6 +349,7 @@ class SSEBroadcastManager:
             while True:
                 elapsed = time.time() - start_time
                 if elapsed > max_wait_seconds:
+                    close_reason = "timeout"
                     logger.warning(
                         "broadcast_subscribe_timeout",
                         extra={"job_id": job_id, "elapsed_seconds": elapsed},
@@ -322,10 +367,18 @@ class SSEBroadcastManager:
                         timeout=timeout_seconds,
                     )
                     last_event_time = time.time()
+                    event_count += 1
+                    if first_event_time is None:
+                        first_event_time = time.time()
+                        SSE_TTFB.observe(first_event_time - connection_start)
+                    SSE_EVENTS_DISTRIBUTED.labels(
+                        stage=event.get("stage", "unknown"), status="success"
+                    ).inc()
                     yield event
 
                     # done/error면 종료
                     if event.get("stage") == "done" or event.get("status") == "failed":
+                        close_reason = "normal"
                         logger.info(
                             "broadcast_subscribe_done",
                             extra={
@@ -350,9 +403,15 @@ class SSEBroadcastManager:
                             # 중간 이벤트 필터링 방지
                             if state_seq > subscriber.last_seq:
                                 last_event_time = time.time()
+                                event_count += 1
+                                SSE_EVENTS_DISTRIBUTED.labels(
+                                    stage=state.get("stage", "unknown"),
+                                    status="success",
+                                ).inc()
                                 yield state
 
                                 if state.get("stage") == "done":
+                                    close_reason = "normal"
                                     logger.info(
                                         "broadcast_subscribe_done_from_state_catch_up",
                                         extra={
@@ -367,6 +426,11 @@ class SSEBroadcastManager:
                                         from_seq=subscriber.last_seq,
                                         to_seq=state_seq,
                                     ):
+                                        event_count += 1
+                                        SSE_EVENTS_DISTRIBUTED.labels(
+                                            stage=event.get("stage", "unknown"),
+                                            status="success",
+                                        ).inc()
                                         yield event
                                     # catch-up에서 done이 이미 yield됨
                                     return
@@ -375,12 +439,21 @@ class SSEBroadcastManager:
                     yield {"type": "keepalive"}
 
         finally:
+            # 메트릭: 연결 종료
+            connection_duration = time.time() - connection_start
+            SSE_CONNECTIONS_ACTIVE.dec()
+            SSE_CONNECTIONS_CLOSED.labels(reason=close_reason).inc()
+            SSE_CONNECTION_DURATION.observe(connection_duration)
+            SSE_EVENTS_PER_CONNECTION.observe(event_count)
+
             # 구독 해제
             self._subscribers[job_id].discard(subscriber)
+            SSE_ACTIVE_JOBS.set(len(self._subscribers))
 
             # 마지막 구독자면 Pub/Sub 취소
             if not self._subscribers[job_id]:
                 del self._subscribers[job_id]
+                SSE_ACTIVE_JOBS.set(len(self._subscribers))
                 if job_id in self._pubsub_tasks:
                     self._pubsub_tasks[job_id].cancel()
                     try:
@@ -394,6 +467,8 @@ class SSEBroadcastManager:
                 extra={
                     "job_id": job_id,
                     "remaining_subscribers": self._total_subscriber_count(),
+                    "event_count": event_count,
+                    "duration_seconds": connection_duration,
                 },
             )
 
@@ -419,6 +494,7 @@ class SSEBroadcastManager:
 
         try:
             await pubsub.subscribe(channel)
+            SSE_PUBSUB_CONNECTED.set(1)
 
             # 구독 완료 시그널
             if subscribed_event:
@@ -445,10 +521,19 @@ class SSEBroadcastManager:
                     )
                     continue
 
+                # 메트릭: Pub/Sub 메시지 수신
+                stage = event.get("stage", "unknown")
+                SSE_PUBSUB_MESSAGES_RECEIVED.labels(stage=stage).inc()
+
                 # 해당 job_id의 모든 구독자에게 분배
                 subscribers = self._subscribers.get(job_id, set())
+                distributed_count = 0
                 for subscriber in subscribers:
-                    await subscriber.put_event(event)
+                    success = await subscriber.put_event(event)
+                    if success:
+                        distributed_count += 1
+                    else:
+                        SSE_QUEUE_DROPPED.labels(stage=stage).inc()
 
                 if subscribers:
                     logger.debug(
@@ -479,14 +564,19 @@ class SSEBroadcastManager:
         State는 내구성 있는 Streams Redis에 저장됨.
         """
         if not self._streams_client:
+            SSE_STATE_SNAPSHOT_MISSES.inc()
             return None
 
         try:
             key = f"{STATE_KEY_PREFIX}{job_id}"
             data = await self._streams_client.get(key)
             if data:
+                SSE_STATE_SNAPSHOT_HITS.inc()
                 return json.loads(data)
+            else:
+                SSE_STATE_SNAPSHOT_MISSES.inc()
         except Exception as e:
+            SSE_STATE_SNAPSHOT_MISSES.inc()
             logger.warning(
                 "state_snapshot_error",
                 extra={"job_id": job_id, "error": str(e)},
