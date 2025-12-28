@@ -50,7 +50,9 @@ class Settings(BaseSettings):
     # Pub/Sub 설정
     pubsub_channel_prefix: str = "sse:events"  # 채널 접두사 (sse:events:{job_id})
     state_key_prefix: str = "scan:state"  # State KV 접두사 (scan:state:{job_id})
-    state_timeout_seconds: int = 30  # State 재조회 타임아웃 (무소식 시)
+    state_timeout_seconds: int = (
+        5  # State 재조회 타임아웃 (무소식 시) - 짧게 설정하여 누락 이벤트 빠른 복구
+    )
 
     # 로깅
     log_level: str = "INFO"

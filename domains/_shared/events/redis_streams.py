@@ -26,11 +26,11 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────
 
 STREAM_PREFIX = "scan:events"
-STATE_KEY_PREFIX = "scan:state:"  # State KV 스냅샷 (SSE 재연결용)
+STATE_KEY_PREFIX = "scan:state:"  # State KV (Event Router가 관리)
 PUBLISHED_KEY_PREFIX = "published:"  # 멱등성 마킹
 STREAM_MAXLEN = 10000  # Stream당 최대 메시지 수
 PUBLISHED_TTL = 7200  # 발행 마킹 TTL (2시간)
-STATE_TTL = 3600  # State 스냅샷 TTL (1시간)
+# NOTE: State TTL은 Event Router (config.py)에서 관리
 
 # Stage 순서 (단조증가 seq)
 STAGE_ORDER = {
@@ -51,10 +51,10 @@ DEFAULT_SHARD_COUNT = int(os.environ.get("SSE_SHARD_COUNT", "4"))
 
 # Worker → Streams 멱등성 XADD
 # 동일한 job_id + stage + seq 조합은 한 번만 발행
+# NOTE: State는 Event Router만 갱신 (단일 권위 원칙)
 IDEMPOTENT_XADD_SCRIPT = """
 local publish_key = KEYS[1]  -- published:{job_id}:{stage}:{seq}
 local stream_key = KEYS[2]   -- scan:events:{shard}
-local state_key = KEYS[3]    -- scan:state:{job_id}
 
 -- 이미 발행했는지 체크
 if redis.call('EXISTS', publish_key) == 1 then
@@ -77,8 +77,8 @@ local msg_id = redis.call('XADD', stream_key, 'MAXLEN', '~', ARGV[1],
 -- 발행 마킹 (TTL: 2시간)
 redis.call('SETEX', publish_key, ARGV[9], msg_id)
 
--- State 스냅샷 저장 (TTL: 1시간)
-redis.call('SETEX', state_key, ARGV[10], ARGV[11])
+-- NOTE: State 갱신은 Event Router가 담당
+-- Worker는 XADD만 수행하여 "단일 State 권위" 보장
 
 return {1, msg_id}  -- 새로 발행됨
 """
@@ -139,8 +139,8 @@ def publish_stage_event(
     1. 이미 발행했는지 체크 (published:{job_id}:{stage}:{seq})
     2. 미발행이면 XADD 실행
     3. 발행 마킹 저장
-    4. State 스냅샷 저장
 
+    NOTE: State 갱신은 Event Router가 담당 (단일 권위 원칙)
     Celery Task 재시도 시에도 중복 발행 없음.
 
     Args:
@@ -161,7 +161,6 @@ def publish_stage_event(
         >>> publish_stage_event(redis, job_id, "vision", "completed", progress=25)
     """
     stream_key = get_stream_key(job_id)
-    state_key = f"{STATE_KEY_PREFIX}{job_id}"
 
     # 단조증가 seq 계산 (stage 기준 + status 보정)
     base_seq = STAGE_ORDER.get(stage, 99) * 10
@@ -175,24 +174,10 @@ def publish_stage_event(
     progress_str = str(progress) if progress is not None else ""
     result_str = json.dumps(result, ensure_ascii=False) if result else ""
 
-    # State 스냅샷 데이터
-    state_data = {
-        "job_id": job_id,
-        "stage": stage,
-        "status": status,
-        "seq": seq,
-        "ts": ts,
-    }
-    if progress is not None:
-        state_data["progress"] = progress
-    if result:
-        state_data["result"] = result
-    state_json = json.dumps(state_data, ensure_ascii=False)
-
-    # Lua Script 실행
+    # Lua Script 실행 (State 갱신 없이 XADD만)
     script = redis_client.register_script(IDEMPOTENT_XADD_SCRIPT)
     result_tuple = script(
-        keys=[publish_key, stream_key, state_key],
+        keys=[publish_key, stream_key],
         args=[
             str(STREAM_MAXLEN),  # ARGV[1]: maxlen
             job_id,  # ARGV[2]: job_id
@@ -203,8 +188,6 @@ def publish_stage_event(
             progress_str,  # ARGV[7]: progress
             result_str,  # ARGV[8]: result
             str(PUBLISHED_TTL),  # ARGV[9]: published TTL
-            str(STATE_TTL),  # ARGV[10]: state TTL
-            state_json,  # ARGV[11]: state data
         ],
     )
 
