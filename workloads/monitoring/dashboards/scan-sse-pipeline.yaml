@@ -850,13 +850,13 @@ data:
           "collapsed": false
         },
         {
-          "title": "Active Greenlets (추정)",
-          "description": "Active Tasks = 점유 중인 Greenlet (concurrency: 100/pod)",
+          "title": "Active Tasks (RabbitMQ)",
+          "description": "RabbitMQ unacked = 현재 처리 중인 Task 수",
           "type": "stat",
           "gridPos": { "h": 4, "w": 4, "x": 0, "y": 86 },
           "targets": [
             {
-              "expr": "sum(celery_worker_tasks_active{namespace=\"scan\"})",
+              "expr": "sum(rabbitmq_queue_messages_unacked{queue=~\"scan\\\\..*\"})",
               "legendFormat": "Active"
             }
           ],
@@ -881,7 +881,7 @@ data:
           "gridPos": { "h": 4, "w": 4, "x": 4, "y": 86 },
           "targets": [
             {
-              "expr": "count(kube_pod_status_phase{namespace=\"scan\", pod=~\"scan-worker.*\", phase=\"Running\"})",
+              "expr": "count(kube_pod_status_phase{namespace=\"scan\", pod=~\"scan-worker.*\", phase=\"Running\"} == 1)",
               "legendFormat": "Pods"
             }
           ],
@@ -900,40 +900,38 @@ data:
           }
         },
         {
-          "title": "Greenlet 포화도 (%)",
-          "description": "Active / (Pods × 100) = Greenlet 사용률",
-          "type": "gauge",
+          "title": "Pending Tasks (Queue)",
+          "description": "RabbitMQ ready = 대기 중인 Task 수",
+          "type": "stat",
           "gridPos": { "h": 4, "w": 4, "x": 8, "y": 86 },
           "targets": [
             {
-              "expr": "(sum(celery_worker_tasks_active{namespace=\"scan\"}) / (count(kube_pod_status_phase{namespace=\"scan\", pod=~\"scan-worker.*\", phase=\"Running\"}) * 100)) * 100",
-              "legendFormat": "Usage %"
+              "expr": "sum(rabbitmq_queue_messages_ready{queue=~\"scan\\\\..*\"})",
+              "legendFormat": "Pending"
             }
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "percent",
-              "min": 0,
-              "max": 100,
+              "unit": "short",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   { "color": "green", "value": null },
                   { "color": "yellow", "value": 50 },
-                  { "color": "red", "value": 80 }
+                  { "color": "red", "value": 200 }
                 ]
               }
             }
           }
         },
         {
-          "title": "k8s-worker-ai CPU %",
-          "description": "Scan Worker 노드 CPU 사용률",
+          "title": "Worker AI CPU %",
+          "description": "Scan Worker 노드 CPU 사용률 (IP: 10.0.1.127)",
           "type": "gauge",
           "gridPos": { "h": 4, "w": 4, "x": 12, "y": 86 },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", node=\"k8s-worker-ai\"}[5m])) * 100)",
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", instance=~\"10.0.1.127:.*\"}[5m])) * 100)",
               "legendFormat": "CPU %"
             }
           ],
@@ -954,13 +952,13 @@ data:
           }
         },
         {
-          "title": "k8s-worker-ai Memory %",
-          "description": "Scan Worker 노드 Memory 사용률",
+          "title": "Worker AI Memory %",
+          "description": "Scan Worker 노드 Memory 사용률 (IP: 10.0.1.127)",
           "type": "gauge",
           "gridPos": { "h": 4, "w": 4, "x": 16, "y": 86 },
           "targets": [
             {
-              "expr": "100 * (1 - (node_memory_MemAvailable_bytes{node=\"k8s-worker-ai\"} / node_memory_MemTotal_bytes{node=\"k8s-worker-ai\"}))",
+              "expr": "100 * (1 - (node_memory_MemAvailable_bytes{instance=~\"10.0.1.127:.*\"} / node_memory_MemTotal_bytes{instance=~\"10.0.1.127:.*\"}))",
               "legendFormat": "Memory %"
             }
           ],
@@ -981,113 +979,36 @@ data:
           }
         },
         {
-          "title": "KEDA Status",
-          "description": "scan-worker KEDA ScaledObject 상태",
+          "title": "Worker CPU (Total)",
+          "description": "scan-worker Pods 총 CPU 사용량 (millicores)",
           "type": "stat",
           "gridPos": { "h": 4, "w": 4, "x": 20, "y": 86 },
           "targets": [
             {
-              "expr": "keda_scaler_active{namespace=\"scan\", scaledobject=\"scan-worker-scaledobject\"}",
-              "legendFormat": "KEDA"
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"scan\", pod=~\"scan-worker.*\", container=\"scan-worker\"}[5m])) * 1000",
+              "legendFormat": "mCPU"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "mappings": [
-                { "type": "value", "options": { "0": { "text": "Idle", "color": "blue" } } },
-                { "type": "value", "options": { "1": { "text": "Active", "color": "green" } } }
-              ]
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 2000 },
+                  { "color": "red", "value": 3000 }
+                ]
+              }
             }
           }
         },
         {
-          "title": "Active Tasks by Type",
-          "description": "Task 유형별 동시 처리 수 (vision, rule, answer, reward)",
+          "title": "Queue Depth by Type",
+          "description": "Task 유형별 큐 상태 (ready + unacked)",
           "type": "timeseries",
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 90 },
-          "targets": [
-            {
-              "expr": "sum by (name) (celery_task_runtime_count{namespace=\"scan\", name=~\"scan\\\\..*\"})",
-              "legendFormat": "{{name}}"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "short",
-              "custom": { "lineWidth": 2, "fillOpacity": 20, "stacking": { "mode": "normal" } }
-            },
-            "overrides": [
-              { "matcher": { "id": "byName", "options": "scan.vision" }, "properties": [{ "id": "color", "value": { "fixedColor": "#7eb26d" } }] },
-              { "matcher": { "id": "byName", "options": "scan.rule" }, "properties": [{ "id": "color", "value": { "fixedColor": "#6ed0e0" } }] },
-              { "matcher": { "id": "byName", "options": "scan.answer" }, "properties": [{ "id": "color", "value": { "fixedColor": "#eab839" } }] },
-              { "matcher": { "id": "byName", "options": "scan.reward" }, "properties": [{ "id": "color", "value": { "fixedColor": "#ef843c" } }] }
-            ]
-          }
-        },
-        {
-          "title": "Task Duration (p50/p95)",
-          "description": "Task 유형별 처리 시간",
-          "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 90 },
-          "targets": [
-            {
-              "expr": "histogram_quantile(0.50, sum by (name, le) (rate(celery_task_runtime_bucket{namespace=\"scan\", name=~\"scan\\\\..*\"}[5m])))",
-              "legendFormat": "{{name}} p50"
-            },
-            {
-              "expr": "histogram_quantile(0.95, sum by (name, le) (rate(celery_task_runtime_bucket{namespace=\"scan\", name=~\"scan\\\\..*\"}[5m])))",
-              "legendFormat": "{{name}} p95"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "s",
-              "custom": { "lineWidth": 2, "fillOpacity": 10 }
-            }
-          }
-        },
-        {
-          "title": "Worker Pod CPU Usage",
-          "description": "scan-worker Pod별 CPU 사용량",
-          "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 98 },
-          "targets": [
-            {
-              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"scan\", pod=~\"scan-worker.*\", container=\"scan-worker\"}[5m])) * 1000",
-              "legendFormat": "{{pod}}"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "short",
-              "custom": { "lineWidth": 2, "fillOpacity": 20 }
-            }
-          }
-        },
-        {
-          "title": "Worker Pod Memory Usage",
-          "description": "scan-worker Pod별 Memory 사용량",
-          "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 98 },
-          "targets": [
-            {
-              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"scan\", pod=~\"scan-worker.*\", container=\"scan-worker\"}) / 1024 / 1024",
-              "legendFormat": "{{pod}}"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "decmbytes",
-              "custom": { "lineWidth": 2, "fillOpacity": 20 }
-            }
-          }
-        },
-        {
-          "title": "RabbitMQ scan.* 큐 적체",
-          "description": "scan 관련 큐의 ready + unacked 메시지 수",
-          "type": "timeseries",
-          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 98 },
           "targets": [
             {
               "expr": "rabbitmq_queue_messages_ready{queue=~\"scan\\\\..*\"}",
@@ -1101,16 +1022,127 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "custom": { "lineWidth": 2, "fillOpacity": 20 },
+              "custom": { "lineWidth": 2, "fillOpacity": 20, "stacking": { "mode": "normal" } }
+            },
+            "overrides": [
+              { "matcher": { "id": "byRegexp", "options": ".*vision.*ready" }, "properties": [{ "id": "color", "value": { "fixedColor": "#7eb26d" } }] },
+              { "matcher": { "id": "byRegexp", "options": ".*vision.*unacked" }, "properties": [{ "id": "color", "value": { "fixedColor": "#3f6833" } }] },
+              { "matcher": { "id": "byRegexp", "options": ".*rule.*ready" }, "properties": [{ "id": "color", "value": { "fixedColor": "#6ed0e0" } }] },
+              { "matcher": { "id": "byRegexp", "options": ".*answer.*ready" }, "properties": [{ "id": "color", "value": { "fixedColor": "#eab839" } }] },
+              { "matcher": { "id": "byRegexp", "options": ".*reward.*ready" }, "properties": [{ "id": "color", "value": { "fixedColor": "#ef843c" } }] }
+            ]
+          }
+        },
+        {
+          "title": "Worker Pod CPU/Memory",
+          "description": "scan-worker Pod별 리소스 사용량",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 90 },
+          "targets": [
+            {
+              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"scan\", pod=~\"scan-worker.*\", container=\"scan-worker\"}[5m])) * 1000",
+              "legendFormat": "{{pod}} CPU (mCPU)"
+            },
+            {
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"scan\", pod=~\"scan-worker.*\", container=\"scan-worker\"}) / 1024 / 1024 / 10",
+              "legendFormat": "{{pod}} Mem (MB/10)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          }
+        },
+        {
+          "title": "Node CPU Timeline",
+          "description": "k8s-worker-ai CPU 사용률 추이",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 98 },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", instance=~\"10.0.1.127:.*\"}[5m])) * 100)",
+              "legendFormat": "CPU %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "custom": { "lineWidth": 2, "fillOpacity": 30 },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   { "color": "green", "value": null },
-                  { "color": "yellow", "value": 50 },
-                  { "color": "red", "value": 200 }
+                  { "color": "yellow", "value": 60 },
+                  { "color": "red", "value": 85 }
                 ]
               }
             }
+          }
+        },
+        {
+          "title": "Node Memory Timeline",
+          "description": "k8s-worker-ai Memory 사용률 추이",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 98 },
+          "targets": [
+            {
+              "expr": "100 * (1 - (node_memory_MemAvailable_bytes{instance=~\"10.0.1.127:.*\"} / node_memory_MemTotal_bytes{instance=~\"10.0.1.127:.*\"}))",
+              "legendFormat": "Memory %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "custom": { "lineWidth": 2, "fillOpacity": 30 },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 90 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Total Messages (All scan.*)",
+          "description": "scan 관련 큐 전체 메시지 수 (ready + unacked)",
+          "type": "timeseries",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 98 },
+          "targets": [
+            {
+              "expr": "sum(rabbitmq_queue_messages_ready{queue=~\"scan\\\\..*\"})",
+              "legendFormat": "Ready (Pending)"
+            },
+            {
+              "expr": "sum(rabbitmq_queue_messages_unacked{queue=~\"scan\\\\..*\"})",
+              "legendFormat": "Unacked (Active)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 30, "stacking": { "mode": "normal" } },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 100 },
+                  { "color": "red", "value": 300 }
+                ]
+              }
+            },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Ready (Pending)" }, "properties": [{ "id": "color", "value": { "fixedColor": "#ff9830" } }] },
+              { "matcher": { "id": "byName", "options": "Unacked (Active)" }, "properties": [{ "id": "color", "value": { "fixedColor": "#73bf69" } }] }
+            ]
           }
         }
       ]
