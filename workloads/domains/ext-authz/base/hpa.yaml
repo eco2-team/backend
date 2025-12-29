@@ -13,7 +13,7 @@ spec:
     kind: Deployment
     name: ext-authz
   minReplicas: 2
-  maxReplicas: 5
+  maxReplicas: 4  # k8s-api-auth 노드 CPU 자원 한계로 제한
   metrics:
   - type: Resource
     resource:
