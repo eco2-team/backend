@@ -18,6 +18,10 @@ spec:
         app: ext-authz
         tier: business-logic
         domain: ext-authz
+      annotations:
+        # Istio Sidecar가 Ready될 때까지 앱 시작 대기
+        # 이 설정 없으면 앱이 먼저 시작되어 Redis 연결 실패 발생
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
     spec:
       containers:
       - name: ext-authz
