@@ -25,6 +25,6 @@ async def ping(user: UserInfo = Depends(get_current_user)):
     """
     return {
         "pong": True,
-        "user_id": user.user_id[:8] + "...",  # Masked for security
+        "user_id": str(user.user_id)[:8] + "...",  # Masked for security
         "provider": user.provider,
     }
