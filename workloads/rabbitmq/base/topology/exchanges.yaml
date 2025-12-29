@@ -70,15 +70,16 @@ spec:
     name: eco2-rabbitmq
     namespace: rabbitmq
 ---
-# 5. Auth Blacklist Exchange (Fanout)
-# ext-authz 로컬 캐시 동기화용 - 모든 인스턴스가 수신
+# 5. Blacklist Events Exchange (Fanout)
+# ext-authz 로컬 캐시 동기화용
+# auth-api logout → 이벤트 발행 → ext-authz pods 캐시 업데이트
 apiVersion: rabbitmq.com/v1beta1
 kind: Exchange
 metadata:
-  name: authz-fanout
+  name: blacklist-events
   namespace: rabbitmq
 spec:
-  name: authz.fanout
+  name: blacklist.events
   type: fanout
   durable: true
   autoDelete: false

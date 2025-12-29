@@ -49,6 +49,16 @@ spec:
           value: '50051'
         - name: AUTH_METRICS_PORT
           value: '9090'
+        # Local Cache configuration
+        - name: LOCAL_CACHE_ENABLED
+          value: 'true'
+        - name: LOCAL_CACHE_CLEANUP_INTERVAL
+          value: '60'
+        - name: AMQP_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_AMQP_URL
         # OTEL Tracing configuration
         - name: OTEL_ENABLED
           value: 'true'

@@ -50,6 +50,12 @@ spec:
         # W3C Trace Context propagation (Istio 호환)
         - name: OTEL_PROPAGATORS
           value: b3,tracecontext,baggage
+        # RabbitMQ for ext-authz local cache sync
+        - name: AUTH_AMQP_URL
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: AMQP_URL
         envFrom:
         - configMapRef:
             name: auth-config

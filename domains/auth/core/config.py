@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     redis_blacklist_url: str = "redis://localhost:6379/0"
     redis_oauth_state_url: str = "redis://localhost:6379/3"
 
+    # RabbitMQ (for ext-authz local cache sync)
+    amqp_url: Optional[str] = None  # e.g., "amqp://guest:guest@localhost:5672/"
+
     # OAuth
     oauth_state_ttl_seconds: int = 600
     oauth_redirect_template: str = "http://localhost:8000/api/v1/auth/{provider}/callback"
