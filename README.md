@@ -15,7 +15,6 @@
 ---
 
 ## Service Architecture
-![service_architecture](https://github.com/user-attachments/assets/6a0c0d51-66fc-491e-8366-0399167b8462)
 <img width="1980" height="1152" alt="Untitled-2025-12-29-1721" src="https://github.com/user-attachments/assets/af4b4276-08aa-4859-bfc5-9c9135d944ca" />
 
 
