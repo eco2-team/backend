@@ -246,3 +246,13 @@ func ServiceName() string {
 func ServiceVersion() string {
 	return constants.ServiceVersion
 }
+
+// NewTestLogger creates a logger for testing (discards output).
+func NewTestLogger() *Logger {
+	cfg := &Config{
+		Level:       LevelDebug,
+		Output:      io.Discard,
+		Environment: "test",
+	}
+	return New(cfg)
+}
