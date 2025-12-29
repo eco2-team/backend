@@ -178,7 +178,7 @@ Persistence Layer : PostgreSQL, Redis
 Platform Layer    : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, EFK Stack
 ```
 
-본 서비스는 6-Layer Architecture로 구성되었습니다.
+본 서비스는 5-Layer Architecture로 구성되었습니다.
 
 - **Edge Layer**: AWS ALB가 SSL Termination을 처리하고, 트래픽을 `Istio Ingress Gateway`로 전달합니다. Gateway는 `VirtualService` 규칙에 따라 North-South 트래픽을 라우팅합니다.
 - **Service Layer**: 모든 마이크로서비스는 **Istio Service Mesh** 내에서 동작하며, `Envoy Sidecar`를 통해 mTLS 통신, 트래픽 제어, 메트릭 수집을 수행합니다.
@@ -186,7 +186,7 @@ Platform Layer    : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, EF
 - **Persistence Layer**: 서비스는 영속성을 위해 PostgreSQL, Redis를 사용합니다. Helm Chart로 관리되는 독립적인 데이터 인프라입니다.
 - **Platform Layer**: `Istiod`가 Service Mesh를 제어하고, `ArgoCD`가 GitOps 동기화를 담당합니다. `KEDA`가 이벤트 드리븐 오토스케일링을 수행하고, Observability 스택(`Prometheus/Grafana/Kiali`, `Jaeger`, `EFK Stack`)이 메트릭·트레이싱·로깅을 통합 관리합니다.
 
-각 계층은 서로 독립적으로 기능하도록 설계되었으며, Platform Layer가 전 계층을 횡단하며 제어 및 관측합니다.
+각 계층은 서로 독립적으로 기능하도록 설계되었으며, Platform Layer가 전 계층을 제어 및 관측합니다.
 프로덕션 환경을 전제로 한 Self-manged Kubernetes 기반 클러스터로 컨테이너화된 어플리케이션의 오케스트레이션을 지원합니다.
 **Istio Service Mesh**를 도입하여 mTLS 보안 통신, 트래픽 제어(VirtualService), 인증 위임(Auth Offloading)을 구현했습니다.
 클러스터의 안정성과 성능을 보장하기 위해 모니터링 시스템을 도입, IaC(Infrastructure as Code) 및 GitOps 파이프라인을 구축해 모노레포 기반 코드베이스가 SSOT(Single Source Of Truth)로 기능하도록 제작되었습니다.
@@ -549,11 +549,16 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
   - **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처 구현
   - **Event Router**: Consumer Group(`XREADGROUP`)으로 Streams 소비, Pub/Sub Fan-out, 멱등성 보장
   - **SSE Gateway**: Pub/Sub 구독 기반 실시간 전달, State 복구, Streams Catch-up
-  - 부하 테스트 결과 (이전 Celery Events 대비 2.8배 향상)
-  - **300 VU (기준)**: **99.9%** 완료율, **404 req/m**, E2E p95 49초 ⭐
-  - 250 VU: **99.9%** 완료율, **418 req/m**, E2E p95 40초
-  - 200 VU: **99.8%** 완료율, **370 req/m**, E2E p95 33초
-  - 50 VU: **99.7%** 완료율, **198 req/m**, E2E p95 17.7초
+  - 부하 테스트 결과 (단일 노드 기준, 이전 Celery Events 대비 2.8배 향상)
+
+| VU | 요청 수 | 완료율 | Throughput | E2E p95 | Scan p95 | 상태 |
+|----|---------|--------|------------|---------|----------|------|
+| 50 | 685 | 99.7% | 198 req/m | 17.7초 | 93ms | ✅ 여유 |
+| 200 | 1,649 | 99.8% | 367 req/m | 33.2초 | 83ms | ✅ 안정 |
+| **250** | **1,754** | **99.9%** | **418 req/m** | **40.5초** | **78ms** | ⭐ **SLA 기준** |
+| 300 | 1,732 | 99.9% | 402 req/m | 48.5초 | 83ms | ⚠️ 포화 시작 |
+| 400 | 1,901 | 98.9% | 422 req/m | 62.2초 | 207ms | ⚠️ 한계 근접 |
+| 500 | 1,990 | 94.0% | 438 req/m | 76.4초 | 154ms | ❌ 단일 노드 한계 |
 
 - **KEDA 이벤트 드리븐 오토스케일링** ✅
   - **scan-worker**: RabbitMQ 큐 길이 기반 자동 스케일링 (1-3 replicas)
@@ -571,10 +576,12 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
   - **scan-sse-pipeline 대시보드**: Scan API, Event Relay, Redis Streams 통합 모니터링
   - **OpenTelemetry 확장**: Event Router, SSE Gateway, Redis, OpenAI API 트레이싱
 
-- **인프라 확장** ✅
+- **부하 테스트 및 스케일링 검증** ✅
   - **21-Node 클러스터**: Event Router, Redis Pub/Sub 전용 노드 추가
   - **Redis 인스턴스 분리**: Streams(내구성) / Pub/Sub(실시간) / Cache(LRU)
-  - **부하 테스트 검증**: 50/200/250/300 VU 테스트 완료 (300 VU 기준 동시접속)
+  - **부하 테스트 검증**: 50/200/250/300/400/500 VU 테스트 완료
+    - 단일 노드(k8s-worker-ai, 2 cores) 기준 **250 VU SLA**, **500 VU 한계점** 도출
+    - KEDA 자동 스케일링 검증: scan-worker 1→3 pods, scan-api 1→3 pods
 
 - **EFK 로깅 파이프라인** ✅
   - **Fluent Bit**이 모든 Pod의 stdout/stderr 로그를 수집하여 **Elasticsearch**로 포워딩
@@ -596,7 +603,9 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 - ✅ Event Router, SSE Gateway 컴포넌트 개발 완료
 - ✅ KEDA 이벤트 드리븐 오토스케일링 적용 (scan-worker, event-router, character-match-worker)
 - ✅ Celery 비동기 AI 파이프라인 완료 (Vision→Rule→Answer→Reward)
-- ✅ 부하 테스트 완료: **300 VU 기준 99.9% 완료율** (50/200/250/300 VU 검증)
+- ✅ 부하 테스트 완료: **50/200/250/300/400/500 VU** 검증
+  - **250 VU (SLA)**: 99.9% 완료율, 418 req/m, E2E p95 40초
+  - **500 VU**: 단일 노드 한계점 (94% 완료율, E2E p95 76초)
 
 ### v1.0.6 - Observability
 - ✅ EFK 로깅 파이프라인 (Fluent Bit → Elasticsearch → Kibana)

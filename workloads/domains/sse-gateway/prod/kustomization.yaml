@@ -6,21 +6,15 @@ resources:
 images:
 - name: mng990/eco2
   newTag: sse-gateway-prod-latest
+- name: docker.io/mng990/eco2
+  newTag: sse-gateway-1.0.7-62a1b1
 patches:
-- patch: |-
-    - op: replace
-      path: /spec/replicas
-      value: 2
+- patch: "- op: replace\n  path: /spec/replicas\n  value: 2"
   target:
     kind: Deployment
     name: sse-gateway
-- patch: |-
-    - op: replace
-      path: /spec/minReplicas
-      value: 2
-    - op: replace
-      path: /spec/maxReplicas
-      value: 10
+- patch: "- op: replace\n  path: /spec/minReplicas\n  value: 2\n- op: replace\n  path:\
+    \ /spec/maxReplicas\n  value: 10"
   target:
     kind: HorizontalPodAutoscaler
     name: sse-gateway-hpa
