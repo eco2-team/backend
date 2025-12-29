@@ -29,6 +29,13 @@ const (
 
 	// CORS (comma-separated origins)
 	DefaultCORSAllowedOrigins = "https://frontend.dev.growbin.app,https://frontend1.dev.growbin.app,https://frontend2.dev.growbin.app,http://localhost:5173"
+
+	// Local Cache Settings
+	DefaultLocalCacheEnabled         = true
+	DefaultLocalCacheCleanupInterval = 60 // seconds
+
+	// RabbitMQ (for local cache sync)
+	DefaultAMQPURL = "amqp://guest:guest@localhost:5672/"
 )
 
 type Config struct {
@@ -51,6 +58,13 @@ type Config struct {
 
 	// CORS Settings
 	CORSAllowedOrigins []string
+
+	// Local Cache Settings
+	LocalCacheEnabled         bool
+	LocalCacheCleanupInterval int // seconds
+
+	// RabbitMQ (for local cache sync)
+	AMQPURL string
 }
 
 func Load() *Config {
@@ -72,6 +86,11 @@ func Load() *Config {
 		RedisWriteTimeoutMs: getEnvAsInt("REDIS_WRITE_TIMEOUT_MS", DefaultRedisWriteTimeoutMs),
 
 		CORSAllowedOrigins: parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", DefaultCORSAllowedOrigins)),
+
+		LocalCacheEnabled:         getEnvAsBool("LOCAL_CACHE_ENABLED", DefaultLocalCacheEnabled),
+		LocalCacheCleanupInterval: getEnvAsInt("LOCAL_CACHE_CLEANUP_INTERVAL", DefaultLocalCacheCleanupInterval),
+
+		AMQPURL: getEnv("AMQP_URL", DefaultAMQPURL),
 	}
 }
 
@@ -103,4 +122,16 @@ func getEnvAsInt(key string, fallback int) int {
 		return value
 	}
 	return fallback
+}
+
+func getEnvAsBool(key string, fallback bool) bool {
+	valueStr := getEnv(key, "")
+	if valueStr == "" {
+		return fallback
+	}
+	value, err := strconv.ParseBool(valueStr)
+	if err != nil {
+		return fallback
+	}
+	return value
 }

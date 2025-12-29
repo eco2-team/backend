@@ -8,6 +8,7 @@ require (
 	github.com/envoyproxy/go-control-plane/envoy v1.36.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/prometheus/client_golang v1.20.5
+	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/redis/go-redis/v9 v9.17.2
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.64.0
 	go.opentelemetry.io/contrib/propagators/b3 v1.39.0

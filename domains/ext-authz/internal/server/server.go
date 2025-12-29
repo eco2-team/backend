@@ -38,9 +38,14 @@ type TokenVerifier interface {
 	Verify(tokenString string) (map[string]any, error)
 }
 
-// BlacklistStore checks if a token is blacklisted.
+// BlacklistStore checks if a token is blacklisted (Redis-based).
 type BlacklistStore interface {
 	IsBlacklisted(ctx context.Context, jti string) (bool, error)
+}
+
+// BlacklistCache checks if a token is blacklisted (in-memory).
+type BlacklistCache interface {
+	IsBlacklisted(jti string) bool
 }
 
 // ============================================================================
@@ -49,7 +54,8 @@ type BlacklistStore interface {
 
 type AuthorizationServer struct {
 	verifier   TokenVerifier
-	store      BlacklistStore
+	store      BlacklistStore // Redis-based (fallback or disabled)
+	cache      BlacklistCache // In-memory (primary when enabled)
 	logger     *logging.Logger
 	corsConfig *CORSConfig
 }
@@ -73,6 +79,35 @@ func New(verifier TokenVerifier, store BlacklistStore, allowedOrigins []string) 
 	return &AuthorizationServer{
 		verifier:   verifier,
 		store:      store,
+		cache:      nil, // No local cache
+		logger:     logging.Default(),
+		corsConfig: corsConfig,
+	}, nil
+}
+
+// NewWithCache creates a new AuthorizationServer with local cache enabled.
+// When cache is provided, it will be used for blacklist checks instead of Redis.
+// Redis store is still required for bootstrap but not used on the hot path.
+func NewWithCache(verifier TokenVerifier, cache BlacklistCache, allowedOrigins []string) (*AuthorizationServer, error) {
+	if verifier == nil {
+		return nil, errors.New(constants.ErrVerifierRequired)
+	}
+	if cache == nil {
+		return nil, errors.New("cache is required when using NewWithCache")
+	}
+
+	// Build CORS config as a set for O(1) lookup
+	corsConfig := &CORSConfig{
+		AllowedOrigins: make(map[string]bool, len(allowedOrigins)),
+	}
+	for _, origin := range allowedOrigins {
+		corsConfig.AllowedOrigins[origin] = true
+	}
+
+	return &AuthorizationServer{
+		verifier:   verifier,
+		store:      nil,   // Not used when cache is enabled
+		cache:      cache, // Local cache for O(1) lookups
 		logger:     logging.Default(),
 		corsConfig: corsConfig,
 	}, nil
@@ -273,20 +308,33 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 
 	// 3. Check Blacklist
 	if jti != "" {
-		redisStart := time.Now()
-		blacklisted, err := s.store.IsBlacklisted(ctx, jti)
-		metrics.RedisLookupDuration.Observe(time.Since(redisStart).Seconds())
+		var blacklisted bool
+		var err error
 
-		if err != nil {
-			s.logger.AuthDenyWithUserAndTrace(method, path, host, userID, jti, constants.ReasonRedisError, time.Since(start), err, traceInfo)
-			recordMetrics(metrics.ResultDeny, metrics.ReasonRedisError)
-			metrics.ErrorsTotal.WithLabelValues(metrics.ErrorTypeRedis).Inc()
-			span.RecordError(err)
-			span.SetStatus(codes.Error, constants.ReasonRedisError)
-			span.SetAttributes(attribute.String("authz.result", "deny"), attribute.String("authz.reason", "redis_error"))
-			// Fail-closed: Deny on internal error
-			return denyResponse(typev3.StatusCode_InternalServerError, constants.MsgInternalError, allowedOrigin), nil
+		if s.cache != nil {
+			// Use local cache (O(1) in-memory lookup, no network I/O)
+			lookupStart := time.Now()
+			blacklisted = s.cache.IsBlacklisted(jti)
+			// Note: cache lookup metrics are tracked inside the cache itself
+			_ = lookupStart // Suppress unused warning; metrics tracked in cache
+		} else if s.store != nil {
+			// Fallback to Redis (network I/O)
+			redisStart := time.Now()
+			blacklisted, err = s.store.IsBlacklisted(ctx, jti)
+			metrics.RedisLookupDuration.Observe(time.Since(redisStart).Seconds())
+
+			if err != nil {
+				s.logger.AuthDenyWithUserAndTrace(method, path, host, userID, jti, constants.ReasonRedisError, time.Since(start), err, traceInfo)
+				recordMetrics(metrics.ResultDeny, metrics.ReasonRedisError)
+				metrics.ErrorsTotal.WithLabelValues(metrics.ErrorTypeRedis).Inc()
+				span.RecordError(err)
+				span.SetStatus(codes.Error, constants.ReasonRedisError)
+				span.SetAttributes(attribute.String("authz.result", "deny"), attribute.String("authz.reason", "redis_error"))
+				// Fail-closed: Deny on internal error
+				return denyResponse(typev3.StatusCode_InternalServerError, constants.MsgInternalError, allowedOrigin), nil
+			}
 		}
+
 		if blacklisted {
 			s.logger.AuthDenyWithUserAndTrace(method, path, host, userID, jti, constants.ReasonBlacklisted, time.Since(start), nil, traceInfo)
 			recordMetrics(metrics.ResultDeny, metrics.ReasonBlacklisted)
