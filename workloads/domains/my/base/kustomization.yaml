@@ -7,6 +7,7 @@ resources:
 - service.yaml
 - service-grpc.yaml
 - configmap.yaml
+- hpa.yaml
 labels:
 - includeSelectors: true
   pairs:
