@@ -545,10 +545,12 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
 
 ## Release Summary (v1.0.7)
 
-- **Integration Layer 도입** ✅
+- **Integration Layer + AI 파이프라인** ✅
   - **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처 구현
   - **Event Router**: Consumer Group(`XREADGROUP`)으로 Streams 소비, Pub/Sub Fan-out, 멱등성 보장
   - **SSE Gateway**: Pub/Sub 구독 기반 실시간 전달, State 복구, Streams Catch-up
+  - **Celery Chain**(Vision→Rule→Answer→Reward): **GPT 5.1 Vision** + **GPT 5.1-mini** 조합
+  - **gevent pool** (100 greenlets) + **httpx connection pooling**, 단일 요청 ≈ **12초**
   - 부하 테스트 결과 (단일 노드 기준, 이전 Celery Events 대비 2.8배 향상)
 
 | VU | 요청 수 | 완료율 | Throughput | E2E p95 | Scan p95 | 상태 |
@@ -565,13 +567,6 @@ Eco² 클러스터는 ArgoCD App-of-Apps 패턴을 중심으로 운영되며, �
   - **event-router**: Redis Streams pending 메시지 기반 스케일링
   - **character-match-worker**: RabbitMQ character.match 큐 기반 스케일링
   - Prometheus Adapter 연동으로 커스텀 메트릭 기반 HPA 구현
-
-- **비동기 AI 파이프라인** ✅
-  - Scan API의 AI 파이프라인을 **Celery Chain**(Vision→Rule→Answer→Reward)으로 분리
-  - **GPT 5.1 Vision** (이미지 분류) + **GPT 5.1-mini** (답변 생성) 조합
-  - **gevent pool** (100 greenlets) + **httpx connection pooling** 적용
-  - SSE(Server-Sent Events) 기반 실시간 진행 상황 스트리밍
-  - 단일 요청 소요시간: Vision 6.9초 + Answer 4.8초 ≈ **12초**
 
 - **부하 테스트 및 스케일링 검증** ✅
   - **21-Node 클러스터**: Event Router, Redis Pub/Sub 전용 노드 추가
