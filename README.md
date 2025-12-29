@@ -7,7 +7,7 @@
 
 - **GPT Vision + Rule-based-retrieval** 기반 AI 어시스턴트로, 폐기물 이미지 분류·분리배출 안내·챗봇 기능을 제공합니다.
 - Self-managed Kubernetes 21-Nodes 클러스터에서 **Istio Service Mesh**(mTLS, Auth Offloading)와 **ArgoCD GitOps**로 운영합니다.
-- **Redis Streams + Pub/Sub + State KV** 기반 Integration Layer로 실시간 SSE 이벤트를 처리하고, **KEDA**로 이벤트 드리븐 오토스케일링을 수행합니다.
+- **Redis Streams + Pub/Sub + State KV** 기반 Event Relay Layer로 실시간 SSE 이벤트를 처리하고, **KEDA**로 이벤트 드리븐 오토스케일링을 수행합니다.
 - **RabbitMQ + Celery** 비동기 Task Queue로 AI 파이프라인을 처리하고, **EFK + Jaeger**로 로깅·트레이싱을 수집합니다.
 - 7개 도메인 마이크로서비스(auth, my, scan, chat, character, location, image)를 모노레포로 관리합니다.
 - 정상 배포 중: [https://frontend.dev.growbin.app](https://frontend.dev.growbin.app)
@@ -21,7 +21,7 @@
 ```yaml
 Edge Layer        : Route 53, AWS ALB, Istio Ingress Gateway
 Service Layer     : auth, my, scan, character, location, chat (w/ Envoy Sidecar)
-Integration Layer : Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
+Event Relay Layer : Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
                   : RabbitMQ, Celery Workers (scan, character-match, character, my, beat)
 Persistence Layer : PostgreSQL, Redis
 Platform Layer    : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, EFK Stack
@@ -31,7 +31,7 @@ Platform Layer    : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, EF
 
 - **Edge Layer**: AWS ALB가 SSL Termination을 처리하고, 트래픽을 `Istio Ingress Gateway`로 전달합니다. Gateway는 `VirtualService` 규칙에 따라 North-South 트래픽을 라우팅합니다.
 - **Service Layer**: 모든 마이크로서비스는 **Istio Service Mesh** 내에서 동작하며, `Envoy Sidecar`를 통해 mTLS 통신, 트래픽 제어, 메트릭 수집을 수행합니다.
-- **Integration Layer**: **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처로 SSE 파이프라인을 처리합니다. **RabbitMQ + Celery** 비동기 Task Queue로 AI 파이프라인(Vision→Rule→Answer→Reward)을 처리하고, **KEDA**가 이벤트 드리븐 오토스케일링을 수행합니다.
+- **Event Relay Layer**: **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처로 SSE 파이프라인을 처리합니다. **RabbitMQ + Celery** 비동기 Task Queue로 AI 파이프라인(Vision→Rule→Answer→Reward)을 처리하고, **KEDA**가 이벤트 드리븐 오토스케일링을 수행합니다.
 - **Persistence Layer**: 서비스는 영속성을 위해 PostgreSQL, Redis를 사용합니다. Helm Chart로 관리되는 독립적인 데이터 인프라입니다.
 - **Platform Layer**: `Istiod`가 Service Mesh를 제어하고, `ArgoCD`가 GitOps 동기화를 담당합니다. `KEDA`가 이벤트 드리븐 오토스케일링을 수행하고, Observability 스택(`Prometheus/Grafana/Kiali`, `Jaeger`, `EFK Stack`)이 메트릭·트레이싱·로깅을 통합 관리합니다.
 
@@ -90,7 +90,7 @@ Platform Layer    : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, EF
 
 ---
 
-## Integration Layer (SSE Pipeline) ✅
+## Event Relay Layer ✅
 
 > **Status**: Redis Streams + Pub/Sub + State KV 기반 Event Relay 아키텍처 완료
 
@@ -295,7 +295,7 @@ GitOps    :
 Architecture :
   Edge Layer        - Route 53, AWS ALB, Istio Ingress Gateway
   Service Layer     - auth, my, scan, character, location, chat
-  Integration Layer - Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
+  Event Relay Layer - Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
                     - RabbitMQ, Celery Workers, KEDA (Event-driven Autoscaling)
   Persistence Layer - PostgreSQL, Redis (Cache/Streams/Pub-Sub 분리)
   Platform Layer    - ArgoCD, Istiod, KEDA, Observability (Prometheus, Grafana, EFK, Jaeger)
@@ -328,7 +328,7 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 
 ## Release Summary (v1.0.7)
 
-- **Integration Layer + AI 파이프라인** ✅
+- **Event Relay Layer + AI 파이프라인** ✅
   - **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처 구현
   - **Event Router**: Consumer Group(`XREADGROUP`)으로 Streams 소비, Pub/Sub Fan-out, 멱등성 보장
   - **SSE Gateway**: Pub/Sub 구독 기반 실시간 전달, State 복구, Streams Catch-up
@@ -369,7 +369,7 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 ## Status
 
 ### v1.0.7 - Event Relay & KEDA
-- ✅ Redis Streams + Pub/Sub + State KV 기반 Integration Layer 완료
+- ✅ Redis Streams + Pub/Sub + State KV 기반 Event Relay Layer 완료
 - ✅ Event Router, SSE Gateway 컴포넌트 개발 완료
 - ✅ KEDA 이벤트 드리븐 오토스케일링 적용 (scan-worker, event-router, character-match-worker)
 - ✅ Celery 비동기 AI 파이프라인 완료 (Vision→Rule→Answer→Reward)
