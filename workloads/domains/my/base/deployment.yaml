@@ -9,7 +9,7 @@ metadata:
     tier: business-logic
     domain: my
 spec:
-  replicas: 4  # 부하 테스트용 고정값
+  replicas: 1
   selector:
     matchLabels:
       app: my-api
