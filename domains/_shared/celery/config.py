@@ -200,6 +200,9 @@ class CelerySettings(BaseSettings):
         return {
             "broker_url": self.broker_url,
             "result_backend": self.result_backend,
+            # Broker 연결 풀 크기 (기본값 10 → 50)
+            # 600 VU 부하 테스트에서 LimitExceeded 오류 방지
+            "broker_pool_limit": 50,
             # Classic queue는 global QoS 지원 - 명시적 설정 불필요
             "broker_transport_options": {
                 "confirm_publish": True,

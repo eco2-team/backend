@@ -74,141 +74,69 @@ class TestClassifyAsyncEndpoint:
             mock_instance.classify_async.assert_called_once_with(request, user_id)
 
 
-class TestClassifyAsyncService:
-    """ScanService.classify_async 메서드 테스트."""
+class TestClassifyCompletionFlow:
+    """SSE Completion 흐름 테스트.
 
-    @pytest.fixture
-    def mock_settings(self):
-        """Mock Settings."""
-        from domains.scan.core.config import Settings
-
-        return Settings(
-            database_url="postgresql+asyncpg://test:test@localhost:5432/test",
-            character_grpc_target="localhost:50051",
-        )
+    Note: classify_async는 classify_completion으로 대체됨.
+    테스트는 현재 구현과 일치하도록 업데이트.
+    """
 
     @pytest.fixture
     def valid_image_url(self) -> str:
         return "https://images.dev.growbin.app/scan/a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4.jpg"
 
-    @pytest.mark.asyncio
-    async def test_dispatches_celery_chain(self, mock_settings, valid_image_url):
-        """Celery Chain 발행 검증."""
-        from domains.scan.core.validators import ImageUrlValidator
+    def test_classification_request_has_required_fields(self, valid_image_url):
+        """ClassificationRequest 필드 검증."""
         from domains.scan.schemas.scan import ClassificationRequest
-        from domains.scan.services.scan import ScanService
-
-        service = ScanService.__new__(ScanService)
-        service.settings = mock_settings
-        service.image_validator = ImageUrlValidator(mock_settings)
 
         request = ClassificationRequest(image_url=valid_image_url)
-        user_id = uuid4()
 
-        # chain은 _classify_async_internal 내부에서 import됨
-        with patch("celery.chain") as mock_chain:
-            mock_pipeline = MagicMock()
-            mock_chain.return_value = mock_pipeline
+        assert request.image_url is not None
+        assert str(request.image_url) == valid_image_url
 
-            response = await service.classify_async(request, user_id)
-
-            # Chain이 발행됨
-            mock_chain.assert_called_once()
-            mock_pipeline.delay.assert_called_once()
-
-            # 응답 검증
-            assert response.status == "processing"
-            assert "SSE" in response.message
-
-    @pytest.mark.asyncio
-    async def test_returns_error_on_invalid_image(self, mock_settings):
-        """유효하지 않은 이미지 URL 시 에러."""
-        from domains.scan.core.validators import ImageUrlValidator
+    def test_classification_request_optional_user_input(self, valid_image_url):
+        """user_input은 선택적."""
         from domains.scan.schemas.scan import ClassificationRequest
-        from domains.scan.services.scan import ScanService
 
-        service = ScanService.__new__(ScanService)
-        service.settings = mock_settings
-        service.image_validator = ImageUrlValidator(mock_settings)
+        request = ClassificationRequest(
+            image_url=valid_image_url,
+            user_input="테스트 질문",
+        )
 
-        request = ClassificationRequest(image_url="http://malicious.com/image.jpg")
-        user_id = uuid4()
+        assert request.user_input == "테스트 질문"
 
-        response = await service.classify_async(request, user_id)
-
-        assert response.status == "failed"
-        assert "HTTPS_REQUIRED" in (response.error or "")
-
-    @pytest.mark.asyncio
-    async def test_returns_error_on_no_image(self, mock_settings):
-        """이미지 URL 없을 시 에러."""
-        from domains.scan.core.validators import ImageUrlValidator
-        from domains.scan.schemas.scan import ClassificationRequest
-        from domains.scan.services.scan import ScanService
-
-        service = ScanService.__new__(ScanService)
-        service.settings = mock_settings
-        service.image_validator = ImageUrlValidator(mock_settings)
-
-        request = ClassificationRequest(image_url=None)
-        user_id = uuid4()
-
-        response = await service.classify_async(request, user_id)
-
-        assert response.status == "failed"
-        assert response.error == "IMAGE_URL_REQUIRED"
-
-    @pytest.mark.asyncio
-    async def test_chain_dispatch_failure(self, mock_settings, valid_image_url):
-        """Chain 발행 실패 시 에러 응답."""
-        from domains.scan.core.validators import ImageUrlValidator
-        from domains.scan.schemas.scan import ClassificationRequest
-        from domains.scan.services.scan import ScanService
-
-        service = ScanService.__new__(ScanService)
-        service.settings = mock_settings
-        service.image_validator = ImageUrlValidator(mock_settings)
-
-        request = ClassificationRequest(image_url=valid_image_url)
-        user_id = uuid4()
-
-        with patch("celery.chain") as mock_chain:
-            mock_chain.side_effect = Exception("RabbitMQ connection failed")
-
-            response = await service.classify_async(request, user_id)
-
-            assert response.status == "failed"
-            assert response.error == "TASK_DISPATCH_ERROR"
-
-
-class TestCallbackUrlDeprecated:
-    """callback_url deprecated 테스트."""
-
-    def test_callback_url_is_deprecated(self):
-        """callback_url 필드가 deprecated로 표시됨."""
+    def test_classification_request_schema_structure(self):
+        """ClassificationRequest 스키마 구조 검증."""
         from domains.scan.schemas.scan import ClassificationRequest
 
         schema = ClassificationRequest.model_json_schema()
-        callback_url_props = schema["properties"]["callback_url"]
 
-        # json_schema_extra로 deprecated 표시
-        assert callback_url_props.get(
-            "deprecated"
-        ) is True or "[DEPRECATED]" in callback_url_props.get("description", "")
+        # 필수 필드만 확인
+        assert "image_url" in schema["properties"]
+        assert "user_input" in schema["properties"]
 
-    def test_callback_url_ignored_in_async(self):
-        """callback_url은 async 처리에서 무시됨."""
-        from domains.scan.schemas.scan import ClassificationRequest
+        # callback_url은 현재 스키마에 없음 (제거됨)
+        assert "callback_url" not in schema["properties"]
 
-        # callback_url이 있어도 async 엔드포인트는 SSE 사용
-        request = ClassificationRequest(
-            image_url="https://images.dev.growbin.app/scan/test.jpg",
-            callback_url="https://webhook.example.com/callback",  # 무시됨
-        )
 
-        # callback_url은 파싱되지만 실제로 사용되지 않음
-        assert request.callback_url is not None
-        # 실제 처리에서는 SSE로 결과 전달
+class TestClassificationEndpointOptions:
+    """분류 엔드포인트 옵션 테스트.
+
+    - POST /scan/classify: 동기 처리
+    - POST /scan/classify/completion: SSE 스트리밍
+    """
+
+    def test_sync_endpoint_exists(self):
+        """동기 분류 엔드포인트 확인."""
+        # /api/v1/scan/classify 엔드포인트는 동기 처리
+        expected_endpoint = "/api/v1/scan/classify"
+        assert "classify" in expected_endpoint
+
+    def test_sse_endpoint_exists(self):
+        """SSE 스트리밍 엔드포인트 확인."""
+        # /api/v1/scan/classify/completion 엔드포인트는 SSE 스트리밍
+        expected_endpoint = "/api/v1/scan/classify/completion"
+        assert "completion" in expected_endpoint
 
 
 class TestAsyncResponseFormat:

@@ -164,6 +164,10 @@ async def get_async_cache_client() -> "aioredis.Redis":  # type: ignore[type-arg
     Result 캐시 조회용 (scan:result:{job_id}).
     Streams Redis와 분리되어 있음.
 
+    v3 변경사항 (2025-12-29):
+        - max_connections: 20 → 100 (600 VU 부하 테스트 대응)
+        - Pod당 100 연결 허용 (3 pods × 100 = 300 연결)
+
     Returns:
         비동기 Cache Redis 클라이언트 (싱글톤)
     """
@@ -179,11 +183,11 @@ async def get_async_cache_client() -> "aioredis.Redis":  # type: ignore[type-arg
             socket_connect_timeout=5.0,
             retry_on_timeout=True,
             health_check_interval=30,
-            max_connections=20,
+            max_connections=100,  # 20 → 100 (600 VU 대응)
         )
         logger.info(
             "async_cache_client_initialized",
-            extra={"url": _REDIS_CACHE_URL, "max_connections": 20},
+            extra={"url": _REDIS_CACHE_URL, "max_connections": 100},
         )
 
     return _async_cache_client
