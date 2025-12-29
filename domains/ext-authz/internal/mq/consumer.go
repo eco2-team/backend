@@ -66,7 +66,7 @@ var (
 type BlacklistEvent struct {
 	Type     string    `json:"type"`      // "add" or "remove"
 	JTI      string    `json:"jti"`       // Token identifier
-	ExpireAt time.Time `json:"expire_at"` // When the token expires
+	ExpireAt time.Time `json:"expires_at"` // When the token expires
 }
 
 // BlacklistConsumer consumes blacklist events from RabbitMQ.
