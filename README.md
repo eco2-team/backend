@@ -161,11 +161,41 @@ flowchart TB
     FluentBit -->|Forward| Elasticsearch
     Kibana -.->|Query| Elasticsearch
 
-    classDef external fill:#f9f,stroke:#333,stroke-width:2px
-    classDef cp fill:#bbf,stroke:#333,stroke-width:2px
-    classDef dp fill:#bfb,stroke:#333,stroke-width:2px
-    classDef data fill:#fbb,stroke:#333,stroke-width:2px
-    classDef obs fill:#ffb,stroke:#333,stroke-width:2px
+    %% Node Styles
+    classDef external fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef control fill:#bbdefb,stroke:#1976d2,stroke-width:2px,color:#000
+    classDef ingress fill:#b2dfdb,stroke:#00796b,stroke-width:2px,color:#000
+    classDef services fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef data fill:#ffccbc,stroke:#e64a19,stroke-width:2px,color:#000
+    classDef integration fill:#b3e5fc,stroke:#0288d1,stroke-width:2px,color:#000
+    classDef workers fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#000
+    classDef obs fill:#d1c4e9,stroke:#512da8,stroke-width:2px,color:#000
+    classDef logging fill:#ffe0b2,stroke:#ff6f00,stroke-width:2px,color:#000
+
+    class User,Route53,ALB external
+    class ArgoCD,ALBC,ExtDNS,ExtSecrets,Istiod control
+    class IG,EF,VS,ExtAuthz ingress
+    class Auth,My,Scan,Character,Location,Image,Chat services
+    class Redis,RedisStreams,RedisPubSub,PostgreSQL,RabbitMQ data
+    class EventRouter,SSEGateway integration
+    class ScanWorker,CharWorker,CeleryBeat workers
+    class Prometheus,Grafana,Kiali,Jaeger obs
+    class FluentBit,Elasticsearch,Kibana logging
+
+    %% Subgraph Styles (경계 색상)
+    style External fill:#fce4ec,stroke:#c2185b,stroke-width:3px
+    style CP fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style PlatformCP fill:#e8eaf6,stroke:#3949ab,stroke-width:1px
+    style IstioCP fill:#e8eaf6,stroke:#3949ab,stroke-width:1px
+    style DP fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style Ingress fill:#e0f2f1,stroke:#00695c,stroke-width:1px
+    style AuthZ fill:#e0f2f1,stroke:#00695c,stroke-width:1px
+    style Services fill:#f1f8e9,stroke:#558b2f,stroke-width:1px
+    style Data fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style EventBus fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style Workers fill:#fffde7,stroke:#f9a825,stroke-width:2px
+    style Obs fill:#ede7f6,stroke:#4527a0,stroke-width:2px
+    style Logging fill:#fff8e1,stroke:#ff8f00,stroke-width:2px
 ```
 
 
@@ -246,78 +276,58 @@ Platform Layer    : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, EF
 > **Status**: Redis Streams + Pub/Sub + State KV 기반 Event Relay 아키텍처 완료
 
 ```mermaid
-sequenceDiagram
-    participant Client
-    participant ScanAPI as Scan API
-    participant RabbitMQ
-    participant ScanWorker as Scan Worker
-    participant RedisStreams as Redis Streams
-    participant EventRouter as Event Router
-    participant RedisPubSub as Redis Pub/Sub
-    participant StateKV as State KV
-    participant SSEGateway as SSE Gateway
+flowchart LR
+    subgraph Worker["🔧 Celery Worker"]
+        SW["scan-worker"]
+    end
 
-    Client->>ScanAPI: POST /api/v1/scan
-    ScanAPI->>RabbitMQ: Dispatch Chain (job_id)
-    ScanAPI-->>Client: 202 Accepted {job_id}
+    subgraph Streams["📊 Redis Streams"]
+        RS[("scan:events:*<br/>(내구성)")]
+    end
 
-    Client->>SSEGateway: GET /api/v1/stream?job_id (SSE)
-    SSEGateway->>RedisPubSub: SUBSCRIBE sse:events:{job_id}
-    SSEGateway->>StateKV: GET scan:state:{job_id}
+    subgraph Router["🔀 Event Router"]
+        ER["Consumer Group<br/>XREADGROUP"]
+    end
 
-    RabbitMQ->>ScanWorker: scan.vision queue
-    ScanWorker->>ScanWorker: GPT Vision 분석
-    ScanWorker->>RedisStreams: XADD scan:events:{shard}
+    subgraph State["💾 State KV"]
+        SK[("scan:state:*<br/>(복구/조회)")]
+    end
 
-    RedisStreams->>EventRouter: XREADGROUP (Consumer Group)
-    EventRouter->>StateKV: SETEX scan:state:{job_id}
-    EventRouter->>RedisPubSub: PUBLISH sse:events:{job_id}
-    RedisPubSub-->>SSEGateway: Event: vision
-    SSEGateway-->>Client: SSE: stage=vision
+    subgraph PubSub["📡 Redis Pub/Sub"]
+        PS[("sse:events:*<br/>(실시간)")]
+    end
 
-    Note over ScanWorker,EventRouter: rule → answer → reward 동일 플로우
+    subgraph Gateway["🌐 SSE Gateway"]
+        SG["Pub/Sub 구독<br/>State 복구<br/>Streams Catch-up"]
+    end
 
-    ScanWorker->>RedisStreams: XADD (stage=done)
-    EventRouter->>RedisPubSub: PUBLISH (done)
-    SSEGateway-->>Client: SSE: stage=done (result)
-```
+    subgraph Client["👤 Client"]
+        CL["Browser/App"]
+    end
 
-### Event Relay 아키텍처
+    SW -->|XADD| RS
+    RS -->|XREADGROUP| ER
+    ER -->|SETEX| SK
+    ER -->|PUBLISH| PS
+    SK -.->|GET 재접속| SG
+    PS -->|SUBSCRIBE| SG
+    SG -->|SSE| CL
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Integration Layer                                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────┐    XADD    ┌──────────────┐   XREADGROUP  ┌─────────────┐ │
-│  │ Scan Worker │ ─────────▶ │ Redis Streams│ ─────────────▶│ Event Router│ │
-│  └─────────────┘            │ (내구성)      │               │ (Consumer   │ │
-│                             │ scan:events:* │               │  Group)     │ │
-│                             └──────────────┘               └──────┬──────┘ │
-│                                                                   │        │
-│                         ┌─────────────────────────────────────────┤        │
-│                         │                                         │        │
-│                         ▼ SETEX                                   ▼ PUBLISH│
-│                  ┌──────────────┐                          ┌──────────────┐│
-│                  │ State KV     │                          │ Redis Pub/Sub││
-│                  │ (복구/조회)   │                          │ (실시간)      ││
-│                  │ scan:state:* │                          │ sse:events:* ││
-│                  └──────────────┘                          └──────┬───────┘│
-│                         ▲                                         │        │
-│                         │ GET (재접속 시)                  SUBSCRIBE│        │
-│                         │                                         ▼        │
-│                  ┌──────────────────────────────────────────────────────┐  │
-│                  │                    SSE Gateway                       │  │
-│                  │  • Pub/Sub 구독 → 실시간 이벤트 전달                  │  │
-│                  │  • State KV → 재접속 시 상태 복구                    │  │
-│                  │  • Streams Catch-up → 누락 이벤트 보완               │  │
-│                  └───────────────────────────┬──────────────────────────┘  │
-│                                              │ SSE                         │
-│                                              ▼                             │
-│                                       ┌──────────────┐                     │
-│                                       │    Client    │                     │
-│                                       └──────────────┘                     │
-└─────────────────────────────────────────────────────────────────────────────┘
+    classDef worker fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#000
+    classDef streams fill:#ffccbc,stroke:#e64a19,stroke-width:2px,color:#000
+    classDef router fill:#b3e5fc,stroke:#0288d1,stroke-width:2px,color:#000
+    classDef state fill:#d1c4e9,stroke:#512da8,stroke-width:2px,color:#000
+    classDef pubsub fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef gateway fill:#b2dfdb,stroke:#00796b,stroke-width:2px,color:#000
+    classDef client fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px,color:#000
+
+    class SW worker
+    class RS streams
+    class ER router
+    class SK state
+    class PS pubsub
+    class SG gateway
+    class CL client
 ```
 
 | 컴포넌트 | 역할 | 스케일링 |
