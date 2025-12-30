@@ -28,8 +28,8 @@ spec:
         # 설정
         config:
           logLevel: info
-          # Kubernetes API 직접 사용 (ArgoCD Token 불필요)
-          applicationsAPIKind: kubernetes
+          # ArgoCD API 사용 (Token 필요)
+          # applicationsAPIKind: argocd (기본값)
           registries:
           - name: DockerHub
             prefix: docker.io
