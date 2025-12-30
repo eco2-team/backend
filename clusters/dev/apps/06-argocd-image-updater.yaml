@@ -33,12 +33,17 @@ spec:
           # plaintext 연결 (internal service)
           argocd.insecure: 'true'
           argocd.plaintext: 'true'
+          argocd.grpc_web: 'false'
           registries:
           - name: DockerHub
             prefix: docker.io
             api_url: https://registry-1.docker.io
             # Public repository는 인증 없이 digest 확인 가능
             default: true
+
+        # 추가 CLI 인자 - dry-run 비활성화
+        extraArgs:
+        - --dry-run=false
 
         # RBAC - ClusterRole로 전체 namespace의 Application 수정 권한 부여
         rbac:
