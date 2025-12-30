@@ -8,8 +8,8 @@ from fastapi import Depends
 from redis.asyncio import Redis
 
 from domains.auth.infrastructure.redis import get_blacklist_redis
-from domains.auth.core.security import compute_ttl_seconds, now_utc
-from domains.auth.core.jwt import TokenPayload
+from domains.auth.infrastructure.auth.security import compute_ttl_seconds, now_utc
+from domains.auth.infrastructure.auth.jwt import TokenPayload
 from domains.auth.application.services.blacklist_publisher import get_blacklist_publisher
 
 logger = logging.getLogger(__name__)

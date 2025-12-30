@@ -7,9 +7,9 @@ from typing import Optional
 from fastapi import Depends
 from redis.asyncio import Redis
 
-from domains.auth.core.config import get_settings
+from domains.auth.setup.config import get_settings
 from domains.auth.infrastructure.redis import get_oauth_state_redis
-from domains.auth.core.security import (
+from domains.auth.infrastructure.auth.security import (
     compute_ttl_seconds,
     generate_code_challenge,
     generate_code_verifier,

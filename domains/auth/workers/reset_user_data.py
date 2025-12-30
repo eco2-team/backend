@@ -13,7 +13,7 @@ import sys
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from domains.auth.core.config import get_settings
+from domains.auth.setup.config import get_settings
 from domains.auth.infrastructure.database.base import Base
 
 # Import models so that SQLAlchemy metadata knows about all tables.

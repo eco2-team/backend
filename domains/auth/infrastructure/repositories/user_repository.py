@@ -8,7 +8,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from domains.auth.core.security import now_utc
+from domains.auth.infrastructure.auth.security import now_utc
 from domains.auth.domain.models import User, UserSocialAccount
 from domains.auth.application.schemas.oauth import OAuthProfile
 

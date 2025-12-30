@@ -8,7 +8,7 @@ import sys
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from domains.auth.core.config import get_settings
+from domains.auth.setup.config import get_settings
 from domains.auth.infrastructure.database.base import Base
 from domains.auth.domain.models.login_audit import LoginAudit  # noqa: F401
 from domains.auth.domain.models.user import User  # noqa: F401

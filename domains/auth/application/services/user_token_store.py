@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from redis.asyncio import Redis
 
 from domains.auth.infrastructure.redis import get_blacklist_redis
-from domains.auth.core.security import compute_ttl_seconds
+from domains.auth.infrastructure.auth.security import compute_ttl_seconds
 
 
 class TokenMetadata(BaseModel):

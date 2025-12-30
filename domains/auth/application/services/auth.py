@@ -8,8 +8,8 @@ from typing import Optional
 from fastapi import Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domains.auth.core.config import Settings, get_settings
-from domains.auth.core.security import now_utc
+from domains.auth.setup.config import Settings, get_settings
+from domains.auth.infrastructure.auth.security import now_utc
 from domains.auth.infrastructure.database.session import get_db_session
 from domains.auth.infrastructure.repositories import LoginAuditRepository, UserRepository
 from domains.auth.application.schemas.auth import (
@@ -23,7 +23,7 @@ from domains.auth.application.services.state_service import OAuthStateStore
 from domains.auth.application.services.token_blacklist import TokenBlacklist
 from domains.auth.application.services.token_service import TokenService, TokenType
 from domains.auth.application.services.user_token_store import UserTokenStore
-from domains.auth.core.jwt import TokenPayload
+from domains.auth.infrastructure.auth.jwt import TokenPayload
 
 logger = logging.getLogger(__name__)
 

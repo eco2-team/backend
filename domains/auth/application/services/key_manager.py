@@ -3,7 +3,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 import base64
 
-from domains.auth.core.config import get_settings
+from domains.auth.setup.config import get_settings
 
 
 class KeyManager:

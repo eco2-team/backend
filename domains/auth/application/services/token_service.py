@@ -7,9 +7,9 @@ from fastapi import Depends, HTTPException, status
 from jose import jwt
 from pydantic import BaseModel
 
-from domains.auth.core.config import Settings, get_settings
-from domains.auth.core.security import now_utc, to_unix_timestamp
-from domains.auth.core.jwt import TokenPayload, TokenType, decode_jwt
+from domains.auth.setup.config import Settings, get_settings
+from domains.auth.infrastructure.auth.security import now_utc, to_unix_timestamp
+from domains.auth.infrastructure.auth.jwt import TokenPayload, TokenType, decode_jwt
 
 
 class TokenPairInternal(BaseModel):

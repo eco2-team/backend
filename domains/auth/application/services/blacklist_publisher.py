@@ -29,7 +29,7 @@ import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from domains.auth.core.config import get_settings
+from domains.auth.setup.config import get_settings
 
 if TYPE_CHECKING:
     from domains.auth.application.ports.outbox import OutboxRepository

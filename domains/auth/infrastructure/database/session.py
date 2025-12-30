@@ -2,7 +2,7 @@ from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from domains.auth.core.config import get_settings
+from domains.auth.setup.config import get_settings
 
 settings = get_settings()
 

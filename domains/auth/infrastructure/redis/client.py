@@ -5,7 +5,7 @@ from redis.asyncio.retry import Retry
 from redis.backoff import ExponentialBackoff
 from redis.exceptions import ConnectionError, TimeoutError
 
-from domains.auth.core.config import get_settings
+from domains.auth.setup.config import get_settings
 
 # Redis connection pool health check interval (seconds)
 # Prevents "Connection closed by server" errors from idle connections

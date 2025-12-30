@@ -16,7 +16,7 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
-from domains.auth.core.constants import (
+from domains.auth.setup.constants import (
     DEFAULT_ENVIRONMENT,
     DEFAULT_LOG_FORMAT,
     DEFAULT_LOG_LEVEL,

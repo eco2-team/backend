@@ -11,7 +11,7 @@ from domains.auth.presentation.http.routers import (
     kakao_router,
     naver_router,
 )
-from domains.auth.core.config import get_settings
+from domains.auth.setup.config import get_settings
 from domains.auth.application.schemas.auth import (
     AuthorizationSuccessResponse,
     LogoutData,

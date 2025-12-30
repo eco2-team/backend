@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Optional
 
-from domains.auth.core.config import Settings, get_settings
+from domains.auth.setup.config import Settings, get_settings
 from domains.auth.application.services.providers.base import OAuthProvider
 from domains.auth.application.services.providers.google import GoogleOAuthProvider
 from domains.auth.application.services.providers.kakao import KakaoOAuthProvider
