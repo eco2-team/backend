@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-api-canary
+  namespace: my
+  labels:
+    app: my-api
+    version: v2
+    tier: business-logic
+    domain: my
+    release: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-api
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: my-api
+        version: v2
+        tier: business-logic
+        domain: my
+        release: canary
+    spec:
+      containers:
+      - name: my-api
+        image: docker.io/mng990/eco2:my-api-dev-canary
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: OTEL_SERVICE_NAME
+          value: my-api-canary
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
+        - name: POSTGRES_HOST
+          value: postgresql.postgres.svc.cluster.local
+        - name: REDIS_HOST
+          value: redis.redis.svc.cluster.local
+        - name: CHARACTER_GRPC_HOST
+          value: character-grpc.character.svc.cluster.local
+        - name: CHARACTER_GRPC_PORT
+          value: '50051'
+        - name: RELEASE_TYPE
+          value: canary
+        envFrom:
+        - configMapRef:
+            name: my-config
+        - secretRef:
+            name: my-secret
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 512Mi
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: my
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: my
+        effect: NoSchedule

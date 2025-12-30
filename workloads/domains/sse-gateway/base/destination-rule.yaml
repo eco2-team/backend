@@ -1,0 +1,24 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: sse-gateway
+  namespace: sse-consumer
+  labels:
+    app: sse-gateway
+    domain: sse
+spec:
+  host: sse-gateway.sse-consumer.svc.cluster.local
+  subsets:
+  - name: stable
+    labels:
+      app: sse-gateway
+  - name: canary
+    labels:
+      version: v2
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_REQUEST
+    connectionPool:
+      http:
+        http2MaxRequests: 1000
+        maxRequestsPerConnection: 0

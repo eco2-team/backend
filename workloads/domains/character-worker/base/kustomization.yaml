@@ -5,6 +5,7 @@ namespace: character
 
 resources:
 - deployment.yaml
+- deployment-canary.yaml
 - configmap.yaml
 - hpa.yaml
 

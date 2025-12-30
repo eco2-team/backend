@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scan-api-canary
+  namespace: scan
+  labels:
+    app: scan-api
+    version: v2
+    tier: business-logic
+    domain: scan
+    release: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scan-api
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: scan-api
+        version: v2
+        tier: business-logic
+        domain: scan
+        release: canary
+    spec:
+      containers:
+      - name: scan-api
+        image: docker.io/mng990/eco2:scan-api-dev-canary
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        env:
+        - name: OTEL_SERVICE_NAME
+          value: scan-api-canary
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
+        - name: POSTGRES_HOST
+          value: postgresql.postgres.svc.cluster.local
+        - name: REDIS_HOST
+          value: redis.redis.svc.cluster.local
+        - name: REDIS_STREAMS_URL
+          value: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
+        - name: REDIS_CACHE_URL
+          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        - name: SSE_SHARD_COUNT
+          value: '4'
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              name: scan-secret
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        - name: RELEASE_TYPE
+          value: canary
+        envFrom:
+        - configMapRef:
+            name: scan-config
+        - secretRef:
+            name: scan-secret
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: scan
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: scan
+        effect: NoSchedule

@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ext-authz-canary
+  namespace: auth
+  labels:
+    app: ext-authz
+    version: v2
+    tier: business-logic
+    domain: ext-authz
+    release: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ext-authz
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: ext-authz
+        version: v2
+        tier: business-logic
+        domain: ext-authz
+        release: canary
+      annotations:
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+    spec:
+      containers:
+      - name: ext-authz
+        image: docker.io/mng990/eco2:ext-authz-canary
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 50051
+          name: grpc
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: AUTH_REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_REDIS_BLACKLIST_URL
+        - name: AUTH_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_JWT_SECRET_KEY
+        - name: AUTH_ALGORITHM
+          valueFrom:
+            configMapKeyRef:
+              name: auth-config
+              key: AUTH_JWT_ALGORITHM
+        - name: AUTH_GRPC_PORT
+          value: '50051'
+        - name: AUTH_METRICS_PORT
+          value: '9090'
+        - name: LOCAL_CACHE_ENABLED
+          value: 'true'
+        - name: LOCAL_CACHE_CLEANUP_INTERVAL
+          value: '60'
+        - name: AMQP_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_AMQP_URL
+        - name: OTEL_ENABLED
+          value: 'true'
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
+        - name: OTEL_SAMPLING_RATE
+          value: '1.0'
+        - name: RELEASE_TYPE
+          value: canary
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9090
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 9090
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 200m
+            memory: 64Mi
+          limits:
+            cpu: '1'
+            memory: 256Mi
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: auth
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: auth
+        effect: NoSchedule

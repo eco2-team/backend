@@ -5,6 +5,7 @@ namespace: auth
 
 resources:
 - deployment.yaml
+- deployment-canary.yaml
 - configmap.yaml
 
 commonLabels:

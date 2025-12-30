@@ -1,0 +1,126 @@
+# Character Reward Worker Canary Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: character-worker-canary
+  namespace: character
+  labels:
+    app: character-worker
+    version: v2
+    tier: worker
+    domain: character
+    release: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: character-worker
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: character-worker
+        version: v2
+        tier: worker
+        domain: character
+        release: canary
+      annotations:
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+    spec:
+      containers:
+      - name: character-worker
+        image: docker.io/mng990/eco2:character-worker-dev-canary
+        imagePullPolicy: Always
+        command: [celery]
+        args:
+        - -A
+        - domains.character.celery_app
+        - worker
+        - --loglevel=info
+        - -E
+        - -P
+        - gevent
+        - -Q
+        - character.reward
+        - -c
+        - '20'
+        env:
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              name: character-secret
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        - name: DB_POOL_SIZE
+          value: '15'
+        - name: DB_MAX_OVERFLOW
+          value: '20'
+        - name: DB_POOL_TIMEOUT
+          value: '30'
+        - name: DB_POOL_RECYCLE
+          value: '1800'
+        - name: OTEL_SERVICE_NAME
+          value: character-worker-canary
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
+        - name: POSTGRES_HOST
+          value: postgresql.postgres.svc.cluster.local
+        - name: REDIS_HOST
+          value: redis.redis.svc.cluster.local
+        - name: MY_GRPC_HOST
+          value: my-api-grpc.my.svc.cluster.local
+        - name: MY_GRPC_PORT
+          value: '50051'
+        - name: RELEASE_TYPE
+          value: canary
+        envFrom:
+        - configMapRef:
+            name: character-worker-config
+        - secretRef:
+            name: character-secret
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        startupProbe:
+          exec:
+            command: [celery, -A, domains.character.celery_app, inspect, ping, -t, '15']
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 20
+          failureThreshold: 12
+        livenessProbe:
+          exec:
+            command: [celery, -A, domains.character.celery_app, inspect, ping, -t, '15']
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 20
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: [celery, -A, domains.character.celery_app, inspect, ping, -t, '15']
+          initialDelaySeconds: 5
+          periodSeconds: 20
+          timeoutSeconds: 20
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: worker-storage
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-storage
+        effect: NoSchedule
