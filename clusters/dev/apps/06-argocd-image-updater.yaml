@@ -41,9 +41,11 @@ spec:
             # Public repository는 인증 없이 digest 확인 가능
             default: true
 
-        # 추가 CLI 인자 - dry-run 비활성화
+        # 추가 CLI 인자
         extraArgs:
         - --dry-run=false
+        - --argocd-plaintext
+        - --argocd-insecure
 
         # RBAC - ClusterRole로 전체 namespace의 Application 수정 권한 부여
         rbac:
