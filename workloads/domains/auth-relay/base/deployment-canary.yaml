@@ -36,7 +36,7 @@ spec:
         effect: NoSchedule
       containers:
       - name: relay
-        image: mng990/eco2:auth-relay-canary
+        image: docker.io/mng990/eco2:auth-relay-dev-canary
         imagePullPolicy: Always
         resources:
           requests:

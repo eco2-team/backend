@@ -30,7 +30,7 @@ spec:
         effect: NoSchedule
       containers:
       - name: relay
-        image: mng990/eco2:auth-relay-latest
+        image: docker.io/mng990/eco2:auth-relay-dev-latest
         imagePullPolicy: Always
         resources:
           requests:
