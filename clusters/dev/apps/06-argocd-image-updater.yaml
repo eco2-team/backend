@@ -30,10 +30,12 @@ spec:
           logLevel: info
           # ArgoCD API 사용 (Kubernetes API 대신 ArgoCD API로 Application 읽기/수정)
           applicationsAPIKind: argocd
-          # plaintext 연결 (internal service)
-          argocd.insecure: 'true'
-          argocd.plaintext: 'true'
-          argocd.grpc_web: 'false'
+          # ArgoCD 연결 설정
+          argocd:
+            grpcWeb: false
+            insecure: true
+            plaintext: true
+          # Registry 설정
           registries:
           - name: DockerHub
             prefix: docker.io
