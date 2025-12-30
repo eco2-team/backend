@@ -46,7 +46,6 @@ spec:
 
         # 추가 CLI 인자
         extraArgs:
-        - --dry-run=false
         - --argocd-plaintext
         - --argocd-insecure
 
