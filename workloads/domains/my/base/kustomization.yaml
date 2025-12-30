@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: my
 resources:
 - deployment.yaml
+- deployment-canary.yaml
 - deployment-grpc.yaml
 - service.yaml
 - service-grpc.yaml

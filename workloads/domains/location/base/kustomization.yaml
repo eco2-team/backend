@@ -3,8 +3,10 @@ kind: Kustomization
 namespace: location
 resources:
 - deployment.yaml
+- deployment-canary.yaml
 - service.yaml
 - configmap.yaml
+- destination-rule.yaml
 labels:
 - includeSelectors: true
   pairs:

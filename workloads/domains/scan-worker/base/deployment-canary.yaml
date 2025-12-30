@@ -1,0 +1,128 @@
+# Scan Worker Canary Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scan-worker-canary
+  namespace: scan
+  labels:
+    app: scan-worker
+    version: v2
+    tier: worker
+    domain: scan
+    release: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scan-worker
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: scan-worker
+        version: v2
+        tier: worker
+        domain: scan
+        release: canary
+      annotations:
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+    spec:
+      initContainers:
+      - name: init-ulimit
+        image: busybox:1.36
+        command: [sh, -c, ulimit -n || echo "ulimit check skipped"]
+        securityContext:
+          runAsUser: 0
+      containers:
+      - name: scan-worker
+        image: docker.io/mng990/eco2:scan-worker-dev-canary
+        imagePullPolicy: Always
+        command: [/bin/sh, -c]
+        args:
+        - |
+          ulimit -n 65536 2>/dev/null || echo "ulimit setting skipped (not privileged)"
+          exec celery -A domains.scan.celery_app worker \
+            --loglevel=info \
+            -E \
+            -P gevent \
+            -Q scan.vision,scan.rule,scan.answer,scan.reward \
+            -c 100 \
+            --prefetch-multiplier=1
+        env:
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              name: scan-secret
+              key: CELERY_BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        - name: REDIS_STREAMS_URL
+          value: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
+        - name: REDIS_CACHE_URL
+          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        - name: SSE_SHARD_COUNT
+          value: '4'
+        - name: CELERY_WORKER_POOL
+          value: gevent
+        - name: CELERY_WORKER_PREFETCH_MULTIPLIER
+          value: '1'
+        - name: OTEL_SERVICE_NAME
+          value: scan-worker-canary
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
+        - name: POSTGRES_HOST
+          value: postgresql.postgres.svc.cluster.local
+        - name: REDIS_HOST
+          value: redis.redis.svc.cluster.local
+        - name: RELEASE_TYPE
+          value: canary
+        envFrom:
+        - configMapRef:
+            name: scan-config
+        - secretRef:
+            name: scan-secret
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        startupProbe:
+          exec:
+            command: [celery, -A, domains.scan.celery_app, inspect, ping, -t, '15']
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 20
+          failureThreshold: 12
+        livenessProbe:
+          exec:
+            command: [celery, -A, domains.scan.celery_app, inspect, ping, -t, '15']
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 20
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: [celery, -A, domains.scan.celery_app, inspect, ping, -t, '15']
+          initialDelaySeconds: 5
+          periodSeconds: 20
+          timeoutSeconds: 20
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: worker-ai
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-ai
+        effect: NoSchedule

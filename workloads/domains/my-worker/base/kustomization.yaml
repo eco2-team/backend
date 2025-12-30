@@ -5,6 +5,7 @@ namespace: my
 
 resources:
 - deployment.yaml
+- deployment-canary.yaml
 - configmap.yaml
 - hpa.yaml
 

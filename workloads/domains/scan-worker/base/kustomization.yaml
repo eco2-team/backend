@@ -5,6 +5,7 @@ namespace: scan
 
 resources:
 - deployment.yaml
+- deployment-canary.yaml
 - configmap.yaml
 # HPA removed - managed by workloads/scaling (KEDA ScaledObject)
 # - hpa.yaml

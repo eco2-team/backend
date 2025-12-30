@@ -3,9 +3,11 @@ kind: Kustomization
 namespace: auth
 resources:
 - deployment.yaml
+- deployment-canary.yaml
 - service.yaml
 - configmap.yaml
 - hpa.yaml
+- destination-rule.yaml
 labels:
 - includeSelectors: true
   pairs:

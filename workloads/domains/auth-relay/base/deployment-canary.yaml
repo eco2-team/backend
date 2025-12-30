@@ -1,0 +1,71 @@
+# Auth Relay Canary Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-relay-canary
+  namespace: auth
+  labels:
+    app: auth-relay
+    version: v2
+    tier: integration
+    domain: auth
+    release: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-relay
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: auth-relay
+        version: v2
+        tier: integration
+        domain: auth
+        release: canary
+      annotations:
+        sidecar.istio.io/inject: 'false'
+    spec:
+      nodeSelector:
+        workload-type: storage
+      tolerations:
+      - key: workload-type
+        operator: Equal
+        value: storage
+        effect: NoSchedule
+      containers:
+      - name: relay
+        image: mng990/eco2:auth-relay-canary
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+        env:
+        - name: RELEASE_TYPE
+          value: canary
+        envFrom:
+        - configMapRef:
+            name: auth-relay-config
+        - secretRef:
+            name: auth-secret
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - |
+              import redis
+              import os
+              r = redis.from_url(os.getenv('AUTH_REDIS_URL'))
+              r.ping()
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: dockerhub-secret

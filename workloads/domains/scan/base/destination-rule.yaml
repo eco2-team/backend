@@ -1,13 +1,13 @@
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: my-api
-  namespace: my
+  name: scan-api
+  namespace: scan
   labels:
-    app: my-api
-    domain: my
+    app: scan-api
+    domain: scan
 spec:
-  host: my-api.my.svc.cluster.local
+  host: scan-api.scan.svc.cluster.local
   subsets:
   - name: stable
     labels:
@@ -20,5 +20,5 @@ spec:
       simple: ROUND_ROBIN
     connectionPool:
       http:
-        http2MaxRequests: 3000
+        http2MaxRequests: 1000
         maxRequestsPerConnection: 100

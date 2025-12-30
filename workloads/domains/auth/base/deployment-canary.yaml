@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-api-canary
+  namespace: auth
+  labels:
+    app: auth-api
+    version: v2
+    tier: business-logic
+    domain: auth
+    release: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-api
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: auth-api
+        version: v2
+        tier: business-logic
+        domain: auth
+        release: canary
+    spec:
+      containers:
+      - name: auth-api
+        # Canary 이미지 (리팩토링된 버전)
+        image: docker.io/mng990/eco2:auth-api-dev-canary
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        env:
+        - name: OTEL_SERVICE_NAME
+          value: auth-api-canary
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        # W3C Trace Context propagation (Istio 호환)
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
+        # Canary 버전 식별용 환경 변수
+        - name: RELEASE_TYPE
+          value: canary
+        envFrom:
+        - configMapRef:
+            name: auth-config
+        - secretRef:
+            name: auth-secret
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: auth
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: auth
+        effect: NoSchedule

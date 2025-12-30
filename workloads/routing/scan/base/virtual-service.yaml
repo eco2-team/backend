@@ -23,6 +23,21 @@ spec:
   gateways:
   - istio-system/eco2-gateway
   http:
+  # ======= Canary 라우팅 (X-Canary: true 헤더) =======
+  - name: scan-api-canary
+    match:
+    - headers:
+        x-canary:
+          exact: 'true'
+      uri:
+        prefix: /api/v1/scan
+    route:
+    - destination:
+        host: scan-api.scan.svc.cluster.local
+        port:
+          number: 8000
+        subset: canary
+  # ======= 기본 트래픽 → Stable =======
   - name: scan-api
     match:
     - uri:
@@ -32,3 +47,4 @@ spec:
         host: scan-api.scan.svc.cluster.local
         port:
           number: 8000
+        subset: stable

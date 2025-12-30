@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: auth
 resources:
 - deployment.yaml
+- deployment-canary.yaml
 - service.yaml
 - hpa.yaml
 - destination-rule.yaml

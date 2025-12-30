@@ -5,6 +5,13 @@ metadata:
   namespace: auth
 spec:
   host: ext-authz.auth.svc.cluster.local
+  subsets:
+  - name: stable
+    labels:
+      app: ext-authz
+  - name: canary
+    labels:
+      version: v2
   trafficPolicy:
     loadBalancer:
       simple: ROUND_ROBIN

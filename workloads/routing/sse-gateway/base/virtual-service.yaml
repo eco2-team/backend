@@ -24,6 +24,30 @@ spec:
   gateways:
   - istio-system/eco2-gateway
   http:
+  # ======= Canary 라우팅 (X-Canary: true 헤더) =======
+  - name: sse-stream-canary
+    match:
+    - headers:
+        x-canary:
+          exact: 'true'
+      uri:
+        prefix: /api/v1/stream
+      method:
+        exact: GET
+    route:
+    - destination:
+        host: sse-gateway.sse-consumer.svc.cluster.local
+        port:
+          number: 8000
+        subset: canary
+    timeout: 86400s
+    retries:
+      attempts: 0
+    headers:
+      request:
+        set:
+          x-sse-gateway: 'true'
+  # ======= 기본 트래픽 → Stable =======
   - name: sse-stream
     match:
     - uri:
@@ -35,10 +59,10 @@ spec:
         host: sse-gateway.sse-consumer.svc.cluster.local
         port:
           number: 8000
-    # SSE는 long-lived connection, 24시간 timeout
+        subset: stable
     timeout: 86400s
     retries:
-      attempts: 0    # SSE는 재시도 불가
+      attempts: 0
     headers:
       request:
         set:

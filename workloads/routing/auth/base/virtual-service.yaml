@@ -17,7 +17,22 @@ spec:
       status: 200
       body:
         string: '{"pong":true,"source":"istio-direct"}'
-  # 기존 auth API 라우팅
+
+  # ======= Canary 라우팅 (X-Canary: true 헤더) =======
+  - match:
+    - headers:
+        x-canary:
+          exact: 'true'
+      uri:
+        prefix: /api/v1/auth
+    route:
+    - destination:
+        host: auth-api.auth.svc.cluster.local
+        port:
+          number: 8000
+        subset: canary
+
+  # ======= 기본 트래픽 → Stable =======
   - match:
     - uri:
         prefix: /api/v1/auth
@@ -26,3 +41,4 @@ spec:
         host: auth-api.auth.svc.cluster.local
         port:
           number: 8000
+        subset: stable

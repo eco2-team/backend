@@ -2,6 +2,8 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - deployment.yaml
+- deployment-canary.yaml
 - service.yaml
 - virtualservice.yaml
 - keda-scaledobject.yaml
+- destination-rule.yaml

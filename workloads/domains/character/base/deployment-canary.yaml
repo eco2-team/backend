@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: character-api-canary
+  namespace: character
+  labels:
+    app: character-api
+    version: v2
+    tier: business-logic
+    domain: character
+    release: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: character-api
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: character-api
+        version: v2
+        tier: business-logic
+        domain: character
+        release: canary
+    spec:
+      containers:
+      - name: character-api
+        image: docker.io/mng990/eco2:character-api-dev-canary
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: OTEL_SERVICE_NAME
+          value: character-api-canary
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
+        - name: POSTGRES_HOST
+          value: postgresql.postgres.svc.cluster.local
+        - name: REDIS_HOST
+          value: redis.redis.svc.cluster.local
+        - name: CHARACTER_MY_GRPC_HOST
+          value: my-grpc.my.svc.cluster.local
+        - name: CHARACTER_MY_GRPC_PORT
+          value: '50052'
+        - name: RELEASE_TYPE
+          value: canary
+        envFrom:
+        - configMapRef:
+            name: character-config
+        - secretRef:
+            name: character-secret
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: character
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: character
+        effect: NoSchedule

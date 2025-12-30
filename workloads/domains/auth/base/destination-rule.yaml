@@ -1,13 +1,13 @@
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: my-api
-  namespace: my
+  name: auth-api
+  namespace: auth
   labels:
-    app: my-api
-    domain: my
+    app: auth-api
+    domain: auth
 spec:
-  host: my-api.my.svc.cluster.local
+  host: auth-api.auth.svc.cluster.local
   subsets:
   - name: stable
     labels:
@@ -20,5 +20,5 @@ spec:
       simple: ROUND_ROBIN
     connectionPool:
       http:
-        http2MaxRequests: 3000
+        http2MaxRequests: 1000
         maxRequestsPerConnection: 100

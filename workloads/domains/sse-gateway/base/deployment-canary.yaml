@@ -1,0 +1,101 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSE Gateway Canary Deployment
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sse-gateway-canary
+  namespace: sse-consumer
+  labels:
+    app: sse-gateway
+    version: v2
+    tier: integration
+    domain: sse
+    release: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sse-gateway
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: sse-gateway
+        version: v2
+        tier: integration
+        domain: sse
+        release: canary
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8000'
+        prometheus.io/path: /metrics
+    spec:
+      nodeSelector:
+        domain: sse
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: sse
+        effect: NoSchedule
+      imagePullSecrets:
+      - name: dockerhub-secret
+      containers:
+      - name: sse-gateway
+        image: mng990/eco2:sse-gateway-dev-canary
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        - name: REDIS_STREAMS_URL
+          value: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
+        - name: REDIS_PUBSUB_URL
+          value: redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0
+        - name: REDIS_CACHE_URL
+          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        - name: LOG_LEVEL
+          value: INFO
+        - name: ENVIRONMENT
+          value: development
+        - name: OTEL_ENABLED
+          value: 'true'
+        - name: OTEL_SAMPLE_RATE
+          value: '0.1'
+        - name: OTEL_SERVICE_NAME
+          value: sse-gateway-canary
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4318
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: http/protobuf
+        - name: RELEASE_TYPE
+          value: canary
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
