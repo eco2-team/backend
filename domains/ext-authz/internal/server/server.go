@@ -313,10 +313,8 @@ func (s *AuthorizationServer) Check(ctx context.Context, req *authv3.CheckReques
 
 		if s.cache != nil {
 			// Use local cache (O(1) in-memory lookup, no network I/O)
-			lookupStart := time.Now()
-			blacklisted = s.cache.IsBlacklisted(jti)
 			// Note: cache lookup metrics are tracked inside the cache itself
-			_ = lookupStart // Suppress unused warning; metrics tracked in cache
+			blacklisted = s.cache.IsBlacklisted(jti)
 		} else if s.store != nil {
 			// Fallback to Redis (network I/O)
 			redisStart := time.Now()

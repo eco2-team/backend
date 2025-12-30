@@ -271,3 +271,50 @@ func BenchmarkConcurrentIsBlacklisted(b *testing.B) {
 		}
 	})
 }
+
+func TestBlacklistCache_InvalidTypeInMap(t *testing.T) {
+	cache := NewBlacklistCache(1 * time.Minute)
+	defer cache.Stop()
+
+	jti := "invalid-type-jti"
+
+	// Directly store an invalid type (not time.Time)
+	cache.items.Store(jti, "invalid-string-value")
+
+	// IsBlacklisted should handle invalid type gracefully
+	if cache.IsBlacklisted(jti) {
+		t.Error("Expected IsBlacklisted to return false for invalid type")
+	}
+
+	// Entry should be deleted after invalid type detection
+	_, exists := cache.items.Load(jti)
+	if exists {
+		t.Error("Expected invalid type entry to be deleted")
+	}
+}
+
+func TestBlacklistCache_CleanupInvalidType(t *testing.T) {
+	cache := NewBlacklistCache(1 * time.Minute)
+	defer cache.Stop()
+
+	// Store invalid types directly
+	cache.items.Store("invalid-1", 12345)                   // int
+	cache.items.Store("invalid-2", "string-value")          // string
+	cache.items.Store("valid", time.Now().Add(1*time.Hour)) // valid
+
+	// Run cleanup
+	cache.cleanup()
+
+	// Invalid entries should be removed
+	if _, exists := cache.items.Load("invalid-1"); exists {
+		t.Error("Expected invalid-1 to be cleaned up")
+	}
+	if _, exists := cache.items.Load("invalid-2"); exists {
+		t.Error("Expected invalid-2 to be cleaned up")
+	}
+
+	// Valid entry should remain
+	if _, exists := cache.items.Load("valid"); !exists {
+		t.Error("Expected valid entry to remain")
+	}
+}

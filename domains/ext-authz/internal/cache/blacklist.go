@@ -90,7 +90,15 @@ func (c *BlacklistCache) IsBlacklisted(jti string) bool {
 		return false
 	}
 
-	expireAt := val.(time.Time)
+	// Safe type assertion to prevent panic
+	expireAt, ok := val.(time.Time)
+	if !ok {
+		// Invalid type stored - delete and treat as miss
+		c.items.Delete(jti)
+		cacheMisses.Inc()
+		return false
+	}
+
 	if time.Now().After(expireAt) {
 		// Lazy deletion of expired entry
 		c.items.Delete(jti)
@@ -160,7 +168,14 @@ func (c *BlacklistCache) cleanup() {
 	evicted := 0
 
 	c.items.Range(func(key, value any) bool {
-		expireAt := value.(time.Time)
+		// Safe type assertion
+		expireAt, ok := value.(time.Time)
+		if !ok {
+			// Invalid type - delete entry
+			c.items.Delete(key)
+			evicted++
+			return true
+		}
 		if now.After(expireAt) {
 			c.items.Delete(key)
 			evicted++

@@ -5,6 +5,7 @@ package mq
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,6 +23,10 @@ const (
 	exchangeType = "fanout"
 	// reconnectDelay is the delay before attempting to reconnect.
 	reconnectDelay = 5 * time.Second
+
+	// Event types
+	eventTypeAdd    = "add"
+	eventTypeRemove = "remove"
 )
 
 // Metrics for MQ consumer
@@ -64,8 +69,8 @@ var (
 
 // BlacklistEvent represents an event from auth-api when a token is blacklisted.
 type BlacklistEvent struct {
-	Type     string    `json:"type"`      // "add" or "remove"
-	JTI      string    `json:"jti"`       // Token identifier
+	Type     string    `json:"type"`       // "add" or "remove"
+	JTI      string    `json:"jti"`        // Token identifier
 	ExpireAt time.Time `json:"expires_at"` // When the token expires
 }
 
@@ -124,13 +129,13 @@ func (c *BlacklistConsumer) consumeLoop() {
 func (c *BlacklistConsumer) connect() error {
 	conn, err := amqp.Dial(c.amqpURL)
 	if err != nil {
-		return err
+		return fmt.Errorf("dial AMQP: %w", err)
 	}
 	defer conn.Close()
 
 	ch, err := conn.Channel()
 	if err != nil {
-		return err
+		return fmt.Errorf("open channel: %w", err)
 	}
 	defer ch.Close()
 
@@ -145,7 +150,7 @@ func (c *BlacklistConsumer) connect() error {
 		nil,          // arguments
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("declare exchange %s: %w", exchangeName, err)
 	}
 
 	// Declare anonymous exclusive queue
@@ -158,7 +163,7 @@ func (c *BlacklistConsumer) connect() error {
 		nil,   // arguments
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("declare queue: %w", err)
 	}
 
 	// Bind queue to exchange
@@ -170,7 +175,7 @@ func (c *BlacklistConsumer) connect() error {
 		nil,          // arguments
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("bind queue %s to exchange %s: %w", q.Name, exchangeName, err)
 	}
 
 	// Start consuming
@@ -184,7 +189,7 @@ func (c *BlacklistConsumer) connect() error {
 		nil,    // arguments
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("start consume: %w", err)
 	}
 
 	mqConnectionStatus.Set(1)
@@ -225,7 +230,7 @@ func (c *BlacklistConsumer) handleMessage(body []byte) {
 	mqEventsReceived.WithLabelValues(event.Type).Inc()
 
 	switch event.Type {
-	case "add":
+	case eventTypeAdd:
 		if event.JTI == "" {
 			c.logger.Warn("Received add event with empty JTI")
 			mqEventsFailed.Inc()
@@ -236,14 +241,14 @@ func (c *BlacklistConsumer) handleMessage(body []byte) {
 			"jti", event.JTI,
 			"expire_at", event.ExpireAt,
 		)
-		mqEventsProcessed.WithLabelValues("add").Inc()
+		mqEventsProcessed.WithLabelValues(eventTypeAdd).Inc()
 
-	case "remove":
+	case eventTypeRemove:
 		// Currently not used - TTL handles expiration
 		c.logger.Debug("Received remove event (ignored)",
 			"jti", event.JTI,
 		)
-		mqEventsProcessed.WithLabelValues("remove").Inc()
+		mqEventsProcessed.WithLabelValues(eventTypeRemove).Inc()
 
 	default:
 		c.logger.Warn("Unknown event type",
