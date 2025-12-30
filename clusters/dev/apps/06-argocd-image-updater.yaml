@@ -1,0 +1,67 @@
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ArgoCD Image Updater
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Docker Registry의 이미지 변경을 감지하여 자동으로 ArgoCD Application 업데이트
+# digest 전략: 같은 태그라도 이미지가 변경되면 Pod 재생성
+#
+# 참조: docs/blogs/deployment/01-canary-deployment-strategy.md
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-argocd-image-updater
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '6'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dev
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argocd-image-updater
+    targetRevision: 0.11.0
+    helm:
+      valuesObject:
+        # 설정
+        config:
+          logLevel: info
+          registries:
+          - name: DockerHub
+            prefix: docker.io
+            api_url: https://registry-1.docker.io
+            credentials: pullsecret:argocd/dockerhub-credentials
+            default: true
+
+        # 리소스 제한
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+
+        # Control Plane 노드에 배치
+        nodeSelector:
+          role: control-plane
+        tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: role
+          operator: Equal
+          value: control-plane
+          effect: NoSchedule
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=false

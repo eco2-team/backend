@@ -1,4 +1,4 @@
-# ArgoCD Image Updater 설정
+# ArgoCD Image Updater
 
 Canary 이미지 자동 업데이트를 위한 ArgoCD Image Updater 설정입니다.
 
@@ -26,7 +26,21 @@ Canary 이미지 자동 업데이트를 위한 ArgoCD Image Updater 설정입니
 
 ## 설치 방법
 
-### 1. DockerHub Secret (External Secret으로 자동 생성)
+### ArgoCD Application으로 배포 (권장)
+
+Image Updater는 ArgoCD Application으로 관리됩니다:
+
+```yaml
+# clusters/dev/apps/06-argocd-image-updater.yaml
+source:
+  repoURL: https://argoproj.github.io/argo-helm
+  chart: argocd-image-updater
+  targetRevision: 0.11.0
+```
+
+ArgoCD가 자동으로 배포하므로 별도 설치 불필요합니다.
+
+### DockerHub Secret (External Secret으로 자동 생성)
 
 DockerHub 인증 정보는 External Secret으로 관리됩니다:
 - 파일: `workloads/secrets/external-secrets/dev/dockerhub-pull-secret.yaml`
@@ -34,20 +48,7 @@ DockerHub 인증 정보는 External Secret으로 관리됩니다:
 - Namespace: `argocd`
 - 소스: AWS SSM (`/sesacthon/dev/dockerhub/username`, `/sesacthon/dev/dockerhub/password`)
 
-ArgoCD가 External Secret CR을 sync하면 자동으로 생성됩니다.
-
-### 2. Image Updater 설치
-
-```bash
-# Kustomize로 설치
-kubectl apply -k workloads/argocd-image-updater/base/
-
-# 또는 공식 매니페스트 직접 설치
-kubectl apply -n argocd \
-  -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/manifests/install.yaml
-```
-
-### 3. 설치 확인
+### 설치 확인
 
 ```bash
 # Deployment 확인
@@ -64,12 +65,14 @@ ApplicationSet에 다음 annotation이 추가되어 있습니다:
 ```yaml
 annotations:
   # 이미지 목록 (별칭=이미지:태그)
-  argocd-image-updater.argoproj.io/image-list: canary=docker.io/mng990/eco2:auth-api-dev-canary
+  argocd-image-updater.argoproj.io/image-list: stable=docker.io/mng990/eco2:auth-api-dev-latest,canary=docker.io/mng990/eco2:auth-api-dev-canary
 
   # 업데이트 전략: digest (같은 태그라도 이미지 변경 시 업데이트)
+  argocd-image-updater.argoproj.io/stable.update-strategy: digest
   argocd-image-updater.argoproj.io/canary.update-strategy: digest
 
   # DockerHub 인증
+  argocd-image-updater.argoproj.io/stable.pull-secret: pullsecret:argocd/dockerhub-credentials
   argocd-image-updater.argoproj.io/canary.pull-secret: pullsecret:argocd/dockerhub-credentials
 ```
 
@@ -77,30 +80,10 @@ annotations:
 
 | 전략 | 설명 | 사용 케이스 |
 |------|------|------------|
-| `digest` | 같은 태그라도 이미지 변경 시 업데이트 | **Canary (권장)** |
+| `digest` | 같은 태그라도 이미지 변경 시 업데이트 | **Stable/Canary (권장)** |
 | `semver` | Semantic versioning 기반 최신 버전 | 정식 릴리즈 |
 | `latest` | latest 태그의 최신 digest | 개발 환경 |
 | `name` | 알파벳 순 최신 태그 | 특수 케이스 |
-
-## 동작 원리
-
-### digest 전략
-
-1. CI가 `auth-api-dev-canary` 태그로 새 이미지 푸시
-2. 이미지 digest가 변경됨 (예: `sha256:abc123` → `sha256:def456`)
-3. Image Updater가 폴링 중 digest 변경 감지
-4. ArgoCD Application refresh 트리거
-5. Canary Deployment의 Pod 재생성 (새 이미지 pull)
-
-### 폴링 주기
-
-기본값: **2분** (configmap에서 변경 가능)
-
-```yaml
-# argocd-image-updater-config ConfigMap
-data:
-  check.interval: 2m  # 2분마다 레지스트리 확인
-```
 
 ## 트러블슈팅
 
@@ -132,4 +115,5 @@ kubectl get pod -n auth -l version=v2 -o jsonpath='{.items[0].status.containerSt
 ## 참고 자료
 
 - [ArgoCD Image Updater 공식 문서](https://argocd-image-updater.readthedocs.io/)
+- [Helm Chart](https://github.com/argoproj/argo-helm/tree/main/charts/argocd-image-updater)
 - [GitHub Repository](https://github.com/argoproj-labs/argocd-image-updater)
