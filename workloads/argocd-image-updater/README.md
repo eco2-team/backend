@@ -26,15 +26,15 @@ Canary 이미지 자동 업데이트를 위한 ArgoCD Image Updater 설정입니
 
 ## 설치 방법
 
-### 1. DockerHub Secret 생성
+### 1. DockerHub Secret (External Secret으로 자동 생성)
 
-```bash
-# ArgoCD namespace에 DockerHub 인증 정보 생성
-kubectl create secret generic dockerhub-credentials \
-  --from-literal=username=<DOCKERHUB_USERNAME> \
-  --from-literal=password=<DOCKERHUB_TOKEN> \
-  -n argocd
-```
+DockerHub 인증 정보는 External Secret으로 관리됩니다:
+- 파일: `workloads/secrets/external-secrets/dev/dockerhub-pull-secret.yaml`
+- Secret 이름: `dockerhub-credentials`
+- Namespace: `argocd`
+- 소스: AWS SSM (`/sesacthon/dev/dockerhub/username`, `/sesacthon/dev/dockerhub/password`)
+
+ArgoCD가 External Secret CR을 sync하면 자동으로 생성됩니다.
 
 ### 2. Image Updater 설치
 

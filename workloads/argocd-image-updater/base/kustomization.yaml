@@ -4,10 +4,10 @@ kind: Kustomization
 namespace: argocd
 
 # ArgoCD Image Updater 공식 매니페스트
+# Secret은 External Secret으로 관리 (workloads/secrets/external-secrets/dev/dockerhub-pull-secret.yaml)
 resources:
 - https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/manifests/install.yaml
 - configmap.yaml
-- secret-dockerhub.yaml
 
 # ConfigMap 패치 (DockerHub 레지스트리 설정)
 patches:
