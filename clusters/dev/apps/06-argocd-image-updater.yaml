@@ -38,7 +38,8 @@ spec:
           - name: DockerHub
             prefix: docker.io
             api_url: https://registry-1.docker.io
-            # Public repository는 인증 없이 digest 확인 가능
+            # DockerHub rate limit 회피를 위한 인증
+            credentials: pullsecret:argocd/dockerhub-credentials
             default: true
 
         # 추가 CLI 인자
