@@ -9,7 +9,7 @@ import pika
 import pika.exceptions
 import pytest
 
-from domains.auth.tasks.blacklist_relay import (
+from domains.auth.workers.blacklist_relay import (
     BATCH_SIZE,
     DLQ_KEY,
     EXCHANGE_NAME,
@@ -36,7 +36,7 @@ class TestBlacklistRelayInit:
 class TestConnectMq:
     """Tests for _connect_mq method."""
 
-    @patch("domains.auth.tasks.blacklist_relay.pika")
+    @patch("domains.auth.workers.blacklist_relay.pika")
     def test_connect_mq_success(self, mock_pika):
         """Should establish RabbitMQ connection."""
         mock_connection = MagicMock()
@@ -55,7 +55,7 @@ class TestConnectMq:
             durable=True,
         )
 
-    @patch("domains.auth.tasks.blacklist_relay.pika")
+    @patch("domains.auth.workers.blacklist_relay.pika")
     def test_connect_mq_failure_raises(self, mock_pika):
         """Should raise exception on connection failure."""
         mock_pika.BlockingConnection.side_effect = Exception("Connection failed")
@@ -103,7 +103,7 @@ class TestPublishToMq:
 class TestReconnectMq:
     """Tests for _reconnect_mq method."""
 
-    @patch("domains.auth.tasks.blacklist_relay.pika")
+    @patch("domains.auth.workers.blacklist_relay.pika")
     def test_closes_existing_connection(self, mock_pika):
         """Should close existing connection before reconnecting."""
         mock_old_connection = MagicMock()
@@ -119,7 +119,7 @@ class TestReconnectMq:
         mock_old_connection.close.assert_called_once()
         mock_pika.BlockingConnection.assert_called_once()
 
-    @patch("domains.auth.tasks.blacklist_relay.pika")
+    @patch("domains.auth.workers.blacklist_relay.pika")
     def test_handles_close_error(self, mock_pika):
         """Should handle error when closing connection."""
         mock_old_connection = MagicMock()
@@ -345,8 +345,8 @@ class TestStart:
     """Tests for start method."""
 
     @pytest.mark.asyncio
-    @patch("domains.auth.tasks.blacklist_relay.Redis")
-    @patch("domains.auth.tasks.blacklist_relay.pika")
+    @patch("domains.auth.workers.blacklist_relay.Redis")
+    @patch("domains.auth.workers.blacklist_relay.pika")
     async def test_start_connects_to_redis_and_mq(self, mock_pika, mock_redis_class):
         """Should connect to Redis and RabbitMQ on start."""
         # Setup mocks
@@ -376,7 +376,7 @@ class TestStart:
         mock_pika.BlockingConnection.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("domains.auth.tasks.blacklist_relay.Redis")
+    @patch("domains.auth.workers.blacklist_relay.Redis")
     async def test_start_fails_on_redis_error(self, mock_redis_class):
         """Should raise on Redis connection failure."""
         mock_redis = AsyncMock()

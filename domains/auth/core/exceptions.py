@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
-from domains.auth.schemas.common import ErrorDetail, ErrorResponse
+from domains.auth.application.schemas.common import ErrorDetail, ErrorResponse
 
 logger = logging.getLogger(__name__)
 

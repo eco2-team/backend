@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from domains.auth.services.token_blacklist import TokenBlacklist
+from domains.auth.application.services.token_blacklist import TokenBlacklist
 
 
 class MockTokenPayload:
@@ -37,9 +37,9 @@ class TestTokenBlacklist:
         return TokenBlacklist(redis=mock_redis)
 
     @pytest.mark.asyncio
-    @patch("domains.auth.services.token_blacklist.get_blacklist_publisher")
-    @patch("domains.auth.services.token_blacklist.now_utc")
-    @patch("domains.auth.services.token_blacklist.compute_ttl_seconds")
+    @patch("domains.auth.application.services.token_blacklist.get_blacklist_publisher")
+    @patch("domains.auth.application.services.token_blacklist.now_utc")
+    @patch("domains.auth.application.services.token_blacklist.compute_ttl_seconds")
     async def test_add_stores_in_redis(
         self,
         mock_compute_ttl,
@@ -72,9 +72,9 @@ class TestTokenBlacklist:
         assert stored_data["reason"] == "logout"
 
     @pytest.mark.asyncio
-    @patch("domains.auth.services.token_blacklist.get_blacklist_publisher")
-    @patch("domains.auth.services.token_blacklist.now_utc")
-    @patch("domains.auth.services.token_blacklist.compute_ttl_seconds")
+    @patch("domains.auth.application.services.token_blacklist.get_blacklist_publisher")
+    @patch("domains.auth.application.services.token_blacklist.now_utc")
+    @patch("domains.auth.application.services.token_blacklist.compute_ttl_seconds")
     async def test_add_skips_expired_token(
         self,
         mock_compute_ttl,
@@ -99,9 +99,9 @@ class TestTokenBlacklist:
         mock_redis.setex.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("domains.auth.services.token_blacklist.get_blacklist_publisher")
-    @patch("domains.auth.services.token_blacklist.now_utc")
-    @patch("domains.auth.services.token_blacklist.compute_ttl_seconds")
+    @patch("domains.auth.application.services.token_blacklist.get_blacklist_publisher")
+    @patch("domains.auth.application.services.token_blacklist.now_utc")
+    @patch("domains.auth.application.services.token_blacklist.compute_ttl_seconds")
     async def test_add_publishes_event(
         self,
         mock_compute_ttl,
@@ -131,9 +131,9 @@ class TestTokenBlacklist:
         assert call_args[0] == "token-jti-xyz"
 
     @pytest.mark.asyncio
-    @patch("domains.auth.services.token_blacklist.get_blacklist_publisher")
-    @patch("domains.auth.services.token_blacklist.now_utc")
-    @patch("domains.auth.services.token_blacklist.compute_ttl_seconds")
+    @patch("domains.auth.application.services.token_blacklist.get_blacklist_publisher")
+    @patch("domains.auth.application.services.token_blacklist.now_utc")
+    @patch("domains.auth.application.services.token_blacklist.compute_ttl_seconds")
     async def test_add_handles_publish_failure(
         self,
         mock_compute_ttl,
@@ -192,9 +192,9 @@ class TestTokenBlacklistIntegration:
     """Integration-style tests for TokenBlacklist."""
 
     @pytest.mark.asyncio
-    @patch("domains.auth.services.token_blacklist.get_blacklist_publisher")
-    @patch("domains.auth.services.token_blacklist.now_utc")
-    @patch("domains.auth.services.token_blacklist.compute_ttl_seconds")
+    @patch("domains.auth.application.services.token_blacklist.get_blacklist_publisher")
+    @patch("domains.auth.application.services.token_blacklist.now_utc")
+    @patch("domains.auth.application.services.token_blacklist.compute_ttl_seconds")
     async def test_add_then_contains(self, mock_compute_ttl, mock_now_utc, mock_get_publisher):
         """Test add() then contains() flow."""
         mock_compute_ttl.return_value = 3600

@@ -6,8 +6,7 @@ import json
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-
-from domains.auth.services.blacklist_publisher import (
+from domains.auth.application.services.blacklist_publisher import (
     OUTBOX_KEY,
     BlacklistEventPublisher,
     get_blacklist_publisher,
@@ -19,11 +18,11 @@ class TestGetBlacklistPublisher:
 
     def setup_method(self):
         """Reset singleton before each test."""
-        import domains.auth.services.blacklist_publisher as module
+        import domains.auth.application.services.blacklist_publisher as module
 
         module._publisher = None
 
-    @patch("domains.auth.services.blacklist_publisher.get_settings")
+    @patch("domains.auth.application.services.blacklist_publisher.get_settings")
     def test_returns_none_when_amqp_not_configured(self, mock_get_settings):
         """Should return None when AMQP URL is not configured."""
         mock_settings = MagicMock()
@@ -34,24 +33,28 @@ class TestGetBlacklistPublisher:
 
         assert result is None
 
-    @patch("domains.auth.services.blacklist_publisher.get_settings")
-    def test_returns_publisher_when_amqp_configured(self, mock_get_settings):
+    @patch("domains.auth.application.services.blacklist_publisher._create_outbox_repository")
+    @patch("domains.auth.application.services.blacklist_publisher.get_settings")
+    def test_returns_publisher_when_amqp_configured(self, mock_get_settings, mock_create_outbox):
         """Should return publisher when AMQP URL is configured."""
         mock_settings = MagicMock()
         mock_settings.amqp_url = "amqp://localhost:5672/"
         mock_get_settings.return_value = mock_settings
+        mock_create_outbox.return_value = MagicMock()
 
         result = get_blacklist_publisher()
 
         assert result is not None
         assert isinstance(result, BlacklistEventPublisher)
 
-    @patch("domains.auth.services.blacklist_publisher.get_settings")
-    def test_returns_singleton(self, mock_get_settings):
+    @patch("domains.auth.application.services.blacklist_publisher._create_outbox_repository")
+    @patch("domains.auth.application.services.blacklist_publisher.get_settings")
+    def test_returns_singleton(self, mock_get_settings, mock_create_outbox):
         """Should return same instance on subsequent calls."""
         mock_settings = MagicMock()
         mock_settings.amqp_url = "amqp://localhost:5672/"
         mock_get_settings.return_value = mock_settings
+        mock_create_outbox.return_value = MagicMock()
 
         publisher1 = get_blacklist_publisher()
         publisher2 = get_blacklist_publisher()
@@ -63,13 +66,23 @@ class TestBlacklistEventPublisher:
     """Tests for BlacklistEventPublisher class."""
 
     def test_init(self):
-        """Should initialize with AMQP URL."""
+        """Should initialize with AMQP URL and optional outbox."""
+        amqp_url = "amqp://localhost:5672/"
+        mock_outbox = MagicMock()
+        publisher = BlacklistEventPublisher(amqp_url, outbox=mock_outbox)
+
+        assert publisher.amqp_url == amqp_url
+        assert publisher._outbox is mock_outbox
+        assert publisher._connection is None
+        assert publisher._channel is None
+
+    def test_init_without_outbox(self):
+        """Should initialize without outbox (outbox is optional)."""
         amqp_url = "amqp://localhost:5672/"
         publisher = BlacklistEventPublisher(amqp_url)
 
         assert publisher.amqp_url == amqp_url
-        assert publisher._connection is None
-        assert publisher._channel is None
+        assert publisher._outbox is None
 
     @patch("pika.BlockingConnection")
     @patch("pika.URLParameters")
@@ -134,26 +147,22 @@ class TestBlacklistEventPublisher:
 
     @patch("pika.BlockingConnection")
     @patch("pika.URLParameters")
-    @patch("redis.from_url")
-    @patch.dict("os.environ", {"AUTH_REDIS_URL": "redis://localhost:6379/0"})
-    def test_publish_add_failure_queues_to_outbox(
-        self, mock_redis_from_url, mock_url_params, mock_blocking
-    ):
+    def test_publish_add_failure_queues_to_outbox(self, mock_url_params, mock_blocking):
         """Should queue to outbox when MQ publish fails."""
         mock_blocking.side_effect = Exception("Connection failed")
-        mock_redis_client = MagicMock()
-        mock_redis_from_url.return_value = mock_redis_client
+        mock_outbox = MagicMock()
+        mock_outbox.push.return_value = True
 
-        publisher = BlacklistEventPublisher("amqp://localhost:5672/")
+        publisher = BlacklistEventPublisher("amqp://localhost:5672/", outbox=mock_outbox)
         expires_at = datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
 
         result = publisher.publish_add("test-jti-12345678", expires_at)
 
         assert result is False
-        mock_redis_client.lpush.assert_called_once()
+        mock_outbox.push.assert_called_once()
 
         # Verify event structure in outbox
-        call_args = mock_redis_client.lpush.call_args
+        call_args = mock_outbox.push.call_args
         assert call_args[0][0] == OUTBOX_KEY
         event = json.loads(call_args[0][1])
         assert event["type"] == "add"
@@ -163,45 +172,46 @@ class TestBlacklistEventPublisher:
 class TestQueueToOutbox:
     """Tests for _queue_to_outbox method."""
 
-    @patch.dict("os.environ", {}, clear=True)
-    def test_returns_false_when_redis_url_not_set(self):
-        """Should return False when AUTH_REDIS_URL is not set."""
-        # Clear AUTH_REDIS_URL
-        import os
-
-        if "AUTH_REDIS_URL" in os.environ:
-            del os.environ["AUTH_REDIS_URL"]
-
-        publisher = BlacklistEventPublisher("amqp://localhost:5672/")
+    def test_returns_false_when_outbox_not_configured(self):
+        """Should return False when outbox is not configured."""
+        publisher = BlacklistEventPublisher("amqp://localhost:5672/")  # No outbox
         event = {"type": "add", "jti": "test-jti"}
 
         result = publisher._queue_to_outbox(event)
 
         assert result is False
 
-    @patch("redis.from_url")
-    @patch.dict("os.environ", {"AUTH_REDIS_URL": "redis://localhost:6379/0"})
-    def test_queues_event_to_redis(self, mock_redis_from_url):
-        """Should LPUSH event to Redis outbox."""
-        mock_redis_client = MagicMock()
-        mock_redis_from_url.return_value = mock_redis_client
+    def test_queues_event_to_outbox(self):
+        """Should push event to outbox repository."""
+        mock_outbox = MagicMock()
+        mock_outbox.push.return_value = True
 
-        publisher = BlacklistEventPublisher("amqp://localhost:5672/")
+        publisher = BlacklistEventPublisher("amqp://localhost:5672/", outbox=mock_outbox)
         event = {"type": "add", "jti": "test-jti-12345678"}
 
         result = publisher._queue_to_outbox(event)
 
         assert result is True
-        mock_redis_from_url.assert_called_once_with("redis://localhost:6379/0")
-        mock_redis_client.lpush.assert_called_once()
+        mock_outbox.push.assert_called_once_with(OUTBOX_KEY, json.dumps(event))
 
-    @patch("redis.from_url")
-    @patch.dict("os.environ", {"AUTH_REDIS_URL": "redis://localhost:6379/0"})
-    def test_returns_false_on_redis_error(self, mock_redis_from_url):
-        """Should return False when Redis operation fails."""
-        mock_redis_from_url.side_effect = Exception("Redis error")
+    def test_returns_false_on_outbox_error(self):
+        """Should return False when outbox operation fails."""
+        mock_outbox = MagicMock()
+        mock_outbox.push.side_effect = Exception("Outbox error")
 
-        publisher = BlacklistEventPublisher("amqp://localhost:5672/")
+        publisher = BlacklistEventPublisher("amqp://localhost:5672/", outbox=mock_outbox)
+        event = {"type": "add", "jti": "test-jti"}
+
+        result = publisher._queue_to_outbox(event)
+
+        assert result is False
+
+    def test_returns_false_when_outbox_push_returns_false(self):
+        """Should return False when outbox.push() returns False."""
+        mock_outbox = MagicMock()
+        mock_outbox.push.return_value = False
+
+        publisher = BlacklistEventPublisher("amqp://localhost:5672/", outbox=mock_outbox)
         event = {"type": "add", "jti": "test-jti"}
 
         result = publisher._queue_to_outbox(event)

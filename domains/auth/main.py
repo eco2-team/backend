@@ -26,7 +26,7 @@ from domains.auth.core.tracing import (
     shutdown_tracing,
 )
 from domains.auth.metrics import register_metrics
-from domains.auth.services.key_manager import KeyManager
+from domains.auth.application.services.key_manager import KeyManager
 
 import os
 

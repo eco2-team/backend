@@ -47,7 +47,7 @@ services:
       dockerfile: domains/auth/Dockerfile
     container_name: auth-local-db-bootstrap
     restart: no
-    command: [python, -m, domains.auth.jobs.init_db]
+    command: [python, -m, domains.auth.workers.init_db]
     environment:
       AUTH_DATABASE_URL: postgresql+asyncpg://sesacthon:sesacthon@db:5432/sesacthon
     depends_on:

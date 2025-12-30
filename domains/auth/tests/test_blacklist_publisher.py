@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 
-from domains.auth.services.blacklist_publisher import (
+from domains.auth.application.services.blacklist_publisher import (
     BlacklistEventPublisher,
     get_blacklist_publisher,
 )
@@ -161,17 +161,17 @@ class TestGetBlacklistPublisher:
 
     def setup_method(self):
         """Reset global publisher before each test."""
-        import domains.auth.services.blacklist_publisher as module
+        import domains.auth.application.services.blacklist_publisher as module
 
         module._publisher = None
 
     def teardown_method(self):
         """Reset global publisher after each test."""
-        import domains.auth.services.blacklist_publisher as module
+        import domains.auth.application.services.blacklist_publisher as module
 
         module._publisher = None
 
-    @patch("domains.auth.services.blacklist_publisher.get_settings")
+    @patch("domains.auth.application.services.blacklist_publisher.get_settings")
     def test_returns_none_when_no_amqp_url(self, mock_get_settings):
         """Test that None is returned when AMQP_URL is not configured."""
         mock_settings = MagicMock()
@@ -182,7 +182,7 @@ class TestGetBlacklistPublisher:
 
         assert result is None
 
-    @patch("domains.auth.services.blacklist_publisher.get_settings")
+    @patch("domains.auth.application.services.blacklist_publisher.get_settings")
     @patch("pika.BlockingConnection")
     def test_returns_singleton(self, mock_blocking_connection, mock_get_settings):
         """Test that the same instance is returned on subsequent calls."""
@@ -197,8 +197,8 @@ class TestGetBlacklistPublisher:
         # First call creates, second call returns cached
         assert publisher1 is not None
 
-    @patch("domains.auth.services.blacklist_publisher.BlacklistEventPublisher")
-    @patch("domains.auth.services.blacklist_publisher.get_settings")
+    @patch("domains.auth.application.services.blacklist_publisher.BlacklistEventPublisher")
+    @patch("domains.auth.application.services.blacklist_publisher.get_settings")
     def test_returns_none_on_init_failure(self, mock_get_settings, mock_publisher_class):
         """Test that None is returned when publisher initialization fails."""
         mock_settings = MagicMock()

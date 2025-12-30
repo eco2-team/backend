@@ -12,14 +12,14 @@ from domains.auth.api.v1.routers import (
     naver_router,
 )
 from domains.auth.core.config import get_settings
-from domains.auth.schemas.auth import (
+from domains.auth.application.schemas.auth import (
     AuthorizationSuccessResponse,
     LogoutData,
     LogoutSuccessResponse,
     OAuthAuthorizeParams,
     OAuthLoginRequest,
 )
-from domains.auth.services.auth import AuthService
+from domains.auth.application.services.auth import AuthService
 
 logger = logging.getLogger(__name__)
 
