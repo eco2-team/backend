@@ -11,12 +11,18 @@ spec:
   generators:
   - list:
       elements:
+      # Phase 1: Auth 관련
+      - name: auth-relay
+        namespace: auth
+        phase: '1'
+      # Phase 2: Scan 관련
       - name: scan-worker
         namespace: scan
         phase: '2'
       - name: celery-beat
         namespace: scan
         phase: '2'
+      # Phase 3: 보상 처리
       - name: character-match-worker
         namespace: character
         phase: '3'

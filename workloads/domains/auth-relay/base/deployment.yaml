@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-relay
+  namespace: auth
+  labels:
+    app: auth-relay
+    tier: integration
+    domain: auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-relay
+  template:
+    metadata:
+      labels:
+        app: auth-relay
+        tier: integration
+        domain: auth
+      annotations:
+        sidecar.istio.io/inject: 'false'  # 내부 통신만, Istio 불필요
+    spec:
+      nodeSelector:
+        workload-type: storage  # worker-storage 노드에 배치
+      tolerations:
+      - key: workload-type
+        operator: Equal
+        value: storage
+        effect: NoSchedule
+      containers:
+      - name: relay
+        image: mng990/eco2:auth-relay-latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+        envFrom:
+        - configMapRef:
+            name: auth-relay-config
+        - secretRef:
+            name: auth-secret
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - |
+              import redis
+              import os
+              r = redis.from_url(os.getenv('AUTH_REDIS_URL'))
+              r.ping()
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: dockerhub-secret

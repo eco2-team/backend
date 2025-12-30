@@ -48,10 +48,16 @@ APPSETS = {
     ],
 }
 
+# 별도 Application으로 관리되는 서비스 (ApplicationSet 제외)
+EXCLUDED_SERVICES = {
+    "event-router",  # clusters/*/apps/43-event-router.yaml
+    "sse-gateway",   # clusters/*/apps/42-sse-gateway.yaml
+}
+
 services = sorted(
     p.name
     for p in pathlib.Path("workloads/domains").iterdir()
-    if p.is_dir()
+    if p.is_dir() and p.name not in EXCLUDED_SERVICES
 )
 
 def parse_elements(path: pathlib.Path):

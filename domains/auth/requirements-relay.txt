@@ -1,0 +1,3 @@
+# Blacklist Relay Worker - Minimal Dependencies
+redis>=5.0.0
+pika>=1.3.0
