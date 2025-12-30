@@ -6,6 +6,10 @@ on:
       - main
       - develop
     paths:
+      # Clean Architecture (apps/)
+      - "apps/auth/workers/**"
+      - "apps/auth/Dockerfile.relay"
+      # Legacy (domains/)
       - "domains/auth/tasks/**"
       - "domains/auth/Dockerfile.relay"
       - "domains/auth/requirements-relay.txt"
@@ -15,6 +19,10 @@ on:
       - main
       - develop
     paths:
+      # Clean Architecture (apps/)
+      - "apps/auth/workers/**"
+      - "apps/auth/Dockerfile.relay"
+      # Legacy (domains/)
       - "domains/auth/tasks/**"
       - "domains/auth/Dockerfile.relay"
       - "domains/auth/requirements-relay.txt"
@@ -47,15 +55,24 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Determine source path
+        id: source
+        run: |
+          if [ -d "apps/auth/workers" ]; then
+            echo "path=apps/auth/workers" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=domains/auth/tasks" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install linters
         run: |
           pip install black==24.4.2 ruff==0.6.9
 
       - name: Black
-        run: black --check domains/auth/tasks
+        run: black --check ${{ steps.source.outputs.path }}
 
       - name: Ruff
-        run: ruff check domains/auth/tasks
+        run: ruff check ${{ steps.source.outputs.path }}
 
   build-push:
     name: 📦 Build & Push
@@ -95,11 +112,20 @@ jobs:
             echo "manifest_tag=auth-relay-dev-latest" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Determine Dockerfile path
+        id: dockerfile
+        run: |
+          if [ -f "apps/auth/Dockerfile.relay" ]; then
+            echo "path=apps/auth/Dockerfile.relay" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=domains/auth/Dockerfile.relay" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: domains/auth/Dockerfile.relay
+          file: ${{ steps.dockerfile.outputs.path }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha

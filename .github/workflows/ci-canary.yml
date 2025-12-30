@@ -67,6 +67,7 @@ jobs:
         uses: tj-actions/changed-files@v45
         with:
           files: |
+            apps/**
             domains/**
             workloads/domains/**
 
@@ -99,8 +100,18 @@ jobs:
               for path in files:
                   parts = path.split("/")
                   
-                  # domains/<service>/ 경로 감지
-                  if len(parts) >= 2 and parts[0] == "domains":
+                  # apps/<service>/ 경로 감지 (Clean Architecture)
+                  if len(parts) >= 2 and parts[0] == "apps":
+                      svc = parts[1]
+                      
+                      if svc in API_SERVICES and svc not in api_services:
+                          api_services.append(svc)
+                      # apps/auth/workers/ 경로 감지
+                      if svc == "auth" and "workers" in path:
+                          has_auth_relay = True
+                  
+                  # domains/<service>/ 경로 감지 (레거시)
+                  elif len(parts) >= 2 and parts[0] == "domains":
                       svc = parts[1]
                       
                       if svc in API_SERVICES and svc not in api_services:
@@ -189,11 +200,22 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "canary_tag=${CANARY_TAG}" >> "$GITHUB_OUTPUT"
 
+      - name: Determine Dockerfile path
+        id: dockerfile
+        run: |
+          SERVICE="${{ matrix.service }}"
+          # Clean Architecture 리팩토링된 서비스는 apps/ 경로 사용
+          if [ -f "apps/${SERVICE}/Dockerfile" ]; then
+            echo "path=apps/${SERVICE}/Dockerfile" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=domains/${SERVICE}/Dockerfile" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and push canary image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: domains/${{ matrix.service }}/Dockerfile
+          file: ${{ steps.dockerfile.outputs.path }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
@@ -388,11 +410,21 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "canary_tag=${CANARY_TAG}" >> "$GITHUB_OUTPUT"
 
+      - name: Determine Dockerfile path
+        id: dockerfile
+        run: |
+          # Clean Architecture 리팩토링된 버전 우선
+          if [ -f "apps/auth/Dockerfile.relay" ]; then
+            echo "path=apps/auth/Dockerfile.relay" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=domains/auth/Dockerfile.worker" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and push canary image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: domains/auth/Dockerfile.worker
+          file: ${{ steps.dockerfile.outputs.path }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
