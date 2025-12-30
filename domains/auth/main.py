@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
-from domains.auth.api.v1.routers import api_router, health_probe_router
+from domains.auth.presentation.http.routers import api_router, health_probe_router
 from domains.auth.core.constants import (
     DEFAULT_ENVIRONMENT,
     ENV_KEY_ENVIRONMENT,

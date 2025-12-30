@@ -8,9 +8,6 @@ metrics_router = APIRouter(prefix="/auth/metrics", tags=["metrics"])
 health_router = APIRouter(prefix="/auth", tags=["health"])
 health_probe_router = APIRouter(tags=["health"])
 
-from domains.auth.api.v1.endpoints import auth as _auth_endpoints  # noqa: F401, E402, UP035
-from domains.auth.api.v1.endpoints import health as _health_endpoints  # noqa: F401, E402, UP035
-from domains.auth.api.v1.endpoints import metrics as _metrics_endpoints  # noqa: F401, E402, UP035
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)

@@ -2,7 +2,7 @@ from typing import Any
 
 from fastapi import Depends
 
-from domains.auth.api.v1.routers import metrics_router
+from domains.auth.presentation.http.routers import metrics_router
 from domains.auth.application.schemas.common import SuccessResponse
 from domains.auth.application.services.auth import AuthService
 

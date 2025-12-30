@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 
-from domains.auth.api.v1.routers import health_probe_router, health_router
+from domains.auth.presentation.http.routers import health_probe_router, health_router
 from domains.auth.application.schemas.common import SuccessResponse
 
 SERVICE_NAME = "auth"

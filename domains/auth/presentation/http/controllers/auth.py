@@ -5,7 +5,7 @@ from urllib.parse import urlparse, urlunparse
 from fastapi import Depends, Header, Request, Response, status
 from fastapi.responses import RedirectResponse
 
-from domains.auth.api.v1.routers import (
+from domains.auth.presentation.http.routers import (
     auth_router,
     google_router,
     kakao_router,
