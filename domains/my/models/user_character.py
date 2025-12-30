@@ -27,11 +27,17 @@ class UserCharacter(Base):
 
     character 도메인의 CharacterOwnership을 대체합니다.
     FK 없이 character_id만 저장하여 도메인 간 독립성을 보장합니다.
+
+    Note:
+        character_code 기준으로 UNIQUE 제약을 설정합니다.
+        character_id는 캐시 불일치로 변경될 수 있으므로 멱등성 기준으로 사용하지 않습니다.
     """
 
     __tablename__ = "user_characters"
     __table_args__ = (
-        UniqueConstraint("user_id", "character_id", name="uq_user_character"),
+        # Bug fix (2025-12-30): character_id → character_code 기준으로 변경
+        # 기존 uq_user_character 제약은 별도 마이그레이션으로 DROP 후 재생성 필요
+        UniqueConstraint("user_id", "character_code", name="uq_user_character_code"),
         {"schema": "user_profile"},
     )
 

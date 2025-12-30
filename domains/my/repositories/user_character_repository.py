@@ -39,8 +39,12 @@ class UserCharacterRepository:
 
         INSERT ... ON CONFLICT DO UPDATE 사용:
         - 신규: INSERT
-        - 기존: status를 OWNED로 업데이트
+        - 기존: character_id를 최신으로 갱신 (캐시 불일치 대응)
         - Race condition 없음 (atomic)
+
+        Bug fix (2025-12-30):
+        - 기존: ON CONFLICT (user_id, character_id)
+        - 수정: ON CONFLICT (user_id, character_code) - character_code 기준 멱등성
         """
         stmt = (
             insert(UserCharacter)
@@ -57,8 +61,12 @@ class UserCharacterRepository:
                 updated_at=datetime.now(timezone.utc),
             )
             .on_conflict_do_update(
-                constraint="uq_user_character",
+                constraint="uq_user_character_code",  # Bug fix: character_code 기준
                 set_={
+                    "character_id": character_id,  # 최신 ID로 갱신 (self-healing)
+                    "character_name": character_name,
+                    "character_type": character_type,
+                    "character_dialog": character_dialog,
                     "status": UserCharacterStatus.OWNED,
                     "source": source,
                     "updated_at": datetime.now(timezone.utc),

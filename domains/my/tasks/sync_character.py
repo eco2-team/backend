@@ -94,12 +94,19 @@ def save_my_character_task(requests: list) -> dict[str, Any]:
 async def _save_my_character_batch_async(
     batch_data: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """my.user_characters BULK INSERT.
+    """my.user_characters BULK UPSERT.
 
     INSERT INTO ... VALUES (...), (...), ...
-    ON CONFLICT (user_id, character_id) DO NOTHING
+    ON CONFLICT (user_id, character_code) DO UPDATE SET character_id = EXCLUDED.character_id
 
-    Idempotent: 이미 소유한 캐릭터는 무시 (성능 최적화).
+    멱등성 보장:
+    - character_code 기준으로 중복 방지 (character_id는 변할 수 있음)
+    - 기존 레코드의 character_id를 최신 값으로 갱신 (self-healing)
+
+    Bug fix (2025-12-30):
+    - 기존: ON CONFLICT (user_id, character_id) DO NOTHING
+    - 문제: 캐시에서 잘못된 character_id가 전달되면 같은 캐릭터가 중복 저장됨
+    - 수정: character_code 기준 UPSERT로 변경
     """
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -120,7 +127,7 @@ async def _save_my_character_batch_async(
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
-        # Bulk UPSERT
+        # Bulk UPSERT (character_code 기준)
         values = []
         params = {}
         for i, data in enumerate(batch_data):
@@ -141,13 +148,21 @@ async def _save_my_character_batch_async(
         if not values:
             return {"processed": 0, "inserted": 0}
 
+        # character_code 기준 UPSERT
+        # - 동일 (user_id, character_code) 존재 시: character_id를 최신으로 갱신
+        # - 신규: INSERT
         sql = text(
             f"""
             INSERT INTO user_profile.user_characters
                 (user_id, character_id, character_code, character_name,
                  character_type, character_dialog, source, status, acquired_at, updated_at)
             VALUES {", ".join(values)}
-            ON CONFLICT (user_id, character_id) DO NOTHING
+            ON CONFLICT (user_id, character_code) DO UPDATE SET
+                character_id = EXCLUDED.character_id,
+                character_name = EXCLUDED.character_name,
+                character_type = COALESCE(EXCLUDED.character_type, user_profile.user_characters.character_type),
+                character_dialog = COALESCE(EXCLUDED.character_dialog, user_profile.user_characters.character_dialog),
+                updated_at = NOW()
         """
         )
 
@@ -156,5 +171,5 @@ async def _save_my_character_batch_async(
 
         return {
             "processed": len(batch_data),
-            "inserted": result.rowcount,
+            "upserted": result.rowcount,
         }
