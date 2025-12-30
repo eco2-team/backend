@@ -32,9 +32,8 @@ spec:
           - name: DockerHub
             prefix: docker.io
             api_url: https://registry-1.docker.io
-            # secret: 형식 = Opaque Secret의 username/password 필드 직접 사용
-            # pullsecret: 형식 = dockerconfigjson 타입 필요 (우리는 Opaque 사용)
-            credentials: secret:argocd/dockerhub-credentials#username#password
+            # Public repository는 인증 없이 digest 확인 가능
+            # Private repo 필요 시 dockerconfigjson 타입 Secret 사용
             default: true
 
         # 리소스 제한
