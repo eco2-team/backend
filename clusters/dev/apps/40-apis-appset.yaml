@@ -40,6 +40,9 @@ spec:
         argocd-image-updater.argoproj.io/stable.update-strategy: digest
         argocd-image-updater.argoproj.io/canary.update-strategy: digest
         argocd-image-updater.argoproj.io/write-back-method: argocd
+        # Kustomize 이미지 설정 - stable/canary 각각의 이미지 이름 매핑
+        argocd-image-updater.argoproj.io/stable.kustomize.image-name: docker.io/mng990/eco2
+        argocd-image-updater.argoproj.io/canary.kustomize.image-name: docker.io/mng990/eco2
     spec:
       project: dev
       source:
