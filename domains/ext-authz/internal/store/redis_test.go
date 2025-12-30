@@ -92,3 +92,65 @@ func TestIsBlacklistedRedisError(t *testing.T) {
 		t.Fatalf("expected error from IsBlacklisted")
 	}
 }
+
+func TestClose(t *testing.T) {
+	client := &fakeRedisClient{
+		closeErr: nil,
+	}
+
+	s, err := NewWithClient(client)
+	if err != nil {
+		t.Fatalf("NewWithClient error: %v", err)
+	}
+
+	if err := s.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
+}
+
+func TestCloseError(t *testing.T) {
+	client := &fakeRedisClient{
+		closeErr: errors.New("close error"),
+	}
+
+	s, err := NewWithClient(client)
+	if err != nil {
+		t.Fatalf("NewWithClient error: %v", err)
+	}
+
+	if err := s.Close(); err == nil {
+		t.Fatalf("expected error from Close")
+	}
+}
+
+func TestCloseNilStore(t *testing.T) {
+	var s *Store
+	if err := s.Close(); err == nil {
+		t.Fatalf("expected error when store is nil")
+	}
+}
+
+func TestCloseNilClient(t *testing.T) {
+	s := &Store{client: nil}
+	if err := s.Close(); err == nil {
+		t.Fatalf("expected error when client is nil")
+	}
+}
+
+func TestBlacklistKey(t *testing.T) {
+	tests := []struct {
+		jti      string
+		expected string
+	}{
+		{"abc", "blacklist:abc"},
+		{"test-jti-123", "blacklist:test-jti-123"},
+		{"", "blacklist:"},
+	}
+
+	for _, tt := range tests {
+		result := blacklistKey(tt.jti)
+		if result != tt.expected {
+			t.Errorf("blacklistKey(%s): expected %s, got %s", tt.jti, tt.expected, result)
+		}
+	}
+}
