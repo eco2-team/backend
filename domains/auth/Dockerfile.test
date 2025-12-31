@@ -1,6 +1,6 @@
 # ============================================================================
 # Auth Service Test Dockerfile
-# 
+#
 # Docker 환경에서 pytest 실행
 # Usage: docker-compose -f docker-compose.test.yml run --rm test
 # ============================================================================
@@ -27,4 +27,3 @@ ENV PYTHONPATH=/app
 
 # 기본 명령: pytest 실행
 CMD ["python", "-m", "pytest", "domains/auth/tests/", "-v", "--tb=short"]
-

@@ -23,11 +23,11 @@ services:
       AUTH_JWT_ALGORITHM: HS256
       AUTH_JWT_ISSUER: sesacthon-auth
       AUTH_JWT_AUDIENCE: sesacthon-clients
-      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONDONTWRITEBYTECODE: '1'
     volumes:
       # 코드 변경 시 재빌드 없이 테스트 가능
-      - ../../domains/auth:/app/domains/auth:ro
-    command: ["python", "-m", "pytest", "domains/auth/tests/", "-v", "--tb=short"]
+    - ../../domains/auth:/app/domains/auth:ro
+    command: [python, -m, pytest, domains/auth/tests/, -v, --tb=short]
 
   test-coverage:
     build:
@@ -42,10 +42,10 @@ services:
       AUTH_JWT_ALGORITHM: HS256
       AUTH_JWT_ISSUER: sesacthon-auth
       AUTH_JWT_AUDIENCE: sesacthon-clients
-      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONDONTWRITEBYTECODE: '1'
     volumes:
-      - ../../domains/auth:/app/domains/auth:ro
-      - ./coverage:/app/coverage
+    - ../../domains/auth:/app/domains/auth:ro
+    - ./coverage:/app/coverage
     command: >
       python -m pytest domains/auth/tests/ -v --tb=short
       --cov=domains.auth
@@ -66,8 +66,7 @@ services:
       AUTH_JWT_ALGORITHM: HS256
       AUTH_JWT_ISSUER: sesacthon-auth
       AUTH_JWT_AUDIENCE: sesacthon-clients
-      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONDONTWRITEBYTECODE: '1'
     volumes:
-      - ../../domains/auth:/app/domains/auth:ro
-    command: ["python", "-m", "pytest", "domains/auth/tests/unit/", "-v", "--tb=short"]
-
+    - ../../domains/auth:/app/domains/auth:ro
+    command: [python, -m, pytest, domains/auth/tests/unit/, -v, --tb=short]
