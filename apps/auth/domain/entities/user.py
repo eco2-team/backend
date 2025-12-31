@@ -6,7 +6,7 @@ SQLAlchemy 매핑은 infrastructure/persistence_postgres/mappings/user.py에서 
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from apps.auth.domain.entities.base import Entity
@@ -92,7 +92,7 @@ class User(Entity[UserId]):
 
     def update_login_time(self) -> None:
         """로그인 시간 업데이트."""
-        self.last_login_at = datetime.utcnow()
+        self.last_login_at = datetime.now(timezone.utc)
 
     def __repr__(self) -> str:
         return f"User(id_={self.id_}, username={self.username!r})"

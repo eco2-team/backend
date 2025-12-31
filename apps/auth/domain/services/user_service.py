@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from apps.auth.domain.entities.user import User
@@ -44,7 +44,7 @@ class UserService:
         Returns:
             생성된 (User, UserSocialAccount) 튜플
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         user_id = self._user_id_generator()
 
         user = User(
@@ -92,7 +92,7 @@ class UserService:
         Returns:
             생성된 UserSocialAccount
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         social_account = UserSocialAccount(
             id=uuid4(),
