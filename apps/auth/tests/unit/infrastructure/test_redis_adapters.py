@@ -23,9 +23,6 @@ from apps.auth.infrastructure.persistence_redis.user_token_store_redis import (
     TOKEN_META_KEY_PREFIX,
 )
 from apps.auth.application.common.ports.state_store import OAuthState
-from apps.auth.domain.value_objects.token_payload import TokenPayload
-from apps.auth.domain.value_objects.user_id import UserId
-from apps.auth.domain.enums.token_type import TokenType
 
 
 class TestRedisStateStore:
@@ -125,7 +122,12 @@ class TestRedisStateStore:
 
 
 class TestRedisTokenBlacklist:
-    """RedisTokenBlacklist 테스트."""
+    """RedisTokenBlacklist 테스트.
+
+    Note:
+        add() 메서드는 제거되었습니다 (이벤트 기반으로 전환).
+        auth_worker가 RabbitMQ 이벤트를 소비하여 Redis에 저장합니다.
+    """
 
     @pytest.fixture
     def mock_redis(self) -> AsyncMock:
@@ -134,39 +136,6 @@ class TestRedisTokenBlacklist:
     @pytest.fixture
     def blacklist(self, mock_redis: AsyncMock) -> RedisTokenBlacklist:
         return RedisTokenBlacklist(redis=mock_redis)
-
-    @pytest.fixture
-    def sample_payload(self) -> TokenPayload:
-        now = int(time.time())
-        return TokenPayload(
-            user_id=UserId.generate(),
-            token_type=TokenType.ACCESS,
-            jti="test-jti-abc123",
-            iat=now,
-            exp=now + 3600,  # 1시간 후 만료
-            provider="google",
-        )
-
-    @pytest.mark.asyncio
-    async def test_add_to_blacklist(
-        self,
-        blacklist: RedisTokenBlacklist,
-        mock_redis: AsyncMock,
-        sample_payload: TokenPayload,
-    ) -> None:
-        """블랙리스트 추가 테스트."""
-        # Act
-        await blacklist.add(sample_payload, reason="logout")
-
-        # Assert
-        expected_key = f"{BLACKLIST_KEY_PREFIX}{sample_payload.jti}"
-        mock_redis.setex.assert_called_once()
-        call_args = mock_redis.setex.call_args
-
-        assert call_args[0][0] == expected_key  # key
-        assert call_args[0][1] > 0  # ttl > 0
-        assert call_args[0][1] <= 3600  # ttl <= 만료시간
-        assert call_args[0][2] == "logout"  # reason
 
     @pytest.mark.asyncio
     async def test_contains_blacklisted_token(

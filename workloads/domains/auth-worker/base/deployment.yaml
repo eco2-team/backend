@@ -1,0 +1,90 @@
+# Auth Worker Deployment
+# 블랙리스트 이벤트를 Redis에 저장하는 워커
+# RabbitMQ (blacklist.events) → Redis (blacklist:{jti})
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-worker
+  namespace: auth
+  labels:
+    app: auth-worker
+    version: v1
+    tier: worker
+    domain: auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-worker
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: auth-worker
+        version: v1
+        tier: worker
+        domain: auth
+      annotations:
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+    spec:
+      containers:
+      - name: auth-worker
+        image: docker.io/mng990/eco2:auth-worker-dev-latest
+        imagePullPolicy: Always
+        env:
+        # Redis (블랙리스트 저장)
+        - name: AUTH_REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_REDIS_BLACKLIST_URL
+        # RabbitMQ (이벤트 소비)
+        - name: AUTH_AMQP_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_AMQP_URL
+        # Logging
+        - name: LOG_LEVEL
+          value: INFO
+        - name: SERVICE_NAME
+          value: auth-worker
+        - name: SERVICE_VERSION
+          value: 1.0.0
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: auth-config
+              key: ENVIRONMENT
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        # 프로세스 존재 확인
+        livenessProbe:
+          exec:
+            command: [pgrep, -f, apps.auth_worker.main]
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: [pgrep, -f, apps.auth_worker.main]
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: dockerhub-secret
+      # worker-storage 노드에 배치
+      nodeSelector:
+        workload-type: storage
+      tolerations:
+      - key: workload-type
+        operator: Equal
+        value: storage
+        effect: NoSchedule

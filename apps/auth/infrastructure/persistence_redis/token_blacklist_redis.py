@@ -1,36 +1,33 @@
 """Redis Token Blacklist.
 
 TokenBlacklist 포트의 구현체입니다.
+
+Note:
+    블랙리스트 추가는 BlacklistEventPublisher를 통해 이벤트로 발행됩니다.
+    auth_worker가 이벤트를 소비하여 Redis에 저장합니다.
+    이 클래스는 읽기(조회) 전용입니다.
 """
 
 from __future__ import annotations
 
-import time
 from typing import TYPE_CHECKING
-
-from apps.auth.domain.value_objects.token_payload import TokenPayload
 
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
 
-BLACKLIST_KEY_PREFIX = "blacklist:jti:"
+# auth_worker와 동일한 키 prefix 사용
+BLACKLIST_KEY_PREFIX = "blacklist:"
 
 
 class RedisTokenBlacklist:
-    """Redis 기반 토큰 블랙리스트.
+    """Redis 기반 토큰 블랙리스트 (읽기 전용).
 
     TokenBlacklist 구현체.
+    블랙리스트 추가는 BlacklistEventPublisher를 사용하세요.
     """
 
     def __init__(self, redis: "aioredis.Redis") -> None:
         self._redis = redis
-
-    async def add(self, payload: TokenPayload, reason: str = "revoked") -> None:
-        """토큰을 블랙리스트에 추가."""
-        key = f"{BLACKLIST_KEY_PREFIX}{payload.jti}"
-        # 토큰 만료 시간까지만 유지
-        ttl = max(payload.exp - int(time.time()), 1)
-        await self._redis.setex(key, ttl, reason)
 
     async def contains(self, jti: str) -> bool:
         """토큰이 블랙리스트에 있는지 확인."""

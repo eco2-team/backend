@@ -16,6 +16,9 @@ from apps.auth.application.common.dto.auth import (
 )
 from apps.auth.application.common.ports.token_service import TokenService
 from apps.auth.application.common.ports.token_blacklist import TokenBlacklist
+from apps.auth.application.common.ports.blacklist_event_publisher import (
+    BlacklistEventPublisher,
+)
 from apps.auth.application.common.ports.user_token_store import UserTokenStore
 from apps.auth.application.common.ports.user_query_gateway import UserQueryGateway
 from apps.auth.application.common.ports.transaction_manager import TransactionManager
@@ -32,7 +35,7 @@ class RefreshTokensInteractor:
     2. 블랙리스트 확인
     3. 사용자 토큰 저장소 확인
     4. 사용자 조회
-    5. 기존 토큰 폐기
+    5. 기존 토큰 폐기 (이벤트 발행)
     6. 새 토큰 발급
     7. 새 토큰 저장
     """
@@ -41,12 +44,14 @@ class RefreshTokensInteractor:
         self,
         token_service: TokenService,
         token_blacklist: TokenBlacklist,
+        blacklist_publisher: BlacklistEventPublisher,
         user_token_store: UserTokenStore,
         user_query_gateway: UserQueryGateway,
         transaction_manager: TransactionManager,
     ) -> None:
         self._token_service = token_service
         self._token_blacklist = token_blacklist
+        self._blacklist_publisher = blacklist_publisher
         self._user_token_store = user_token_store
         self._user_query_gateway = user_query_gateway
         self._transaction_manager = transaction_manager
@@ -69,7 +74,7 @@ class RefreshTokensInteractor:
         payload = self._token_service.decode(request.refresh_token)
         self._token_service.ensure_type(payload, TokenType.REFRESH)
 
-        # 2. 블랙리스트 확인
+        # 2. 블랙리스트 확인 (읽기 - Redis 직접 조회)
         if await self._token_blacklist.contains(payload.jti):
             raise TokenRevokedError(payload.jti)
 
@@ -85,9 +90,9 @@ class RefreshTokensInteractor:
         if not user:
             raise UserNotFoundError(str(payload.user_id.value))
 
-        # 6. 기존 토큰 폐기
+        # 6. 기존 토큰 폐기 (이벤트 발행 - auth_worker가 Redis에 저장)
         await self._user_token_store.remove(payload.user_id.value, payload.jti)
-        await self._token_blacklist.add(payload, reason="token_rotated")
+        await self._blacklist_publisher.publish_add(payload, reason="token_rotated")
 
         # 7. 새 토큰 발급
         token_pair = self._token_service.issue_pair(

@@ -15,6 +15,9 @@ spec:
       - name: auth-relay
         namespace: auth
         phase: '1'
+      - name: auth-worker
+        namespace: auth
+        phase: '1'
       # Phase 2: Scan 관련
       - name: scan-worker
         namespace: scan

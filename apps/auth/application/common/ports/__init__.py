@@ -14,6 +14,9 @@ from apps.auth.application.common.ports.user_token_store import UserTokenStore
 from apps.auth.application.common.ports.outbox_gateway import OutboxGateway
 from apps.auth.application.common.ports.flusher import Flusher
 from apps.auth.application.common.ports.transaction_manager import TransactionManager
+from apps.auth.application.common.ports.blacklist_event_publisher import (
+    BlacklistEventPublisher,
+)
 
 __all__ = [
     "UserCommandGateway",
@@ -27,4 +30,5 @@ __all__ = [
     "OutboxGateway",
     "Flusher",
     "TransactionManager",
+    "BlacklistEventPublisher",
 ]

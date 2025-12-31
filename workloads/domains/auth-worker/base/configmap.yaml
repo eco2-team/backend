@@ -1,0 +1,13 @@
+# Auth Worker ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-worker-config
+  namespace: auth
+  labels:
+    app: auth-worker
+    tier: worker
+    domain: auth
+data:
+  LOG_LEVEL: INFO
+  SERVICE_NAME: auth-worker

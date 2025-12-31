@@ -1,0 +1,93 @@
+# Auth Worker Canary Deployment
+# 블랙리스트 이벤트를 Redis에 저장하는 워커 (Canary)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-worker-canary
+  namespace: auth
+  labels:
+    app: auth-worker
+    version: v2
+    tier: worker
+    domain: auth
+    release: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-worker
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: auth-worker
+        version: v2
+        tier: worker
+        domain: auth
+        release: canary
+      annotations:
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+    spec:
+      containers:
+      - name: auth-worker
+        image: docker.io/mng990/eco2:auth-worker-dev-canary
+        imagePullPolicy: Always
+        env:
+        # Redis (블랙리스트 저장)
+        - name: AUTH_REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_REDIS_BLACKLIST_URL
+        # RabbitMQ (이벤트 소비)
+        - name: AUTH_AMQP_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_AMQP_URL
+        # Logging
+        - name: LOG_LEVEL
+          value: INFO
+        - name: SERVICE_NAME
+          value: auth-worker
+        - name: SERVICE_VERSION
+          value: 1.0.0
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: auth-config
+              key: ENVIRONMENT
+        # Canary 식별
+        - name: RELEASE_TYPE
+          value: canary
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        livenessProbe:
+          exec:
+            command: [pgrep, -f, apps.auth_worker.main]
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: [pgrep, -f, apps.auth_worker.main]
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: dockerhub-secret
+      # worker-storage 노드에 배치
+      nodeSelector:
+        workload-type: storage
+      tolerations:
+      - key: workload-type
+        operator: Equal
+        value: storage
+        effect: NoSchedule

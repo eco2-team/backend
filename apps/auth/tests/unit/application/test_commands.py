@@ -22,10 +22,15 @@ class TestLogoutInteractor:
         return mock
 
     @pytest.fixture
+    def mock_blacklist_publisher(self) -> AsyncMock:
+        """Mock BlacklistEventPublisher."""
+        return AsyncMock()
+
+    @pytest.fixture
     def interactor(
         self,
         mock_token_service: MagicMock,
-        mock_token_blacklist: AsyncMock,
+        mock_blacklist_publisher: AsyncMock,
     ) -> LogoutInteractor:
         """LogoutInteractor 인스턴스."""
         mock_user_token_store = AsyncMock()
@@ -33,7 +38,7 @@ class TestLogoutInteractor:
 
         return LogoutInteractor(
             token_service=mock_token_service,
-            token_blacklist=mock_token_blacklist,
+            blacklist_publisher=mock_blacklist_publisher,
             user_token_store=mock_user_token_store,
             transaction_manager=mock_transaction_manager,
         )
