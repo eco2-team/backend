@@ -82,7 +82,7 @@ jobs:
           any_changed = os.environ.get("ANY_CHANGED", "false").lower() == "true"
           
           # FastAPI API 서비스
-          API_SERVICES = ["auth", "character", "chat", "image", "location", "my", "scan"]
+          API_SERVICES = ["auth", "users", "character", "chat", "image", "location", "my", "scan"]
           
           # Worker 서비스
           WORKER_SERVICES = ["character-worker", "scan-worker", "my-worker"]

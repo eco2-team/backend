@@ -11,6 +11,7 @@ on:
       # (ext-authz는 Go → ci-ext-authz.yml)
       # (sse-gateway, event-router는 → ci-sse-components.yml)
       - "apps/auth/**"
+      - "apps/users/**"
       - "domains/auth/**"
       - "domains/character/**"
       - "domains/chat/**"
@@ -21,6 +22,7 @@ on:
       - "domains/_shared/**"
       - "domains/_base/**"
       - "workloads/domains/auth/**"
+      - "workloads/domains/users/**"
       - "workloads/domains/character/**"
       - "workloads/domains/chat/**"
       - "workloads/domains/image/**"
@@ -38,6 +40,7 @@ on:
       # (ext-authz는 Go → ci-ext-authz.yml)
       # (sse-gateway, event-router는 → ci-sse-components.yml)
       - "apps/auth/**"
+      - "apps/users/**"
       - "domains/auth/**"
       - "domains/character/**"
       - "domains/chat/**"
@@ -48,6 +51,7 @@ on:
       - "domains/_shared/**"
       - "domains/_base/**"
       - "workloads/domains/auth/**"
+      - "workloads/domains/users/**"
       - "workloads/domains/character/**"
       - "workloads/domains/chat/**"
       - "workloads/domains/image/**"
@@ -152,6 +156,7 @@ jobs:
         with:
           files: |
             apps/auth/**
+            apps/users/**
             domains/auth/**
             domains/character/**
             domains/chat/**
@@ -163,6 +168,7 @@ jobs:
             domains/_shared/waste_pipeline/**
             domains/_shared/celery/**
             workloads/domains/auth/**
+            workloads/domains/users/**
             workloads/domains/character/**
             workloads/domains/chat/**
             workloads/domains/image/**
@@ -189,6 +195,7 @@ jobs:
           # sse-gateway, event-router는 SSE 컴포넌트 → ci-sse-components.yml
           FASTAPI_SERVICES = [
               "auth",
+              "users",
               "character",
               "chat",
               "image",
@@ -205,7 +212,7 @@ jobs:
               "domains/_shared/celery": ["scan", "character", "my"],
               # domains/_shared/events는 SSE 컴포넌트 전용 → ci-sse-components.yml
               # Base 이미지 변경 시 모든 API 서비스 재빌드 (의존성 업데이트)
-              "domains/_base": ["auth", "character", "chat", "image", "location", "my", "scan"],
+              "domains/_base": ["auth", "users", "character", "chat", "image", "location", "my", "scan"],
           }
 
           def normalize(service: str) -> str:
