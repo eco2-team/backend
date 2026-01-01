@@ -43,9 +43,7 @@ class TestAuthRelay:
         mock_container.relay_loop = mock_relay_loop
 
         with patch.dict(os.environ, env_vars, clear=False):
-            with patch(
-                "apps.auth_relay.main.Container", return_value=mock_container
-            ):
+            with patch("apps.auth_relay.main.Container", return_value=mock_container):
                 with patch("apps.auth_relay.main.setup_logging"):
                     from apps.auth_relay.main import AuthRelay
 
@@ -120,9 +118,7 @@ class TestMain:
 
         with patch.dict(os.environ, env_vars, clear=False):
             with patch("apps.auth_relay.main.setup_logging"):
-                with patch(
-                    "apps.auth_relay.main.AuthRelay", return_value=mock_relay
-                ):
+                with patch("apps.auth_relay.main.AuthRelay", return_value=mock_relay):
                     from apps.auth_relay.main import main
 
                     await main()

@@ -77,9 +77,7 @@ class TestSetupLogging:
 
             # Create a log record to check metadata
             logger = logging.getLogger("test")
-            record = logger.makeRecord(
-                "test", logging.INFO, "", 0, "test", (), None
-            )
+            record = logger.makeRecord("test", logging.INFO, "", 0, "test", (), None)
 
         assert hasattr(record, "service")
         assert record.service["name"] == "test-relay"

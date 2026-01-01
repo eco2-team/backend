@@ -76,9 +76,7 @@ class TestContainer:
         mock_publisher.close.assert_called_once()
         mock_redis.close.assert_called_once()
 
-    def test_relay_loop_raises_if_not_initialized(
-        self, env_vars: dict[str, str]
-    ) -> None:
+    def test_relay_loop_raises_if_not_initialized(self, env_vars: dict[str, str]) -> None:
         """relay_loop property should raise if not initialized."""
         with patch.dict(os.environ, env_vars, clear=False):
             from apps.auth_relay.setup.dependencies import Container
@@ -89,9 +87,7 @@ class TestContainer:
             _ = container.relay_loop
 
     @pytest.mark.asyncio
-    async def test_relay_loop_returns_initialized_loop(
-        self, env_vars: dict[str, str]
-    ) -> None:
+    async def test_relay_loop_returns_initialized_loop(self, env_vars: dict[str, str]) -> None:
         """relay_loop property should return loop after init."""
         mock_redis = AsyncMock()
         mock_redis.ping = AsyncMock()

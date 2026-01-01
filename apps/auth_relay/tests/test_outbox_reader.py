@@ -68,9 +68,7 @@ class TestRedisOutboxReader:
         """push_back() should LPUSH to outbox."""
         await reader.push_back('{"jti": "abc"}')
 
-        mock_redis.lpush.assert_called_once_with(
-            RedisOutboxReader.OUTBOX_KEY, '{"jti": "abc"}'
-        )
+        mock_redis.lpush.assert_called_once_with(RedisOutboxReader.OUTBOX_KEY, '{"jti": "abc"}')
 
     @pytest.mark.asyncio
     async def test_push_to_dlq(
@@ -81,9 +79,7 @@ class TestRedisOutboxReader:
         """push_to_dlq() should LPUSH to DLQ."""
         await reader.push_to_dlq('{"jti": "abc"}')
 
-        mock_redis.lpush.assert_called_once_with(
-            RedisOutboxReader.DLQ_KEY, '{"jti": "abc"}'
-        )
+        mock_redis.lpush.assert_called_once_with(RedisOutboxReader.DLQ_KEY, '{"jti": "abc"}')
 
     @pytest.mark.asyncio
     async def test_length(
