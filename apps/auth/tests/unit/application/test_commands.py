@@ -14,8 +14,8 @@ class TestLogoutInteractor:
     """LogoutInteractor 테스트."""
 
     @pytest.fixture
-    def mock_token_service(self) -> MagicMock:
-        """Mock TokenService."""
+    def mock_token_issuer(self) -> MagicMock:
+        """Mock TokenIssuer."""
         mock = MagicMock()
         mock.decode = MagicMock(return_value=MagicMock())
         mock.ensure_type = MagicMock()
@@ -29,17 +29,17 @@ class TestLogoutInteractor:
     @pytest.fixture
     def interactor(
         self,
-        mock_token_service: MagicMock,
+        mock_token_issuer: MagicMock,
         mock_blacklist_publisher: AsyncMock,
     ) -> LogoutInteractor:
         """LogoutInteractor 인스턴스."""
-        mock_user_token_store = AsyncMock()
+        mock_token_session_store = AsyncMock()
         mock_transaction_manager = AsyncMock()
 
         return LogoutInteractor(
-            token_service=mock_token_service,
+            token_issuer=mock_token_issuer,
             blacklist_publisher=mock_blacklist_publisher,
-            user_token_store=mock_user_token_store,
+            token_session_store=mock_token_session_store,
             transaction_manager=mock_transaction_manager,
         )
 
@@ -78,11 +78,11 @@ class TestLogoutInteractor:
     async def test_logout_with_invalid_token(
         self,
         interactor: LogoutInteractor,
-        mock_token_service: MagicMock,
+        mock_token_issuer: MagicMock,
     ) -> None:
         """유효하지 않은 토큰으로 로그아웃 (에러 무시)."""
         # Arrange
-        mock_token_service.decode.side_effect = Exception("Invalid token")
+        mock_token_issuer.decode.side_effect = Exception("Invalid token")
         request = LogoutRequest(access_token="invalid-token")
 
         # Act - 예외가 발생하지 않아야 함
