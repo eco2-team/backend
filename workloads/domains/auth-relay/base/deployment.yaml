@@ -87,9 +87,9 @@ spec:
       - name: dockerhub-secret
       # worker-storage 노드에 배치
       nodeSelector:
-        workload-type: storage
+        domain: worker-storage
       tolerations:
-      - key: workload-type
+      - key: domain
         operator: Equal
-        value: storage
+        value: worker-storage
         effect: NoSchedule
