@@ -22,7 +22,7 @@ from apps.auth.infrastructure.persistence_redis.user_token_store_redis import (
     USER_TOKENS_KEY_PREFIX,
     TOKEN_META_KEY_PREFIX,
 )
-from apps.auth.application.common.ports.state_store import OAuthState
+from apps.auth.application.oauth.ports import OAuthState
 
 
 class TestRedisStateStore:

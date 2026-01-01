@@ -7,13 +7,20 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.users.application.commands import DeleteUserInteractor, UpdateProfileInteractor
-from apps.users.application.common.services import ProfileBuilder
-from apps.users.application.queries import (
+# Profile domain
+from apps.users.application.profile.commands import (
+    DeleteUserInteractor,
+    UpdateProfileInteractor,
+)
+from apps.users.application.profile.queries import GetProfileQuery
+from apps.users.application.profile.services import ProfileBuilder
+
+# Character domain
+from apps.users.application.character.queries import (
     CheckCharacterOwnershipQuery,
     GetCharactersQuery,
-    GetProfileQuery,
 )
+
 from apps.users.domain.services import UserService
 from apps.users.infrastructure.persistence_postgres.adapters import (
     SqlaSocialAccountQueryGateway,
@@ -49,8 +56,7 @@ def get_get_profile_query(
 ) -> GetProfileQuery:
     """GetProfileQuery 인스턴스를 반환합니다."""
     return GetProfileQuery(
-        user_query_gateway=SqlaUserQueryGateway(session),
-        user_command_gateway=SqlaUserCommandGateway(session),
+        profile_gateway=SqlaUserQueryGateway(session),
         social_account_gateway=SqlaSocialAccountQueryGateway(session),
         profile_builder=profile_builder,
     )
@@ -80,8 +86,8 @@ def get_update_profile_interactor(
 ) -> UpdateProfileInteractor:
     """UpdateProfileInteractor 인스턴스를 반환합니다."""
     return UpdateProfileInteractor(
-        user_query_gateway=SqlaUserQueryGateway(session),
-        user_command_gateway=SqlaUserCommandGateway(session),
+        profile_query=SqlaUserQueryGateway(session),
+        profile_command=SqlaUserCommandGateway(session),
         social_account_gateway=SqlaSocialAccountQueryGateway(session),
         transaction_manager=SqlaTransactionManager(session),
         user_service=user_service,
@@ -92,7 +98,7 @@ def get_update_profile_interactor(
 def get_delete_user_interactor(session: SessionDep) -> DeleteUserInteractor:
     """DeleteUserInteractor 인스턴스를 반환합니다."""
     return DeleteUserInteractor(
-        user_query_gateway=SqlaUserQueryGateway(session),
-        user_command_gateway=SqlaUserCommandGateway(session),
+        profile_query=SqlaUserQueryGateway(session),
+        profile_command=SqlaUserCommandGateway(session),
         transaction_manager=SqlaTransactionManager(session),
     )

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from apps.auth.application.common.services.oauth_client import OAuthProfile
-from apps.auth.application.common.exceptions.auth import OAuthProviderError
+from apps.auth.application.oauth.exceptions import OAuthProviderError
 
 if TYPE_CHECKING:
     from apps.auth.infrastructure.oauth.registry import ProviderRegistry

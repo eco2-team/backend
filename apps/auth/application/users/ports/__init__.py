@@ -8,9 +8,13 @@ from apps.auth.application.users.ports.user_management_gateway import (
     UserManagementGateway,
 )
 from apps.auth.application.users.ports.user_query_gateway import UserQueryGateway
+from apps.auth.application.users.ports.user_command_gateway import UserCommandGateway
+from apps.auth.application.users.ports.social_account_gateway import SocialAccountGateway
 
 __all__ = [
     "UserManagementGateway",
     "UserQueryGateway",
+    "UserCommandGateway",
+    "SocialAccountGateway",
     "OAuthUserResult",
 ]

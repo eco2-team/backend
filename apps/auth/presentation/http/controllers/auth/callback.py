@@ -9,8 +9,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import RedirectResponse
 
-from apps.auth.application.commands.oauth_callback import OAuthCallbackInteractor
-from apps.auth.application.common.dto.auth import OAuthCallbackRequest
+from apps.auth.application.oauth.commands import OAuthCallbackInteractor
+from apps.auth.application.oauth.dto import OAuthCallbackRequest
 from apps.auth.presentation.http.schemas.auth import UserResponse
 from apps.auth.presentation.http.auth.cookie_params import set_auth_cookies
 from apps.auth.presentation.http.utils.redirect import (

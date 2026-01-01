@@ -9,7 +9,7 @@ import json
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from apps.auth.application.common.ports.user_token_store import TokenMetadata
+from apps.auth.application.token.ports import TokenMetadata
 
 if TYPE_CHECKING:
     import redis.asyncio as aioredis

@@ -8,8 +8,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import RedirectResponse
 
-from apps.auth.application.commands.oauth_authorize import OAuthAuthorizeInteractor
-from apps.auth.application.common.dto.auth import OAuthAuthorizeRequest
+from apps.auth.application.oauth.commands import OAuthAuthorizeInteractor
+from apps.auth.application.oauth.dto import OAuthAuthorizeRequest
 from apps.auth.presentation.http.schemas.auth import AuthorizeResponse
 from apps.auth.presentation.http.utils.redirect import FRONTEND_ORIGIN_HEADER
 from apps.auth.setup.dependencies import get_oauth_authorize_interactor

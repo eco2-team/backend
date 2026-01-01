@@ -14,12 +14,9 @@ from apps.auth.domain.exceptions.auth import (
     TokenTypeMismatchError,
     TokenRevokedError,
 )
-from apps.auth.application.common.exceptions.base import ApplicationError
-from apps.auth.application.common.exceptions.auth import (
-    AuthenticationError,
-    InvalidStateError,
-    OAuthProviderError,
-)
+from apps.auth.application.common.exceptions import ApplicationError
+from apps.auth.application.oauth.exceptions import InvalidStateError, OAuthProviderError
+from apps.auth.application.token.exceptions import AuthenticationError
 
 
 def register_exception_handlers(app: FastAPI) -> None:

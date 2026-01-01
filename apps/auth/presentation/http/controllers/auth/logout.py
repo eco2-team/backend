@@ -5,8 +5,8 @@
 
 from fastapi import APIRouter, Cookie, Depends, Response
 
-from apps.auth.application.commands.logout import LogoutInteractor
-from apps.auth.application.common.dto.auth import LogoutRequest
+from apps.auth.application.token.commands import LogoutInteractor
+from apps.auth.application.token.dto import LogoutRequest
 from apps.auth.presentation.http.auth.cookie_params import (
     ACCESS_COOKIE_NAME,
     REFRESH_COOKIE_NAME,

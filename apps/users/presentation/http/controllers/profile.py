@@ -8,17 +8,17 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 
-from apps.users.application.commands import (
+from apps.users.application.profile.commands import (
     DeleteUserInteractor,
     UpdateProfileInteractor,
 )
-from apps.users.application.common.dto import UserUpdate
-from apps.users.application.common.exceptions import (
+from apps.users.application.profile.dto import UserUpdate
+from apps.users.application.profile.exceptions import (
     InvalidPhoneNumberError,
     NoChangesProvidedError,
     UserNotFoundError,
 )
-from apps.users.application.queries import GetProfileQuery
+from apps.users.application.profile.queries import GetProfileQuery
 from apps.users.presentation.http.schemas import UserProfileResponse, UserUpdateRequest
 from apps.users.setup.dependencies import (
     get_delete_user_interactor,
