@@ -1,4 +1,3 @@
----
 # 새 Worker 노드 추가 통합 Playbook
 # 용도: Terraform으로 생성된 새 노드를 K8s 클러스터에 조인
 # 사용법:
@@ -10,7 +9,6 @@
 #   ansible-playbook -i inventory/hosts.ini playbooks/add-worker-nodes.yml \
 #     -l k8s-worker-storage-2,k8s-worker-ai-2
 
----
 # Step 0: SSH 연결 대기
 - name: Wait for new nodes to be ready
   hosts: all
