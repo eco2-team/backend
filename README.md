@@ -19,20 +19,23 @@
 
 
 ```yaml
-Edge Layer        : Route 53, AWS ALB, Istio Ingress Gateway
-Service Layer     : auth, my, scan, character, location, chat (w/ Envoy Sidecar)
-Event Relay Layer : Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
-                  : RabbitMQ, Celery Workers (scan, character-match, character, my, beat)
-Persistence Layer : PostgreSQL, Redis
-Platform Layer    : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, EFK Stack
+Edge Layer               : Route 53, AWS ALB, Istio Ingress Gateway
+Service Layer            : auth, users, my, scan, character, location, chat (w/ Envoy Sidecar)
+Integration Layer        :
+  - Event Relay          : Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
+  - Worker (Storage)     : auth-worker, auth-relay, users-worker, character-worker, my-worker, character-match-worker
+  - Worker (AI)          : scan-worker (Vision→Rule→Answer→Reward)
+Persistence Layer        : PostgreSQL, Redis (Blacklist/State/Streams/Pub-Sub/Cache)
+Platform Layer           : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, EFK Stack
 ```
 
-본 서비스는 4-Layer Architecture로 구성되었습니다.
+본 서비스는 5-Layer Architecture로 구성되었습니다.
 
 - **Edge Layer**: AWS ALB가 SSL Termination을 처리하고, 트래픽을 `Istio Ingress Gateway`로 전달합니다. Gateway는 `VirtualService` 규칙에 따라 North-South 트래픽을 라우팅합니다.
-- **Service Layer**: 모든 마이크로서비스는 **Istio Service Mesh** 내에서 동작하며, `Envoy Sidecar`를 통해 mTLS 통신, 트래픽 제어, 메트릭 수집을 수행합니다.
-- **Event Relay Layer**: **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처로 SSE 파이프라인을 처리합니다. **RabbitMQ + Celery** 비동기 Task Queue로 AI 파이프라인(Vision→Rule→Answer→Reward)을 처리하고, **KEDA**가 이벤트 드리븐 오토스케일링을 수행합니다.
-- **Persistence Layer**: 서비스는 영속성을 위해 PostgreSQL, Redis를 사용합니다. Helm Chart로 관리되는 독립적인 데이터 인프라입니다.
+- **Service Layer**: 모든 마이크로서비스는 **Istio Service Mesh** 내에서 동작하며, `Envoy Sidecar`를 통해 mTLS 통신, 트래픽 제어, 메트릭 수집을 수행합니다. `auth`→`users` gRPC 통신으로 도메인 간 동기 호출을 처리합니다.
+- **Integration Layer - Event Relay**: **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처로 SSE 파이프라인을 처리합니다. **RabbitMQ + Celery** 비동기 Task Queue로 AI 파이프라인(Vision→Rule→Answer→Reward)을 처리하고, **KEDA**가 이벤트 드리븐 오토스케일링을 수행합니다.
+- **Integration Layer - Worker**: **Storage Worker**(`worker-storage` 노드)는 Persistence Layer에 접근하여 데이터를 동기화합니다. `auth-worker`는 RabbitMQ에서 블랙리스트 이벤트를 소비해 Redis에 저장하고, `auth-relay`는 Redis Outbox 패턴으로 실패 이벤트를 재발행합니다. `users-worker`는 Celery Batch로 캐릭터 소유권을 PostgreSQL에 UPSERT합니다. **AI Worker**(`worker-ai` 노드)는 OpenAI API와 통신하며, `scan-worker`가 Vision→Rule→Answer→Reward 체인을 gevent pool로 처리합니다.
+- **Persistence Layer**: 서비스는 영속성을 위해 PostgreSQL, Redis를 사용합니다. Redis는 용도별로 분리(Blacklist/OAuth State/Streams/Pub-Sub/Cache)되며, Helm Chart로 관리되는 독립적인 데이터 인프라입니다.
 - **Platform Layer**: `Istiod`가 Service Mesh를 제어하고, `ArgoCD`가 GitOps 동기화를 담당합니다. `KEDA`가 이벤트 드리븐 오토스케일링을 수행하고, Observability 스택(`Prometheus/Grafana/Kiali`, `Jaeger`, `EFK Stack`)이 메트릭·트레이싱·로깅을 통합 관리합니다.
 
 각 계층은 서로 독립적으로 기능하도록 설계되었으며, Platform Layer가 전 계층을 제어 및 관측합니다.
@@ -57,13 +60,21 @@ Platform Layer    : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, EF
 
 ### Celery Workers ✅
 
-| Worker | 설명 | Queue | Scaling |
-|--------|------|-------|---------|
-| scan-worker | AI 파이프라인 처리 (Vision→Rule→Answer→Reward) | `scan.vision`, `scan.rule`, `scan.answer`, `scan.reward` | KEDA (RabbitMQ) |
-| character-match-worker | 캐릭터 매칭 처리 | `character.match` | KEDA (RabbitMQ) |
-| character-worker | 캐릭터 소유권 저장 (batch) | `character.reward` | KEDA (RabbitMQ) |
-| my-worker | 마이페이지 캐릭터 동기화 (batch) | `my.reward` | KEDA (RabbitMQ) |
-| celery-beat | DLQ 재처리 스케줄링 | - | 단일 인스턴스 |
+| Worker | 노드 | 설명 | Queue | Scaling |
+|--------|------|------|-------|---------|
+| scan-worker | `worker-ai` | AI 파이프라인 처리 (Vision→Rule→Answer→Reward) | `scan.vision`, `scan.rule`, `scan.answer`, `scan.reward` | KEDA (RabbitMQ) |
+| character-match-worker | `worker-storage` | 캐릭터 매칭 처리 | `character.match` | KEDA (RabbitMQ) |
+| character-worker | `worker-storage` | 캐릭터 소유권 저장 (batch) | `character.reward` | KEDA (RabbitMQ) |
+| my-worker | `worker-storage` | 마이페이지 캐릭터 동기화 (batch) | `my.reward` | KEDA (RabbitMQ) |
+| users-worker | `worker-storage` | 유저 캐릭터 소유권 PostgreSQL UPSERT (Clean Arch) | `users.character` | KEDA (RabbitMQ) |
+| celery-beat | `worker-storage` | DLQ 재처리 스케줄링 | - | 단일 인스턴스 |
+
+### Auth Workers (Clean Architecture) ✅
+
+| Worker | 노드 | 설명 | 입력 | 출력 |
+|--------|------|------|------|------|
+| auth-worker | `worker-storage` | 블랙리스트 이벤트 → Redis 저장 | RabbitMQ `blacklist.events` | Redis `blacklist:{jti}` |
+| auth-relay | `worker-storage` | Redis Outbox → RabbitMQ 재발행 (Outbox Pattern) | Redis `outbox:blacklist` | RabbitMQ `blacklist.events` |
 
 ### Event Relay Components ✅
 
@@ -383,12 +394,18 @@ GitOps    :
   Layer3 - GitHub Actions + Docker Hub
 Architecture :
   Edge Layer        - Route 53, AWS ALB, Istio Ingress Gateway
-  Service Layer     - auth, my, scan, character, location, chat
-  Event Relay Layer - Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
-                    - RabbitMQ, Celery Workers, KEDA (Event-driven Autoscaling)
-  Persistence Layer - PostgreSQL, Redis (Cache/Streams/Pub-Sub 분리)
+  Service Layer     - auth, users, my, scan, character, location, chat
+  Integration Layer :
+    - Event Relay   - Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
+    - Worker (Storage) - auth-worker, auth-relay, users-worker, character-worker, my-worker
+    - Worker (AI)   - scan-worker (Vision→Rule→Answer→Reward)
+    - KEDA (Event-driven Autoscaling)
+  Persistence Layer - PostgreSQL, Redis (Blacklist/State/Streams/Pub-Sub/Cache 분리)
   Platform Layer    - ArgoCD, Istiod, KEDA, Observability (Prometheus, Grafana, EFK, Jaeger)
 Network   : Calico CNI + Istio Service Mesh (mTLS)
+Node Isolation :
+  - worker-storage  - Taint: domain=worker-storage:NoSchedule (Persistence 접근 Worker 전용)
+  - worker-ai       - Taint: domain=worker-ai:NoSchedule (AI/OpenAI API 호출 Worker 전용)
 ```
 1. Terraform으로 AWS 인프라를 구축합니다.
 2. Ansible로 구축된 AWS 인프라를 엮어 K8s 클러스터를 구성하고, ArgoCD root-app을 설치합니다.
