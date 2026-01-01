@@ -19,7 +19,10 @@ FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
-RUN useradd --create-home --shell /bin/bash appuser
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    procps \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /bin/bash appuser
 
 COPY --from=builder /install /usr/local
 COPY apps/auth_relay /app/apps/auth_relay
