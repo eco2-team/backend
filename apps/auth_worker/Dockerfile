@@ -13,6 +13,7 @@ WORKDIR /app
 # 시스템 패키지
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # ─────────────────────────────────────────────────────────────
