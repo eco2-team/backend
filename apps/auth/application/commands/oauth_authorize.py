@@ -11,8 +11,13 @@ from apps.auth.application.common.dto.auth import (
     OAuthAuthorizeRequest,
     OAuthAuthorizeResponse,
 )
-from apps.auth.application.common.ports.state_store import StateStore, OAuthState
-from apps.auth.application.common.services.oauth_client import OAuthClientService
+
+# OAuth 도메인 포트
+from apps.auth.application.oauth.ports import (
+    OAuthProviderGateway,
+    OAuthState,
+    OAuthStateStore,
+)
 
 
 class OAuthAuthorizeInteractor:
@@ -27,11 +32,11 @@ class OAuthAuthorizeInteractor:
 
     def __init__(
         self,
-        state_store: StateStore,
-        oauth_client: OAuthClientService,
+        oauth_state_store: OAuthStateStore,
+        oauth_provider: OAuthProviderGateway,
     ) -> None:
-        self._state_store = state_store
-        self._oauth_client = oauth_client
+        self._oauth_state_store = oauth_state_store
+        self._oauth_provider = oauth_provider
 
     async def execute(self, request: OAuthAuthorizeRequest) -> OAuthAuthorizeResponse:
         """OAuth 인증 URL 생성.
@@ -56,10 +61,10 @@ class OAuthAuthorizeInteractor:
             device_id=request.device_id,
             frontend_origin=request.frontend_origin,
         )
-        await self._state_store.save(state, oauth_state, ttl_seconds=600)
+        await self._oauth_state_store.save(state, oauth_state, ttl_seconds=600)
 
         # 4. 인증 URL 생성
-        authorization_url = self._oauth_client.get_authorization_url(
+        authorization_url = self._oauth_provider.get_authorization_url(
             request.provider,
             redirect_uri=request.redirect_uri or "",
             state=state,

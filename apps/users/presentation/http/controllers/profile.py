@@ -12,12 +12,12 @@ from apps.users.application.commands import (
     DeleteUserInteractor,
     UpdateProfileInteractor,
 )
+from apps.users.application.common.dto import UserUpdate
 from apps.users.application.common.exceptions import (
     InvalidPhoneNumberError,
     NoChangesProvidedError,
     UserNotFoundError,
 )
-from apps.users.application.common.dto import UserUpdate
 from apps.users.application.queries import GetProfileQuery
 from apps.users.presentation.http.schemas import UserProfileResponse, UserUpdateRequest
 from apps.users.setup.dependencies import (
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/user/me", tags=["profile"])
 
 
-def get_auth_user_id(
+def get_user_id(
     x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
 ) -> UUID:
     """ext-authz에서 전달된 사용자 ID를 추출합니다."""
@@ -58,14 +58,14 @@ def get_provider(
 
 @router.get("", response_model=UserProfileResponse)
 async def get_profile(
-    auth_user_id: UUID = Depends(get_auth_user_id),
+    user_id: UUID = Depends(get_user_id),
     provider: str = Depends(get_provider),
     query: GetProfileQuery = Depends(get_get_profile_query),
 ) -> UserProfileResponse:
     """현재 사용자 프로필을 조회합니다."""
-    profile = await query.execute(auth_user_id, provider)
+    profile = await query.execute(user_id, provider)
     return UserProfileResponse(
-        username=profile.username,
+        display_name=profile.display_name,
         nickname=profile.nickname,
         phone_number=profile.phone_number,
         provider=profile.provider,
@@ -76,7 +76,7 @@ async def get_profile(
 @router.patch("", response_model=UserProfileResponse)
 async def update_profile(
     request: UserUpdateRequest,
-    auth_user_id: UUID = Depends(get_auth_user_id),
+    user_id: UUID = Depends(get_user_id),
     provider: str = Depends(get_provider),
     interactor: UpdateProfileInteractor = Depends(get_update_profile_interactor),
 ) -> UserProfileResponse:
@@ -86,9 +86,9 @@ async def update_profile(
             nickname=request.nickname,
             phone_number=request.phone_number,
         )
-        profile = await interactor.execute(auth_user_id, update, provider)
+        profile = await interactor.execute(user_id, update, provider)
         return UserProfileResponse(
-            username=profile.username,
+            display_name=profile.display_name,
             nickname=profile.nickname,
             phone_number=profile.phone_number,
             provider=profile.provider,
@@ -113,12 +113,12 @@ async def update_profile(
 
 @router.delete("")
 async def delete_user(
-    auth_user_id: UUID = Depends(get_auth_user_id),
+    user_id: UUID = Depends(get_user_id),
     interactor: DeleteUserInteractor = Depends(get_delete_user_interactor),
 ) -> Response:
     """현재 사용자 계정을 삭제합니다."""
     try:
-        await interactor.execute(auth_user_id)
+        await interactor.execute(user_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except UserNotFoundError:
         raise HTTPException(

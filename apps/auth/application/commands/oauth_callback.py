@@ -3,7 +3,7 @@
 OAuth 콜백 처리 Use Case입니다.
 
 Phase 1: gRPC를 통해 users 도메인과 통신합니다.
-- UserManagementService 포트를 통해 사용자 조회/생성
+- UserManagementGateway 포트를 통해 사용자 조회/생성
 - 기존 UserService, UserCommandGateway 등은 deprecated
 
 참고: https://rooftopsnow.tistory.com/127
@@ -30,17 +30,17 @@ from apps.auth.application.common.exceptions.auth import (
 from apps.auth.application.common.ports.flusher import Flusher
 from apps.auth.application.common.ports.transaction_manager import TransactionManager
 
-# Auth 도메인 포트
-from apps.auth.application.auth.ports.oauth_provider_gateway import OAuthProviderGateway
-from apps.auth.application.auth.ports.oauth_state_store import OAuthStateStore
-from apps.auth.application.auth.ports.token_issuer import TokenIssuer
-from apps.auth.application.auth.ports.user_token_store import UserTokenStore
+# OAuth 도메인 포트
+from apps.auth.application.oauth.ports import OAuthProviderGateway, OAuthStateStore
+
+# Token 도메인 포트
+from apps.auth.application.token.ports import TokenIssuer, TokenSessionStore
 
 # User 도메인 포트
-from apps.auth.application.user.ports.user_management_gateway import UserManagementGateway
+from apps.auth.application.user.ports import UserManagementGateway
 
 # Audit 도메인 포트
-from apps.auth.application.audit.ports.login_audit_gateway import LoginAuditGateway
+from apps.auth.application.audit.ports import LoginAuditGateway
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class OAuthCallbackInteractor:
         login_audit_gateway: LoginAuditGateway,
         token_issuer: TokenIssuer,
         oauth_state_store: OAuthStateStore,
-        user_token_store: UserTokenStore,
+        token_session_store: TokenSessionStore,
         oauth_provider: OAuthProviderGateway,
         flusher: Flusher,
         transaction_manager: TransactionManager,
@@ -72,7 +72,7 @@ class OAuthCallbackInteractor:
         self._login_audit_gateway = login_audit_gateway
         self._token_issuer = token_issuer
         self._oauth_state_store = oauth_state_store
-        self._user_token_store = user_token_store
+        self._token_session_store = token_session_store
         self._oauth_provider = oauth_provider
         self._flusher = flusher
         self._transaction_manager = transaction_manager
@@ -140,7 +140,7 @@ class OAuthCallbackInteractor:
         )
 
         # 5. 토큰 저장
-        await self._user_token_store.register(
+        await self._token_session_store.register(
             user_id=user_id,
             jti=token_pair.refresh_jti,
             issued_at=token_pair.access_expires_at - 900,  # 대략적인 발급 시간

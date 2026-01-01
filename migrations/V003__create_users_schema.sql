@@ -6,6 +6,9 @@
 --   - auth.user_social_accounts → users.user_social_accounts (이동)
 --   - user_profile.user_characters → users.user_characters (이동)
 --
+-- Note:
+--   - username 컬럼 제거 (OAuth 전용이므로 불필요)
+--
 -- 실행 전 백업 필수!
 -- ============================================================================
 
@@ -19,7 +22,6 @@ CREATE SCHEMA IF NOT EXISTS users;
 -- ============================================
 CREATE TABLE users.users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username VARCHAR(120),
     nickname VARCHAR(120),
     name VARCHAR(120),
     email VARCHAR(320),
@@ -33,7 +35,7 @@ CREATE TABLE users.users (
 );
 
 -- Partial indexes (NULL 제외)
-CREATE INDEX idx_users_username ON users.users(username) WHERE username IS NOT NULL;
+CREATE INDEX idx_users_nickname ON users.users(nickname) WHERE nickname IS NOT NULL;
 CREATE INDEX idx_users_phone ON users.users(phone_number) WHERE phone_number IS NOT NULL;
 CREATE INDEX idx_users_email ON users.users(email) WHERE email IS NOT NULL;
 
@@ -93,9 +95,9 @@ CREATE INDEX idx_characters_code ON users.user_characters(character_code);
 -- ============================================
 
 -- 5.1: auth.users → users.users (기본 데이터)
+-- Note: username 컬럼은 마이그레이션하지 않음 (nickname으로 대체)
 INSERT INTO users.users (
     id,
-    username,
     nickname,
     name,
     email,
@@ -107,9 +109,8 @@ INSERT INTO users.users (
 )
 SELECT
     au.id,
-    au.username,
-    au.nickname,
-    COALESCE(up.name, NULL) AS name,  -- user_profile에서 추가 필드
+    COALESCE(au.nickname, up.nickname) AS nickname,
+    COALESCE(up.name, NULL) AS name,
     COALESCE(up.email, NULL) AS email,
     au.phone_number,
     au.profile_image_url,

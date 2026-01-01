@@ -1,6 +1,7 @@
-"""UserTokenStore Port.
+"""TokenSessionStore Port.
 
 사용자별 토큰 세션 관리를 위한 Gateway 인터페이스입니다.
+(이전 UserTokenStore에서 이름 변경)
 """
 
 from dataclasses import dataclass
@@ -16,8 +17,8 @@ class TokenMetadata:
     user_agent: str | None = None
 
 
-class UserTokenStore(Protocol):
-    """사용자 토큰 저장소 인터페이스.
+class TokenSessionStore(Protocol):
+    """토큰 세션 저장소 인터페이스.
 
     구현체:
         - RedisUserTokenStore (infrastructure/persistence_redis/)

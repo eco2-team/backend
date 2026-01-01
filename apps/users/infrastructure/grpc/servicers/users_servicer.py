@@ -203,7 +203,6 @@ class UsersServicer(users_pb2_grpc.UsersServiceServicer):
         # Row를 User와 UserSocialAccount로 변환
         user = User(
             id=row.id,
-            username=row.username,
             nickname=row.nickname,
             name=row.name,
             email=row.email,
@@ -242,7 +241,6 @@ class UsersServicer(users_pb2_grpc.UsersServiceServicer):
 
         return User(
             id=row.id,
-            username=row.username,
             nickname=row.nickname,
             name=row.name,
             email=row.email,
@@ -277,7 +275,6 @@ class UsersServicer(users_pb2_grpc.UsersServiceServicer):
         # User 생성
         user_values = {
             "id": user_id,
-            "username": None,
             "nickname": nickname,
             "name": None,
             "email": email,
@@ -305,7 +302,6 @@ class UsersServicer(users_pb2_grpc.UsersServiceServicer):
 
         user = User(
             id=user_id,
-            username=None,
             nickname=nickname,
             name=None,
             email=email,
@@ -375,7 +371,6 @@ class UsersServicer(users_pb2_grpc.UsersServiceServicer):
         """User → UserInfo protobuf."""
         return users_pb2.UserInfo(
             id=str(user.id),
-            username=user.username or "",
             nickname=user.nickname or "",
             profile_image_url=user.profile_image_url or "",
             phone_number=user.phone_number or "",

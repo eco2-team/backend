@@ -16,11 +16,10 @@ class User:
 
     Note:
         - id는 UUID (기존 auth.users.id를 그대로 사용)
-        - auth_user_id 컬럼은 제거됨 (id가 곧 user_id)
+        - username 컬럼 제거 (OAuth 전용이므로 불필요)
     """
 
     id: UUID | None = None
-    username: str | None = None
     nickname: str | None = None
     name: str | None = None
     email: str | None = None
@@ -33,15 +32,12 @@ class User:
     def update_profile(
         self,
         *,
-        username: str | None = None,
         nickname: str | None = None,
         name: str | None = None,
         phone_number: str | None = None,
         profile_image_url: str | None = None,
     ) -> None:
         """프로필 정보를 업데이트합니다."""
-        if username is not None:
-            self.username = username
         if nickname is not None:
             self.nickname = nickname
         if name is not None:
@@ -57,3 +53,11 @@ class User:
         now = datetime.now(timezone.utc)
         self.last_login_at = now
         self.updated_at = now
+
+    @property
+    def display_name(self) -> str:
+        """화면에 표시할 이름을 반환합니다.
+
+        우선순위: nickname → name → '사용자'
+        """
+        return self.nickname or self.name or "사용자"

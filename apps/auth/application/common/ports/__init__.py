@@ -2,7 +2,8 @@
 
 ⚠️ DEPRECATED: 도메인별 분리 완료
 새 코드는 도메인별 ports에서 직접 import하세요:
-  - apps.auth.application.auth.ports.*
+  - apps.auth.application.oauth.ports.*
+  - apps.auth.application.token.ports.*
   - apps.auth.application.user.ports.*
   - apps.auth.application.audit.ports.*
 
@@ -22,17 +23,22 @@ from apps.auth.application.common.ports.blacklist_event_publisher import (
 # ============================================================================
 # 도메인별 포트 Re-export (하위 호환성)
 # ============================================================================
-# Auth domain
-from apps.auth.application.auth.ports import (
-    OAuthProviderGateway,
+# OAuth domain
+from apps.auth.application.oauth.ports import (
     OAuthProfile,
+    OAuthProviderGateway,
     OAuthState,
     OAuthStateStore,
+    OAuthTokens,
+)
+
+# Token domain
+from apps.auth.application.token.ports import (
     TokenBlacklistStore,
     TokenIssuer,
     TokenMetadata,
     TokenPair,
-    UserTokenStore,
+    TokenSessionStore,
 )
 
 # User domain
@@ -51,11 +57,12 @@ from apps.auth.application.audit.ports import LoginAuditGateway
 # Deprecated Aliases (기존 이름 유지)
 # ============================================================================
 # 기존 코드와 호환을 위한 alias
-TokenService = TokenIssuer  # token_service.py → token_issuer.py
-StateStore = OAuthStateStore  # state_store.py → oauth_state_store.py
-TokenBlacklist = TokenBlacklistStore  # token_blacklist.py → token_blacklist_store.py
+TokenService = TokenIssuer  # token_service.py → token/ports/issuer.py
+StateStore = OAuthStateStore  # state_store.py → oauth/ports/state_store.py
+TokenBlacklist = TokenBlacklistStore  # token_blacklist.py → token/ports/blacklist_store.py
 UserManagementService = UserManagementGateway  # *_service.py → *_gateway.py
-OAuthClientService = OAuthProviderGateway  # oauth_client.py → oauth_provider_gateway.py
+OAuthClientService = OAuthProviderGateway  # oauth_client.py → oauth/ports/provider_gateway.py
+UserTokenStore = TokenSessionStore  # user_token_store.py → token/ports/session_store.py
 
 __all__ = [
     # 공용 포트
@@ -63,16 +70,18 @@ __all__ = [
     "Flusher",
     "OutboxGateway",
     "TransactionManager",
-    # Auth 포트
-    "OAuthProviderGateway",
+    # OAuth 포트
     "OAuthProfile",
+    "OAuthProviderGateway",
     "OAuthState",
     "OAuthStateStore",
+    "OAuthTokens",
+    # Token 포트
     "TokenBlacklistStore",
     "TokenIssuer",
     "TokenMetadata",
     "TokenPair",
-    "UserTokenStore",
+    "TokenSessionStore",
     # User 포트
     "OAuthUserResult",
     "SocialAccountGateway",
@@ -87,4 +96,5 @@ __all__ = [
     "TokenBlacklist",  # → TokenBlacklistStore
     "UserManagementService",  # → UserManagementGateway
     "OAuthClientService",  # → OAuthProviderGateway
+    "UserTokenStore",  # → TokenSessionStore
 ]

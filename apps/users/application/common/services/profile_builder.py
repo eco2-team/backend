@@ -39,11 +39,11 @@ class ProfileBuilder:
         """
         account = self._select_account(accounts, current_provider)
 
-        username = self._user_service.resolve_display_name(user)
-        nickname = self._user_service.resolve_nickname(user, username)
+        display_name = self._user_service.resolve_display_name(user)
+        nickname = self._user_service.resolve_nickname(user, display_name)
 
         return UserProfile(
-            username=username,
+            display_name=display_name,
             nickname=nickname,
             phone_number=self._user_service.format_phone_for_display(user.phone_number),
             provider=account.provider if account else current_provider,

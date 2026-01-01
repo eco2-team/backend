@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 class UserProfileResponse(BaseModel):
     """사용자 프로필 응답 스키마."""
 
-    username: str = Field(..., description="사용자 표시명")
+    display_name: str = Field(..., description="화면 표시명 (nickname 또는 name)")
     nickname: str = Field(..., description="닉네임")
     phone_number: str | None = Field(None, description="전화번호")
     provider: str = Field(..., description="OAuth 프로바이더")

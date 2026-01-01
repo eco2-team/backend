@@ -3,7 +3,7 @@
 통합 스키마:
     - auth.users + user_profile.users 병합
     - id는 UUID (기존 auth.users.id를 그대로 사용)
-    - auth_user_id 컬럼 제거
+    - username 컬럼 제거 (OAuth 전용이므로 불필요)
 """
 
 from __future__ import annotations
@@ -23,7 +23,6 @@ users_table = Table(
     "users",
     metadata,
     Column("id", UUID(as_uuid=True), primary_key=True),
-    Column("username", String(120), nullable=True, index=True),
     Column("nickname", String(120), nullable=True),
     Column("name", String(120), nullable=True),
     Column("email", String(320), nullable=True),
@@ -48,7 +47,6 @@ def start_user_mapper() -> None:
         users_table,
         properties={
             "id": users_table.c.id,
-            "username": users_table.c.username,
             "nickname": users_table.c.nickname,
             "name": users_table.c.name,
             "email": users_table.c.email,

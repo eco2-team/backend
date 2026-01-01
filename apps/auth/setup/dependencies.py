@@ -103,7 +103,7 @@ async def get_transaction_manager(
 
 
 # ============================================================
-# Auth Domain - Redis Gateway Dependencies
+# OAuth Domain - Redis Gateway Dependencies
 # ============================================================
 
 
@@ -116,6 +116,11 @@ def get_oauth_state_store(
     return RedisStateStore(redis)
 
 
+# ============================================================
+# Token Domain - Redis Gateway Dependencies
+# ============================================================
+
+
 def get_token_blacklist_store(
     redis: "aioredis.Redis" = Depends(get_blacklist_redis),
 ):
@@ -125,10 +130,10 @@ def get_token_blacklist_store(
     return RedisTokenBlacklist(redis)
 
 
-def get_user_token_store(
+def get_token_session_store(
     redis: "aioredis.Redis" = Depends(get_blacklist_redis),
 ):
-    """UserTokenStore 제공자 (블랙리스트용 Redis)."""
+    """TokenSessionStore 제공자 (블랙리스트용 Redis)."""
     from apps.auth.infrastructure.persistence_redis import RedisUserTokenStore
 
     return RedisUserTokenStore(redis)
@@ -137,6 +142,7 @@ def get_user_token_store(
 # Deprecated aliases
 get_state_store = get_oauth_state_store
 get_token_blacklist = get_token_blacklist_store
+get_user_token_store = get_token_session_store
 
 
 # ============================================================
@@ -170,7 +176,7 @@ async def get_blacklist_event_publisher(settings: Settings = Depends(get_setting
 
 
 # ============================================================
-# Auth Domain - Token & OAuth Dependencies
+# Token Domain - Token Issuer
 # ============================================================
 
 
@@ -188,6 +194,15 @@ def get_token_issuer(settings: Settings = Depends(get_settings)):
     )
 
 
+# Deprecated alias
+get_token_service = get_token_issuer
+
+
+# ============================================================
+# OAuth Domain - OAuth Provider
+# ============================================================
+
+
 def get_oauth_provider_registry(settings: Settings = Depends(get_settings)):
     """OAuth ProviderRegistry 제공자."""
     from apps.auth.infrastructure.oauth import ProviderRegistry
@@ -202,8 +217,7 @@ def get_oauth_provider_gateway(registry=Depends(get_oauth_provider_registry)):
     return OAuthClientImpl(registry)
 
 
-# Deprecated aliases
-get_token_service = get_token_issuer
+# Deprecated alias
 get_oauth_client = get_oauth_provider_gateway
 
 
@@ -252,15 +266,15 @@ get_user_management_service = get_user_management_gateway
 
 
 async def get_oauth_authorize_interactor(
-    state_store=Depends(get_state_store),
-    oauth_client=Depends(get_oauth_client),
+    oauth_state_store=Depends(get_oauth_state_store),
+    oauth_provider=Depends(get_oauth_provider_gateway),
 ):
     """OAuthAuthorizeInteractor 제공자."""
     from apps.auth.application.commands import OAuthAuthorizeInteractor
 
     return OAuthAuthorizeInteractor(
-        state_store=state_store,
-        oauth_client=oauth_client,
+        oauth_state_store=oauth_state_store,
+        oauth_provider=oauth_provider,
     )
 
 
@@ -269,7 +283,7 @@ async def get_oauth_callback_interactor(
     login_audit_gateway=Depends(get_login_audit_gateway),
     token_issuer=Depends(get_token_issuer),
     oauth_state_store=Depends(get_oauth_state_store),
-    user_token_store=Depends(get_user_token_store),
+    token_session_store=Depends(get_token_session_store),
     oauth_provider=Depends(get_oauth_provider_gateway),
     flusher=Depends(get_flusher),
     transaction_manager=Depends(get_transaction_manager),
@@ -286,7 +300,7 @@ async def get_oauth_callback_interactor(
         login_audit_gateway=login_audit_gateway,
         token_issuer=token_issuer,
         oauth_state_store=oauth_state_store,
-        user_token_store=user_token_store,
+        token_session_store=token_session_store,
         oauth_provider=oauth_provider,
         flusher=flusher,
         transaction_manager=transaction_manager,
@@ -294,27 +308,27 @@ async def get_oauth_callback_interactor(
 
 
 async def get_logout_interactor(
-    token_service=Depends(get_token_service),
+    token_issuer=Depends(get_token_issuer),
     blacklist_publisher=Depends(get_blacklist_event_publisher),
-    user_token_store=Depends(get_user_token_store),
+    token_session_store=Depends(get_token_session_store),
     transaction_manager=Depends(get_transaction_manager),
 ):
     """LogoutInteractor 제공자."""
     from apps.auth.application.commands import LogoutInteractor
 
     return LogoutInteractor(
-        token_service=token_service,
+        token_issuer=token_issuer,
         blacklist_publisher=blacklist_publisher,
-        user_token_store=user_token_store,
+        token_session_store=token_session_store,
         transaction_manager=transaction_manager,
     )
 
 
 async def get_refresh_tokens_interactor(
-    token_service=Depends(get_token_service),
-    token_blacklist=Depends(get_token_blacklist),
+    token_issuer=Depends(get_token_issuer),
+    token_blacklist=Depends(get_token_blacklist_store),
     blacklist_publisher=Depends(get_blacklist_event_publisher),
-    user_token_store=Depends(get_user_token_store),
+    token_session_store=Depends(get_token_session_store),
     user_query_gateway=Depends(get_user_query_gateway),
     transaction_manager=Depends(get_transaction_manager),
 ):
@@ -322,25 +336,25 @@ async def get_refresh_tokens_interactor(
     from apps.auth.application.commands import RefreshTokensInteractor
 
     return RefreshTokensInteractor(
-        token_service=token_service,
+        token_issuer=token_issuer,
         token_blacklist=token_blacklist,
         blacklist_publisher=blacklist_publisher,
-        user_token_store=user_token_store,
+        token_session_store=token_session_store,
         user_query_gateway=user_query_gateway,
         transaction_manager=transaction_manager,
     )
 
 
 async def get_validate_token_service(
-    token_service=Depends(get_token_service),
-    token_blacklist=Depends(get_token_blacklist),
+    token_issuer=Depends(get_token_issuer),
+    token_blacklist=Depends(get_token_blacklist_store),
     user_query_gateway=Depends(get_user_query_gateway),
 ):
     """ValidateTokenQueryService 제공자."""
     from apps.auth.application.queries import ValidateTokenQueryService
 
     return ValidateTokenQueryService(
-        token_service=token_service,
+        token_issuer=token_issuer,
         token_blacklist=token_blacklist,
         user_query_gateway=user_query_gateway,
     )

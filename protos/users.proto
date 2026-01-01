@@ -67,7 +67,7 @@ message UpdateLoginTimeResponse {
 
 message UserInfo {
   string id = 1;
-  optional string username = 2;
+  reserved 2;  // username 제거 (OAuth 전용이므로 불필요)
   optional string nickname = 3;
   optional string profile_image_url = 4;
   optional string phone_number = 5;

@@ -75,9 +75,9 @@ class UserService:
     def resolve_display_name(user: User) -> str:
         """사용자 표시명을 결정합니다.
 
-        우선순위: name > username > "사용자"
+        우선순위: nickname → name → "사용자"
         """
-        candidates = [user.name, user.username]
+        candidates = [user.nickname, user.name]
         for raw in candidates:
             if raw and (value := raw.strip()):
                 return value
@@ -87,9 +87,9 @@ class UserService:
     def resolve_nickname(user: User, fallback: str) -> str:
         """사용자 닉네임을 결정합니다.
 
-        우선순위: nickname > username > name > fallback
+        우선순위: nickname → name → fallback
         """
-        candidates = [user.nickname, user.username, user.name, fallback]
+        candidates = [user.nickname, user.name, fallback]
         for raw in candidates:
             if raw and (value := raw.strip()):
                 return value

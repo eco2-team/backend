@@ -51,35 +51,32 @@ class TestUserService:
         assert result.is_valid is False
         assert result.error == "Invalid phone number format"
 
-    def test_resolve_display_name_with_name(self):
-        """이름이 있으면 이름 반환."""
+    def test_resolve_display_name_with_nickname(self):
+        """닉네임이 있으면 닉네임 반환."""
         user = User(
             id=uuid4(),
-            username="username",
-            nickname="nickname",
+            nickname="닉네임",
+            name="홍길동",
+            email="test@test.com",
+        )
+        result = UserService.resolve_display_name(user)
+        assert result == "닉네임"
+
+    def test_resolve_display_name_fallback_to_name(self):
+        """닉네임이 없으면 name 반환."""
+        user = User(
+            id=uuid4(),
+            nickname=None,
             name="홍길동",
             email="test@test.com",
         )
         result = UserService.resolve_display_name(user)
         assert result == "홍길동"
 
-    def test_resolve_display_name_fallback_to_username(self):
-        """이름이 없으면 username 반환."""
-        user = User(
-            id=uuid4(),
-            username="testuser",
-            nickname=None,
-            name=None,
-            email="test@test.com",
-        )
-        result = UserService.resolve_display_name(user)
-        assert result == "testuser"
-
     def test_resolve_display_name_default(self):
         """둘 다 없으면 기본값."""
         user = User(
             id=uuid4(),
-            username=None,
             nickname=None,
             name=None,
             email="test@test.com",
@@ -91,7 +88,6 @@ class TestUserService:
         """닉네임 있으면 닉네임 반환."""
         user = User(
             id=uuid4(),
-            username="username",
             nickname="닉네임",
             name="이름",
             email="test@test.com",
@@ -99,23 +95,10 @@ class TestUserService:
         result = UserService.resolve_nickname(user, fallback="기본")
         assert result == "닉네임"
 
-    def test_resolve_nickname_fallback_to_username(self):
-        """닉네임 없으면 username 반환."""
-        user = User(
-            id=uuid4(),
-            username="testuser",
-            nickname=None,
-            name="이름",
-            email="test@test.com",
-        )
-        result = UserService.resolve_nickname(user, fallback="기본")
-        assert result == "testuser"
-
     def test_resolve_nickname_fallback_to_name(self):
-        """닉네임, username 없으면 name 반환."""
+        """닉네임 없으면 name 반환."""
         user = User(
             id=uuid4(),
-            username=None,
             nickname=None,
             name="이름",
             email="test@test.com",
@@ -127,7 +110,6 @@ class TestUserService:
         """모두 없으면 fallback 반환."""
         user = User(
             id=uuid4(),
-            username=None,
             nickname=None,
             name=None,
             email="test@test.com",
@@ -156,7 +138,7 @@ class TestUser:
 
     def test_update_profile(self):
         """프로필 업데이트."""
-        user = User(id=uuid4(), username="test")
+        user = User(id=uuid4())
         user.update_profile(nickname="새닉네임", phone_number="010-1234-5678")
         assert user.nickname == "새닉네임"
         assert user.phone_number == "010-1234-5678"
@@ -167,3 +149,17 @@ class TestUser:
         assert user.last_login_at is None
         user.update_login_time()
         assert user.last_login_at is not None
+
+    def test_display_name_property(self):
+        """display_name 프로퍼티 테스트."""
+        # 닉네임 있음
+        user1 = User(id=uuid4(), nickname="닉네임", name="이름")
+        assert user1.display_name == "닉네임"
+
+        # 닉네임 없음, 이름 있음
+        user2 = User(id=uuid4(), nickname=None, name="이름")
+        assert user2.display_name == "이름"
+
+        # 둘 다 없음
+        user3 = User(id=uuid4(), nickname=None, name=None)
+        assert user3.display_name == "사용자"
