@@ -7,4 +7,4 @@ commonLabels:
   environment: dev
 images:
 - name: docker.io/mng990/eco2
-  newTag: auth-relay-dev-latest
+  newTag: auth-relay-dev-9cbb5b
