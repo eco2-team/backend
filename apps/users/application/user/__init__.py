@@ -1,1 +1,0 @@
-"""User subdomain application layer."""

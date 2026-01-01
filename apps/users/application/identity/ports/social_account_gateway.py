@@ -1,4 +1,7 @@
-"""Social account gateway port."""
+"""Social account gateway port.
+
+소셜 계정 연결 조회 인터페이스입니다.
+"""
 
 from __future__ import annotations
 
@@ -21,8 +24,7 @@ class SocialAccountInfo:
 class SocialAccountQueryGateway(Protocol):
     """소셜 계정 조회 포트.
 
-    Note: auth.user_social_accounts 테이블을 조회합니다.
-    users 도메인에서는 읽기 전용으로만 접근합니다.
+    Note: users.user_social_accounts 테이블을 조회합니다.
     """
 
     async def list_by_user_id(self, user_id: UUID) -> list[SocialAccountInfo]:

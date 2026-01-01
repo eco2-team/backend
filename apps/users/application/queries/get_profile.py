@@ -7,11 +7,13 @@ from uuid import UUID
 
 from apps.users.application.common.dto import UserProfile
 from apps.users.application.common.exceptions.user import UserNotFoundError
-from apps.users.application.common.ports import (
-    SocialAccountQueryGateway,
-    UserQueryGateway,
-)
 from apps.users.application.common.services import ProfileBuilder
+
+# Profile 도메인 포트
+from apps.users.application.profile.ports import ProfileQueryGateway
+
+# Identity 도메인 포트
+from apps.users.application.identity.ports import SocialAccountQueryGateway
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +30,11 @@ class GetProfileQuery:
 
     def __init__(
         self,
-        user_query_gateway: UserQueryGateway,
+        profile_query: ProfileQueryGateway,
         social_account_gateway: SocialAccountQueryGateway,
         profile_builder: ProfileBuilder,
     ) -> None:
-        self._user_query = user_query_gateway
+        self._profile_query = profile_query
         self._social_account_gateway = social_account_gateway
         self._profile_builder = profile_builder
 
@@ -54,7 +56,7 @@ class GetProfileQuery:
             extra={"user_id": str(user_id), "provider": provider},
         )
 
-        user = await self._user_query.get_by_id(user_id)
+        user = await self._profile_query.get_by_id(user_id)
         if user is None:
             raise UserNotFoundError(user_id)
 

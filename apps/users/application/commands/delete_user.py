@@ -6,10 +6,12 @@ import logging
 from uuid import UUID
 
 from apps.users.application.common.exceptions import UserNotFoundError
-from apps.users.application.common.ports import (
-    TransactionManager,
-    UserCommandGateway,
-    UserQueryGateway,
+from apps.users.application.common.ports import TransactionManager
+
+# Profile 도메인 포트
+from apps.users.application.profile.ports import (
+    ProfileCommandGateway,
+    ProfileQueryGateway,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,12 +28,12 @@ class DeleteUserInteractor:
 
     def __init__(
         self,
-        user_query_gateway: UserQueryGateway,
-        user_command_gateway: UserCommandGateway,
+        profile_query: ProfileQueryGateway,
+        profile_command: ProfileCommandGateway,
         transaction_manager: TransactionManager,
     ) -> None:
-        self._user_query = user_query_gateway
-        self._user_command = user_command_gateway
+        self._profile_query = profile_query
+        self._profile_command = profile_command
         self._tx = transaction_manager
 
     async def execute(self, user_id: UUID) -> None:
@@ -45,11 +47,11 @@ class DeleteUserInteractor:
         """
         logger.info("User deletion requested", extra={"user_id": str(user_id)})
 
-        user = await self._user_query.get_by_id(user_id)
+        user = await self._profile_query.get_by_id(user_id)
         if user is None:
             raise UserNotFoundError(user_id)
 
-        await self._user_command.delete(user_id)
+        await self._profile_command.delete(user_id)
         await self._tx.commit()
 
         logger.info("User deleted", extra={"user_id": str(user_id)})

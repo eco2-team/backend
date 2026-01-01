@@ -8,7 +8,7 @@ from apps.users.application.common.dto import UserProfile
 from apps.users.domain.services import UserService
 
 if TYPE_CHECKING:
-    from apps.users.application.common.ports import SocialAccountInfo
+    from apps.users.application.identity.ports import SocialAccountInfo
     from apps.users.domain.entities.user import User
 
 

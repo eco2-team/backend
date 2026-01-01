@@ -11,14 +11,18 @@ from apps.users.application.common.exceptions import (
     NoChangesProvidedError,
     UserNotFoundError,
 )
-from apps.users.application.common.ports import (
-    SocialAccountQueryGateway,
-    TransactionManager,
-    UserCommandGateway,
-    UserQueryGateway,
-)
+from apps.users.application.common.ports import TransactionManager
 from apps.users.application.common.services import ProfileBuilder
 from apps.users.domain.services import UserService
+
+# Profile 도메인 포트
+from apps.users.application.profile.ports import (
+    ProfileCommandGateway,
+    ProfileQueryGateway,
+)
+
+# Identity 도메인 포트
+from apps.users.application.identity.ports import SocialAccountQueryGateway
 
 logger = logging.getLogger(__name__)
 
@@ -31,15 +35,15 @@ class UpdateProfileInteractor:
 
     def __init__(
         self,
-        user_query_gateway: UserQueryGateway,
-        user_command_gateway: UserCommandGateway,
+        profile_query: ProfileQueryGateway,
+        profile_command: ProfileCommandGateway,
         social_account_gateway: SocialAccountQueryGateway,
         transaction_manager: TransactionManager,
         user_service: UserService,
         profile_builder: ProfileBuilder,
     ) -> None:
-        self._user_query = user_query_gateway
-        self._user_command = user_command_gateway
+        self._profile_query = profile_query
+        self._profile_command = profile_command
         self._social_account_gateway = social_account_gateway
         self._tx = transaction_manager
         self._user_service = user_service
@@ -73,7 +77,7 @@ class UpdateProfileInteractor:
         if not update.has_changes():
             raise NoChangesProvidedError()
 
-        user = await self._user_query.get_by_id(user_id)
+        user = await self._profile_query.get_by_id(user_id)
         if user is None:
             raise UserNotFoundError(user_id)
 
@@ -91,7 +95,7 @@ class UpdateProfileInteractor:
             phone_number=normalized_phone,
         )
 
-        updated_user = await self._user_command.update(user)
+        updated_user = await self._profile_command.update(user)
         await self._tx.commit()
 
         # 프로필 DTO 생성
