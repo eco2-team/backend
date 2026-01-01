@@ -87,9 +87,9 @@ spec:
       imagePullSecrets:
       - name: dockerhub-secret
       nodeSelector:
-        workload-type: storage
+        domain: worker-storage
       tolerations:
-      - key: workload-type
+      - key: domain
         operator: Equal
-        value: storage
+        value: worker-storage
         effect: NoSchedule
