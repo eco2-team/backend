@@ -25,16 +25,22 @@ from apps.auth.application.common.exceptions.auth import (
     OAuthProviderError,
     UserServiceUnavailableError,
 )
-from apps.auth.application.common.ports.login_audit_gateway import LoginAuditGateway
-from apps.auth.application.common.ports.token_service import TokenService
-from apps.auth.application.common.ports.state_store import StateStore
-from apps.auth.application.common.ports.user_token_store import UserTokenStore
+
+# 공용 포트
 from apps.auth.application.common.ports.flusher import Flusher
 from apps.auth.application.common.ports.transaction_manager import TransactionManager
-from apps.auth.application.common.ports.user_management_service import (
-    UserManagementService,
-)
-from apps.auth.application.common.services.oauth_client import OAuthClientService
+
+# Auth 도메인 포트
+from apps.auth.application.auth.ports.oauth_provider_gateway import OAuthProviderGateway
+from apps.auth.application.auth.ports.oauth_state_store import OAuthStateStore
+from apps.auth.application.auth.ports.token_issuer import TokenIssuer
+from apps.auth.application.auth.ports.user_token_store import UserTokenStore
+
+# User 도메인 포트
+from apps.auth.application.user.ports.user_management_gateway import UserManagementGateway
+
+# Audit 도메인 포트
+from apps.auth.application.audit.ports.login_audit_gateway import LoginAuditGateway
 
 logger = logging.getLogger(__name__)
 
@@ -53,21 +59,21 @@ class OAuthCallbackInteractor:
 
     def __init__(
         self,
-        user_management: UserManagementService,
+        user_management: UserManagementGateway,
         login_audit_gateway: LoginAuditGateway,
-        token_service: TokenService,
-        state_store: StateStore,
+        token_issuer: TokenIssuer,
+        oauth_state_store: OAuthStateStore,
         user_token_store: UserTokenStore,
-        oauth_client: OAuthClientService,
+        oauth_provider: OAuthProviderGateway,
         flusher: Flusher,
         transaction_manager: TransactionManager,
     ) -> None:
         self._user_management = user_management
         self._login_audit_gateway = login_audit_gateway
-        self._token_service = token_service
-        self._state_store = state_store
+        self._token_issuer = token_issuer
+        self._oauth_state_store = oauth_state_store
         self._user_token_store = user_token_store
-        self._oauth_client = oauth_client
+        self._oauth_provider = oauth_provider
         self._flusher = flusher
         self._transaction_manager = transaction_manager
 
@@ -86,7 +92,7 @@ class OAuthCallbackInteractor:
             UserServiceUnavailableError: users 도메인 통신 실패
         """
         # 1. state 검증
-        state_data = await self._state_store.consume(request.state)
+        state_data = await self._oauth_state_store.consume(request.state)
         if not state_data:
             raise InvalidStateError("Invalid or expired state")
         if state_data.provider != request.provider:
@@ -95,7 +101,7 @@ class OAuthCallbackInteractor:
         # 2. OAuth 프로필 조회
         redirect_uri = request.redirect_uri or state_data.redirect_uri or ""
         try:
-            profile = await self._oauth_client.fetch_profile(
+            profile = await self._oauth_provider.fetch_profile(
                 request.provider,
                 code=request.code,
                 redirect_uri=redirect_uri,
@@ -128,7 +134,7 @@ class OAuthCallbackInteractor:
         user_id = user_result.user_id
 
         # 4. JWT 토큰 발급
-        token_pair = self._token_service.issue_pair(
+        token_pair = self._token_issuer.issue_pair(
             user_id=user_id,
             provider=request.provider,
         )

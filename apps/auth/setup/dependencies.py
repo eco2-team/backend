@@ -103,23 +103,23 @@ async def get_transaction_manager(
 
 
 # ============================================================
-# Redis Gateway Dependencies
+# Auth Domain - Redis Gateway Dependencies
 # ============================================================
 
 
-def get_state_store(
+def get_oauth_state_store(
     redis: "aioredis.Redis" = Depends(get_oauth_state_redis),
 ):
-    """StateStore 제공자 (OAuth 상태용 Redis)."""
+    """OAuthStateStore 제공자 (OAuth 상태용 Redis)."""
     from apps.auth.infrastructure.persistence_redis import RedisStateStore
 
     return RedisStateStore(redis)
 
 
-def get_token_blacklist(
+def get_token_blacklist_store(
     redis: "aioredis.Redis" = Depends(get_blacklist_redis),
 ):
-    """TokenBlacklist 제공자 (블랙리스트용 Redis)."""
+    """TokenBlacklistStore 제공자 (블랙리스트용 Redis)."""
     from apps.auth.infrastructure.persistence_redis import RedisTokenBlacklist
 
     return RedisTokenBlacklist(redis)
@@ -134,13 +134,18 @@ def get_user_token_store(
     return RedisUserTokenStore(redis)
 
 
+# Deprecated aliases
+get_state_store = get_oauth_state_store
+get_token_blacklist = get_token_blacklist_store
+
+
 # ============================================================
-# Service Dependencies
+# Auth Domain - Token & OAuth Dependencies
 # ============================================================
 
 
-def get_token_service(settings: Settings = Depends(get_settings)):
-    """TokenService 제공자."""
+def get_token_issuer(settings: Settings = Depends(get_settings)):
+    """TokenIssuer 제공자."""
     from apps.auth.infrastructure.security import JwtTokenService
 
     return JwtTokenService(
@@ -160,11 +165,21 @@ def get_oauth_provider_registry(settings: Settings = Depends(get_settings)):
     return ProviderRegistry(settings)
 
 
-def get_oauth_client(registry=Depends(get_oauth_provider_registry)):
-    """OAuthClientImpl 제공자."""
+def get_oauth_provider_gateway(registry=Depends(get_oauth_provider_registry)):
+    """OAuthProviderGateway 제공자."""
     from apps.auth.infrastructure.oauth import OAuthClientImpl
 
     return OAuthClientImpl(registry)
+
+
+# Deprecated aliases
+get_token_service = get_token_issuer
+get_oauth_client = get_oauth_provider_gateway
+
+
+# ============================================================
+# User Domain - User Gateway Dependencies
+# ============================================================
 
 
 def get_user_id_generator():
@@ -177,14 +192,14 @@ def get_user_id_generator():
 def get_user_service(
     user_id_generator=Depends(get_user_id_generator),
 ):
-    """UserService 제공자."""
+    """UserService 제공자 (deprecated - use UserManagementGateway)."""
     from apps.auth.domain.services import UserService
 
     return UserService(user_id_generator)
 
 
-def get_user_management_service(settings: Settings = Depends(get_settings)):
-    """UserManagementService 제공자 (gRPC 클라이언트).
+def get_user_management_gateway(settings: Settings = Depends(get_settings)):
+    """UserManagementGateway 제공자 (gRPC 클라이언트).
 
     users 도메인과 gRPC 통신을 위한 어댑터입니다.
     """
@@ -195,6 +210,10 @@ def get_user_management_service(settings: Settings = Depends(get_settings)):
 
     client = UsersGrpcClient(settings)
     return UserManagementGrpcAdapter(client)
+
+
+# Deprecated alias
+get_user_management_service = get_user_management_gateway
 
 
 # ============================================================
@@ -216,30 +235,29 @@ async def get_oauth_authorize_interactor(
 
 
 async def get_oauth_callback_interactor(
-    user_management=Depends(get_user_management_service),
+    user_management=Depends(get_user_management_gateway),
     login_audit_gateway=Depends(get_login_audit_gateway),
-    token_service=Depends(get_token_service),
-    state_store=Depends(get_state_store),
+    token_issuer=Depends(get_token_issuer),
+    oauth_state_store=Depends(get_oauth_state_store),
     user_token_store=Depends(get_user_token_store),
-    oauth_client=Depends(get_oauth_client),
+    oauth_provider=Depends(get_oauth_provider_gateway),
     flusher=Depends(get_flusher),
     transaction_manager=Depends(get_transaction_manager),
 ):
     """OAuthCallbackInteractor 제공자.
 
     Phase 1: gRPC를 통해 users 도메인과 통신합니다.
-    - UserManagementService (gRPC 어댑터)를 사용
-    - 기존 UserService, UserCommandGateway 등은 deprecated
+    - UserManagementGateway (gRPC 어댑터)를 사용
     """
     from apps.auth.application.commands import OAuthCallbackInteractor
 
     return OAuthCallbackInteractor(
         user_management=user_management,
         login_audit_gateway=login_audit_gateway,
-        token_service=token_service,
-        state_store=state_store,
+        token_issuer=token_issuer,
+        oauth_state_store=oauth_state_store,
         user_token_store=user_token_store,
-        oauth_client=oauth_client,
+        oauth_provider=oauth_provider,
         flusher=flusher,
         transaction_manager=transaction_manager,
     )
