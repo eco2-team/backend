@@ -2,8 +2,9 @@
 
 OAuth 콜백에서 auth 도메인이 호출하는 사용자 관련 gRPC 서비스입니다.
 
-Phase 1: auth 스키마 테이블 사용 (임시)
-Phase 2: users 스키마로 마이그레이션 예정
+통합 스키마 사용:
+    - users.users
+    - users.user_social_accounts
 
 참고: https://rooftopsnow.tistory.com/127
 """
@@ -17,10 +18,10 @@ from uuid import UUID, uuid4
 
 import grpc
 
+from apps.users.domain.entities.user import User
 from apps.users.infrastructure.grpc import users_pb2, users_pb2_grpc
-from apps.users.infrastructure.persistence_postgres.mappings.auth_user import (
-    AuthUserModel,
-    AuthSocialAccountModel,
+from apps.users.infrastructure.persistence_postgres.mappings.user_social_account import (
+    UserSocialAccount,
 )
 
 if TYPE_CHECKING:
@@ -32,8 +33,7 @@ logger = logging.getLogger(__name__)
 class UsersServicer(users_pb2_grpc.UsersServiceServicer):
     """Users gRPC Service 구현.
 
-    Phase 1에서는 auth.users, auth.user_social_accounts 테이블에 접근합니다.
-    Phase 2에서 users 스키마로 마이그레이션됩니다.
+    users.users, users.user_social_accounts 테이블에 접근합니다.
     """
 
     def __init__(self, session_factory) -> None:
@@ -160,7 +160,7 @@ class UsersServicer(users_pb2_grpc.UsersServiceServicer):
             await context.abort(grpc.StatusCode.INTERNAL, "Internal server error")
 
     # =========================================================================
-    # Private Methods - DB Operations (Phase 1: auth 스키마 사용)
+    # Private Methods - DB Operations (users 스키마 사용)
     # =========================================================================
 
     async def _get_user_by_provider(
@@ -168,46 +168,90 @@ class UsersServicer(users_pb2_grpc.UsersServiceServicer):
         session: "AsyncSession",
         provider: str,
         provider_user_id: str,
-    ) -> tuple[AuthUserModel, AuthSocialAccountModel] | None:
+    ) -> tuple[User, UserSocialAccount] | None:
         """Provider 정보로 사용자 조회."""
         from sqlalchemy import select
-        from sqlalchemy.orm import selectinload
 
+        from apps.users.infrastructure.persistence_postgres.mappings.user import users_table
+        from apps.users.infrastructure.persistence_postgres.mappings.user_social_account import (
+            user_social_accounts_table,
+        )
+
+        # 소셜 계정으로 사용자 조회
         stmt = (
-            select(AuthUserModel)
-            .join(AuthSocialAccountModel)
-            .where(
-                AuthSocialAccountModel.provider == provider,
-                AuthSocialAccountModel.provider_user_id == provider_user_id,
+            select(
+                users_table,
+                user_social_accounts_table,
             )
-            .options(selectinload(AuthUserModel.social_accounts))
+            .select_from(users_table)
+            .join(
+                user_social_accounts_table,
+                users_table.c.id == user_social_accounts_table.c.user_id,
+            )
+            .where(
+                user_social_accounts_table.c.provider == provider,
+                user_social_accounts_table.c.provider_user_id == provider_user_id,
+            )
         )
 
         result = await session.execute(stmt)
-        user = result.scalar_one_or_none()
+        row = result.first()
 
-        if user is None:
+        if row is None:
             return None
 
-        # 해당 소셜 계정 찾기
-        social_account = next(
-            (
-                acc
-                for acc in user.social_accounts
-                if acc.provider == provider and acc.provider_user_id == provider_user_id
-            ),
-            None,
+        # Row를 User와 UserSocialAccount로 변환
+        user = User(
+            id=row.id,
+            username=row.username,
+            nickname=row.nickname,
+            name=row.name,
+            email=row.email,
+            phone_number=row.phone_number,
+            profile_image_url=row.profile_image_url,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+            last_login_at=row.last_login_at,
+        )
+
+        social_account = UserSocialAccount(
+            id=row[user_social_accounts_table.c.id],
+            user_id=row[user_social_accounts_table.c.user_id],
+            provider=row[user_social_accounts_table.c.provider],
+            provider_user_id=row[user_social_accounts_table.c.provider_user_id],
+            email=row[user_social_accounts_table.c.email],
+            last_login_at=row[user_social_accounts_table.c.last_login_at],
+            created_at=row[user_social_accounts_table.c.created_at],
+            updated_at=row[user_social_accounts_table.c.updated_at],
         )
 
         return user, social_account
 
-    async def _get_user_by_id(self, session: "AsyncSession", user_id: UUID) -> AuthUserModel | None:
+    async def _get_user_by_id(self, session: "AsyncSession", user_id: UUID) -> User | None:
         """ID로 사용자 조회."""
         from sqlalchemy import select
 
-        stmt = select(AuthUserModel).where(AuthUserModel.id == user_id)
+        from apps.users.infrastructure.persistence_postgres.mappings.user import users_table
+
+        stmt = select(users_table).where(users_table.c.id == user_id)
         result = await session.execute(stmt)
-        return result.scalar_one_or_none()
+        row = result.first()
+
+        if row is None:
+            return None
+
+        return User(
+            id=row.id,
+            username=row.username,
+            nickname=row.nickname,
+            name=row.name,
+            email=row.email,
+            phone_number=row.phone_number,
+            profile_image_url=row.profile_image_url,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+            last_login_at=row.last_login_at,
+        )
 
     async def _create_user_from_oauth(
         self,
@@ -218,33 +262,70 @@ class UsersServicer(users_pb2_grpc.UsersServiceServicer):
         email: str | None,
         nickname: str | None,
         profile_image_url: str | None,
-    ) -> tuple[AuthUserModel, AuthSocialAccountModel]:
+    ) -> tuple[User, UserSocialAccount]:
         """OAuth 프로필로 새 사용자 생성."""
+        from sqlalchemy import insert
+
+        from apps.users.infrastructure.persistence_postgres.mappings.user import users_table
+        from apps.users.infrastructure.persistence_postgres.mappings.user_social_account import (
+            user_social_accounts_table,
+        )
+
         now = datetime.now(timezone.utc)
         user_id = uuid4()
 
-        user = AuthUserModel()
-        user.id = user_id
-        user.username = None
-        user.nickname = nickname
-        user.profile_image_url = profile_image_url
-        user.phone_number = None
-        user.created_at = now
-        user.updated_at = now
-        user.last_login_at = now
+        # User 생성
+        user_values = {
+            "id": user_id,
+            "username": None,
+            "nickname": nickname,
+            "name": None,
+            "email": email,
+            "phone_number": None,
+            "profile_image_url": profile_image_url,
+            "created_at": now,
+            "updated_at": now,
+            "last_login_at": now,
+        }
+        await session.execute(insert(users_table).values(**user_values))
 
-        social_account = AuthSocialAccountModel()
-        social_account.id = uuid4()
-        social_account.user_id = user_id
-        social_account.provider = provider
-        social_account.provider_user_id = provider_user_id
-        social_account.email = email
-        social_account.last_login_at = now
-        social_account.created_at = now
-        social_account.updated_at = now
+        # SocialAccount 생성
+        social_account_id = uuid4()
+        social_values = {
+            "id": social_account_id,
+            "user_id": user_id,
+            "provider": provider,
+            "provider_user_id": provider_user_id,
+            "email": email,
+            "last_login_at": now,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await session.execute(insert(user_social_accounts_table).values(**social_values))
 
-        session.add(user)
-        session.add(social_account)
+        user = User(
+            id=user_id,
+            username=None,
+            nickname=nickname,
+            name=None,
+            email=email,
+            phone_number=None,
+            profile_image_url=profile_image_url,
+            created_at=now,
+            updated_at=now,
+            last_login_at=now,
+        )
+
+        social_account = UserSocialAccount(
+            id=social_account_id,
+            user_id=user_id,
+            provider=provider,
+            provider_user_id=provider_user_id,
+            email=email,
+            last_login_at=now,
+            created_at=now,
+            updated_at=now,
+        )
 
         return user, social_account
 
@@ -259,22 +340,27 @@ class UsersServicer(users_pb2_grpc.UsersServiceServicer):
         """로그인 시간 업데이트."""
         from sqlalchemy import update
 
+        from apps.users.infrastructure.persistence_postgres.mappings.user import users_table
+        from apps.users.infrastructure.persistence_postgres.mappings.user_social_account import (
+            user_social_accounts_table,
+        )
+
         now = datetime.now(timezone.utc)
 
         # User last_login_at 업데이트
         await session.execute(
-            update(AuthUserModel)
-            .where(AuthUserModel.id == user_id)
+            update(users_table)
+            .where(users_table.c.id == user_id)
             .values(last_login_at=now, updated_at=now)
         )
 
         # SocialAccount last_login_at 업데이트
         await session.execute(
-            update(AuthSocialAccountModel)
+            update(user_social_accounts_table)
             .where(
-                AuthSocialAccountModel.user_id == user_id,
-                AuthSocialAccountModel.provider == provider,
-                AuthSocialAccountModel.provider_user_id == provider_user_id,
+                user_social_accounts_table.c.user_id == user_id,
+                user_social_accounts_table.c.provider == provider,
+                user_social_accounts_table.c.provider_user_id == provider_user_id,
             )
             .values(last_login_at=now, updated_at=now)
         )
@@ -285,8 +371,8 @@ class UsersServicer(users_pb2_grpc.UsersServiceServicer):
     # Private Methods - Protobuf Conversion
     # =========================================================================
 
-    def _user_to_proto(self, user: AuthUserModel) -> users_pb2.UserInfo:
-        """AuthUserModel → UserInfo protobuf."""
+    def _user_to_proto(self, user: User) -> users_pb2.UserInfo:
+        """User → UserInfo protobuf."""
         return users_pb2.UserInfo(
             id=str(user.id),
             username=user.username or "",
@@ -299,9 +385,10 @@ class UsersServicer(users_pb2_grpc.UsersServiceServicer):
         )
 
     def _social_account_to_proto(
-        self, account: AuthSocialAccountModel
+        self,
+        account: UserSocialAccount,
     ) -> users_pb2.SocialAccountInfo:
-        """AuthSocialAccountModel → SocialAccountInfo protobuf."""
+        """UserSocialAccount → SocialAccountInfo protobuf."""
         return users_pb2.SocialAccountInfo(
             id=str(account.id),
             user_id=str(account.user_id),

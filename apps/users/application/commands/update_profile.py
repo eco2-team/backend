@@ -45,11 +45,11 @@ class UpdateProfileInteractor:
         self._user_service = user_service
         self._profile_builder = profile_builder
 
-    async def execute(self, auth_user_id: UUID, update: UserUpdate, provider: str) -> UserProfile:
+    async def execute(self, user_id: UUID, update: UserUpdate, provider: str) -> UserProfile:
         """사용자 프로필을 업데이트합니다.
 
         Args:
-            auth_user_id: 인증 사용자 ID
+            user_id: 사용자 ID (users.users.id)
             update: 업데이트할 정보
             provider: 현재 로그인 프로바이더
 
@@ -64,7 +64,7 @@ class UpdateProfileInteractor:
         logger.info(
             "Profile update requested",
             extra={
-                "user_id": str(auth_user_id),
+                "user_id": str(user_id),
                 "has_nickname": update.nickname is not None,
                 "has_phone": update.phone_number is not None,
             },
@@ -73,9 +73,9 @@ class UpdateProfileInteractor:
         if not update.has_changes():
             raise NoChangesProvidedError()
 
-        user = await self._user_query.get_by_auth_user_id(auth_user_id)
+        user = await self._user_query.get_by_id(user_id)
         if user is None:
-            raise UserNotFoundError()
+            raise UserNotFoundError(user_id)
 
         # 전화번호 유효성 검사 및 정규화
         normalized_phone = None
@@ -95,5 +95,5 @@ class UpdateProfileInteractor:
         await self._tx.commit()
 
         # 프로필 DTO 생성
-        accounts = await self._social_account_gateway.list_by_user_id(auth_user_id)
+        accounts = await self._social_account_gateway.list_by_user_id(user_id)
         return self._profile_builder.build(updated_user, accounts, provider)

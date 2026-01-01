@@ -12,12 +12,11 @@ if TYPE_CHECKING:
 class UserQueryGateway(Protocol):
     """사용자 조회 포트."""
 
-    async def get_by_auth_user_id(self, auth_user_id: UUID) -> User | None:
-        """auth_user_id로 사용자를 조회합니다."""
-        ...
+    async def get_by_id(self, user_id: UUID) -> User | None:
+        """사용자 ID(UUID)로 조회합니다.
 
-    async def get_by_id(self, user_id: int) -> User | None:
-        """사용자 ID로 조회합니다."""
+        Note: 통합 스키마에서 users.users.id는 UUID입니다.
+        """
         ...
 
 

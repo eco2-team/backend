@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 
@@ -12,18 +12,23 @@ class User:
     """사용자 엔티티.
 
     users.users 테이블에 매핑됩니다.
-    user_profile.users 구조를 복제하여 하위 호환성을 유지합니다.
+    auth.users + user_profile.users 통합 구조입니다.
+
+    Note:
+        - id는 UUID (기존 auth.users.id를 그대로 사용)
+        - auth_user_id 컬럼은 제거됨 (id가 곧 user_id)
     """
 
-    id: int | None = None
-    auth_user_id: UUID | None = None
+    id: UUID | None = None
     username: str | None = None
     nickname: str | None = None
     name: str | None = None
     email: str | None = None
     phone_number: str | None = None
     profile_image_url: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_login_at: datetime | None = None
 
     def update_profile(
         self,
@@ -45,3 +50,10 @@ class User:
             self.phone_number = phone_number
         if profile_image_url is not None:
             self.profile_image_url = profile_image_url
+        self.updated_at = datetime.now(timezone.utc)
+
+    def update_login_time(self) -> None:
+        """마지막 로그인 시간을 업데이트합니다."""
+        now = datetime.now(timezone.utc)
+        self.last_login_at = now
+        self.updated_at = now

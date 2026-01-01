@@ -19,6 +19,9 @@ class DeleteUserInteractor:
     """사용자 삭제 유스케이스.
 
     기존 MyService.delete_current_user를 대체합니다.
+
+    Note:
+        CASCADE 삭제로 user_social_accounts, user_characters도 함께 삭제됩니다.
     """
 
     def __init__(
@@ -31,22 +34,22 @@ class DeleteUserInteractor:
         self._user_command = user_command_gateway
         self._tx = transaction_manager
 
-    async def execute(self, auth_user_id: UUID) -> None:
+    async def execute(self, user_id: UUID) -> None:
         """사용자 계정을 삭제합니다.
 
         Args:
-            auth_user_id: 인증 사용자 ID
+            user_id: 사용자 ID (users.users.id)
 
         Raises:
             UserNotFoundError: 사용자를 찾을 수 없음
         """
-        logger.info("User deletion requested", extra={"user_id": str(auth_user_id)})
+        logger.info("User deletion requested", extra={"user_id": str(user_id)})
 
-        user = await self._user_query.get_by_auth_user_id(auth_user_id)
+        user = await self._user_query.get_by_id(user_id)
         if user is None:
-            raise UserNotFoundError()
+            raise UserNotFoundError(user_id)
 
-        await self._user_command.delete(user.id)
+        await self._user_command.delete(user_id)
         await self._tx.commit()
 
-        logger.info("User deleted", extra={"user_id": str(auth_user_id)})
+        logger.info("User deleted", extra={"user_id": str(user_id)})

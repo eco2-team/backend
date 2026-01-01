@@ -1,17 +1,18 @@
-"""SQLAlchemy implementation of user gateways."""
+"""SQLAlchemy implementation of user gateways.
+
+통합 스키마:
+    - users.users.id는 UUID (기존 auth.users.id)
+    - auth_user_id 컬럼 없음
+"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.users.domain.entities.user import User
-
-if TYPE_CHECKING:
-    pass
 
 
 class SqlaUserQueryGateway:
@@ -20,13 +21,8 @@ class SqlaUserQueryGateway:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def get_by_auth_user_id(self, auth_user_id: UUID) -> User | None:
-        """auth_user_id로 사용자를 조회합니다."""
-        result = await self._session.execute(select(User).where(User.auth_user_id == auth_user_id))
-        return result.scalar_one_or_none()
-
-    async def get_by_id(self, user_id: int) -> User | None:
-        """사용자 ID로 조회합니다."""
+    async def get_by_id(self, user_id: UUID) -> User | None:
+        """사용자 ID(UUID)로 조회합니다."""
         result = await self._session.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
@@ -49,7 +45,7 @@ class SqlaUserCommandGateway:
         await self._session.flush()
         return merged
 
-    async def delete(self, user_id: int) -> None:
+    async def delete(self, user_id: UUID) -> None:
         """사용자를 삭제합니다."""
         result = await self._session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()

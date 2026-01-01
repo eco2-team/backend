@@ -1,8 +1,14 @@
-"""User ORM mapping - Imperative mapping for users.users table."""
+"""User ORM mapping - Imperative mapping for users.users table.
+
+통합 스키마:
+    - auth.users + user_profile.users 병합
+    - id는 UUID (기존 auth.users.id를 그대로 사용)
+    - auth_user_id 컬럼 제거
+"""
 
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, Column, DateTime, MetaData, String, Table, func
+from sqlalchemy import Column, DateTime, MetaData, String, Table, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import registry
 
@@ -12,19 +18,26 @@ from apps.users.domain.entities.user import User
 metadata = MetaData(schema="users")
 mapper_registry = registry(metadata=metadata)
 
-# users.users 테이블 정의
+# users.users 테이블 정의 (통합 스키마)
 users_table = Table(
     "users",
     metadata,
-    Column("id", BigInteger, primary_key=True, autoincrement=True),
-    Column("auth_user_id", UUID(as_uuid=True), nullable=False, unique=True, index=True),
+    Column("id", UUID(as_uuid=True), primary_key=True),
     Column("username", String(120), nullable=True, index=True),
     Column("nickname", String(120), nullable=True),
     Column("name", String(120), nullable=True),
     Column("email", String(320), nullable=True),
-    Column("phone_number", String(32), nullable=True, index=True),
-    Column("profile_image_url", String(500), nullable=True),
+    Column("phone_number", String(32), nullable=True, unique=True),
+    Column("profile_image_url", String(512), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column(
+        "updated_at",
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    ),
+    Column("last_login_at", DateTime(timezone=True), nullable=True),
 )
 
 
@@ -35,7 +48,6 @@ def start_user_mapper() -> None:
         users_table,
         properties={
             "id": users_table.c.id,
-            "auth_user_id": users_table.c.auth_user_id,
             "username": users_table.c.username,
             "nickname": users_table.c.nickname,
             "name": users_table.c.name,
@@ -43,5 +55,7 @@ def start_user_mapper() -> None:
             "phone_number": users_table.c.phone_number,
             "profile_image_url": users_table.c.profile_image_url,
             "created_at": users_table.c.created_at,
+            "updated_at": users_table.c.updated_at,
+            "last_login_at": users_table.c.last_login_at,
         },
     )

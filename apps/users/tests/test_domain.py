@@ -1,5 +1,7 @@
 """Users domain unit tests."""
 
+from uuid import uuid4
+
 from apps.users.domain.entities.user import User
 from apps.users.domain.services.user_service import UserService
 
@@ -52,8 +54,7 @@ class TestUserService:
     def test_resolve_display_name_with_name(self):
         """이름이 있으면 이름 반환."""
         user = User(
-            id=1,
-            auth_user_id=1,
+            id=uuid4(),
             username="username",
             nickname="nickname",
             name="홍길동",
@@ -65,8 +66,7 @@ class TestUserService:
     def test_resolve_display_name_fallback_to_username(self):
         """이름이 없으면 username 반환."""
         user = User(
-            id=1,
-            auth_user_id=1,
+            id=uuid4(),
             username="testuser",
             nickname=None,
             name=None,
@@ -78,8 +78,7 @@ class TestUserService:
     def test_resolve_display_name_default(self):
         """둘 다 없으면 기본값."""
         user = User(
-            id=1,
-            auth_user_id=1,
+            id=uuid4(),
             username=None,
             nickname=None,
             name=None,
@@ -91,8 +90,7 @@ class TestUserService:
     def test_resolve_nickname_with_nickname(self):
         """닉네임 있으면 닉네임 반환."""
         user = User(
-            id=1,
-            auth_user_id=1,
+            id=uuid4(),
             username="username",
             nickname="닉네임",
             name="이름",
@@ -104,8 +102,7 @@ class TestUserService:
     def test_resolve_nickname_fallback_to_username(self):
         """닉네임 없으면 username 반환."""
         user = User(
-            id=1,
-            auth_user_id=1,
+            id=uuid4(),
             username="testuser",
             nickname=None,
             name="이름",
@@ -117,8 +114,7 @@ class TestUserService:
     def test_resolve_nickname_fallback_to_name(self):
         """닉네임, username 없으면 name 반환."""
         user = User(
-            id=1,
-            auth_user_id=1,
+            id=uuid4(),
             username=None,
             nickname=None,
             name="이름",
@@ -130,8 +126,7 @@ class TestUserService:
     def test_resolve_nickname_fallback(self):
         """모두 없으면 fallback 반환."""
         user = User(
-            id=1,
-            auth_user_id=1,
+            id=uuid4(),
             username=None,
             nickname=None,
             name=None,
@@ -154,3 +149,21 @@ class TestUserService:
         """이미 포맷된 전화번호."""
         result = UserService.format_phone_for_display("010-1234-5678")
         assert result == "010-1234-5678"
+
+
+class TestUser:
+    """User 엔티티 단위 테스트."""
+
+    def test_update_profile(self):
+        """프로필 업데이트."""
+        user = User(id=uuid4(), username="test")
+        user.update_profile(nickname="새닉네임", phone_number="010-1234-5678")
+        assert user.nickname == "새닉네임"
+        assert user.phone_number == "010-1234-5678"
+
+    def test_update_login_time(self):
+        """로그인 시간 업데이트."""
+        user = User(id=uuid4())
+        assert user.last_login_at is None
+        user.update_login_time()
+        assert user.last_login_at is not None
