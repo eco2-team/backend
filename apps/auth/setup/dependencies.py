@@ -265,7 +265,7 @@ async def get_oauth_callback_interactor(
 
 async def get_logout_interactor(
     token_service=Depends(get_token_service),
-    token_blacklist=Depends(get_token_blacklist),
+    blacklist_publisher=Depends(get_blacklist_event_publisher),
     user_token_store=Depends(get_user_token_store),
     transaction_manager=Depends(get_transaction_manager),
 ):
@@ -274,7 +274,7 @@ async def get_logout_interactor(
 
     return LogoutInteractor(
         token_service=token_service,
-        token_blacklist=token_blacklist,
+        blacklist_publisher=blacklist_publisher,
         user_token_store=user_token_store,
         transaction_manager=transaction_manager,
     )
@@ -283,6 +283,7 @@ async def get_logout_interactor(
 async def get_refresh_tokens_interactor(
     token_service=Depends(get_token_service),
     token_blacklist=Depends(get_token_blacklist),
+    blacklist_publisher=Depends(get_blacklist_event_publisher),
     user_token_store=Depends(get_user_token_store),
     user_query_gateway=Depends(get_user_query_gateway),
     transaction_manager=Depends(get_transaction_manager),
@@ -293,6 +294,7 @@ async def get_refresh_tokens_interactor(
     return RefreshTokensInteractor(
         token_service=token_service,
         token_blacklist=token_blacklist,
+        blacklist_publisher=blacklist_publisher,
         user_token_store=user_token_store,
         user_query_gateway=user_query_gateway,
         transaction_manager=transaction_manager,

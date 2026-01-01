@@ -15,6 +15,9 @@
 from apps.auth.application.common.ports.flusher import Flusher
 from apps.auth.application.common.ports.outbox_gateway import OutboxGateway
 from apps.auth.application.common.ports.transaction_manager import TransactionManager
+from apps.auth.application.common.ports.blacklist_event_publisher import (
+    BlacklistEventPublisher,
+)
 
 # ============================================================================
 # 도메인별 포트 Re-export (하위 호환성)

@@ -7,11 +7,11 @@ metadata:
   labels:
     app: auth-relay
     version: v2
-    tier: integration
+    tier: worker
     domain: auth
     release: canary
 spec:
-  replicas: 1
+  replicas: 0  # 기본적으로 비활성화, 필요시 활성화
   selector:
     matchLabels:
       app: auth-relay
@@ -21,51 +21,75 @@ spec:
       labels:
         app: auth-relay
         version: v2
-        tier: integration
+        tier: worker
         domain: auth
         release: canary
       annotations:
         sidecar.istio.io/inject: 'false'
     spec:
-      nodeSelector:
-        workload-type: storage
-      tolerations:
-      - key: workload-type
-        operator: Equal
-        value: storage
-        effect: NoSchedule
       containers:
-      - name: relay
+      - name: auth-relay
         image: docker.io/mng990/eco2:auth-relay-dev-canary
         imagePullPolicy: Always
-        resources:
-          requests:
-            cpu: 10m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 64Mi
         env:
         - name: RELEASE_TYPE
           value: canary
-        envFrom:
-        - configMapRef:
-            name: auth-relay-config
-        - secretRef:
-            name: auth-secret
+        # Redis (Outbox 읽기)
+        - name: AUTH_REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_REDIS_BLACKLIST_URL
+        # RabbitMQ (이벤트 발행)
+        - name: AUTH_AMQP_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_AMQP_URL
+        # Relay 설정
+        - name: RELAY_POLL_INTERVAL
+          value: '1.0'
+        - name: RELAY_BATCH_SIZE
+          value: '10'
+        # Logging
+        - name: LOG_LEVEL
+          value: INFO
+        - name: SERVICE_NAME
+          value: auth-relay
+        - name: SERVICE_VERSION
+          value: 1.0.0-canary
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: auth-config
+              key: ENVIRONMENT
+        resources:
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 50m
+            memory: 64Mi
         livenessProbe:
           exec:
-            command:
-            - python
-            - -c
-            - |
-              import redis
-              import os
-              r = redis.from_url(os.getenv('AUTH_REDIS_URL'))
-              r.ping()
+            command: [pgrep, -f, apps.auth_relay.main]
           initialDelaySeconds: 10
           periodSeconds: 30
           timeoutSeconds: 5
           failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: [pgrep, -f, apps.auth_relay.main]
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
       imagePullSecrets:
       - name: dockerhub-secret
+      nodeSelector:
+        domain: worker-storage
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-storage
+        effect: NoSchedule

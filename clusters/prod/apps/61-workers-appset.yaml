@@ -12,6 +12,9 @@ spec:
   - list:
       elements:
       # Phase 1: Auth 관련
+      - name: auth-worker
+        namespace: auth
+        phase: '1'
       - name: auth-relay
         namespace: auth
         phase: '1'

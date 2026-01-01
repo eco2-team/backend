@@ -55,6 +55,7 @@ jobs:
       has_worker_changes: ${{ steps.prepare.outputs.has_worker_changes }}
       has_ext_authz: ${{ steps.prepare.outputs.has_ext_authz }}
       has_auth_relay: ${{ steps.prepare.outputs.has_auth_relay }}
+      has_auth_worker: ${{ steps.prepare.outputs.has_auth_worker }}
       has_sse_gateway: ${{ steps.prepare.outputs.has_sse_gateway }}
     steps:
       - name: Checkout
@@ -94,6 +95,7 @@ jobs:
           worker_services = []
           has_ext_authz = False
           has_auth_relay = False
+          has_auth_worker = False
           has_sse_gateway = False
           
           if any_changed:
@@ -106,9 +108,12 @@ jobs:
                       
                       if svc in API_SERVICES and svc not in api_services:
                           api_services.append(svc)
-                      # apps/auth/workers/ 경로 감지
-                      if svc == "auth" and "workers" in path:
+                      # apps/auth_relay/ 경로 감지
+                      if svc == "auth_relay":
                           has_auth_relay = True
+                      # apps/auth_worker/ 경로 감지
+                      if svc == "auth_worker":
+                          has_auth_worker = True
                   
                   # domains/<service>/ 경로 감지 (레거시)
                   elif len(parts) >= 2 and parts[0] == "domains":
@@ -118,8 +123,6 @@ jobs:
                           api_services.append(svc)
                       elif svc == "ext-authz":
                           has_ext_authz = True
-                      elif svc == "auth" and "workers/blacklist_relay" in path:
-                          has_auth_relay = True
                       elif svc == "sse-gateway":
                           has_sse_gateway = True
                       elif svc == "character" and "worker" in path:
@@ -145,6 +148,7 @@ jobs:
               out.write(f"has_worker_changes={'true' if worker_services else 'false'}\n")
               out.write(f"has_ext_authz={'true' if has_ext_authz else 'false'}\n")
               out.write(f"has_auth_relay={'true' if has_auth_relay else 'false'}\n")
+              out.write(f"has_auth_worker={'true' if has_auth_worker else 'false'}\n")
               out.write(f"has_sse_gateway={'true' if has_sse_gateway else 'false'}\n")
           PYEOF
         env:
@@ -413,18 +417,67 @@ jobs:
       - name: Determine Dockerfile path
         id: dockerfile
         run: |
-          # Clean Architecture 리팩토링된 버전 우선
-          if [ -f "apps/auth/Dockerfile.relay" ]; then
-            echo "path=apps/auth/Dockerfile.relay" >> "$GITHUB_OUTPUT"
-          else
-            echo "path=domains/auth/Dockerfile.worker" >> "$GITHUB_OUTPUT"
-          fi
+          # Clean Architecture (apps/auth_relay/)
+          echo "path=apps/auth_relay/Dockerfile" >> "$GITHUB_OUTPUT"
 
       - name: Build and push canary image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ${{ steps.dockerfile.outputs.path }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # auth-worker Canary 이미지 빌드
+  # ============================================================================
+  auth-worker-canary-build:
+    name: 📦 Build auth-worker Canary
+    runs-on: ubuntu-latest
+    needs:
+      - check-canary-label
+      - detect-changes
+    if: >
+      needs.check-canary-label.outputs.is_canary == 'true' &&
+      needs.detect-changes.outputs.has_auth_worker == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Prepare canary tags
+        id: meta
+        run: |
+          IMAGE_REPO="docker.io/mng990/eco2"
+          SHORT_SHA=$(git rev-parse --short=6 HEAD)
+          
+          CANARY_TAG="auth-worker-dev-canary"
+          CANARY_SHA_TAG="auth-worker-dev-canary-${SHORT_SHA}"
+          
+          {
+            echo "tags<<TAGS"
+            echo "${IMAGE_REPO}:${CANARY_TAG}"
+            echo "${IMAGE_REPO}:${CANARY_SHA_TAG}"
+            echo "TAGS"
+          } >> "$GITHUB_OUTPUT"
+          echo "canary_tag=${CANARY_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push canary image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/auth_worker/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
@@ -496,6 +549,7 @@ jobs:
       - worker-canary-build
       - ext-authz-canary-build
       - auth-relay-canary-build
+      - auth-worker-canary-build
       - sse-gateway-canary-build
     if: always() && needs.check-canary-label.outputs.is_canary == 'true'
     steps:
@@ -505,6 +559,7 @@ jobs:
           WORKER_SERVICES: ${{ needs.detect-changes.outputs.worker_services }}
           HAS_EXT_AUTHZ: ${{ needs.detect-changes.outputs.has_ext_authz }}
           HAS_AUTH_RELAY: ${{ needs.detect-changes.outputs.has_auth_relay }}
+          HAS_AUTH_WORKER: ${{ needs.detect-changes.outputs.has_auth_worker }}
           HAS_SSE_GATEWAY: ${{ needs.detect-changes.outputs.has_sse_gateway }}
         run: |
           cat <<EOF >> "$GITHUB_STEP_SUMMARY"
@@ -536,6 +591,9 @@ jobs:
           fi
           if [ "$HAS_AUTH_RELAY" = "true" ]; then
             echo "| Special | auth-relay | \`auth-relay-dev-canary\` |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "$HAS_AUTH_WORKER" = "true" ]; then
+            echo "| Special | auth-worker | \`auth-worker-dev-canary\` |" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "$HAS_SSE_GATEWAY" = "true" ]; then
             echo "| Special | sse-gateway | \`sse-gateway-dev-canary\` |" >> "$GITHUB_STEP_SUMMARY"

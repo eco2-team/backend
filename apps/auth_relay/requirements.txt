@@ -1,0 +1,11 @@
+# Auth Relay Dependencies
+# Redis Outbox → RabbitMQ 재발행 워커
+
+# Async Redis
+redis>=5.0.0
+
+# Async RabbitMQ
+aio-pika>=9.0.0
+
+# ECS Logging
+ecs-logging>=2.0.0

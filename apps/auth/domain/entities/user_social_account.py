@@ -6,7 +6,7 @@ ORM과 분리된 순수 도메인 엔티티입니다.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 
@@ -36,8 +36,9 @@ class UserSocialAccount:
 
     def update_login_time(self) -> None:
         """로그인 시간 업데이트."""
-        self.last_login_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        now = datetime.now(timezone.utc)
+        self.last_login_at = now
+        self.updated_at = now
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, UserSocialAccount):

@@ -1,0 +1,13 @@
+# Auth Worker Dependencies
+
+# Async RabbitMQ
+aio-pika>=9.4.0
+
+# Async Redis
+redis>=5.0.0
+
+# Logging
+ecs-logging>=2.1.0
+
+# Type hints
+typing-extensions>=4.9.0

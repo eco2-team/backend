@@ -6,26 +6,14 @@ on:
       - main
       - develop
     paths:
-      # Clean Architecture (apps/)
-      - "apps/auth/workers/**"
-      - "apps/auth/Dockerfile.relay"
-      # Legacy (domains/)
-      - "domains/auth/tasks/**"
-      - "domains/auth/Dockerfile.relay"
-      - "domains/auth/requirements-relay.txt"
+      - "apps/auth_relay/**"
       - "workloads/domains/auth-relay/**"
   pull_request:
     branches:
       - main
       - develop
     paths:
-      # Clean Architecture (apps/)
-      - "apps/auth/workers/**"
-      - "apps/auth/Dockerfile.relay"
-      # Legacy (domains/)
-      - "domains/auth/tasks/**"
-      - "domains/auth/Dockerfile.relay"
-      - "domains/auth/requirements-relay.txt"
+      - "apps/auth_relay/**"
       - "workloads/domains/auth-relay/**"
   workflow_dispatch:
     inputs:
@@ -50,40 +38,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Determine source path
-        id: source
+      - name: Install dependencies
         run: |
-          if [ -d "apps/auth/workers" ]; then
-            echo "path=apps/auth/workers" >> "$GITHUB_OUTPUT"
-          else
-            echo "path=domains/auth/tasks" >> "$GITHUB_OUTPUT"
-          fi
+          pip install ruff black
 
-      - name: Install linters
-        run: |
-          pip install black==24.4.2 ruff==0.6.9
+      - name: Run Ruff
+        run: ruff check apps/auth_relay
 
-      - name: Black
-        run: black --check ${{ steps.source.outputs.path }}
+      - name: Run Black
+        run: black --check apps/auth_relay
 
-      - name: Ruff
-        run: ruff check ${{ steps.source.outputs.path }}
-
-  build-push:
-    name: 📦 Build & Push
+  build:
+    name: 🏗️ Build & Push
     runs-on: ubuntu-latest
     needs: lint
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || github.event.inputs.force_build == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -98,65 +75,42 @@ jobs:
       - name: Prepare tags
         id: meta
         run: |
-          SHORT_SHA=$(git rev-parse --short=6 HEAD)
           IMAGE_REPO="docker.io/mng990/eco2"
-          VERSION=$(cat VERSION)
+          SHORT_SHA=$(git rev-parse --short=6 HEAD)
+          VERSION="${{ github.ref_name }}"
           
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          if [ "${{ github.ref_name }}" = "main" ]; then
             TAG="auth-relay-${VERSION}-${SHORT_SHA}"
             echo "tags=${IMAGE_REPO}:${TAG},${IMAGE_REPO}:auth-relay-prod-latest,${IMAGE_REPO}:auth-relay-latest" >> "$GITHUB_OUTPUT"
-            echo "manifest_tag=${TAG}" >> "$GITHUB_OUTPUT"
           else
             TAG="auth-relay-dev-${SHORT_SHA}"
             echo "tags=${IMAGE_REPO}:${TAG},${IMAGE_REPO}:auth-relay-dev-latest" >> "$GITHUB_OUTPUT"
             echo "manifest_tag=auth-relay-dev-latest" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Determine Dockerfile path
-        id: dockerfile
-        run: |
-          if [ -f "apps/auth/Dockerfile.relay" ]; then
-            echo "path=apps/auth/Dockerfile.relay" >> "$GITHUB_OUTPUT"
-          else
-            echo "path=domains/auth/Dockerfile.relay" >> "$GITHUB_OUTPUT"
-          fi
+          echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ${{ steps.dockerfile.outputs.path }}
+          file: apps/auth_relay/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Update manifest
-        if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+      - name: Update Kustomization
+        if: github.event_name == 'push' && github.ref_name != 'main'
         env:
-          TAG_NAME: ${{ steps.meta.outputs.manifest_tag }}
+          TAG_NAME: ${{ steps.meta.outputs.tag_name }}
         run: |
-          git fetch origin "${{ github.ref_name }}"
-          git checkout -B "${{ github.ref_name }}"
-          git pull --rebase origin "${{ github.ref_name }}"
+          KUSTOMIZE_FILE="workloads/domains/auth-relay/dev/kustomization.yaml"
           
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            KUSTOMIZE_FILE="workloads/domains/auth-relay/prod/kustomization.yaml"
-          else
-            KUSTOMIZE_FILE="workloads/domains/auth-relay/dev/kustomization.yaml"
-          fi
+          sed -i "s|newTag:.*|newTag: ${TAG_NAME}|" "$KUSTOMIZE_FILE"
           
-          pip install pyyaml
-          python scripts/ci/update_kustomize_image.py \
-            --file "$KUSTOMIZE_FILE" \
-            --image docker.io/mng990/eco2 \
-            --tag "$TAG_NAME"
-          
-          if ! git diff --quiet -- "$KUSTOMIZE_FILE"; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add "$KUSTOMIZE_FILE"
-            git commit -m "chore(auth-relay): bump image tag to ${TAG_NAME} [skip ci]"
-            git push origin HEAD:${{ github.ref_name }}
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$KUSTOMIZE_FILE"
+          git commit -m "chore(auth-relay): bump image tag to ${TAG_NAME} [skip ci]" || echo "No changes"
+          git push
 

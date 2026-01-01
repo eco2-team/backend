@@ -1,0 +1,261 @@
+# 새 Worker 노드 추가 통합 Playbook
+# 용도: Terraform으로 생성된 새 노드를 K8s 클러스터에 조인
+# 사용법:
+#   1. Terraform apply로 노드 생성
+#   2. hosts.ini에 새 노드 추가 (또는 terraform output으로 자동 생성)
+#   3. ansible-playbook -i inventory/hosts.ini playbooks/add-worker-nodes.yml -l new_workers
+#
+# 예시:
+#   ansible-playbook -i inventory/hosts.ini playbooks/add-worker-nodes.yml \
+#     -l k8s-worker-storage-2,k8s-worker-ai-2
+
+# Step 0: SSH 연결 대기
+- name: Wait for new nodes to be ready
+  hosts: all
+  gather_facts: no
+  tasks:
+  - name: Wait for SSH port to be open
+    wait_for:
+      host: '{{ ansible_host }}'
+      port: 22
+      delay: 10
+      timeout: 300
+      state: started
+    delegate_to: localhost
+    become: no
+
+  - name: Test SSH connectivity
+    ping:
+    retries: 5
+    delay: 10
+    until: ping_result is succeeded
+    register: ping_result
+
+  - name: Wait for cloud-init to complete
+    command: cloud-init status --wait
+    changed_when: false
+    ignore_errors: yes
+
+# Step 1: OS 기본 설정
+- name: Prerequisites - OS Configuration
+  hosts: all
+  become: yes
+  gather_facts: yes
+  roles:
+  - role: '{{ playbook_dir }}/../roles/common'
+
+# Step 2: Container Runtime 설치
+- name: Install Docker/Containerd
+  hosts: all
+  become: yes
+  roles:
+  - role: '{{ playbook_dir }}/../roles/docker'
+
+# Step 3: Kubernetes 패키지 설치
+- name: Install Kubernetes packages
+  hosts: all
+  become: yes
+  roles:
+  - role: '{{ playbook_dir }}/../roles/kubernetes'
+
+# Step 4: 설치 확인
+- name: Verify installation
+  hosts: all
+  become: yes
+  tasks:
+  - name: Check containerd status
+    command: systemctl is-active containerd
+    register: containerd_status
+    changed_when: false
+    failed_when: containerd_status.stdout != "active"
+
+  - name: Check kubeadm version
+    command: kubeadm version -o short
+    register: kubeadm_version
+    changed_when: false
+
+  - name: Print installation status
+    debug:
+      msg:
+      - '✅ containerd: {{ containerd_status.stdout }}'
+      - '✅ kubeadm: {{ kubeadm_version.stdout }}'
+
+# Step 5: Master에서 Join Token 생성
+- name: Generate join token on master
+  hosts: masters
+  become: yes
+  tasks:
+  - name: Create new join token
+    command: kubeadm token create --print-join-command
+    register: join_command
+    changed_when: false
+
+  - name: Save join command to file
+    copy:
+      content: '{{ join_command.stdout }}'
+      dest: /tmp/kubeadm_join_command.sh
+      mode: '0755'
+
+  - name: Display join command
+    debug:
+      msg: 'Join command: {{ join_command.stdout }}'
+
+  - name: Fetch join command to local
+    fetch:
+      src: /tmp/kubeadm_join_command.sh
+      dest: /tmp/kubeadm_join_command.sh
+      flat: yes
+
+# Step 6: Worker 노드 Join
+- name: Join workers to cluster
+  hosts: all:!masters
+  become: yes
+  tasks:
+  - block:
+        # Pre-flight 체크
+    - name: Verify swap is disabled
+      command: swapon -s
+      register: swap_check
+      changed_when: false
+      failed_when: swap_check.stdout != ""
+
+    - name: Verify containerd is running
+      command: systemctl is-active containerd
+      register: containerd_check
+      changed_when: false
+      failed_when: containerd_check.stdout != "active"
+
+    - name: Check CRI socket exists
+      stat:
+        path: /run/containerd/containerd.sock
+      register: cri_socket
+      failed_when: not cri_socket.stat.exists
+
+        # 이미 join되었는지 확인
+    - name: Check if already joined
+      stat:
+        path: /etc/kubernetes/kubelet.conf
+      register: kubelet_conf
+
+    - name: Skip if already joined
+      debug:
+        msg: ✅ Node already joined to cluster
+      when: kubelet_conf.stat.exists
+
+        # Join 실행 (아직 join 안된 경우만)
+    - name: Copy join command to node
+      copy:
+        src: /tmp/kubeadm_join_command.sh
+        dest: /tmp/join.sh
+        mode: '0755'
+      when: not kubelet_conf.stat.exists
+
+    - name: Execute cluster join
+      shell: |
+        bash /tmp/join.sh --cri-socket=unix:///run/containerd/containerd.sock --v=5
+      when: not kubelet_conf.stat.exists
+      register: join_result
+      async: 300
+      poll: 10
+
+    - name: Display join result
+      debug:
+        msg: '{{ join_result.stdout_lines }}'
+      when: not kubelet_conf.stat.exists and join_result is defined
+
+        # Kubelet 상태 확인
+    - name: Wait for kubelet to be active
+      command: systemctl is-active kubelet
+      register: kubelet_active
+      changed_when: false
+      retries: 12
+      delay: 5
+      until: kubelet_active.stdout == "active"
+
+        # AWS Provider ID 설정
+    - name: Get AWS metadata
+      shell: |
+        INSTANCE_ID=$(ec2-metadata --instance-id | cut -d ' ' -f 2)
+        AZ=$(ec2-metadata --availability-zone | cut -d ' ' -f 2)
+        echo "$INSTANCE_ID:$AZ"
+      register: aws_metadata
+
+    - name: Parse AWS metadata
+      set_fact:
+        instance_id: "{{ aws_metadata.stdout.split(':')[0] }}"
+        availability_zone: "{{ aws_metadata.stdout.split(':')[1] }}"
+
+    - name: Configure kubelet Provider ID
+      lineinfile:
+        path: /var/lib/kubelet/kubeadm-flags.env
+        regexp: ^KUBELET_KUBEADM_ARGS=
+        line: KUBELET_KUBEADM_ARGS="--container-runtime-endpoint=unix:///var/run/containerd/containerd.sock --cloud-provider=external --provider-id=aws:///{{ availability_zone }}/{{ instance_id }}"
+        backup: yes
+
+    - name: Restart kubelet for Provider ID
+      systemd:
+        name: kubelet
+        state: restarted
+
+    - name: Wait for kubelet restart
+      pause:
+        seconds: 10
+
+        # 정리
+    - name: Remove join command file
+      file:
+        path: /tmp/join.sh
+        state: absent
+
+    rescue:
+    - name: Join failed - cleanup
+      debug:
+        msg: ⚠️ Worker join failed! Starting cleanup...
+
+    - name: Reset kubeadm
+      command: kubeadm reset -f --cri-socket=unix:///run/containerd/containerd.sock
+      ignore_errors: yes
+
+    - name: Remove Kubernetes config
+      file:
+        path: '{{ item }}'
+        state: absent
+      loop:
+      - /etc/kubernetes
+      - /var/lib/kubelet
+      - /etc/cni/net.d
+      ignore_errors: yes
+
+    - name: Restart containerd
+      systemd:
+        name: containerd
+        state: restarted
+
+    - name: Fail with message
+      fail:
+        msg: Worker join failed! Cleanup complete. Generate new token and retry.
+
+# Step 7: Master에서 노드 상태 확인
+- name: Verify nodes on master
+  hosts: masters
+  become: yes
+  tasks:
+  - name: Wait for nodes to be Ready
+    pause:
+      seconds: 30
+
+  - name: Get all nodes
+    command: kubectl get nodes -o wide
+    register: nodes_status
+    changed_when: false
+
+  - name: Display cluster nodes
+    debug:
+      msg: '{{ nodes_status.stdout_lines }}'
+
+  - name: Cleanup local join command
+    file:
+      path: /tmp/kubeadm_join_command.sh
+      state: absent
+    delegate_to: localhost
+    become: no

@@ -38,6 +38,11 @@ class TestRefreshTokensInteractor:
         return blacklist
 
     @pytest.fixture
+    def mock_blacklist_publisher(self) -> AsyncMock:
+        """Mock BlacklistEventPublisher."""
+        return AsyncMock()
+
+    @pytest.fixture
     def mock_user_token_store(self) -> AsyncMock:
         store = AsyncMock()
         store.contains.return_value = True
@@ -60,6 +65,7 @@ class TestRefreshTokensInteractor:
         self,
         mock_token_service: MagicMock,
         mock_token_blacklist: AsyncMock,
+        mock_blacklist_publisher: AsyncMock,
         mock_user_token_store: AsyncMock,
         mock_user_query_gateway: AsyncMock,
         mock_transaction_manager: AsyncMock,
@@ -67,6 +73,7 @@ class TestRefreshTokensInteractor:
         return RefreshTokensInteractor(
             token_service=mock_token_service,
             token_blacklist=mock_token_blacklist,
+            blacklist_publisher=mock_blacklist_publisher,
             user_token_store=mock_user_token_store,
             user_query_gateway=mock_user_query_gateway,
             transaction_manager=mock_transaction_manager,
@@ -101,7 +108,7 @@ class TestRefreshTokensInteractor:
         self,
         interactor: RefreshTokensInteractor,
         mock_token_service: MagicMock,
-        mock_token_blacklist: AsyncMock,
+        mock_blacklist_publisher: AsyncMock,
         mock_user_token_store: AsyncMock,
         mock_user_query_gateway: AsyncMock,
         sample_user: User,
@@ -123,8 +130,8 @@ class TestRefreshTokensInteractor:
         assert result.refresh_token == "new-refresh-token"
         assert result.user_id == sample_user.id_.value
 
-        # 기존 토큰 블랙리스트 추가 확인
-        mock_token_blacklist.add.assert_called()
+        # 기존 토큰 블랙리스트 이벤트 발행 확인
+        mock_blacklist_publisher.publish_add.assert_called()
 
         # 새 토큰 저장 확인
         mock_user_token_store.register.assert_called_once()

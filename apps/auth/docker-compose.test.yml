@@ -1,0 +1,87 @@
+# auth + auth_worker 통합 테스트용 Docker Compose
+# 사용법: docker-compose -f apps/auth/docker-compose.test.yml up
+
+services:
+  db:
+    image: postgres:16
+    container_name: auth-test-postgres
+    environment:
+      POSTGRES_USER: sesacthon
+      POSTGRES_PASSWORD: sesacthon
+      POSTGRES_DB: sesacthon
+    ports:
+    - 5433:5432
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U sesacthon -d sesacthon]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: auth-test-redis
+    command: [redis-server, --appendonly, no]
+    ports:
+    - 6380:6379
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: auth-test-rabbitmq
+    ports:
+    - 5672:5672
+    - 15672:15672
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-api:
+    image: mng990/eco2:auth-api-test
+    container_name: auth-test-api
+    environment:
+      # Database
+      AUTH_DATABASE_URL: postgresql+asyncpg://sesacthon:sesacthon@db:5432/sesacthon
+      # Redis
+      AUTH_REDIS_BLACKLIST_URL: redis://redis:6379/0
+      AUTH_REDIS_OAUTH_STATE_URL: redis://redis:6379/3
+      # RabbitMQ (새로 추가)
+      AUTH_AMQP_URL: amqp://guest:guest@rabbitmq:5672/
+      # JWT
+      AUTH_JWT_SECRET_KEY: local-test-secret-key-change-in-prod
+      AUTH_JWT_ALGORITHM: HS256
+      AUTH_JWT_ISSUER: localhost
+      AUTH_JWT_AUDIENCE: api
+      # Token Expiry
+      AUTH_ACCESS_TOKEN_EXP_MINUTES: '180'
+      AUTH_REFRESH_TOKEN_EXP_MINUTES: '43200'
+      # Frontend
+      AUTH_FRONTEND_URL: http://localhost:3000
+      AUTH_COOKIE_DOMAIN: localhost
+    ports:
+    - 8000:8000
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  auth-worker:
+    image: mng990/eco2:auth-worker-test
+    container_name: auth-test-worker
+    environment:
+      AUTH_REDIS_URL: redis://redis:6379/0
+      AUTH_AMQP_URL: amqp://guest:guest@rabbitmq:5672/
+      LOG_LEVEL: DEBUG
+      SERVICE_NAME: auth-worker
+      ENVIRONMENT: test
+    depends_on:
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  auth-test-pgdata:

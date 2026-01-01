@@ -1,3 +1,6 @@
+# Auth Relay Deployment
+# Redis Outbox에서 실패한 블랙리스트 이벤트를 RabbitMQ로 재발행
+# Redis (outbox:blacklist) → RabbitMQ (blacklist.events)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,58 +8,88 @@ metadata:
   namespace: auth
   labels:
     app: auth-relay
-    tier: integration
+    version: v1
+    tier: worker
     domain: auth
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: auth-relay
+      version: v1
   template:
     metadata:
       labels:
         app: auth-relay
-        tier: integration
+        version: v1
+        tier: worker
         domain: auth
       annotations:
         sidecar.istio.io/inject: 'false'  # 내부 통신만, Istio 불필요
     spec:
-      nodeSelector:
-        workload-type: storage  # worker-storage 노드에 배치
-      tolerations:
-      - key: workload-type
-        operator: Equal
-        value: storage
-        effect: NoSchedule
       containers:
-      - name: relay
+      - name: auth-relay
         image: docker.io/mng990/eco2:auth-relay-dev-latest
         imagePullPolicy: Always
+        env:
+        # Redis (Outbox 읽기)
+        - name: AUTH_REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_REDIS_BLACKLIST_URL
+        # RabbitMQ (이벤트 발행)
+        - name: AUTH_AMQP_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret
+              key: AUTH_AMQP_URL
+        # Relay 설정
+        - name: RELAY_POLL_INTERVAL
+          value: '1.0'
+        - name: RELAY_BATCH_SIZE
+          value: '10'
+        # Logging
+        - name: LOG_LEVEL
+          value: INFO
+        - name: SERVICE_NAME
+          value: auth-relay
+        - name: SERVICE_VERSION
+          value: 1.0.0
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: auth-config
+              key: ENVIRONMENT
         resources:
           requests:
-            cpu: 10m
+            cpu: 5m
             memory: 32Mi
           limits:
-            cpu: 100m
+            cpu: 50m
             memory: 64Mi
-        envFrom:
-        - configMapRef:
-            name: auth-relay-config
-        - secretRef:
-            name: auth-secret
+        # 프로세스 존재 확인
         livenessProbe:
           exec:
-            command:
-            - python
-            - -c
-            - |
-              import redis
-              import os
-              r = redis.from_url(os.getenv('AUTH_REDIS_URL'))
-              r.ping()
+            command: [pgrep, -f, apps.auth_relay.main]
           initialDelaySeconds: 10
           periodSeconds: 30
           timeoutSeconds: 5
           failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: [pgrep, -f, apps.auth_relay.main]
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
       imagePullSecrets:
       - name: dockerhub-secret
+      # worker-storage 노드에 배치
+      nodeSelector:
+        domain: worker-storage
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-storage
+        effect: NoSchedule

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from apps.auth.domain.entities.user import User
 from apps.auth.domain.entities.user_social_account import UserSocialAccount
@@ -20,7 +20,7 @@ def create_user(
     profile_image_url: str | None = None,
 ) -> User:
     """테스트용 User 생성."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     return User(
         id_=user_id or UserId.generate(),
         nickname=nickname,
@@ -38,7 +38,7 @@ def create_social_account(
     email: str | None = "test@example.com",
 ) -> UserSocialAccount:
     """테스트용 UserSocialAccount 생성."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     return UserSocialAccount(
         id=uuid.uuid4(),
         user_id=user_id or uuid.uuid4(),

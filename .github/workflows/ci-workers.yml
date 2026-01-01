@@ -6,7 +6,7 @@ on:
       - main
       - develop
     paths:
-      # Worker 소스 코드
+      # Worker 소스 코드 (domains/ 레거시)
       - "domains/scan/tasks/**"
       - "domains/scan/celery_app.py"
       - "domains/scan/Dockerfile.worker"
@@ -19,6 +19,8 @@ on:
       - "domains/my/celery_app.py"
       - "domains/my/Dockerfile.worker"
       - "domains/my/requirements-worker.txt"
+      # Worker 소스 코드 (apps/ Clean Architecture)
+      - "apps/auth_worker/**"
       # 공통 의존성
       - "domains/_shared/celery/**"
       - "domains/_shared/waste_pipeline/**"
@@ -28,6 +30,7 @@ on:
       - "workloads/domains/character-worker/**"
       - "workloads/domains/character-match-worker/**"
       - "workloads/domains/my-worker/**"
+      - "workloads/domains/auth-worker/**"
   pull_request:
     branches:
       - main
@@ -45,6 +48,7 @@ on:
       - "domains/my/celery_app.py"
       - "domains/my/Dockerfile.worker"
       - "domains/my/requirements-worker.txt"
+      - "apps/auth_worker/**"
       - "domains/_shared/celery/**"
       - "domains/_shared/waste_pipeline/**"
       - "domains/_shared/events/**"
@@ -52,6 +56,7 @@ on:
       - "workloads/domains/character-worker/**"
       - "workloads/domains/character-match-worker/**"
       - "workloads/domains/my-worker/**"
+      - "workloads/domains/auth-worker/**"
   workflow_dispatch:
     inputs:
       force_all:
@@ -106,6 +111,8 @@ jobs:
     outputs:
       has_changes: ${{ steps.prepare.outputs.has_changes }}
       workers: ${{ steps.prepare.outputs.workers }}
+      has_clean_changes: ${{ steps.prepare.outputs.has_clean_changes }}
+      clean_workers: ${{ steps.prepare.outputs.clean_workers }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -129,6 +136,7 @@ jobs:
             domains/my/celery_app.py
             domains/my/Dockerfile.worker
             domains/my/requirements-worker.txt
+            apps/auth_worker/**
             domains/_shared/celery/**
             domains/_shared/waste_pipeline/**
             domains/_shared/events/**
@@ -136,6 +144,7 @@ jobs:
             workloads/domains/character-worker/**
             workloads/domains/character-match-worker/**
             workloads/domains/my-worker/**
+            workloads/domains/auth-worker/**
 
       - name: Prepare worker matrix
         id: prepare
@@ -149,10 +158,13 @@ jobs:
           force_all = os.environ.get("FORCE_ALL", "false").lower() == "true"
           event_name = os.environ.get("EVENT_NAME", "")
 
-          # Worker 목록 (도메인 이름)
-          ALL_WORKERS = ["scan", "character", "my"]
+          # Legacy Worker 목록 (domains/ 구조, Celery 기반)
+          LEGACY_WORKERS = ["scan", "character", "my"]
+          
+          # Clean Architecture Worker 목록 (apps/ 구조)
+          CLEAN_WORKERS = ["auth_worker"]
 
-          # 공통 의존성 → 모든 Worker 재빌드
+          # 공통 의존성 → Legacy Worker 재빌드
           SHARED_TRIGGERS = [
               "domains/_shared/celery",
               "domains/_shared/waste_pipeline",
@@ -165,28 +177,32 @@ jobs:
               if w.strip()
           ]
 
-          workers = []
+          workers = []  # Legacy workers
+          clean_workers = []  # Clean Architecture workers
 
           if event_name == "workflow_dispatch":
               if force_all:
-                  workers = ALL_WORKERS
+                  workers = LEGACY_WORKERS.copy()
+                  clean_workers = CLEAN_WORKERS.copy()
               elif raw_targets:
-                  workers = [w for w in raw_targets if w in ALL_WORKERS]
+                  workers = [w for w in raw_targets if w in LEGACY_WORKERS]
+                  clean_workers = [w for w in raw_targets if w in CLEAN_WORKERS]
 
-          if not workers and any_changed:
-              # 공통 의존성 변경 시 모든 Worker 빌드
-              for path in files:
-                  for trigger in SHARED_TRIGGERS:
-                      if path.startswith(trigger):
-                          workers = ALL_WORKERS
-                          break
-                  if workers:
-                      break
-
-              # 개별 Worker 변경 감지
+          if any_changed:
+              # 공통 의존성 변경 시 Legacy Worker 빌드
               if not workers:
                   for path in files:
-                      for worker in ALL_WORKERS:
+                      for trigger in SHARED_TRIGGERS:
+                          if path.startswith(trigger):
+                              workers = LEGACY_WORKERS.copy()
+                              break
+                      if workers:
+                          break
+
+              # 개별 Legacy Worker 변경 감지
+              if not workers:
+                  for path in files:
+                      for worker in LEGACY_WORKERS:
                           if (
                               path.startswith(f"domains/{worker}/tasks") or
                               path.startswith(f"domains/{worker}/celery_app") or
@@ -196,14 +212,35 @@ jobs:
                           ):
                               if worker not in workers:
                                   workers.append(worker)
+              
+              # Clean Architecture Worker 변경 감지
+              for path in files:
+                  for worker in CLEAN_WORKERS:
+                      # apps/auth_worker/** 또는 workloads/domains/auth-worker/**
+                      worker_hyphen = worker.replace("_", "-")
+                      if (
+                          path.startswith(f"apps/{worker}") or
+                          path.startswith(f"workloads/domains/{worker_hyphen}")
+                      ):
+                          if worker not in clean_workers:
+                              clean_workers.append(worker)
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              # Legacy workers
               if workers:
                   out.write("has_changes=true\n")
                   out.write(f"workers={json.dumps(workers)}\n")
               else:
                   out.write("has_changes=false\n")
                   out.write("workers=[]\n")
+              
+              # Clean Architecture workers
+              if clean_workers:
+                  out.write("has_clean_changes=true\n")
+                  out.write(f"clean_workers={json.dumps(clean_workers)}\n")
+              else:
+                  out.write("has_clean_changes=false\n")
+                  out.write("clean_workers=[]\n")
           PYEOF
         env:
           CHANGED_FILES: ${{ steps.changes.outputs.all_changed_files }}
@@ -401,5 +438,140 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "${KUSTOMIZE_FILE}"
           git commit -m "chore(${WORKER}-worker): bump image tag to ${TAG_NAME} [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
+
+  # ============================================================================
+  # Clean Architecture Worker Build & Push (apps/ 구조)
+  # ============================================================================
+  clean-worker-build-push:
+    name: 📦 Build & Push Clean Worker - ${{ matrix.worker }}
+    runs-on: ubuntu-latest
+    needs:
+      - commit-filter
+      - detect-worker-changes
+    if: >
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      needs.commit-filter.outputs.skip != 'true' &&
+      needs.detect-worker-changes.outputs.has_clean_changes == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: ${{ fromJson(needs.detect-worker-changes.outputs.clean_workers) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Prepare worker image tags
+        id: meta
+        run: |
+          set -euo pipefail
+          SHORT_SHA=$(git rev-parse --short=6 HEAD)
+          WORKER="${{ matrix.worker }}"
+          IMAGE_REPO="docker.io/mng990/eco2"
+          # auth_worker → auth-worker
+          WORKER_SLUG="${WORKER//_/-}"
+          VERSION=$(cat VERSION)
+
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            UNIQUE_TAG="${WORKER_SLUG}-${VERSION}-${SHORT_SHA}"
+            {
+              echo "tags<<TAGS"
+              echo "${IMAGE_REPO}:${UNIQUE_TAG}"
+              echo "${IMAGE_REPO}:${WORKER_SLUG}-prod-latest"
+              echo "${IMAGE_REPO}:${WORKER_SLUG}-latest"
+              echo "TAGS"
+            } >> "$GITHUB_OUTPUT"
+            echo "manifest_tag=${UNIQUE_TAG}" >> "$GITHUB_OUTPUT"
+          else
+            DEV_TAG="${WORKER_SLUG}-dev-${SHORT_SHA}"
+            DEV_LATEST_TAG="${WORKER_SLUG}-dev-latest"
+            {
+              echo "tags<<TAGS"
+              echo "${IMAGE_REPO}:${DEV_TAG}"
+              echo "${IMAGE_REPO}:${DEV_LATEST_TAG}"
+              echo "TAGS"
+            } >> "$GITHUB_OUTPUT"
+            echo "manifest_tag=${DEV_LATEST_TAG}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "worker_slug=${WORKER_SLUG}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/${{ matrix.worker }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Sync manifest branch
+        if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+        run: |
+          git fetch origin "${{ github.ref_name }}"
+          git checkout -B "${{ github.ref_name }}"
+          git pull --rebase origin "${{ github.ref_name }}"
+
+      - name: Update worker manifest tag
+        id: update_manifest
+        env:
+          WORKER_SLUG: ${{ steps.meta.outputs.worker_slug }}
+          TAG_NAME: ${{ steps.meta.outputs.manifest_tag }}
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            KUSTOMIZE_FILE="workloads/domains/${WORKER_SLUG}/prod/kustomization.yaml"
+          else
+            KUSTOMIZE_FILE="workloads/domains/${WORKER_SLUG}/dev/kustomization.yaml"
+          fi
+
+          if [ ! -f "$KUSTOMIZE_FILE" ]; then
+            mkdir -p "$(dirname $KUSTOMIZE_FILE)"
+            cat > "$KUSTOMIZE_FILE" << EOF
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+          resources:
+            - ../base
+          images:
+            - name: docker.io/mng990/eco2
+              newTag: ${TAG_NAME}
+          EOF
+          else
+            python -m pip install --upgrade pip pyyaml
+            python scripts/ci/update_kustomize_image.py \
+              --file "$KUSTOMIZE_FILE" \
+              --image docker.io/mng990/eco2 \
+              --tag "$TAG_NAME"
+          fi
+
+          if git diff --quiet -- "$KUSTOMIZE_FILE" 2>/dev/null; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "file=$KUSTOMIZE_FILE" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit worker manifest updates
+        if: steps.update_manifest.outputs.changed == 'true'
+        env:
+          KUSTOMIZE_FILE: ${{ steps.update_manifest.outputs.file }}
+          TAG_NAME: ${{ steps.meta.outputs.manifest_tag }}
+          WORKER_SLUG: ${{ steps.meta.outputs.worker_slug }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${KUSTOMIZE_FILE}"
+          git commit -m "chore(${WORKER_SLUG}): bump image tag to ${TAG_NAME} [skip ci]"
           git push origin HEAD:${{ github.ref_name }}
 

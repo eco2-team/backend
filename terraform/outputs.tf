@@ -167,10 +167,27 @@ output "worker_ai_public_ip" {
   value       = module.worker_ai.public_ip
 }
 
-# output "worker_storage_private_ip" {
-#   description = "Worker Storage Private IP"
-#   value       = module.worker_storage.private_ip
-# }
+# Worker-3: Storage (확장)
+output "worker_storage_2_instance_id" {
+  description = "Worker Storage 2 Instance ID"
+  value       = module.worker_storage_2.instance_id
+}
+
+output "worker_storage_2_public_ip" {
+  description = "Worker Storage 2 Public IP"
+  value       = module.worker_storage_2.public_ip
+}
+
+# Worker-4: AI (확장)
+output "worker_ai_2_instance_id" {
+  description = "Worker AI 2 Instance ID"
+  value       = module.worker_ai_2.instance_id
+}
+
+output "worker_ai_2_public_ip" {
+  description = "Worker AI 2 Public IP"
+  value       = module.worker_ai_2.public_ip
+}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Infrastructure Nodes Outputs (Phase 1&2: PostgreSQL, Redis / Phase 4: RabbitMQ, Monitoring)
@@ -367,48 +384,52 @@ output "redis_pubsub_private_ip" {
 output "ansible_inventory" {
   description = "Ansible Inventory 내용 (20-Node Architecture)"
   value = templatefile("${path.module}/templates/hosts.tpl", {
-    master_public_ip           = aws_eip.master.public_ip
-    master_private_ip          = module.master.private_ip
-    api_auth_public_ip         = module.api_auth.public_ip
-    api_auth_private_ip        = module.api_auth.private_ip
-    api_my_public_ip           = module.api_my.public_ip
-    api_my_private_ip          = module.api_my.private_ip
-    api_scan_public_ip         = module.api_scan.public_ip
-    api_scan_private_ip        = module.api_scan.private_ip
-    api_character_public_ip    = module.api_character.public_ip
-    api_character_private_ip   = module.api_character.private_ip
-    api_location_public_ip     = module.api_location.public_ip
-    api_location_private_ip    = module.api_location.private_ip
-    api_image_public_ip        = module.api_image.public_ip
-    api_image_private_ip       = module.api_image.private_ip
-    api_chat_public_ip         = module.api_chat.public_ip
-    api_chat_private_ip        = module.api_chat.private_ip
-    worker_storage_public_ip   = module.worker_storage.public_ip
-    worker_storage_private_ip  = module.worker_storage.private_ip
-    worker_ai_public_ip        = module.worker_ai.public_ip
-    worker_ai_private_ip       = module.worker_ai.private_ip
-    postgresql_public_ip       = module.postgresql.public_ip
-    postgresql_private_ip      = module.postgresql.private_ip
-    redis_auth_public_ip       = module.redis_auth.public_ip
-    redis_auth_private_ip      = module.redis_auth.private_ip
-    redis_streams_public_ip    = module.redis_streams.public_ip
-    redis_streams_private_ip   = module.redis_streams.private_ip
-    redis_cache_public_ip      = module.redis_cache.public_ip
-    redis_cache_private_ip     = module.redis_cache.private_ip
-    rabbitmq_public_ip         = module.rabbitmq.public_ip
-    rabbitmq_private_ip        = module.rabbitmq.private_ip
-    monitoring_public_ip       = module.monitoring.public_ip
-    monitoring_private_ip      = module.monitoring.private_ip
-    logging_public_ip          = module.logging.public_ip
-    logging_private_ip         = module.logging.private_ip
-    ingress_gateway_public_ip  = module.ingress_gateway.public_ip
-    ingress_gateway_private_ip = module.ingress_gateway.private_ip
-    sse_gateway_public_ip      = module.sse_gateway.public_ip
-    sse_gateway_private_ip     = module.sse_gateway.private_ip
-    event_router_public_ip     = module.event_router.public_ip
-    event_router_private_ip    = module.event_router.private_ip
-    redis_pubsub_public_ip     = module.redis_pubsub.public_ip
-    redis_pubsub_private_ip    = module.redis_pubsub.private_ip
+    master_public_ip            = aws_eip.master.public_ip
+    master_private_ip           = module.master.private_ip
+    api_auth_public_ip          = module.api_auth.public_ip
+    api_auth_private_ip         = module.api_auth.private_ip
+    api_my_public_ip            = module.api_my.public_ip
+    api_my_private_ip           = module.api_my.private_ip
+    api_scan_public_ip          = module.api_scan.public_ip
+    api_scan_private_ip         = module.api_scan.private_ip
+    api_character_public_ip     = module.api_character.public_ip
+    api_character_private_ip    = module.api_character.private_ip
+    api_location_public_ip      = module.api_location.public_ip
+    api_location_private_ip     = module.api_location.private_ip
+    api_image_public_ip         = module.api_image.public_ip
+    api_image_private_ip        = module.api_image.private_ip
+    api_chat_public_ip          = module.api_chat.public_ip
+    api_chat_private_ip         = module.api_chat.private_ip
+    worker_storage_public_ip    = module.worker_storage.public_ip
+    worker_storage_private_ip   = module.worker_storage.private_ip
+    worker_ai_public_ip         = module.worker_ai.public_ip
+    worker_ai_private_ip        = module.worker_ai.private_ip
+    worker_storage_2_public_ip  = module.worker_storage_2.public_ip
+    worker_storage_2_private_ip = module.worker_storage_2.private_ip
+    worker_ai_2_public_ip       = module.worker_ai_2.public_ip
+    worker_ai_2_private_ip      = module.worker_ai_2.private_ip
+    postgresql_public_ip        = module.postgresql.public_ip
+    postgresql_private_ip       = module.postgresql.private_ip
+    redis_auth_public_ip        = module.redis_auth.public_ip
+    redis_auth_private_ip       = module.redis_auth.private_ip
+    redis_streams_public_ip     = module.redis_streams.public_ip
+    redis_streams_private_ip    = module.redis_streams.private_ip
+    redis_cache_public_ip       = module.redis_cache.public_ip
+    redis_cache_private_ip      = module.redis_cache.private_ip
+    rabbitmq_public_ip          = module.rabbitmq.public_ip
+    rabbitmq_private_ip         = module.rabbitmq.private_ip
+    monitoring_public_ip        = module.monitoring.public_ip
+    monitoring_private_ip       = module.monitoring.private_ip
+    logging_public_ip           = module.logging.public_ip
+    logging_private_ip          = module.logging.private_ip
+    ingress_gateway_public_ip   = module.ingress_gateway.public_ip
+    ingress_gateway_private_ip  = module.ingress_gateway.private_ip
+    sse_gateway_public_ip       = module.sse_gateway.public_ip
+    sse_gateway_private_ip      = module.sse_gateway.private_ip
+    event_router_public_ip      = module.event_router.public_ip
+    event_router_private_ip     = module.event_router.private_ip
+    redis_pubsub_public_ip      = module.redis_pubsub.public_ip
+    redis_pubsub_private_ip     = module.redis_pubsub.private_ip
   })
 }
 
@@ -419,26 +440,28 @@ output "ansible_inventory" {
 output "ssh_commands" {
   description = "SSH 접속 명령어 (20-Node Architecture)"
   value = {
-    master         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${aws_eip.master.public_ip}"
-    api_auth       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_auth.public_ip}"
-    api_my         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_my.public_ip}"
-    api_scan       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_scan.public_ip}"
-    api_character  = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_character.public_ip}"
-    api_location   = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_location.public_ip}"
-    api_image      = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_image.public_ip}"
-    api_chat       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_chat.public_ip}"
-    worker_storage = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_storage.public_ip}"
-    worker_ai      = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_ai.public_ip}"
-    postgresql     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.postgresql.public_ip}"
-    redis_auth     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_auth.public_ip}"
-    redis_streams  = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_streams.public_ip}"
-    redis_cache    = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_cache.public_ip}"
-    rabbitmq       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.rabbitmq.public_ip}"
-    monitoring     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.monitoring.public_ip}"
-    logging        = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.logging.public_ip}"
-    sse_gateway    = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.sse_gateway.public_ip}"
-    event_router   = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.event_router.public_ip}"
-    redis_pubsub   = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_pubsub.public_ip}"
+    master           = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${aws_eip.master.public_ip}"
+    api_auth         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_auth.public_ip}"
+    api_my           = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_my.public_ip}"
+    api_scan         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_scan.public_ip}"
+    api_character    = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_character.public_ip}"
+    api_location     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_location.public_ip}"
+    api_image        = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_image.public_ip}"
+    api_chat         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_chat.public_ip}"
+    worker_storage   = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_storage.public_ip}"
+    worker_storage_2 = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_storage_2.public_ip}"
+    worker_ai        = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_ai.public_ip}"
+    worker_ai_2      = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_ai_2.public_ip}"
+    postgresql       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.postgresql.public_ip}"
+    redis_auth       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_auth.public_ip}"
+    redis_streams    = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_streams.public_ip}"
+    redis_cache      = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_cache.public_ip}"
+    rabbitmq         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.rabbitmq.public_ip}"
+    monitoring       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.monitoring.public_ip}"
+    logging          = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.logging.public_ip}"
+    sse_gateway      = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.sse_gateway.public_ip}"
+    event_router     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.event_router.public_ip}"
+    redis_pubsub     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_pubsub.public_ip}"
   }
 }
 
@@ -463,7 +486,9 @@ output "cluster_info" {
     ]
     worker_ips = [
       module.worker_storage.public_ip,
-      module.worker_ai.public_ip
+      module.worker_storage_2.public_ip,
+      module.worker_ai.public_ip,
+      module.worker_ai_2.public_ip
     ]
     infra_ips = [
       module.postgresql.public_ip,
@@ -495,27 +520,29 @@ output "cluster_info" {
 output "node_roles" {
   description = "노드별 역할 (20-Node Architecture)"
   value = {
-    master          = "Control Plane (t3.xlarge, 16GB) - Phase 0"
-    api_auth        = "Authentication API (t3.small, 2GB) - Phase 1"
-    api_my          = "My Page API (t3.small, 2GB) - Phase 1"
-    api_scan        = "Waste Scan API (t3.medium, 4GB) - Phase 2"
-    api_character   = "Character & Mission API (t3.small, 2GB) - Phase 2"
-    api_location    = "Location & Map API (t3.small, 2GB) - Phase 2"
-    api_image       = "Image Delivery API (t3.small, 2GB) - Phase 3"
-    api_chat        = "Chat LLM API (t3.medium, 4GB) - Phase 3"
-    worker_storage  = "Storage Worker - I/O Bound (t3.medium, 4GB) - Phase 4"
-    worker_ai       = "AI Worker - Network Bound (t3.medium, 4GB) - Phase 4"
-    postgresql      = "PostgreSQL - 7 Domain Schemas (t3.large, 8GB) - Phase 1"
-    redis_auth      = "Redis Auth - Blacklist + OAuth (t3.medium, 4GB) - Phase 1"
-    redis_streams   = "Redis Streams - SSE Events (t3.small, 2GB) - Phase 1"
-    redis_cache     = "Redis Cache - Celery + Domain (t3.small, 2GB) - Phase 1"
-    redis_pubsub    = "Redis Pub/Sub - Realtime Broadcast (t3.small, 2GB) - Phase 6"
-    rabbitmq        = "RabbitMQ Message Queue (t3.medium, 4GB) - Phase 4"
-    monitoring      = "Prometheus + Grafana (t3.large, 8GB) - Phase 4"
-    logging         = "ELK Stack - Elasticsearch + Logstash + Kibana (t3.large, 8GB) - Phase 4"
-    ingress_gateway = "Istio Ingress Gateway (t3.medium, 4GB) - Phase 5"
-    sse_gateway     = "SSE Pub/Sub Subscriber + Client Fan-out (t3.small, 2GB) - Phase 5"
-    event_router    = "Event Router - Streams→Pub/Sub Bridge (t3.small, 2GB) - Phase 6"
+    master           = "Control Plane (t3.xlarge, 16GB) - Phase 0"
+    api_auth         = "Authentication API (t3.small, 2GB) - Phase 1"
+    api_my           = "My Page API (t3.small, 2GB) - Phase 1"
+    api_scan         = "Waste Scan API (t3.medium, 4GB) - Phase 2"
+    api_character    = "Character & Mission API (t3.small, 2GB) - Phase 2"
+    api_location     = "Location & Map API (t3.small, 2GB) - Phase 2"
+    api_image        = "Image Delivery API (t3.small, 2GB) - Phase 3"
+    api_chat         = "Chat LLM API (t3.medium, 4GB) - Phase 3"
+    worker_storage   = "Storage Worker - I/O Bound (t3.medium, 4GB) - Phase 4"
+    worker_storage_2 = "Storage Worker 2 - I/O Bound (t3.medium, 4GB) - Phase 4"
+    worker_ai        = "AI Worker - Network Bound (t3.medium, 4GB) - Phase 4"
+    worker_ai_2      = "AI Worker 2 - Network Bound (t3.medium, 4GB) - Phase 4"
+    postgresql       = "PostgreSQL - 7 Domain Schemas (t3.large, 8GB) - Phase 1"
+    redis_auth       = "Redis Auth - Blacklist + OAuth (t3.medium, 4GB) - Phase 1"
+    redis_streams    = "Redis Streams - SSE Events (t3.small, 2GB) - Phase 1"
+    redis_cache      = "Redis Cache - Celery + Domain (t3.small, 2GB) - Phase 1"
+    redis_pubsub     = "Redis Pub/Sub - Realtime Broadcast (t3.small, 2GB) - Phase 6"
+    rabbitmq         = "RabbitMQ Message Queue (t3.medium, 4GB) - Phase 4"
+    monitoring       = "Prometheus + Grafana (t3.large, 8GB) - Phase 4"
+    logging          = "ELK Stack - Elasticsearch + Logstash + Kibana (t3.large, 8GB) - Phase 4"
+    ingress_gateway  = "Istio Ingress Gateway (t3.medium, 4GB) - Phase 5"
+    sse_gateway      = "SSE Pub/Sub Subscriber + Client Fan-out (t3.small, 2GB) - Phase 5"
+    event_router     = "Event Router - Streams→Pub/Sub Bridge (t3.small, 2GB) - Phase 6"
   }
 }
 

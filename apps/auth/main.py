@@ -43,7 +43,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
 
     # 로깅 설정
-    setup_logging("DEBUG" if settings.debug else "INFO")
+    setup_logging("DEBUG" if settings.environment == "local" else "INFO")
 
     app = FastAPI(
         title="Auth API",
