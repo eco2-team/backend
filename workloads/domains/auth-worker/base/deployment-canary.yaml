@@ -62,10 +62,10 @@ spec:
           value: canary
         resources:
           requests:
-            cpu: 50m
+            cpu: 10m
             memory: 64Mi
           limits:
-            cpu: 200m
+            cpu: 100m
             memory: 256Mi
         livenessProbe:
           exec:

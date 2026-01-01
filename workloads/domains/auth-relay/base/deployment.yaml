@@ -63,10 +63,10 @@ spec:
               key: ENVIRONMENT
         resources:
           requests:
-            cpu: 10m
+            cpu: 5m
             memory: 32Mi
           limits:
-            cpu: 100m
+            cpu: 50m
             memory: 64Mi
         # 프로세스 존재 확인
         livenessProbe:

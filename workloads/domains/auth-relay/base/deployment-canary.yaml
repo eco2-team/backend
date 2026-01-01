@@ -65,10 +65,10 @@ spec:
               key: ENVIRONMENT
         resources:
           requests:
-            cpu: 10m
+            cpu: 5m
             memory: 32Mi
           limits:
-            cpu: 100m
+            cpu: 50m
             memory: 64Mi
         livenessProbe:
           exec:
