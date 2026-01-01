@@ -37,7 +37,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: auth-secret
-              key: AUTH_REDIS_URL
+              key: AUTH_REDIS_BLACKLIST_URL
         # RabbitMQ (이벤트 발행)
         - name: AUTH_AMQP_URL
           valueFrom:
