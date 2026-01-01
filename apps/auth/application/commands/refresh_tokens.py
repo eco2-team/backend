@@ -26,8 +26,8 @@ from apps.auth.application.token.ports import (
     TokenSessionStore,
 )
 
-# User 도메인 포트
-from apps.auth.application.user.ports import UserQueryGateway
+# Users 도메인 포트
+from apps.auth.application.users.ports import UserQueryGateway
 
 from apps.auth.domain.value_objects.user_id import UserId
 

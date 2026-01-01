@@ -21,6 +21,7 @@ on:
       - "domains/my/requirements-worker.txt"
       # Worker 소스 코드 (apps/ Clean Architecture)
       - "apps/auth_worker/**"
+      - "apps/users_worker/**"
       # 공통 의존성
       - "domains/_shared/celery/**"
       - "domains/_shared/waste_pipeline/**"
@@ -31,6 +32,7 @@ on:
       - "workloads/domains/character-match-worker/**"
       - "workloads/domains/my-worker/**"
       - "workloads/domains/auth-worker/**"
+      - "workloads/domains/users-worker/**"
   pull_request:
     branches:
       - main
@@ -49,6 +51,7 @@ on:
       - "domains/my/Dockerfile.worker"
       - "domains/my/requirements-worker.txt"
       - "apps/auth_worker/**"
+      - "apps/users_worker/**"
       - "domains/_shared/celery/**"
       - "domains/_shared/waste_pipeline/**"
       - "domains/_shared/events/**"
@@ -57,6 +60,7 @@ on:
       - "workloads/domains/character-match-worker/**"
       - "workloads/domains/my-worker/**"
       - "workloads/domains/auth-worker/**"
+      - "workloads/domains/users-worker/**"
   workflow_dispatch:
     inputs:
       force_all:
@@ -145,6 +149,8 @@ jobs:
             workloads/domains/character-match-worker/**
             workloads/domains/my-worker/**
             workloads/domains/auth-worker/**
+            apps/users_worker/**
+            workloads/domains/users-worker/**
 
       - name: Prepare worker matrix
         id: prepare
@@ -162,7 +168,7 @@ jobs:
           LEGACY_WORKERS = ["scan", "character", "my"]
           
           # Clean Architecture Worker 목록 (apps/ 구조)
-          CLEAN_WORKERS = ["auth_worker"]
+          CLEAN_WORKERS = ["auth_worker", "users_worker"]
 
           # 공통 의존성 → Legacy Worker 재빌드
           SHARED_TRIGGERS = [

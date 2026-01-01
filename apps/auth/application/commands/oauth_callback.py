@@ -36,8 +36,8 @@ from apps.auth.application.oauth.ports import OAuthProviderGateway, OAuthStateSt
 # Token 도메인 포트
 from apps.auth.application.token.ports import TokenIssuer, TokenSessionStore
 
-# User 도메인 포트
-from apps.auth.application.user.ports import UserManagementGateway
+# Users 도메인 포트
+from apps.auth.application.users.ports import UserManagementGateway
 
 # Audit 도메인 포트
 from apps.auth.application.audit.ports import LoginAuditGateway

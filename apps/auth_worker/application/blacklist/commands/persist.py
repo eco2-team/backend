@@ -10,11 +10,11 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from apps.auth_worker.application.common.dto.blacklist_event import BlacklistEvent
+from apps.auth_worker.application.blacklist.dto.event import BlacklistEvent
 from apps.auth_worker.application.common.result import CommandResult
 
 if TYPE_CHECKING:
-    from apps.auth_worker.application.common.ports.blacklist_store import BlacklistStore
+    from apps.auth_worker.application.blacklist.ports.store import BlacklistStore
 
 logger = logging.getLogger(__name__)
 

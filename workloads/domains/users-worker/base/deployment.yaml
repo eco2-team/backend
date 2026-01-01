@@ -1,0 +1,88 @@
+# Users Worker Deployment
+# 유저 캐릭터 소유권을 DB에 저장하는 Celery 워커
+# RabbitMQ (users.character) → PostgreSQL (users.user_characters)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-worker
+  namespace: users
+  labels:
+    app: users-worker
+    version: v1
+    tier: worker
+    domain: users
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: users-worker
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: users-worker
+        version: v1
+        tier: worker
+        domain: users
+      annotations:
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+    spec:
+      containers:
+      - name: users-worker
+        image: docker.io/mng990/eco2:users-worker-dev-latest
+        imagePullPolicy: Always
+        env:
+        # PostgreSQL (users 스키마)
+        - name: USERS_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: users-secret
+              key: USERS_DATABASE_URL
+        # RabbitMQ (이벤트 소비)
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              name: users-secret
+              key: CELERY_BROKER_URL
+        # Logging
+        - name: LOG_LEVEL
+          value: INFO
+        - name: SERVICE_NAME
+          value: users-worker
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: users-config
+              key: ENVIRONMENT
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 256Mi
+        # Celery 프로세스 존재 확인
+        livenessProbe:
+          exec:
+            command: [pgrep, -f, celery]
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: [pgrep, -f, celery]
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: dockerhub-secret
+      # worker-storage 노드에 배치
+      nodeSelector:
+        domain: worker-storage
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-storage
+        effect: NoSchedule

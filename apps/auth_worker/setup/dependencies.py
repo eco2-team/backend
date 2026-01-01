@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import redis.asyncio as aioredis
 
-from apps.auth_worker.application.commands.persist_blacklist import (
+from apps.auth_worker.application.blacklist.commands.persist import (
     PersistBlacklistCommand,
 )
 from apps.auth_worker.infrastructure.messaging.rabbitmq_client import RabbitMQClient

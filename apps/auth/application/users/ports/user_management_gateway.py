@@ -18,7 +18,6 @@ class OAuthUserResult:
     """OAuth 사용자 조회/생성 결과."""
 
     user_id: UUID
-    username: str | None
     nickname: str | None
     profile_image_url: str | None
     is_new_user: bool

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 import pytest
 
-from apps.auth_worker.application.common.dto.blacklist_event import BlacklistEvent
+from apps.auth_worker.application.blacklist.dto.event import BlacklistEvent
 
 
 class TestBlacklistEvent:

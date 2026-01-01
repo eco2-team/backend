@@ -16,8 +16,8 @@ from apps.auth.domain.value_objects.user_id import UserId
 # Token 도메인 포트
 from apps.auth.application.token.ports import TokenBlacklistStore, TokenIssuer
 
-# User 도메인 포트
-from apps.auth.application.user.ports import UserQueryGateway
+# Users 도메인 포트
+from apps.auth.application.users.ports import UserQueryGateway
 
 
 @dataclass(frozen=True, slots=True)

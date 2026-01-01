@@ -1,0 +1,13 @@
+# Users Worker ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: users-worker-config
+  namespace: users
+  labels:
+    app: users-worker
+    tier: worker
+    domain: users
+data:
+  LOG_LEVEL: INFO
+  SERVICE_NAME: users-worker
