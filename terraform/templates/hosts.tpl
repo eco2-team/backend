@@ -30,8 +30,10 @@ k8s-api-chat ansible_host=${api_chat_public_ip} private_ip=${api_chat_private_ip
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [workers]
-k8s-worker-storage ansible_host=${worker_storage_public_ip} private_ip=${worker_storage_private_ip} workload=worker-storage worker_type=io-bound domain=scan instance_type=t3.small phase=4
-k8s-worker-ai ansible_host=${worker_ai_public_ip} private_ip=${worker_ai_private_ip} workload=worker-ai worker_type=network-bound domain=scan,chat instance_type=t3.small phase=4
+k8s-worker-storage ansible_host=${worker_storage_public_ip} private_ip=${worker_storage_private_ip} workload=worker-storage worker_type=io-bound domain=scan instance_type=t3.medium phase=4
+k8s-worker-storage-2 ansible_host=${worker_storage_2_public_ip} private_ip=${worker_storage_2_private_ip} workload=worker-storage worker_type=io-bound domain=scan instance_type=t3.medium phase=4
+k8s-worker-ai ansible_host=${worker_ai_public_ip} private_ip=${worker_ai_private_ip} workload=worker-ai worker_type=network-bound domain=scan,chat instance_type=t3.medium phase=4
+k8s-worker-ai-2 ansible_host=${worker_ai_2_public_ip} private_ip=${worker_ai_2_private_ip} workload=worker-ai worker_type=network-bound domain=scan,chat instance_type=t3.medium phase=4
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Infrastructure Nodes

@@ -167,10 +167,27 @@ output "worker_ai_public_ip" {
   value       = module.worker_ai.public_ip
 }
 
-# output "worker_storage_private_ip" {
-#   description = "Worker Storage Private IP"
-#   value       = module.worker_storage.private_ip
-# }
+# Worker-3: Storage (확장)
+output "worker_storage_2_instance_id" {
+  description = "Worker Storage 2 Instance ID"
+  value       = module.worker_storage_2.instance_id
+}
+
+output "worker_storage_2_public_ip" {
+  description = "Worker Storage 2 Public IP"
+  value       = module.worker_storage_2.public_ip
+}
+
+# Worker-4: AI (확장)
+output "worker_ai_2_instance_id" {
+  description = "Worker AI 2 Instance ID"
+  value       = module.worker_ai_2.instance_id
+}
+
+output "worker_ai_2_public_ip" {
+  description = "Worker AI 2 Public IP"
+  value       = module.worker_ai_2.public_ip
+}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Infrastructure Nodes Outputs (Phase 1&2: PostgreSQL, Redis / Phase 4: RabbitMQ, Monitoring)
@@ -383,10 +400,14 @@ output "ansible_inventory" {
     api_image_private_ip       = module.api_image.private_ip
     api_chat_public_ip         = module.api_chat.public_ip
     api_chat_private_ip        = module.api_chat.private_ip
-    worker_storage_public_ip   = module.worker_storage.public_ip
-    worker_storage_private_ip  = module.worker_storage.private_ip
-    worker_ai_public_ip        = module.worker_ai.public_ip
-    worker_ai_private_ip       = module.worker_ai.private_ip
+    worker_storage_public_ip     = module.worker_storage.public_ip
+    worker_storage_private_ip    = module.worker_storage.private_ip
+    worker_ai_public_ip          = module.worker_ai.public_ip
+    worker_ai_private_ip         = module.worker_ai.private_ip
+    worker_storage_2_public_ip   = module.worker_storage_2.public_ip
+    worker_storage_2_private_ip  = module.worker_storage_2.private_ip
+    worker_ai_2_public_ip        = module.worker_ai_2.public_ip
+    worker_ai_2_private_ip       = module.worker_ai_2.private_ip
     postgresql_public_ip       = module.postgresql.public_ip
     postgresql_private_ip      = module.postgresql.private_ip
     redis_auth_public_ip       = module.redis_auth.public_ip
@@ -427,8 +448,10 @@ output "ssh_commands" {
     api_location   = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_location.public_ip}"
     api_image      = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_image.public_ip}"
     api_chat       = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_chat.public_ip}"
-    worker_storage = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_storage.public_ip}"
-    worker_ai      = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_ai.public_ip}"
+    worker_storage   = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_storage.public_ip}"
+    worker_storage_2 = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_storage_2.public_ip}"
+    worker_ai        = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_ai.public_ip}"
+    worker_ai_2      = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_ai_2.public_ip}"
     postgresql     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.postgresql.public_ip}"
     redis_auth     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_auth.public_ip}"
     redis_streams  = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.redis_streams.public_ip}"
@@ -463,7 +486,9 @@ output "cluster_info" {
     ]
     worker_ips = [
       module.worker_storage.public_ip,
-      module.worker_ai.public_ip
+      module.worker_storage_2.public_ip,
+      module.worker_ai.public_ip,
+      module.worker_ai_2.public_ip
     ]
     infra_ips = [
       module.postgresql.public_ip,
@@ -503,8 +528,10 @@ output "node_roles" {
     api_location    = "Location & Map API (t3.small, 2GB) - Phase 2"
     api_image       = "Image Delivery API (t3.small, 2GB) - Phase 3"
     api_chat        = "Chat LLM API (t3.medium, 4GB) - Phase 3"
-    worker_storage  = "Storage Worker - I/O Bound (t3.medium, 4GB) - Phase 4"
-    worker_ai       = "AI Worker - Network Bound (t3.medium, 4GB) - Phase 4"
+    worker_storage    = "Storage Worker - I/O Bound (t3.medium, 4GB) - Phase 4"
+    worker_storage_2  = "Storage Worker 2 - I/O Bound (t3.medium, 4GB) - Phase 4"
+    worker_ai         = "AI Worker - Network Bound (t3.medium, 4GB) - Phase 4"
+    worker_ai_2       = "AI Worker 2 - Network Bound (t3.medium, 4GB) - Phase 4"
     postgresql      = "PostgreSQL - 7 Domain Schemas (t3.large, 8GB) - Phase 1"
     redis_auth      = "Redis Auth - Blacklist + OAuth (t3.medium, 4GB) - Phase 1"
     redis_streams   = "Redis Streams - SSE Events (t3.small, 2GB) - Phase 1"

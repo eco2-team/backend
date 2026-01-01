@@ -75,8 +75,10 @@ locals {
     "k8s-api-location"    = "--node-labels=role=api,domain=location,service=location,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=location:NoSchedule"
     "k8s-api-image"       = "--node-labels=role=api,domain=image,service=image,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=image:NoSchedule"
     "k8s-api-chat"        = "--node-labels=role=api,domain=chat,service=chat,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=chat:NoSchedule"
-    "k8s-worker-storage"  = "--node-labels=role=worker,domain=worker-storage,worker-type=storage,workload=worker-storage,tier=worker,phase=4"
-    "k8s-worker-ai"       = "--node-labels=role=worker,domain=worker-ai,worker-type=ai,workload=worker-ai,tier=worker,phase=4"
+    "k8s-worker-storage"    = "--node-labels=role=worker,domain=worker-storage,worker-type=storage,workload=worker-storage,tier=worker,phase=4"
+    "k8s-worker-storage-2"  = "--node-labels=role=worker,domain=worker-storage,worker-type=storage,workload=worker-storage,tier=worker,phase=4"
+    "k8s-worker-ai"         = "--node-labels=role=worker,domain=worker-ai,worker-type=ai,workload=worker-ai,tier=worker,phase=4 --register-with-taints=domain=worker-ai:NoSchedule"
+    "k8s-worker-ai-2"       = "--node-labels=role=worker,domain=worker-ai,worker-type=ai,workload=worker-ai,tier=worker,phase=4 --register-with-taints=domain=worker-ai:NoSchedule"
     "k8s-rabbitmq"        = "--node-labels=role=infrastructure,domain=integration,infra-type=rabbitmq,workload=message-queue,tier=platform,phase=4 --register-with-taints=domain=integration:NoSchedule"
     "k8s-postgresql"      = "--node-labels=role=infrastructure,domain=data,infra-type=postgresql,workload=database,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
     "k8s-redis-auth"      = "--node-labels=role=infrastructure,domain=data,infra-type=redis-auth,redis-cluster=auth,workload=cache,tier=data,phase=1 --register-with-taints=domain=data:NoSchedule"
@@ -407,6 +409,64 @@ module "worker_ai" {
   user_data = templatefile("${path.module}/user-data/common.sh", {
     hostname           = "k8s-worker-ai"
     kubelet_extra_args = local.kubelet_profiles["k8s-worker-ai"]
+  })
+
+  tags = {
+    Role     = "worker"
+    Workload = "worker-ai"
+    Type     = "network-bound"
+    Domain   = "scan,chat"
+    Phase    = "4"
+  }
+}
+
+# Worker-3: Storage & I/O Operations (확장)
+module "worker_storage_2" {
+  source = "./modules/ec2"
+
+  instance_name        = "k8s-worker-storage-2"
+  instance_type        = "t3.medium" # 4GB (I/O Bound - Eventlet Pool)
+  ami_id               = data.aws_ami.ubuntu.id
+  subnet_id            = module.vpc.public_subnet_ids[1] # ap-northeast-2b (HA)
+  security_group_ids   = [module.security_groups.cluster_sg_id]
+  key_name             = aws_key_pair.k8s.key_name
+  iam_instance_profile = aws_iam_instance_profile.k8s.name
+
+  root_volume_size = 40
+  root_volume_type = "gp3"
+
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname           = "k8s-worker-storage-2"
+    kubelet_extra_args = local.kubelet_profiles["k8s-worker-storage-2"]
+  })
+
+  tags = {
+    Role     = "worker"
+    Workload = "worker-storage"
+    Type     = "io-bound"
+    Domain   = "scan"
+    Phase    = "4"
+  }
+}
+
+# Worker-4: AI Processing (확장)
+module "worker_ai_2" {
+  source = "./modules/ec2"
+
+  instance_name        = "k8s-worker-ai-2"
+  instance_type        = "t3.medium" # 4GB (Network Bound - Prefork Pool)
+  ami_id               = data.aws_ami.ubuntu.id
+  subnet_id            = module.vpc.public_subnet_ids[1] # ap-northeast-2b (HA)
+  security_group_ids   = [module.security_groups.cluster_sg_id]
+  key_name             = aws_key_pair.k8s.key_name
+  iam_instance_profile = aws_iam_instance_profile.k8s.name
+
+  root_volume_size = 40
+  root_volume_type = "gp3"
+
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname           = "k8s-worker-ai-2"
+    kubelet_extra_args = local.kubelet_profiles["k8s-worker-ai-2"]
   })
 
   tags = {
