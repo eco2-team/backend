@@ -10,12 +10,13 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from apps.auth.application.token.ports import TokenMetadata
+from apps.auth.infrastructure.persistence_redis.constants import (
+    TOKEN_META_KEY_PREFIX,
+    USER_TOKENS_KEY_PREFIX,
+)
 
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
-
-USER_TOKENS_KEY_PREFIX = "user:tokens:"
-TOKEN_META_KEY_PREFIX = "token:meta:"
 
 
 class RedisUsersTokenStore:

@@ -7,6 +7,7 @@ UseCase(지휘자)가 이 서비스를 호출하여 토큰 관련 작업을 위�
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -84,13 +85,13 @@ class TokenService:
         token_pair = self._issuer.issue_pair(user_id=user_id, provider=provider)
 
         # 2. 세션 등록 (리프레시 토큰 기준)
-        # issued_at은 access_expires_at에서 유효기간을 빼서 추정
-        estimated_issued_at = token_pair.access_expires_at - 900  # 15분 전
+        # issued_at은 현재 시간 사용 (토큰 발급 직후이므로 정확함)
+        issued_at = int(time.time())
 
         await self._session_store.register(
             user_id=user_id,
             jti=token_pair.refresh_jti,
-            issued_at=estimated_issued_at,
+            issued_at=issued_at,
             expires_at=token_pair.refresh_expires_at,
             device_id=device_id,
             user_agent=user_agent,

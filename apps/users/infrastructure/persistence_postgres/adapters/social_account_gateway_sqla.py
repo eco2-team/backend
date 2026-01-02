@@ -13,13 +13,17 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.users.application.identity.ports.social_account_gateway import SocialAccountInfo
+from apps.users.infrastructure.persistence_postgres.constants import (
+    AUTH_SCHEMA,
+    AUTH_USER_SOCIAL_ACCOUNTS_TABLE,
+)
 
 # auth 스키마 (읽기 전용)
-auth_metadata = MetaData(schema="auth")
+auth_metadata = MetaData(schema=AUTH_SCHEMA)
 
 # auth.user_social_accounts 테이블 정의 (읽기 전용)
 auth_social_accounts_table = Table(
-    "user_social_accounts",
+    AUTH_USER_SOCIAL_ACCOUNTS_TABLE,
     auth_metadata,
     Column("id", PGUUID(as_uuid=True), primary_key=True),
     Column("user_id", PGUUID(as_uuid=True), nullable=False),

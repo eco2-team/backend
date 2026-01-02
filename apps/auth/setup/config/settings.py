@@ -42,6 +42,7 @@ class Settings(BaseSettings):
 
     # OAuth
     oauth_state_ttl_seconds: int = 600
+    oauth_client_timeout_seconds: float = 10.0
     oauth_redirect_template: str = "http://localhost:8000/api/v1/auth/{provider}/callback"
 
     # JWT

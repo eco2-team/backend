@@ -9,11 +9,10 @@ import json
 from typing import TYPE_CHECKING
 
 from apps.auth.application.oauth.ports import OAuthState
+from apps.auth.infrastructure.persistence_redis.constants import STATE_KEY_PREFIX
 
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
-
-STATE_KEY_PREFIX = "oauth:state:"
 
 
 class RedisStateStore:

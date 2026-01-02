@@ -27,9 +27,14 @@ class OAuthClientImpl:
     OAuthClientService 구현체.
     """
 
-    def __init__(self, registry: "ProviderRegistry", timeout: float = 10.0) -> None:
+    def __init__(self, registry: "ProviderRegistry", timeout_seconds: float) -> None:
+        """
+        Args:
+            registry: OAuth 프로바이더 레지스트리
+            timeout_seconds: HTTP 클라이언트 타임아웃 (설정에서 주입)
+        """
         self._registry = registry
-        self._timeout = timeout
+        self._timeout = timeout_seconds
 
     def _compute_code_challenge(self, code_verifier: str) -> str:
         """PKCE code_challenge 생성 (S256)."""

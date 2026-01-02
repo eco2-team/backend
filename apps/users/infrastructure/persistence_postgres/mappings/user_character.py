@@ -7,13 +7,14 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import registry
 
 from apps.users.domain.entities.user_character import UserCharacter
+from apps.users.infrastructure.persistence_postgres.constants import USER_CHARACTERS_TABLE
 from apps.users.infrastructure.persistence_postgres.mappings.user import metadata
 
 mapper_registry = registry(metadata=metadata)
 
 # users.user_characters 테이블 정의
 user_characters_table = Table(
-    "user_characters",
+    USER_CHARACTERS_TABLE,
     metadata,
     Column("id", UUID(as_uuid=True), primary_key=True),
     Column("user_id", UUID(as_uuid=True), nullable=False, index=True),

@@ -12,11 +12,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from apps.auth.infrastructure.persistence_redis.constants import BLACKLIST_KEY_PREFIX
+
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
-
-# auth_worker와 동일한 키 prefix 사용
-BLACKLIST_KEY_PREFIX = "blacklist:"
 
 
 class RedisTokenBlacklist:

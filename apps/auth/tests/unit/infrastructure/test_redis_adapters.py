@@ -11,16 +11,18 @@ import pytest
 
 from apps.auth.infrastructure.persistence_redis.adapters.state_store_redis import (
     RedisStateStore,
-    STATE_KEY_PREFIX,
 )
 from apps.auth.infrastructure.persistence_redis.adapters.token_blacklist_redis import (
     RedisTokenBlacklist,
-    BLACKLIST_KEY_PREFIX,
 )
 from apps.auth.infrastructure.persistence_redis.adapters.users_token_store_redis import (
     RedisUsersTokenStore,
-    USER_TOKENS_KEY_PREFIX,
+)
+from apps.auth.infrastructure.persistence_redis.constants import (
+    BLACKLIST_KEY_PREFIX,
+    STATE_KEY_PREFIX,
     TOKEN_META_KEY_PREFIX,
+    USER_TOKENS_KEY_PREFIX,
 )
 from apps.auth.application.oauth.ports import OAuthState
 

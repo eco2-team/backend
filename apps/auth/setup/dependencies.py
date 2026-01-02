@@ -219,11 +219,14 @@ def get_oauth_provider_registry(settings: Settings = Depends(get_settings)):
     return ProviderRegistry(settings)
 
 
-def get_oauth_provider_gateway(registry=Depends(get_oauth_provider_registry)):
+def get_oauth_provider_gateway(
+    registry=Depends(get_oauth_provider_registry),
+    settings: Settings = Depends(get_settings),
+):
     """OAuthProviderGateway 제공자."""
     from apps.auth.infrastructure.oauth import OAuthClientImpl
 
-    return OAuthClientImpl(registry)
+    return OAuthClientImpl(registry, timeout_seconds=settings.oauth_client_timeout_seconds)
 
 
 # ============================================================

@@ -24,6 +24,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import registry
 
+from apps.users.infrastructure.persistence_postgres.constants import SOCIAL_ACCOUNTS_TABLE
 from apps.users.infrastructure.persistence_postgres.mappings.user import metadata
 
 mapper_registry = registry(metadata=metadata)
@@ -45,7 +46,7 @@ class UserSocialAccount:
 
 # users.social_accounts 테이블 정의
 social_accounts_table = Table(
-    "social_accounts",
+    SOCIAL_ACCOUNTS_TABLE,
     metadata,
     Column("id", PG_UUID(as_uuid=True), primary_key=True),
     Column(

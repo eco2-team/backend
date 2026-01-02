@@ -13,14 +13,18 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import registry
 
 from apps.users.domain.entities.user import User
+from apps.users.infrastructure.persistence_postgres.constants import (
+    ACCOUNTS_TABLE,
+    USERS_SCHEMA,
+)
 
 # users 스키마용 메타데이터
-metadata = MetaData(schema="users")
+metadata = MetaData(schema=USERS_SCHEMA)
 mapper_registry = registry(metadata=metadata)
 
 # users.accounts 테이블 정의 (통합 스키마)
 accounts_table = Table(
-    "accounts",
+    ACCOUNTS_TABLE,
     metadata,
     Column("id", UUID(as_uuid=True), primary_key=True),
     Column("nickname", String(120), nullable=True),
