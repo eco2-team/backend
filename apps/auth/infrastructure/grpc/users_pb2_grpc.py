@@ -2,7 +2,8 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import users_pb2 as users__pb2
+# NOTE: Changed from absolute import to relative import for package compatibility
+from apps.auth.infrastructure.grpc import users_pb2 as users__pb2
 
 
 class UsersServiceStub(object):
