@@ -10,7 +10,7 @@ from apps.auth.infrastructure.grpc.client import (
     reset_users_client,
     close_users_client,
 )
-from apps.auth.infrastructure.grpc.adapters import UsersManagementGrpcAdapter
+from apps.auth.infrastructure.grpc.adapters import UsersManagementGatewayGrpc
 
 __all__ = [
     "users_pb2",
@@ -19,5 +19,5 @@ __all__ = [
     "get_users_client",
     "reset_users_client",
     "close_users_client",
-    "UsersManagementGrpcAdapter",
+    "UsersManagementGatewayGrpc",
 ]
