@@ -1,0 +1,19 @@
+# auth → users gRPC 통신 허용
+# auth 서비스가 users gRPC 서비스(50051)를 호출할 수 있도록 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-users-grpc
+  namespace: auth
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: users
+    ports:
+    - port: 50051
+      protocol: TCP
