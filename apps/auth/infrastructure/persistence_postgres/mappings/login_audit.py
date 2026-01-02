@@ -1,6 +1,10 @@
-"""LoginAudit ORM Mapping."""
+"""LoginAudit ORM Mapping.
 
-from sqlalchemy import Table, Column, String, DateTime, ForeignKey
+타입 규칙 (Unbounded String 기본 전략):
+    - TEXT: 기본 문자열 타입
+"""
+
+from sqlalchemy import Table, Column, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
@@ -18,10 +22,10 @@ login_audits_table = Table(
         nullable=False,
         index=True,
     ),
-    Column("provider", String(32), nullable=False),
-    Column("jti", String(64), nullable=False),
-    Column("login_ip", String(64)),
-    Column("user_agent", String(512)),
+    Column("provider", Text, nullable=False),
+    Column("jti", Text, nullable=False),
+    Column("login_ip", Text),
+    Column("user_agent", Text),
     Column("issued_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     schema="auth",
 )

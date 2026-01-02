@@ -1,6 +1,12 @@
-"""UsersSocialAccount ORM Mapping."""
+"""UsersSocialAccount ORM Mapping.
 
-from sqlalchemy import Table, Column, String, DateTime, ForeignKey, UniqueConstraint
+타입 규칙 (Unbounded String 기본 전략):
+    - TEXT: 기본 문자열 타입
+    - VARCHAR: 표준 규격이 명확한 경우만 사용
+        - email: VARCHAR(320) - RFC 5321 표준
+"""
+
+from sqlalchemy import Table, Column, String, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
@@ -18,9 +24,9 @@ users_social_accounts_table = Table(
         nullable=False,
         index=True,
     ),
-    Column("provider", String(32), nullable=False, index=True),
-    Column("provider_user_id", String(255), nullable=False, index=True),
-    Column("email", String(320)),
+    Column("provider", Text, nullable=False, index=True),
+    Column("provider_user_id", Text, nullable=False, index=True),
+    Column("email", String(320)),  # RFC 5321
     Column("last_login_at", DateTime(timezone=True)),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),

@@ -5,9 +5,11 @@
     - user_id는 users.accounts.id 참조 (FK CASCADE)
     - (provider, provider_user_id) 유니크 제약
 
-타입 규칙:
+타입 규칙 (Unbounded String 기본 전략):
     - provider: ENUM - 고정 값 (google, kakao, naver)
-    - email: VARCHAR(320) - RFC 5321 표준
+    - TEXT: 기본 문자열 타입
+    - VARCHAR: 표준 규격이 명확한 경우만 사용
+        - email: VARCHAR(320) - RFC 5321 표준
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from sqlalchemy import (
     ForeignKey,
     String,
     Table,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -68,7 +71,7 @@ social_accounts_table = Table(
         nullable=False,
         index=True,
     ),
-    Column("provider_user_id", String(255), nullable=False),
+    Column("provider_user_id", Text, nullable=False),
     Column("email", String(320), nullable=True),  # RFC 5321
     Column("last_login_at", DateTime(timezone=True), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),

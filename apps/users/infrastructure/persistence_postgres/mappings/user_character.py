@@ -1,14 +1,14 @@
 """UserCharacter ORM mapping - Imperative mapping for users.user_characters table.
 
-타입 규칙:
+타입 규칙 (Unbounded String 기본 전략):
     - status: ENUM - 고정 값 (owned, burned, traded)
-    - character_dialog: TEXT - 다국어 대사, 길이 다양
-    - source: VARCHAR(120) - 획득 경로
+    - TEXT: 기본 문자열 타입 (character_*, source 등)
+    - PostgreSQL에서 VARCHAR와 TEXT는 성능 동일
 """
 
 from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, Enum, String, Table, Text, func
+from sqlalchemy import Column, DateTime, Enum, Table, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import registry
 
@@ -26,11 +26,11 @@ user_characters_table = Table(
     Column("id", UUID(as_uuid=True), primary_key=True),
     Column("user_id", UUID(as_uuid=True), nullable=False, index=True),
     Column("character_id", UUID(as_uuid=True), nullable=False, index=True),
-    Column("character_code", String(64), nullable=False),
-    Column("character_name", String(120), nullable=False),
-    Column("character_type", String(64), nullable=True),
-    Column("character_dialog", Text, nullable=True),  # 다국어 대사
-    Column("source", String(120), nullable=True),
+    Column("character_code", Text, nullable=False),
+    Column("character_name", Text, nullable=False),
+    Column("character_type", Text, nullable=True),
+    Column("character_dialog", Text, nullable=True),
+    Column("source", Text, nullable=True),
     Column(
         "status",
         Enum(

@@ -36,6 +36,7 @@ def get_async_engine() -> AsyncEngine:
         pool_recycle=pool_recycle,
         pool_pre_ping=True,
         echo=os.getenv("DB_ECHO", "false").lower() == "true",
+        connect_args={"options": "-c timezone=Asia/Seoul"},
     )
 
 
