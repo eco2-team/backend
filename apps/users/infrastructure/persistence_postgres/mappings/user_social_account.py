@@ -67,7 +67,13 @@ social_accounts_table = Table(
     ),
     Column(
         "provider",
-        Enum(OAuthProvider, name="oauth_provider", create_constraint=True, native_enum=True),
+        Enum(
+            OAuthProvider,
+            name="oauth_provider",
+            create_constraint=False,  # DB에 이미 존재
+            native_enum=True,
+            values_callable=lambda e: [m.value for m in e],  # enum 값 사용 (google, kakao, naver)
+        ),
         nullable=False,
         index=True,
     ),

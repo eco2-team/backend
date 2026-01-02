@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.users.application.identity.ports.identity_gateway import UserWithSocialAccount
 from apps.users.domain.entities.user import User
+from apps.users.domain.enums import OAuthProvider
 from apps.users.infrastructure.persistence_postgres.mappings.user_social_account import (
     UserSocialAccount,
 )
@@ -33,10 +34,13 @@ class SqlaIdentityQueryGateway:
         provider_user_id: str,
     ) -> UserWithSocialAccount | None:
         """프로바이더 식별자로 사용자를 조회합니다."""
+        # String → OAuthProvider enum 변환
+        provider_enum = OAuthProvider(provider.lower())
+
         # 소셜 계정으로 조회 (Native SQL)
         result = await self._session.execute(
             select(UserSocialAccount).where(
-                UserSocialAccount.provider == provider,
+                UserSocialAccount.provider == provider_enum,
                 UserSocialAccount.provider_user_id == provider_user_id,
             )
         )
@@ -76,6 +80,9 @@ class SqlaIdentityCommandGateway:
         """사용자와 소셜 계정을 함께 생성합니다."""
         now = datetime.now(timezone.utc)
 
+        # String → OAuthProvider enum 변환
+        provider_enum = OAuthProvider(provider.lower())
+
         # 1. 사용자 생성
         user = User(
             id=user_id,
@@ -91,7 +98,7 @@ class SqlaIdentityCommandGateway:
         social = UserSocialAccount(
             id=uuid4(),
             user_id=user_id,
-            provider=provider,
+            provider=provider_enum,
             provider_user_id=provider_user_id,
             email=email,
             created_at=now,
@@ -110,6 +117,9 @@ class SqlaIdentityCommandGateway:
         login_time: datetime,
     ) -> None:
         """소셜 계정과 사용자의 로그인 시간을 업데이트합니다."""
+        # String → OAuthProvider enum 변환
+        provider_enum = OAuthProvider(provider.lower())
+
         # 1. 사용자 로그인 시간 업데이트
         user_result = await self._session.execute(select(User).where(User.id == user_id))
         user = user_result.scalar_one_or_none()
@@ -121,7 +131,7 @@ class SqlaIdentityCommandGateway:
         social_result = await self._session.execute(
             select(UserSocialAccount).where(
                 UserSocialAccount.user_id == user_id,
-                UserSocialAccount.provider == provider,
+                UserSocialAccount.provider == provider_enum,
                 UserSocialAccount.provider_user_id == provider_user_id,
             )
         )
