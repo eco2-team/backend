@@ -1,5 +1,9 @@
 """Infrastructure adapters implementing application ports."""
 
+from apps.users.infrastructure.persistence_postgres.adapters.identity_gateway_sqla import (
+    SqlaIdentityCommandGateway,
+    SqlaIdentityQueryGateway,
+)
 from apps.users.infrastructure.persistence_postgres.adapters.social_account_gateway_sqla import (
     SqlaSocialAccountQueryGateway,
 )
@@ -20,4 +24,6 @@ __all__ = [
     "SqlaUserCharacterQueryGateway",
     "SqlaTransactionManager",
     "SqlaSocialAccountQueryGateway",
+    "SqlaIdentityQueryGateway",
+    "SqlaIdentityCommandGateway",
 ]

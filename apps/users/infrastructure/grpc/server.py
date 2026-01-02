@@ -17,13 +17,12 @@ import grpc
 
 from apps.users.infrastructure.grpc import users_pb2_grpc
 from apps.users.infrastructure.grpc.servicers import UsersServicer
-from apps.users.infrastructure.persistence_postgres.mappings.auth_user import (
-    start_auth_mappers,
-)
+from apps.users.infrastructure.persistence_postgres.mappings import start_mappers
 from apps.users.infrastructure.persistence_postgres.session import (
     async_session_factory,
 )
 from apps.users.setup.config import get_settings
+from apps.users.setup.dependencies import GrpcUseCaseFactory
 from apps.users.setup.logging import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -37,16 +36,22 @@ async def serve() -> None:
     setup_logging()
 
     # ORM 매퍼 초기화
-    start_auth_mappers()
+    start_mappers()
+
+    # UseCase 팩토리 생성
+    use_case_factory = GrpcUseCaseFactory(async_session_factory)
 
     # gRPC 서버 생성
     server = grpc.aio.server(
         futures.ThreadPoolExecutor(max_workers=settings.grpc_max_workers),
     )
 
-    # Servicer 등록
+    # Servicer 등록 (Thin Adapter)
     users_pb2_grpc.add_UsersServiceServicer_to_server(
-        UsersServicer(session_factory=async_session_factory),
+        UsersServicer(
+            session_factory=async_session_factory,
+            use_case_factory=use_case_factory,
+        ),
         server,
     )
 

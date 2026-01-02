@@ -1,14 +1,17 @@
-"""Identity domain ports.
+"""Identity ports."""
 
-소셜 계정 연결 관련 포트입니다.
-"""
-
+from apps.users.application.identity.ports.identity_gateway import (
+    IdentityCommandGateway,
+    IdentityQueryGateway,
+)
 from apps.users.application.identity.ports.social_account_gateway import (
     SocialAccountInfo,
     SocialAccountQueryGateway,
 )
 
 __all__ = [
+    "IdentityCommandGateway",
+    "IdentityQueryGateway",
     "SocialAccountInfo",
     "SocialAccountQueryGateway",
 ]

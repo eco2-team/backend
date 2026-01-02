@@ -21,8 +21,17 @@ from apps.users.application.character.queries import (
     GetCharactersQuery,
 )
 
+# Identity domain (gRPC)
+from apps.users.application.identity.commands import (
+    GetOrCreateFromOAuthCommand,
+    UpdateLoginTimeCommand,
+)
+from apps.users.application.identity.queries import GetUserQuery
+
 from apps.users.domain.services import UserService
 from apps.users.infrastructure.persistence_postgres.adapters import (
+    SqlaIdentityCommandGateway,
+    SqlaIdentityQueryGateway,
     SqlaSocialAccountQueryGateway,
     SqlaTransactionManager,
     SqlaUserCharacterQueryGateway,
@@ -102,3 +111,53 @@ def get_delete_user_interactor(session: SessionDep) -> DeleteUserInteractor:
         profile_command=SqlaUserCommandGateway(session),
         transaction_manager=SqlaTransactionManager(session),
     )
+
+
+# =========================================================================
+# gRPC Server Factory Functions (Manual DI without FastAPI Depends)
+# =========================================================================
+
+
+class GrpcUseCaseFactory:
+    """gRPC 서버용 UseCase 팩토리.
+
+    gRPC 서버는 FastAPI Depends를 사용하지 않으므로,
+    세션 팩토리를 통해 매 요청마다 UseCase를 생성합니다.
+    """
+
+    def __init__(self, session_factory) -> None:
+        """
+        Args:
+            session_factory: async_sessionmaker 인스턴스
+        """
+        self._session_factory = session_factory
+
+    def create_get_or_create_from_oauth_command(
+        self,
+        session: AsyncSession,
+    ) -> GetOrCreateFromOAuthCommand:
+        """GetOrCreateFromOAuthCommand 인스턴스를 생성합니다."""
+        return GetOrCreateFromOAuthCommand(
+            query_gateway=SqlaIdentityQueryGateway(session),
+            command_gateway=SqlaIdentityCommandGateway(session),
+            transaction_manager=SqlaTransactionManager(session),
+        )
+
+    def create_get_user_query(
+        self,
+        session: AsyncSession,
+    ) -> GetUserQuery:
+        """GetUserQuery 인스턴스를 생성합니다."""
+        return GetUserQuery(
+            query_gateway=SqlaUserQueryGateway(session),
+        )
+
+    def create_update_login_time_command(
+        self,
+        session: AsyncSession,
+    ) -> UpdateLoginTimeCommand:
+        """UpdateLoginTimeCommand 인스턴스를 생성합니다."""
+        return UpdateLoginTimeCommand(
+            command_gateway=SqlaIdentityCommandGateway(session),
+            transaction_manager=SqlaTransactionManager(session),
+        )

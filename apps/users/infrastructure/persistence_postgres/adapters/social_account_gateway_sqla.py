@@ -12,7 +12,7 @@ from sqlalchemy import Column, DateTime, MetaData, String, Table, select
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.users.application.user.ports import SocialAccountInfo
+from apps.users.application.identity.ports.social_account_gateway import SocialAccountInfo
 
 # auth 스키마 (읽기 전용)
 auth_metadata = MetaData(schema="auth")
