@@ -10,7 +10,7 @@ from datetime import datetime
 from uuid import UUID
 
 
-@dataclass(frozen=True)
+@dataclass
 class LoginAudit:
     """로그인 감사 엔티티.
 
