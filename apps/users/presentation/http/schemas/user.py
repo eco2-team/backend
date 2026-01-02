@@ -28,16 +28,13 @@ class UserUpdateRequest(BaseModel):
 
 
 class UserCharacterResponse(BaseModel):
-    """사용자 캐릭터 응답 스키마."""
+    """사용자 캐릭터 응답 스키마 (domains/my 호환)."""
 
     id: UUID = Field(..., description="캐릭터 소유 ID")
-    character_id: UUID = Field(..., description="캐릭터 ID")
-    character_code: str = Field(..., description="캐릭터 코드")
-    character_name: str = Field(..., description="캐릭터 이름")
-    character_type: str | None = Field(None, description="캐릭터 타입")
-    character_dialog: str | None = Field(None, description="캐릭터 대사")
-    source: str | None = Field(None, description="획득 경로")
-    status: str = Field(..., description="소유 상태")
+    code: str = Field(..., description="캐릭터 코드")
+    name: str = Field(..., description="캐릭터 이름")
+    type: str | None = Field(None, description="캐릭터 타입")
+    dialog: str | None = Field(None, description="캐릭터 대사")
     acquired_at: datetime = Field(..., description="획득 시각")
 
     model_config = {"from_attributes": True}
@@ -51,8 +48,7 @@ class CharacterListResponse(BaseModel):
 
 
 class CharacterOwnershipResponse(BaseModel):
-    """캐릭터 소유 여부 응답 스키마."""
+    """캐릭터 소유 여부 응답 스키마 (domains/my 호환)."""
 
-    character_code: str = Field(..., description="캐릭터 코드")
+    character_name: str = Field(..., description="캐릭터 이름")
     owned: bool = Field(..., description="소유 여부")
-    acquired_at: datetime | None = Field(None, description="획득 시각")

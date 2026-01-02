@@ -34,6 +34,8 @@ spec:
         - /api/v1/auth/openapi.json
         - /api/v1/user/docs
         - /api/v1/user/openapi.json
+        - /api/v1/users/docs
+        - /api/v1/users/openapi.json
         - /api/v1/scan/docs
         - /api/v1/scan/openapi.json
         - /api/v1/character/docs

@@ -16,10 +16,10 @@ class UserCharacterQueryGateway(Protocol):
         """사용자의 캐릭터 목록을 조회합니다."""
         ...
 
-    async def get_by_character_code(
-        self, user_id: UUID, character_code: str
+    async def get_by_character_name(
+        self, user_id: UUID, character_name: str
     ) -> UserCharacter | None:
-        """특정 캐릭터의 소유 정보를 조회합니다."""
+        """특정 캐릭터의 소유 정보를 조회합니다 (이름 기준)."""
         ...
 
     async def count_by_user_id(self, user_id: UUID) -> int:

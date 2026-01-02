@@ -24,8 +24,7 @@ class UserCharacterDTO:
 
 @dataclass(frozen=True, slots=True)
 class CharacterOwnership:
-    """캐릭터 소유 여부 DTO."""
+    """캐릭터 소유 여부 DTO (domains/my 호환)."""
 
-    character_code: str
+    character_name: str
     owned: bool
-    acquired_at: datetime | None = None

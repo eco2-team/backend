@@ -4,6 +4,7 @@ OAuth 인증 URL 생성 엔드포인트입니다.
 """
 
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, Query, Request
@@ -24,13 +25,21 @@ router = APIRouter()
 OAUTH_STATE_TTL_SECONDS = 600  # 10분
 
 
+class OAuthProviderPath(str, Enum):
+    """지원하는 OAuth 프로바이더 (path parameter용)."""
+
+    google = "google"
+    kakao = "kakao"
+    naver = "naver"
+
+
 @router.get(
     "/{provider}/authorize",
     response_model=AuthorizeResponse,
     summary="OAuth 인증 URL 생성",
 )
 async def authorize(
-    provider: str,
+    provider: OAuthProviderPath,
     request: Request,
     redirect_uri: str | None = Query(None, description="콜백 리다이렉트 URI"),
     state: str | None = Query(None, description="커스텀 상태 값"),
@@ -103,7 +112,7 @@ async def _build_authorization_response(
     description="JSON 응답으로 authorization_url 반환. 프론트엔드가 직접 이동해야 함.",
 )
 async def authorize_provider(
-    provider: str,
+    provider: OAuthProviderPath,
     request: Request,
     redirect_uri: str | None = Query(None),
     device_id: str | None = Query(None),
@@ -128,7 +137,7 @@ async def authorize_provider(
     description="/{provider}와 동일. JSON 응답으로 authorization_url 반환.",
 )
 async def login_provider(
-    provider: str,
+    provider: OAuthProviderPath,
     request: Request,
     redirect_uri: str | None = Query(None),
     device_id: str | None = Query(None),

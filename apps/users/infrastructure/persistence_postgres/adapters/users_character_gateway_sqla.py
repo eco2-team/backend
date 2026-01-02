@@ -25,14 +25,14 @@ class SqlaUsersCharacterQueryGateway:
         )
         return list(result.scalars().all())
 
-    async def get_by_character_code(
-        self, user_id: UUID, character_code: str
+    async def get_by_character_name(
+        self, user_id: UUID, character_name: str
     ) -> UserCharacter | None:
-        """특정 캐릭터의 소유 정보를 조회합니다."""
+        """특정 캐릭터의 소유 정보를 조회합니다 (이름 기준)."""
         result = await self._session.execute(
             select(UserCharacter).where(
                 UserCharacter.user_id == user_id,
-                UserCharacter.character_code == character_code,
+                UserCharacter.character_name == character_name,
             )
         )
         return result.scalar_one_or_none()

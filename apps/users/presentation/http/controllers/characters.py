@@ -56,13 +56,10 @@ async def get_characters(
         characters=[
             UserCharacterResponse(
                 id=c.id,
-                character_id=c.character_id,
-                character_code=c.character_code,
-                character_name=c.character_name,
-                character_type=c.character_type,
-                character_dialog=c.character_dialog,
-                source=c.source,
-                status=c.status,
+                code=c.character_code,
+                name=c.character_name,
+                type=c.character_type,
+                dialog=c.character_dialog,
                 acquired_at=c.acquired_at,
             )
             for c in characters
@@ -71,16 +68,15 @@ async def get_characters(
     )
 
 
-@router.get("/{character_code}/ownership", response_model=CharacterOwnershipResponse)
+@router.get("/{character_name}/ownership", response_model=CharacterOwnershipResponse)
 async def check_character_ownership(
-    character_code: str,
+    character_name: str,
     auth_user_id: UUID = Depends(get_auth_user_id),
     query: CheckCharacterOwnershipQuery = Depends(get_check_character_ownership_query),
 ) -> CharacterOwnershipResponse:
-    """특정 캐릭터의 소유 여부를 확인합니다."""
-    ownership = await query.execute(auth_user_id, character_code)
+    """특정 캐릭터의 소유 여부를 확인합니다 (domains/my 호환)."""
+    ownership = await query.execute(auth_user_id, character_name)
     return CharacterOwnershipResponse(
-        character_code=ownership.character_code,
+        character_name=ownership.character_name,
         owned=ownership.owned,
-        acquired_at=ownership.acquired_at,
     )
