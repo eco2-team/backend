@@ -64,3 +64,15 @@ class TokenResponse(BaseModel):
     """토큰 응답 (쿠키로 전달되므로 body는 간소화)."""
 
     message: str = Field(default="success", description="결과 메시지")
+
+
+class LogoutData(BaseModel):
+    """로그아웃 응답 데이터."""
+
+    message: str = Field(default="Successfully logged out", description="결과 메시지")
+
+
+class LogoutSuccessResponse(SuccessResponse[LogoutData]):
+    """레거시 호환용 로그아웃 응답."""
+
+    pass

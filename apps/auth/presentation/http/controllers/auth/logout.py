@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Header, Response
 from apps.auth.application.token.commands import LogoutInteractor
 from apps.auth.application.token.dto import LogoutRequest
 from apps.auth.presentation.http.auth.cookie_params import clear_auth_cookies
-from apps.auth.presentation.http.schemas.auth import TokenResponse
+from apps.auth.presentation.http.schemas.auth import LogoutData, LogoutSuccessResponse
 from apps.auth.setup.dependencies import get_logout_interactor
 
 router = APIRouter()
@@ -28,7 +28,7 @@ def _parse_bearer(header_value: Optional[str]) -> Optional[str]:
 
 @router.post(
     "/logout",
-    response_model=TokenResponse,
+    response_model=LogoutSuccessResponse,
     summary="로그아웃",
 )
 async def logout(
@@ -36,7 +36,7 @@ async def logout(
     authorization: Optional[str] = Header(None, alias="Authorization"),
     refresh_authorization: Optional[str] = Header(None, alias="X-Refresh-Token"),
     interactor: LogoutInteractor = Depends(get_logout_interactor),
-) -> TokenResponse:
+) -> LogoutSuccessResponse:
     """로그아웃을 처리합니다.
 
     EnvoyFilter가 쿠키를 헤더로 변환:
@@ -59,4 +59,4 @@ async def logout(
     # 쿠키 삭제
     clear_auth_cookies(response)
 
-    return TokenResponse(message="Logged out successfully")
+    return LogoutSuccessResponse(data=LogoutData())
