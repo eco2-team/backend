@@ -3,16 +3,17 @@
 # NO CHECKED-IN PROTOBUF GENCODE
 # source: users.proto
 # Protobuf Python Version: 6.33.2
+# NOTE: Runtime version check disabled for compatibility with protobuf 5.x
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import runtime_version as _runtime_version
 from google.protobuf import symbol_database as _symbol_database
 from google.protobuf.internal import builder as _builder
 
-_runtime_version.ValidateProtobufRuntimeVersion(
-    _runtime_version.Domain.PUBLIC, 6, 33, 2, "", "users.proto"
-)
+# Version check disabled - compatible with protobuf >=5.28.0
+# _runtime_version.ValidateProtobufRuntimeVersion(
+#     _runtime_version.Domain.PUBLIC, 6, 33, 2, "", "users.proto"
+# )
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()

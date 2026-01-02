@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, Query, Request
-from fastapi.responses import RedirectResponse
 
 from apps.auth.application.oauth.commands import OAuthAuthorizeInteractor
 from apps.auth.application.oauth.dto import OAuthAuthorizeRequest
@@ -69,50 +68,19 @@ async def authorize(
     )
 
 
-async def _do_login_redirect(
+async def _build_authorization_response(
     provider: str,
     redirect_uri: str | None,
     device_id: str | None,
     frontend_origin: str | None,
     interactor: OAuthAuthorizeInteractor,
-) -> RedirectResponse:
-    """OAuth 로그인 공통 로직."""
+) -> AuthorizationSuccessResponse:
+    """OAuth 인증 URL 생성 공통 로직."""
     auth_request = OAuthAuthorizeRequest(
         provider=provider,
         redirect_uri=redirect_uri,
         device_id=device_id,
         frontend_origin=frontend_origin,
-    )
-    result = await interactor.execute(auth_request)
-    return RedirectResponse(url=result.authorization_url)
-
-
-@router.get(
-    "/{provider}",
-    response_model=AuthorizationSuccessResponse,
-    summary="OAuth 인증 URL 생성 (레거시)",
-    description="레거시 호환: JSON 응답으로 authorization_url 반환",
-)
-async def authorize_legacy(
-    provider: str,
-    request: Request,
-    redirect_uri: str | None = Query(None),
-    device_id: str | None = Query(None),
-    frontend_origin: str | None = Query(None),
-    x_frontend_origin: Optional[str] = Header(None, alias=FRONTEND_ORIGIN_HEADER),
-    interactor: OAuthAuthorizeInteractor = Depends(get_oauth_authorize_interactor),
-) -> AuthorizationSuccessResponse:
-    """[레거시] OAuth 인증 URL을 JSON으로 반환합니다.
-
-    프론트엔드는 응답의 authorization_url로 직접 이동해야 합니다.
-    하위 호환성을 위해 유지됩니다.
-    """
-    resolved_frontend_origin = frontend_origin or x_frontend_origin
-    auth_request = OAuthAuthorizeRequest(
-        provider=provider,
-        redirect_uri=redirect_uri,
-        device_id=device_id,
-        frontend_origin=resolved_frontend_origin,
     )
     result = await interactor.execute(auth_request)
 
@@ -129,11 +97,37 @@ async def authorize_legacy(
 
 
 @router.get(
-    "/{provider}/login",
-    response_class=RedirectResponse,
-    summary="OAuth 로그인 (리다이렉트)",
+    "/{provider}",
+    response_model=AuthorizationSuccessResponse,
+    summary="OAuth 인증 URL 생성",
+    description="JSON 응답으로 authorization_url 반환. 프론트엔드가 직접 이동해야 함.",
 )
-async def login_redirect(
+async def authorize_provider(
+    provider: str,
+    request: Request,
+    redirect_uri: str | None = Query(None),
+    device_id: str | None = Query(None),
+    frontend_origin: str | None = Query(None),
+    x_frontend_origin: Optional[str] = Header(None, alias=FRONTEND_ORIGIN_HEADER),
+    interactor: OAuthAuthorizeInteractor = Depends(get_oauth_authorize_interactor),
+) -> AuthorizationSuccessResponse:
+    """OAuth 인증 URL을 JSON으로 반환합니다.
+
+    프론트엔드는 응답의 authorization_url로 직접 이동해야 합니다.
+    """
+    resolved_frontend_origin = frontend_origin or x_frontend_origin
+    return await _build_authorization_response(
+        provider, redirect_uri, device_id, resolved_frontend_origin, interactor
+    )
+
+
+@router.get(
+    "/{provider}/login",
+    response_model=AuthorizationSuccessResponse,
+    summary="OAuth 로그인 URL 생성",
+    description="/{provider}와 동일. JSON 응답으로 authorization_url 반환.",
+)
+async def login_provider(
     provider: str,
     request: Request,
     redirect_uri: str | None = Query(None),
@@ -145,12 +139,13 @@ async def login_redirect(
         description="프론트엔드 오리진 (헤더)",
     ),
     interactor: OAuthAuthorizeInteractor = Depends(get_oauth_authorize_interactor),
-) -> RedirectResponse:
-    """OAuth 인증 페이지로 직접 리다이렉트합니다.
+) -> AuthorizationSuccessResponse:
+    """OAuth 인증 URL을 JSON으로 반환합니다.
 
-    프론트엔드 오리진은 쿼리 파라미터 또는 X-Frontend-Origin 헤더로 전달할 수 있습니다.
+    /{provider}와 동일하게 동작합니다.
+    프론트엔드는 응답의 authorization_url로 직접 이동해야 합니다.
     """
     resolved_frontend_origin = frontend_origin or x_frontend_origin
-    return await _do_login_redirect(
+    return await _build_authorization_response(
         provider, redirect_uri, device_id, resolved_frontend_origin, interactor
     )
