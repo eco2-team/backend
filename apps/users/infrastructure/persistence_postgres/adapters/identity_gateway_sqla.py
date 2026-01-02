@@ -15,7 +15,6 @@ from apps.users.application.identity.ports.identity_gateway import UserWithSocia
 from apps.users.domain.entities.user import User
 from apps.users.infrastructure.persistence_postgres.mappings.user_social_account import (
     UserSocialAccount,
-    social_accounts_table,
 )
 
 

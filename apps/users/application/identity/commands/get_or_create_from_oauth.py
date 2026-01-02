@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from apps.users.application.common.ports.transaction_manager import TransactionManager
 from apps.users.application.identity.dto.oauth import OAuthUserRequest, OAuthUserResult
