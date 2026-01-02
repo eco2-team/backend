@@ -1,0 +1,1 @@
+"""Character subdomain application layer."""

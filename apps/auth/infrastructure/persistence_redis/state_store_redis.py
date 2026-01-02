@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from apps.auth.application.common.ports.state_store import OAuthState
+from apps.auth.application.oauth.ports import OAuthState
 
 if TYPE_CHECKING:
     import redis.asyncio as aioredis

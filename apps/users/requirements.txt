@@ -1,0 +1,22 @@
+# FastAPI & ASGI
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# Pydantic
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Database
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+
+# HTTP Client (for potential future use)
+httpx==0.26.0
+
+# OpenTelemetry
+opentelemetry-distro==0.50b0
+opentelemetry-exporter-otlp==1.29.0
+opentelemetry-instrumentation-fastapi==0.50b0
+opentelemetry-instrumentation-sqlalchemy==0.50b0
+opentelemetry-instrumentation-asyncpg==0.50b0
+opentelemetry-propagator-b3==1.29.0

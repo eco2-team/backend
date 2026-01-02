@@ -1,0 +1,84 @@
+# Users Worker Canary Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-worker-canary
+  namespace: users
+  labels:
+    app: users-worker
+    version: canary
+    tier: worker
+    domain: users
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: users-worker
+      version: canary
+  template:
+    metadata:
+      labels:
+        app: users-worker
+        version: canary
+        tier: worker
+        domain: users
+      annotations:
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+    spec:
+      containers:
+      - name: users-worker
+        image: docker.io/mng990/eco2:users-worker-canary-latest
+        imagePullPolicy: Always
+        env:
+        # PostgreSQL (users 스키마)
+        - name: USERS_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: users-secret
+              key: USERS_DATABASE_URL
+        # RabbitMQ (이벤트 소비)
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              name: users-secret
+              key: CELERY_BROKER_URL
+        # Logging
+        - name: LOG_LEVEL
+          value: INFO
+        - name: SERVICE_NAME
+          value: users-worker-canary
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: users-config
+              key: ENVIRONMENT
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 256Mi
+        livenessProbe:
+          exec:
+            command: [pgrep, -f, celery]
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: [pgrep, -f, celery]
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: worker-storage
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-storage
+        effect: NoSchedule

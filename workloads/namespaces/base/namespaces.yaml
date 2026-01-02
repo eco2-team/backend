@@ -24,6 +24,17 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
+  name: users
+  labels:
+    istio-injection: enabled
+    app.kubernetes.io/part-of: ecoeco-backend
+    tier: business-logic
+    role: api
+    domain: users
+---
+apiVersion: v1
+kind: Namespace
+metadata:
   name: scan
   labels:
     istio-injection: enabled

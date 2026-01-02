@@ -20,7 +20,7 @@ from apps.auth.domain.exceptions.auth import (
 )
 from apps.auth.domain.value_objects.token_payload import TokenPayload
 from apps.auth.domain.value_objects.user_id import UserId
-from apps.auth.application.common.ports.token_service import TokenPair
+from apps.auth.application.token.ports import TokenPair
 
 
 class JwtTokenService:

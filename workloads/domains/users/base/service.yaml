@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: users-api
+  namespace: users
+  labels:
+    app: users-api
+    domain: users
+spec:
+  selector:
+    app: users-api
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP

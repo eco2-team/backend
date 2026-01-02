@@ -29,8 +29,14 @@ email-validator==2.1.0
 
 # Monitoring
 prometheus-client==0.20.0
+
+# gRPC
 grpcio==1.68.1
+grpcio-tools==1.68.1
 protobuf==5.29.2
+
+# Resilience (Circuit Breaker)
+aiobreaker==1.2.0
 
 # OpenTelemetry
 opentelemetry-distro==0.50b0

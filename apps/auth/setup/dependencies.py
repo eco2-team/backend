@@ -1,6 +1,12 @@
 """Dependency Injection Setup.
 
 FastAPI Depends를 사용한 의존성 주입 설정입니다.
+
+Architecture:
+    - Infrastructure Dependencies: DB, Redis, RabbitMQ
+    - Gateway Dependencies: SQLAlchemy/Redis Adapters
+    - Service Dependencies: Application Services (연주자)
+    - Use Case Dependencies: Interactors (지휘자)
 """
 
 from __future__ import annotations
@@ -44,7 +50,7 @@ def get_oauth_state_redis() -> "aioredis.Redis":
 
 
 # ============================================================
-# Gateway Dependencies (Adapters)
+# Gateway Dependencies (Adapters / Ports 구현체)
 # ============================================================
 
 
@@ -103,70 +109,85 @@ async def get_transaction_manager(
 
 
 # ============================================================
-# Redis Gateway Dependencies
+# OAuth Domain - Redis Gateway Dependencies
 # ============================================================
 
 
-def get_state_store(
+def get_oauth_state_store(
     redis: "aioredis.Redis" = Depends(get_oauth_state_redis),
 ):
-    """StateStore 제공자 (OAuth 상태용 Redis)."""
+    """OAuthStateStore 제공자 (OAuth 상태용 Redis)."""
     from apps.auth.infrastructure.persistence_redis import RedisStateStore
 
     return RedisStateStore(redis)
 
 
-def get_token_blacklist(
+# ============================================================
+# Token Domain - Redis Gateway Dependencies
+# ============================================================
+
+
+def get_token_blacklist_store(
     redis: "aioredis.Redis" = Depends(get_blacklist_redis),
 ):
-    """TokenBlacklist 제공자 (블랙리스트용 Redis)."""
+    """TokenBlacklistStore 제공자 (블랙리스트용 Redis)."""
     from apps.auth.infrastructure.persistence_redis import RedisTokenBlacklist
 
     return RedisTokenBlacklist(redis)
 
 
-def get_user_token_store(
+def get_token_session_store(
     redis: "aioredis.Redis" = Depends(get_blacklist_redis),
 ):
-    """UserTokenStore 제공자 (블랙리스트용 Redis)."""
+    """TokenSessionStore 제공자 (블랙리스트용 Redis)."""
     from apps.auth.infrastructure.persistence_redis import RedisUserTokenStore
 
     return RedisUserTokenStore(redis)
 
 
+# Deprecated aliases
+get_state_store = get_oauth_state_store
+get_token_blacklist = get_token_blacklist_store
+get_user_token_store = get_token_session_store
+
+
 # ============================================================
-# Messaging Dependencies
+# Auth Domain - Messaging Dependencies
 # ============================================================
 
 
-_blacklist_publisher = None
+_blacklist_event_publisher = None
 
 
-async def get_blacklist_event_publisher(
-    settings: Settings = Depends(get_settings),
-):
-    """BlacklistEventPublisher 제공자 (싱글톤)."""
-    global _blacklist_publisher
-    if _blacklist_publisher is None:
-        if not settings.amqp_url:
-            raise RuntimeError(
-                "AUTH_AMQP_URL is required for blacklist event publishing. "
-                "Set AUTH_AMQP_URL environment variable."
-            )
+async def get_blacklist_event_publisher(settings: Settings = Depends(get_settings)):
+    """BlacklistEventPublisher 제공자 (RabbitMQ).
+
+    Note:
+        Singleton 패턴으로 연결을 재사용합니다.
+        AMQP_URL이 설정되지 않은 경우 None을 반환합니다.
+    """
+    global _blacklist_event_publisher
+
+    if settings.amqp_url is None:
+        # AMQP 미설정 시 None 반환 (로컬 개발 환경 등)
+        return None
+
+    if _blacklist_event_publisher is None:
         from apps.auth.infrastructure.messaging import RabbitMQBlacklistEventPublisher
 
-        _blacklist_publisher = RabbitMQBlacklistEventPublisher(settings.amqp_url)
-        await _blacklist_publisher.connect()
-    return _blacklist_publisher
+        _blacklist_event_publisher = RabbitMQBlacklistEventPublisher(settings.amqp_url)
+        await _blacklist_event_publisher.connect()
+
+    return _blacklist_event_publisher
 
 
 # ============================================================
-# Service Dependencies
+# Token Domain - Token Issuer
 # ============================================================
 
 
-def get_token_service(settings: Settings = Depends(get_settings)):
-    """TokenService 제공자."""
+def get_token_issuer(settings: Settings = Depends(get_settings)):
+    """TokenIssuer 제공자."""
     from apps.auth.infrastructure.security import JwtTokenService
 
     return JwtTokenService(
@@ -179,6 +200,11 @@ def get_token_service(settings: Settings = Depends(get_settings)):
     )
 
 
+# ============================================================
+# OAuth Domain - OAuth Provider
+# ============================================================
+
+
 def get_oauth_provider_registry(settings: Settings = Depends(get_settings)):
     """OAuth ProviderRegistry 제공자."""
     from apps.auth.infrastructure.oauth import ProviderRegistry
@@ -186,11 +212,16 @@ def get_oauth_provider_registry(settings: Settings = Depends(get_settings)):
     return ProviderRegistry(settings)
 
 
-def get_oauth_client(registry=Depends(get_oauth_provider_registry)):
-    """OAuthClientImpl 제공자."""
+def get_oauth_provider_gateway(registry=Depends(get_oauth_provider_registry)):
+    """OAuthProviderGateway 제공자."""
     from apps.auth.infrastructure.oauth import OAuthClientImpl
 
     return OAuthClientImpl(registry)
+
+
+# ============================================================
+# User Domain - User Gateway Dependencies
+# ============================================================
 
 
 def get_user_id_generator():
@@ -203,109 +234,174 @@ def get_user_id_generator():
 def get_user_service(
     user_id_generator=Depends(get_user_id_generator),
 ):
-    """UserService 제공자."""
+    """UserService 제공자 (deprecated - use UserManagementGateway)."""
     from apps.auth.domain.services import UserService
 
     return UserService(user_id_generator)
 
 
+def get_user_management_gateway(settings: Settings = Depends(get_settings)):
+    """UserManagementGateway 제공자 (gRPC 클라이언트).
+
+    users 도메인과 gRPC 통신을 위한 어댑터입니다.
+    """
+    from apps.auth.infrastructure.grpc.users_client import UsersGrpcClient
+    from apps.auth.infrastructure.grpc.user_management_adapter import (
+        UserManagementGrpcAdapter,
+    )
+
+    client = UsersGrpcClient(settings)
+    return UserManagementGrpcAdapter(client)
+
+
 # ============================================================
-# Use Case Dependencies
+# Application Services (연주자 🎻)
+# ============================================================
+
+
+def get_oauth_flow_service(
+    state_store=Depends(get_oauth_state_store),
+    provider_gateway=Depends(get_oauth_provider_gateway),
+):
+    """OAuthFlowService 제공자.
+
+    OAuth 인증 플로우 관련 비즈니스 로직을 캡슐화합니다.
+    """
+    from apps.auth.application.oauth.services import OAuthFlowService
+
+    return OAuthFlowService(
+        state_store=state_store,
+        provider_gateway=provider_gateway,
+    )
+
+
+def get_token_service(
+    issuer=Depends(get_token_issuer),
+    session_store=Depends(get_token_session_store),
+    blacklist_store=Depends(get_token_blacklist_store),
+):
+    """TokenService 제공자.
+
+    토큰 발급 및 세션 관리 비즈니스 로직을 캡슐화합니다.
+    """
+    from apps.auth.application.token.services import TokenService
+
+    return TokenService(
+        issuer=issuer,
+        session_store=session_store,
+        blacklist_store=blacklist_store,
+    )
+
+
+def get_login_audit_service():
+    """LoginAuditService 제공자.
+
+    로그인 감사 엔티티 팩토리입니다 (순수 로직, Port 없음).
+    """
+    from apps.auth.application.audit.services import LoginAuditService
+
+    return LoginAuditService()
+
+
+# ============================================================
+# Use Case Dependencies (지휘자 🎼)
 # ============================================================
 
 
 async def get_oauth_authorize_interactor(
-    state_store=Depends(get_state_store),
-    oauth_client=Depends(get_oauth_client),
+    oauth_service=Depends(get_oauth_flow_service),
 ):
-    """OAuthAuthorizeInteractor 제공자."""
-    from apps.auth.application.commands import OAuthAuthorizeInteractor
+    """OAuthAuthorizeInteractor 제공자.
 
-    return OAuthAuthorizeInteractor(
-        state_store=state_store,
-        oauth_client=oauth_client,
-    )
+    OAuth 인증 URL 생성 유스케이스입니다.
+    """
+    from apps.auth.application.oauth.commands import OAuthAuthorizeInteractor
+
+    return OAuthAuthorizeInteractor(oauth_service=oauth_service)
 
 
 async def get_oauth_callback_interactor(
-    user_service=Depends(get_user_service),
-    user_command_gateway=Depends(get_user_command_gateway),
-    user_query_gateway=Depends(get_user_query_gateway),
-    social_account_gateway=Depends(get_social_account_gateway),
-    login_audit_gateway=Depends(get_login_audit_gateway),
+    # Services (연주자)
+    oauth_service=Depends(get_oauth_flow_service),
     token_service=Depends(get_token_service),
-    state_store=Depends(get_state_store),
-    user_token_store=Depends(get_user_token_store),
-    oauth_client=Depends(get_oauth_client),
+    audit_service=Depends(get_login_audit_service),
+    # Ports (인프라)
+    user_management=Depends(get_user_management_gateway),
+    audit_gateway=Depends(get_login_audit_gateway),
     flusher=Depends(get_flusher),
     transaction_manager=Depends(get_transaction_manager),
 ):
-    """OAuthCallbackInteractor 제공자."""
-    from apps.auth.application.commands import OAuthCallbackInteractor
+    """OAuthCallbackInteractor 제공자.
+
+    OAuth 콜백 처리 유스케이스입니다.
+    gRPC를 통해 users 도메인과 통신합니다.
+    """
+    from apps.auth.application.oauth.commands import OAuthCallbackInteractor
 
     return OAuthCallbackInteractor(
-        user_service=user_service,
-        user_command_gateway=user_command_gateway,
-        user_query_gateway=user_query_gateway,
-        social_account_gateway=social_account_gateway,
-        login_audit_gateway=login_audit_gateway,
+        oauth_service=oauth_service,
         token_service=token_service,
-        state_store=state_store,
-        user_token_store=user_token_store,
-        oauth_client=oauth_client,
+        audit_service=audit_service,
+        user_management=user_management,
+        audit_gateway=audit_gateway,
         flusher=flusher,
         transaction_manager=transaction_manager,
     )
 
 
 async def get_logout_interactor(
+    # Services (연주자)
     token_service=Depends(get_token_service),
+    # Ports (인프라)
     blacklist_publisher=Depends(get_blacklist_event_publisher),
-    user_token_store=Depends(get_user_token_store),
     transaction_manager=Depends(get_transaction_manager),
 ):
-    """LogoutInteractor 제공자."""
-    from apps.auth.application.commands import LogoutInteractor
+    """LogoutInteractor 제공자.
+
+    로그아웃 유스케이스입니다.
+    """
+    from apps.auth.application.token.commands import LogoutInteractor
 
     return LogoutInteractor(
         token_service=token_service,
         blacklist_publisher=blacklist_publisher,
-        user_token_store=user_token_store,
         transaction_manager=transaction_manager,
     )
 
 
 async def get_refresh_tokens_interactor(
+    # Services (연주자)
     token_service=Depends(get_token_service),
-    token_blacklist=Depends(get_token_blacklist),
-    blacklist_publisher=Depends(get_blacklist_event_publisher),
-    user_token_store=Depends(get_user_token_store),
+    # Ports (인프라)
     user_query_gateway=Depends(get_user_query_gateway),
+    blacklist_publisher=Depends(get_blacklist_event_publisher),
     transaction_manager=Depends(get_transaction_manager),
 ):
-    """RefreshTokensInteractor 제공자."""
-    from apps.auth.application.commands import RefreshTokensInteractor
+    """RefreshTokensInteractor 제공자.
+
+    토큰 갱신 유스케이스입니다.
+    """
+    from apps.auth.application.token.commands import RefreshTokensInteractor
 
     return RefreshTokensInteractor(
         token_service=token_service,
-        token_blacklist=token_blacklist,
-        blacklist_publisher=blacklist_publisher,
-        user_token_store=user_token_store,
         user_query_gateway=user_query_gateway,
+        blacklist_publisher=blacklist_publisher,
         transaction_manager=transaction_manager,
     )
 
 
 async def get_validate_token_service(
     token_service=Depends(get_token_service),
-    token_blacklist=Depends(get_token_blacklist),
     user_query_gateway=Depends(get_user_query_gateway),
 ):
-    """ValidateTokenQueryService 제공자."""
-    from apps.auth.application.queries import ValidateTokenQueryService
+    """ValidateTokenQueryService 제공자.
+
+    토큰 검증 쿼리 서비스입니다.
+    """
+    from apps.auth.application.token.queries import ValidateTokenQueryService
 
     return ValidateTokenQueryService(
         token_service=token_service,
-        token_blacklist=token_blacklist,
         user_query_gateway=user_query_gateway,
     )

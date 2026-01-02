@@ -5,8 +5,8 @@
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 
-from apps.auth.application.commands.refresh_tokens import RefreshTokensInteractor
-from apps.auth.application.common.dto.auth import RefreshTokensRequest
+from apps.auth.application.token.commands import RefreshTokensInteractor
+from apps.auth.application.token.dto import RefreshTokensRequest
 from apps.auth.presentation.http.auth.cookie_params import (
     REFRESH_COOKIE_NAME,
     set_auth_cookies,

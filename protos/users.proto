@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package users;
+
+// ============================================================================
+// Users Service - auth ↔ users 도메인 간 통신
+// ============================================================================
+
+service UsersService {
+  // OAuth 로그인 시 사용자 조회 또는 생성
+  rpc GetOrCreateFromOAuth(GetOrCreateFromOAuthRequest) returns (GetOrCreateFromOAuthResponse);
+
+  // 사용자 조회 (ID로)
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+
+  // 로그인 시간 업데이트
+  rpc UpdateLoginTime(UpdateLoginTimeRequest) returns (UpdateLoginTimeResponse);
+}
+
+// ============================================================================
+// GetOrCreateFromOAuth - OAuth 로그인 시 사용자 생성/조회
+// ============================================================================
+
+message GetOrCreateFromOAuthRequest {
+  string provider = 1;           // OAuth 프로바이더 (google, kakao, naver)
+  string provider_user_id = 2;   // 프로바이더에서의 사용자 ID
+  optional string email = 3;     // 이메일 (선택)
+  optional string nickname = 4;  // 닉네임 (선택)
+  optional string profile_image_url = 5;  // 프로필 이미지 URL (선택)
+}
+
+message GetOrCreateFromOAuthResponse {
+  UserInfo user = 1;
+  SocialAccountInfo social_account = 2;
+  bool is_new_user = 3;  // 새로 생성된 사용자 여부
+}
+
+// ============================================================================
+// GetUser - 사용자 조회
+// ============================================================================
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message GetUserResponse {
+  optional UserInfo user = 1;  // null이면 사용자 없음
+}
+
+// ============================================================================
+// UpdateLoginTime - 로그인 시간 업데이트
+// ============================================================================
+
+message UpdateLoginTimeRequest {
+  string user_id = 1;
+  string provider = 2;
+  string provider_user_id = 3;
+}
+
+message UpdateLoginTimeResponse {
+  bool success = 1;
+}
+
+// ============================================================================
+// Common Messages
+// ============================================================================
+
+message UserInfo {
+  string id = 1;
+  reserved 2;  // username 제거 (OAuth 전용이므로 불필요)
+  optional string nickname = 3;
+  optional string profile_image_url = 4;
+  optional string phone_number = 5;
+  string created_at = 6;   // ISO 8601 format
+  string updated_at = 7;
+  optional string last_login_at = 8;
+}
+
+message SocialAccountInfo {
+  string id = 1;
+  string user_id = 2;
+  string provider = 3;
+  string provider_user_id = 4;
+  optional string email = 5;
+  string created_at = 6;
+  optional string last_login_at = 7;
+}

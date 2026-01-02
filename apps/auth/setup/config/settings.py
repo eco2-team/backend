@@ -69,6 +69,15 @@ class Settings(BaseSettings):
     character_onboarding_retry_attempts: int = 3
     character_onboarding_retry_backoff_seconds: float = 0.5
 
+    # Users gRPC service integration
+    users_grpc_target: str = "users-api-grpc.users.svc.cluster.local:50051"
+    grpc_timeout_seconds: float = 5.0
+    grpc_max_retries: int = 3
+    grpc_retry_base_delay: float = 0.1
+    grpc_retry_max_delay: float = 2.0
+    grpc_circuit_fail_max: int = 5
+    grpc_circuit_timeout_duration: int = 30  # seconds
+
     @property
     def oauth_failure_redirect_url(self) -> str:
         return f"{self.frontend_url}/login?error=oauth_failed"

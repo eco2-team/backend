@@ -35,6 +35,9 @@ spec:
       - name: my-worker
         namespace: my
         phase: '3'
+      - name: users-worker
+        namespace: users
+        phase: '3'
   template:
     metadata:
       name: dev-{{name}}
