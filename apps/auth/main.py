@@ -53,14 +53,18 @@ def create_app() -> FastAPI:
     )
 
     # CORS 설정
-    cors_origins = settings.cors_origins.split(",") if settings.cors_origins else [
-        "https://frontend.dev.growbin.app",
-        "https://frontend1.dev.growbin.app",
-        "https://frontend2.dev.growbin.app",
-        "https://growbin.app",
-        "http://localhost:3000",
-        "http://localhost:5173",
-    ]
+    cors_origins = (
+        settings.cors_origins.split(",")
+        if settings.cors_origins
+        else [
+            "https://frontend.dev.growbin.app",
+            "https://frontend1.dev.growbin.app",
+            "https://frontend2.dev.growbin.app",
+            "https://growbin.app",
+            "http://localhost:3000",
+            "http://localhost:5173",
+        ]
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,

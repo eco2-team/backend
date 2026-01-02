@@ -60,7 +60,9 @@ class Settings(BaseSettings):
     # Frontend / Cookie / CORS
     frontend_url: str = "https://frontend1.dev.growbin.app"
     cookie_domain: Optional[str] = ".dev.growbin.app"
-    cors_origins: Optional[str] = None  # 콤마 구분, 예: "https://frontend.dev.growbin.app,https://growbin.app"
+    cors_origins: Optional[str] = (
+        None  # 콤마 구분, 예: "https://frontend.dev.growbin.app,https://growbin.app"
+    )
 
     # Character service integration
     character_api_base_url: str = "http://character-api.character.svc.cluster.local:8000"
