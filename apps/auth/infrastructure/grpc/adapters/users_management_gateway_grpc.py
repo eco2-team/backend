@@ -55,7 +55,6 @@ class UsersManagementGatewayGrpc(UsersManagementGateway):
 
         return OAuthUserResult(
             user_id=UUID(response.user.id),
-            username=response.user.username or None,
             nickname=response.user.nickname or None,
             profile_image_url=response.user.profile_image_url or None,
             is_new_user=response.is_new_user,
