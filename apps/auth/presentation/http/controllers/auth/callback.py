@@ -74,31 +74,31 @@ async def callback(
 
         result = await interactor.execute(callback_request)
 
-        # 쿠키 설정
-        set_auth_cookies(
-            response,
-            access_token=result.access_token,
-            refresh_token=result.refresh_token,
-            access_expires_at=result.access_expires_at,
-            refresh_expires_at=result.refresh_expires_at,
-        )
-
         # 프론트엔드 리다이렉트 URL 결정
         # 우선순위: state에서 복원된 오리진 > 헤더 > 기본값
         redirect_origin = result.frontend_origin or frontend_origin
         success_url = build_frontend_success_url(settings.frontend_url)
         redirect_url = build_frontend_redirect_url(request, success_url, redirect_origin)
 
-        # 리다이렉트 헤더 설정
-        response.headers["location"] = redirect_url
+        # RedirectResponse 생성
+        redirect_response = RedirectResponse(url=redirect_url, status_code=302)
+
+        # 쿠키 설정 (RedirectResponse에 직접 설정)
+        set_auth_cookies(
+            redirect_response,
+            access_token=result.access_token,
+            refresh_token=result.refresh_token,
+            access_expires_at=result.access_expires_at,
+            refresh_expires_at=result.refresh_expires_at,
+        )
 
         logger.info(
             f"OAuth callback success: provider={provider}, "
             f"user_id={result.user_id}, redirect={redirect_url}"
         )
 
-        # 프론트엔드로 리다이렉트
-        return RedirectResponse(url=redirect_url, status_code=302)
+        # 프론트엔드로 리다이렉트 (쿠키 포함)
+        return redirect_response
 
     except Exception as e:
         # OAuth 실패 시 프론트엔드 로그인 페이지로 리다이렉트
