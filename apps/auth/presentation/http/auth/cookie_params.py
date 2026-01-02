@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from fastapi import Response
 
-# Cookie names
-ACCESS_COOKIE_NAME = "access_token"
-REFRESH_COOKIE_NAME = "refresh_token"
+# Cookie names (프론트엔드와 일치해야 함)
+ACCESS_COOKIE_NAME = "s_access"
+REFRESH_COOKIE_NAME = "s_refresh"
 
 # Cookie settings
 COOKIE_PATH = "/"
