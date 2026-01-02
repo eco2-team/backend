@@ -5,7 +5,7 @@ OAuth 콜백 처리 Use Case입니다.
 Architecture:
     - UseCase(지휘자): OAuthCallbackInteractor
     - Services(연주자): OAuthFlowService(Facade), TokenService(Facade), LoginAuditService(팩토리)
-    - Ports(인프라): UserManagementGateway, LoginAuditGateway, TransactionManager
+    - Ports(인프라): UsersManagementGateway, LoginAuditGateway, TransactionManager
 
 참고: https://rooftopsnow.tistory.com/127
 """
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     # Ports (인프라)
     from apps.auth.application.audit.ports import LoginAuditGateway
     from apps.auth.application.common.ports import Flusher, TransactionManager
-    from apps.auth.application.users.ports import UserManagementGateway
+    from apps.auth.application.users.ports import UsersManagementGateway
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class OAuthCallbackInteractor:
 
     Workflow:
         1. OAuth 인증 플로우 처리 (OAuthFlowService - Facade)
-        2. 사용자 조회/생성 (UserManagementGateway - Port 직접)
+        2. 사용자 조회/생성 (UsersManagementGateway - Port 직접)
         3. 토큰 발급 및 세션 등록 (TokenService - Facade)
         4. 로그인 감사 기록 생성 (LoginAuditService - 팩토리) + 저장 (Gateway - Port 직접)
         5. 트랜잭션 커밋 (TransactionManager - Port 직접)
@@ -67,7 +67,7 @@ class OAuthCallbackInteractor:
         token_service: "TokenService",
         audit_service: "LoginAuditService",
         # Ports (인프라)
-        user_management: "UserManagementGateway",
+        user_management: "UsersManagementGateway",
         audit_gateway: "LoginAuditGateway",
         flusher: "Flusher",
         transaction_manager: "TransactionManager",

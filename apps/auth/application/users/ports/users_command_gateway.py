@@ -1,4 +1,4 @@
-"""UserCommandGateway Port.
+"""UsersCommandGateway Port.
 
 사용자 쓰기 작업을 위한 Gateway 인터페이스입니다.
 """
@@ -9,11 +9,11 @@ from apps.auth.domain.entities.user import User
 from apps.auth.domain.value_objects.user_id import UserId
 
 
-class UserCommandGateway(Protocol):
+class UsersCommandGateway(Protocol):
     """사용자 Command Gateway (쓰기 작업).
 
     구현체:
-        - SqlaUserDataMapper (infrastructure/adapters/)
+        - SqlaUsersCommandGateway (infrastructure/persistence_postgres/adapters/)
     """
 
     def add(self, user: User) -> None:

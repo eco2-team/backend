@@ -1,4 +1,4 @@
-"""UserManagementGateway Port.
+"""UsersManagementGateway Port.
 
 users 도메인과의 통신을 추상화하는 포트입니다.
 gRPC, HTTP 등 다양한 어댑터로 구현할 수 있습니다.
@@ -23,7 +23,7 @@ class OAuthUserResult:
     is_new_user: bool
 
 
-class UserManagementGateway(Protocol):
+class UsersManagementGateway(Protocol):
     """사용자 관리 Gateway 포트.
 
     users 도메인의 사용자 관련 기능을 호출하는 인터페이스입니다.

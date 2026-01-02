@@ -245,7 +245,7 @@ get_user_id_generator = get_users_id_generator
 def get_user_service(
     user_id_generator=Depends(get_users_id_generator),
 ):
-    """UserService 제공자 (deprecated - use UserManagementGateway)."""
+    """UserService 제공자 (deprecated - use UsersManagementGateway)."""
     from apps.auth.domain.services import UserService
 
     return UserService(user_id_generator)
@@ -257,10 +257,10 @@ def get_users_management_gateway(settings: Settings = Depends(get_settings)):
     users 도메인과 gRPC 통신을 위한 어댑터입니다.
     """
     from apps.auth.infrastructure.grpc.client import UsersGrpcClient
-    from apps.auth.infrastructure.grpc.adapters import UsersManagementGrpcAdapter
+    from apps.auth.infrastructure.grpc.adapters import UsersManagementGatewayGrpc
 
     client = UsersGrpcClient(settings)
-    return UsersManagementGrpcAdapter(client)
+    return UsersManagementGatewayGrpc(client)
 
 
 # Deprecated alias

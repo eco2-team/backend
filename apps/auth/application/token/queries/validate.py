@@ -5,7 +5,7 @@
 Architecture:
     - QueryService: ValidateTokenQueryService
     - Services(연주자): TokenService
-    - Ports(인프라): UserQueryGateway
+    - Ports(인프라): UsersQueryGateway
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from apps.auth.application.token.services import TokenService
 
     # Ports (인프라)
-    from apps.auth.application.users.ports import UserQueryGateway
+    from apps.auth.application.users.ports import UsersQueryGateway
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +56,7 @@ class ValidateTokenQueryService:
         # Services (연주자)
         token_service: "TokenService",
         # Ports (인프라)
-        user_query_gateway: "UserQueryGateway",
+        user_query_gateway: "UsersQueryGateway",
     ) -> None:
         self._token_service = token_service
         self._user_query_gateway = user_query_gateway

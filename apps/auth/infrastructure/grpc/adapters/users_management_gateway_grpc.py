@@ -1,4 +1,4 @@
-"""UsersManagementGateway gRPC Adapter.
+"""UsersManagementGatewayGrpc Adapter.
 
 users 도메인의 gRPC 서비스를 호출하는 어댑터입니다.
 
@@ -10,17 +10,17 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from apps.auth.application.user.ports.user_management_gateway import (
+from apps.auth.application.users.ports.users_management_gateway import (
     OAuthUserResult,
-    UserManagementGateway,
+    UsersManagementGateway,
 )
 from apps.auth.infrastructure.grpc.client import UsersGrpcClient
 
 logger = logging.getLogger(__name__)
 
 
-class UsersManagementGrpcAdapter(UserManagementGateway):
-    """gRPC를 통한 UserManagementService 구현.
+class UsersManagementGatewayGrpc(UsersManagementGateway):
+    """gRPC를 통한 UsersManagementGateway 구현.
 
     users 도메인의 gRPC 서비스와 통신합니다.
     """

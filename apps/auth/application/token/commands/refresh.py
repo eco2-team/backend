@@ -5,7 +5,7 @@
 Architecture:
     - UseCase(지휘자): RefreshTokensInteractor
     - Services(연주자): TokenService
-    - Ports(인프라): UserQueryGateway, BlacklistEventPublisher, TransactionManager
+    - Ports(인프라): UsersQueryGateway, BlacklistEventPublisher, TransactionManager
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     # Ports (인프라)
     from apps.auth.application.common.ports import TransactionManager
     from apps.auth.application.token.ports import BlacklistEventPublisher
-    from apps.auth.application.users.ports import UserQueryGateway
+    from apps.auth.application.users.ports import UsersQueryGateway
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class RefreshTokensInteractor:
         1. Refresh 토큰 검증 (TokenService)
         2. 블랙리스트 확인 (TokenService)
         3. 세션 유효성 확인 (TokenService)
-        4. 사용자 조회 (UserQueryGateway)
+        4. 사용자 조회 (UsersQueryGateway)
         5. 기존 토큰 폐기 이벤트 발행 (BlacklistEventPublisher)
         6. 새 토큰 발급 및 세션 등록 (TokenService)
         7. 트랜잭션 커밋 (TransactionManager)
@@ -63,7 +63,7 @@ class RefreshTokensInteractor:
         # Services (연주자)
         token_service: "TokenService",
         # Ports (인프라)
-        user_query_gateway: "UserQueryGateway",
+        user_query_gateway: "UsersQueryGateway",
         blacklist_publisher: "BlacklistEventPublisher",
         transaction_manager: "TransactionManager",
     ) -> None:

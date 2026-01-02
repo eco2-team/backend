@@ -1,4 +1,4 @@
-"""UserQueryGateway Port.
+"""UsersQueryGateway Port.
 
 사용자 읽기 작업을 위한 Gateway 인터페이스입니다.
 """
@@ -9,11 +9,11 @@ from apps.auth.domain.entities.user import User
 from apps.auth.domain.value_objects.user_id import UserId
 
 
-class UserQueryGateway(Protocol):
+class UsersQueryGateway(Protocol):
     """사용자 Query Gateway (읽기 작업).
 
     구현체:
-        - SqlaUserReader (infrastructure/adapters/)
+        - SqlaUsersQueryGateway (infrastructure/persistence_postgres/adapters/)
     """
 
     async def get_by_id(self, user_id: UserId) -> User | None:
