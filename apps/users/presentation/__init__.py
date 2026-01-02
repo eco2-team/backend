@@ -1,3 +1,8 @@
-"""Presentation layer - HTTP API."""
+"""Presentation layer - HTTP and gRPC APIs.
 
-__all__ = ["http"]
+프로토콜:
+    - http/: REST API (FastAPI)
+    - grpc/: gRPC API (auth 도메인 연동)
+"""
+
+__all__ = ["http", "grpc"]

@@ -1,4 +1,4 @@
-"""SQLAlchemy implementation of user gateways.
+"""SQLAlchemy implementation of users gateways.
 
 통합 스키마:
     - users.users.id는 UUID (기존 auth.users.id)
@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apps.users.domain.entities.user import User
 
 
-class SqlaUserQueryGateway:
+class SqlaUsersQueryGateway:
     """사용자 조회 게이트웨이 SQLAlchemy 구현."""
 
     def __init__(self, session: AsyncSession) -> None:
@@ -27,7 +27,7 @@ class SqlaUserQueryGateway:
         return result.scalar_one_or_none()
 
 
-class SqlaUserCommandGateway:
+class SqlaUsersCommandGateway:
     """사용자 수정 게이트웨이 SQLAlchemy 구현."""
 
     def __init__(self, session: AsyncSession) -> None:

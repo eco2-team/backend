@@ -34,9 +34,9 @@ from apps.users.infrastructure.persistence_postgres.adapters import (
     SqlaIdentityQueryGateway,
     SqlaSocialAccountQueryGateway,
     SqlaTransactionManager,
-    SqlaUserCharacterQueryGateway,
-    SqlaUserCommandGateway,
-    SqlaUserQueryGateway,
+    SqlaUsersCharacterQueryGateway,
+    SqlaUsersCommandGateway,
+    SqlaUsersQueryGateway,
 )
 from apps.users.infrastructure.persistence_postgres.session import get_db_session
 
@@ -65,7 +65,7 @@ def get_get_profile_query(
 ) -> GetProfileQuery:
     """GetProfileQuery 인스턴스를 반환합니다."""
     return GetProfileQuery(
-        profile_gateway=SqlaUserQueryGateway(session),
+        profile_gateway=SqlaUsersQueryGateway(session),
         social_account_gateway=SqlaSocialAccountQueryGateway(session),
         profile_builder=profile_builder,
     )
@@ -74,7 +74,7 @@ def get_get_profile_query(
 def get_get_characters_query(session: SessionDep) -> GetCharactersQuery:
     """GetCharactersQuery 인스턴스를 반환합니다."""
     return GetCharactersQuery(
-        character_gateway=SqlaUserCharacterQueryGateway(session),
+        character_gateway=SqlaUsersCharacterQueryGateway(session),
     )
 
 
@@ -83,7 +83,7 @@ def get_check_character_ownership_query(
 ) -> CheckCharacterOwnershipQuery:
     """CheckCharacterOwnershipQuery 인스턴스를 반환합니다."""
     return CheckCharacterOwnershipQuery(
-        character_gateway=SqlaUserCharacterQueryGateway(session),
+        character_gateway=SqlaUsersCharacterQueryGateway(session),
     )
 
 
@@ -95,8 +95,8 @@ def get_update_profile_interactor(
 ) -> UpdateProfileInteractor:
     """UpdateProfileInteractor 인스턴스를 반환합니다."""
     return UpdateProfileInteractor(
-        profile_query=SqlaUserQueryGateway(session),
-        profile_command=SqlaUserCommandGateway(session),
+        profile_query=SqlaUsersQueryGateway(session),
+        profile_command=SqlaUsersCommandGateway(session),
         social_account_gateway=SqlaSocialAccountQueryGateway(session),
         transaction_manager=SqlaTransactionManager(session),
         user_service=user_service,
@@ -107,8 +107,8 @@ def get_update_profile_interactor(
 def get_delete_user_interactor(session: SessionDep) -> DeleteUserInteractor:
     """DeleteUserInteractor 인스턴스를 반환합니다."""
     return DeleteUserInteractor(
-        profile_query=SqlaUserQueryGateway(session),
-        profile_command=SqlaUserCommandGateway(session),
+        profile_query=SqlaUsersQueryGateway(session),
+        profile_command=SqlaUsersCommandGateway(session),
         transaction_manager=SqlaTransactionManager(session),
     )
 
@@ -149,7 +149,7 @@ class GrpcUseCaseFactory:
     ) -> GetUserQuery:
         """GetUserQuery 인스턴스를 생성합니다."""
         return GetUserQuery(
-            query_gateway=SqlaUserQueryGateway(session),
+            query_gateway=SqlaUsersQueryGateway(session),
         )
 
     def create_update_login_time_command(

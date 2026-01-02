@@ -10,18 +10,18 @@ from apps.users.infrastructure.persistence_postgres.adapters.social_account_gate
 from apps.users.infrastructure.persistence_postgres.adapters.transaction_manager_sqla import (
     SqlaTransactionManager,
 )
-from apps.users.infrastructure.persistence_postgres.adapters.user_character_gateway_sqla import (
-    SqlaUserCharacterQueryGateway,
+from apps.users.infrastructure.persistence_postgres.adapters.users_character_gateway_sqla import (
+    SqlaUsersCharacterQueryGateway,
 )
-from apps.users.infrastructure.persistence_postgres.adapters.user_gateway_sqla import (
-    SqlaUserCommandGateway,
-    SqlaUserQueryGateway,
+from apps.users.infrastructure.persistence_postgres.adapters.users_gateway_sqla import (
+    SqlaUsersCommandGateway,
+    SqlaUsersQueryGateway,
 )
 
 __all__ = [
-    "SqlaUserQueryGateway",
-    "SqlaUserCommandGateway",
-    "SqlaUserCharacterQueryGateway",
+    "SqlaUsersQueryGateway",
+    "SqlaUsersCommandGateway",
+    "SqlaUsersCharacterQueryGateway",
     "SqlaTransactionManager",
     "SqlaSocialAccountQueryGateway",
     "SqlaIdentityQueryGateway",

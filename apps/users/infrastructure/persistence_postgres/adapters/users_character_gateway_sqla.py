@@ -1,4 +1,4 @@
-"""SQLAlchemy implementation of user character gateway."""
+"""SQLAlchemy implementation of users character gateway."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apps.users.domain.entities.user_character import UserCharacter
 
 
-class SqlaUserCharacterQueryGateway:
+class SqlaUsersCharacterQueryGateway:
     """사용자 캐릭터 조회 게이트웨이 SQLAlchemy 구현."""
 
     def __init__(self, session: AsyncSession) -> None:

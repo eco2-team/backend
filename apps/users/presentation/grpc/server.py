@@ -3,7 +3,7 @@
 auth 도메인에서 호출하는 사용자 관련 gRPC 서비스입니다.
 
 Usage:
-    python -m apps.users.infrastructure.grpc.server
+    python -m apps.users.presentation.grpc.server
 """
 
 from __future__ import annotations
@@ -15,12 +15,12 @@ from concurrent import futures
 
 import grpc
 
-from apps.users.infrastructure.grpc import users_pb2_grpc
-from apps.users.infrastructure.grpc.servicers import UsersServicer
 from apps.users.infrastructure.persistence_postgres.mappings import start_mappers
 from apps.users.infrastructure.persistence_postgres.session import (
     async_session_factory,
 )
+from apps.users.presentation.grpc import users_pb2_grpc
+from apps.users.presentation.grpc.servicers import UsersServicer
 from apps.users.setup.config import get_settings
 from apps.users.setup.dependencies import GrpcUseCaseFactory
 from apps.users.setup.logging import setup_logging

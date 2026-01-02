@@ -24,7 +24,7 @@ from uuid import UUID
 import grpc
 
 from apps.users.application.identity.dto import OAuthUserRequest, UpdateLoginTimeRequest
-from apps.users.infrastructure.grpc import users_pb2, users_pb2_grpc
+from apps.users.presentation.grpc import users_pb2, users_pb2_grpc
 
 if TYPE_CHECKING:
     from apps.users.setup.dependencies import GrpcUseCaseFactory
