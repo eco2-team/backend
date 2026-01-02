@@ -57,9 +57,12 @@ class Settings(BaseSettings):
     access_token_exp_minutes: int = 60 * 3
     refresh_token_exp_minutes: int = 60 * 24 * 30
 
-    # Frontend / Cookie
+    # Frontend / Cookie / CORS
     frontend_url: str = "https://frontend1.dev.growbin.app"
     cookie_domain: Optional[str] = ".dev.growbin.app"
+    cors_origins: Optional[str] = (
+        None  # 콤마 구분, 예: "https://frontend.dev.growbin.app,https://growbin.app"
+    )
 
     # Character service integration
     character_api_base_url: str = "http://character-api.character.svc.cluster.local:8000"
