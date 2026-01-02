@@ -73,7 +73,7 @@ class GetCharactersQuery:
 
 
 class CheckCharacterOwnershipQuery:
-    """캐릭터 소유 여부 확인 Query (지휘자).
+    """캐릭터 소유 여부 확인 Query (지휘자) - domains/my 호환.
 
     캐릭터 소유 여부 확인 플로우를 오케스트레이션합니다.
 
@@ -89,33 +89,32 @@ class CheckCharacterOwnershipQuery:
     def __init__(self, character_gateway: "UserCharacterQueryGateway") -> None:
         self._character_gateway = character_gateway
 
-    async def execute(self, user_id: UUID, character_code: str) -> CharacterOwnership:
+    async def execute(self, user_id: UUID, character_name: str) -> CharacterOwnership:
         """특정 캐릭터의 소유 여부를 확인합니다.
 
         Args:
             user_id: 사용자 ID
-            character_code: 캐릭터 코드
+            character_name: 캐릭터 이름
 
         Returns:
             소유 여부 DTO
         """
         logger.info(
             "Character ownership query executed",
-            extra={"user_id": str(user_id), "character_code": character_code},
+            extra={"user_id": str(user_id), "character_name": character_name},
         )
 
         # 1. 캐릭터 소유 정보 조회 (Port 직접 호출)
-        character = await self._character_gateway.get_by_character_code(user_id, character_code)
+        character = await self._character_gateway.get_by_character_name(user_id, character_name)
 
         # 2. 소유 여부 DTO 생성
         if character is None:
             return CharacterOwnership(
-                character_code=character_code,
+                character_name=character_name,
                 owned=False,
             )
 
         return CharacterOwnership(
-            character_code=character_code,
+            character_name=character_name,
             owned=True,
-            acquired_at=character.acquired_at,
         )
