@@ -17,15 +17,14 @@ spec:
         paths: [/api/v1/*]   # API 경로에 대해서만 검사
         # NOTE: CORS preflight(OPTIONS)는 ext-authz 서비스에서 허용 처리
         notPaths:
-        # 로그인/리프레시/로그아웃/소셜 OAuth 콜백/JWKS 등은 ext-authz 우회
-        - /api/v1/auth/kakao
-        - /api/v1/auth/google
-        - /api/v1/auth/naver
+        # 로그인/리프레시/로그아웃/소셜 OAuth/JWKS 등은 ext-authz 우회
+        # OAuth 엔드포인트 (authorize, login, callback)
+        - /api/v1/auth/kakao/*
+        - /api/v1/auth/google/*
+        - /api/v1/auth/naver/*
+        # 토큰 관련
         - /api/v1/auth/refresh
         - /api/v1/auth/logout
-        - /api/v1/auth/kakao/callback
-        - /api/v1/auth/google/callback
-        - /api/v1/auth/naver/callback
         - /api/v1/auth/.well-known/jwks.json
         # 스웨거/문서
         - /api/v1/auth/docs
