@@ -10,7 +10,6 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from apps.auth.application.token.commands import RefreshTokensInteractor
 from apps.auth.application.token.dto import RefreshTokensRequest
 from apps.auth.presentation.http.auth.cookie_params import set_auth_cookies
-from apps.auth.presentation.http.schemas.auth import TokenResponse
 from apps.auth.setup.dependencies import get_refresh_tokens_interactor
 
 router = APIRouter()
@@ -28,7 +27,6 @@ def _parse_bearer(header_value: Optional[str]) -> Optional[str]:
 
 @router.post(
     "/refresh",
-    response_model=TokenResponse,
     summary="토큰 갱신",
     status_code=status.HTTP_201_CREATED,
 )
@@ -37,7 +35,7 @@ async def refresh(
     authorization: Optional[str] = Header(None, alias="Authorization"),
     refresh_authorization: Optional[str] = Header(None, alias="X-Refresh-Token"),
     interactor: RefreshTokensInteractor = Depends(get_refresh_tokens_interactor),
-) -> TokenResponse:
+) -> None:
     """토큰을 갱신합니다.
 
     EnvoyFilter가 쿠키를 헤더로 변환:
@@ -67,4 +65,4 @@ async def refresh(
     )
 
     response.status_code = status.HTTP_201_CREATED
-    return TokenResponse(message="Token refreshed successfully")
+    return None
