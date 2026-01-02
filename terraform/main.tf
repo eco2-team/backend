@@ -69,6 +69,7 @@ locals {
   kubelet_profiles = {
     "k8s-master"           = "--node-labels=role=control-plane,domain=control-plane,service=platform-system,workload=control-plane,tier=platform,phase=0 --register-with-taints=role=control-plane:NoSchedule"
     "k8s-api-auth"         = "--node-labels=role=api,domain=auth,service=auth,workload=api,tier=business-logic,phase=1 --register-with-taints=domain=auth:NoSchedule"
+    "k8s-api-users"        = "--node-labels=role=api,domain=users,service=users,workload=api,tier=business-logic,phase=1 --register-with-taints=domain=users:NoSchedule"
     "k8s-api-my"           = "--node-labels=role=api,domain=my,service=my,workload=api,tier=business-logic,phase=1 --register-with-taints=domain=my:NoSchedule"
     "k8s-api-scan"         = "--node-labels=role=api,domain=scan,service=scan,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=scan:NoSchedule"
     "k8s-api-character"    = "--node-labels=role=api,domain=character,service=character,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=character:NoSchedule"
@@ -184,7 +185,35 @@ module "api_auth" {
   }
 }
 
-# API-2: My Page (필수)
+# API-2: Users (사용자 계정 + 프로필 + 캐릭터) - auth와 밀접한 관계
+module "api_users" {
+  source = "./modules/ec2"
+
+  instance_name        = "k8s-api-users"
+  instance_type        = "t3.small" # 2GB
+  ami_id               = data.aws_ami.ubuntu.id
+  subnet_id            = module.vpc.public_subnet_ids[1]
+  security_group_ids   = [module.security_groups.cluster_sg_id]
+  key_name             = aws_key_pair.k8s.key_name
+  iam_instance_profile = aws_iam_instance_profile.k8s.name
+
+  root_volume_size = 20
+  root_volume_type = "gp3"
+
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname           = "k8s-api-users"
+    kubelet_extra_args = local.kubelet_profiles["k8s-api-users"]
+  })
+
+  tags = {
+    Role     = "worker"
+    Workload = "api-users"
+    Domain   = "users"
+    Phase    = "1"
+  }
+}
+
+# API-3: My Page (필수)
 module "api_my" {
   source = "./modules/ec2"
 

@@ -38,7 +38,23 @@ output "api_auth_private_ip" {
   value       = module.api_auth.private_ip
 }
 
-# API-2: My
+# API-2: Users
+output "api_users_instance_id" {
+  description = "Users API Instance ID"
+  value       = module.api_users.instance_id
+}
+
+output "api_users_public_ip" {
+  description = "Users API Public IP"
+  value       = module.api_users.public_ip
+}
+
+output "api_users_private_ip" {
+  description = "Users API Private IP"
+  value       = module.api_users.private_ip
+}
+
+# API-3: My
 output "api_my_instance_id" {
   description = "My API Instance ID"
   value       = module.api_my.instance_id

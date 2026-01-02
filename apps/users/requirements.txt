@@ -10,6 +10,10 @@ pydantic-settings==2.1.0
 sqlalchemy==2.0.25
 asyncpg==0.29.0
 
+# gRPC
+grpcio==1.68.0
+protobuf>=5.28.0,<6.0
+
 # HTTP Client (for potential future use)
 httpx==0.26.0
 
