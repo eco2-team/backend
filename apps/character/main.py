@@ -15,6 +15,46 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+async def warmup_local_cache() -> None:
+    """로컬 캐시 워밍업 (DB에서 캐릭터 로드).
+
+    API 서버 시작 시 DB에서 캐릭터 목록을 로드하여
+    로컬 인메모리 캐시를 초기화합니다.
+    """
+    try:
+        from apps.character.infrastructure.cache import get_character_cache
+        from apps.character.infrastructure.persistence_postgres import (
+            SqlaCharacterReader,
+        )
+        from apps.character.setup.database import async_session_factory
+
+        cache = get_character_cache()
+
+        # 이미 초기화되어 있으면 스킵
+        if cache.is_initialized:
+            logger.info("Local cache already initialized, skipping warmup")
+            return
+
+        async with async_session_factory() as session:
+            reader = SqlaCharacterReader(session)
+            characters = await reader.list_all()
+
+            if characters:
+                cache.set_all(list(characters))
+                logger.info(
+                    "Local cache warmup completed",
+                    extra={"count": len(characters)},
+                )
+            else:
+                logger.warning("Local cache warmup: no characters found in database")
+
+    except Exception as e:
+        logger.warning(
+            "Local cache warmup failed (graceful degradation)",
+            extra={"error": str(e)},
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """애플리케이션 라이프사이클 관리."""
@@ -26,10 +66,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         setup_tracing(settings.service_name)
 
+    # 로컬 캐시 워밍업
+    await warmup_local_cache()
+
+    # MQ Consumer 시작 (캐시 실시간 동기화)
+    if settings.celery_broker_url:
+        from apps.character.infrastructure.cache import start_cache_consumer
+
+        start_cache_consumer(settings.celery_broker_url)
+        logger.info("Cache consumer started for real-time sync")
+
     yield
 
     # Cleanup
     logger.info("Shutting down Character API service")
+
+    # MQ Consumer 중지
+    from apps.character.infrastructure.cache import stop_cache_consumer
+
+    stop_cache_consumer()
+
     await close_redis()
 
 
