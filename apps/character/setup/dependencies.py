@@ -1,21 +1,25 @@
-"""Dependency Injection for FastAPI."""
+"""Dependency Injection for FastAPI.
+
+Architecture:
+    - 로컬 인메모리 캐시 사용 (Redis 의존성 제거)
+    - MQ broadcast로 다중 인스턴스 간 캐시 동기화
+"""
 
 from typing import Annotated, AsyncIterator
 
 from fastapi import Depends
-from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.character.application.catalog import GetCatalogQuery
 from apps.character.application.catalog.ports import CatalogReader
 from apps.character.application.reward import EvaluateRewardCommand
 from apps.character.application.reward.ports import CharacterMatcher, OwnershipChecker
+from apps.character.infrastructure.cache import LocalCachedCatalogReader
 from apps.character.infrastructure.persistence_postgres import (
     SqlaCharacterReader,
     SqlaOwnershipChecker,
 )
-from apps.character.infrastructure.persistence_redis import CachedCatalogReader
-from apps.character.setup.database import async_session_factory, get_redis
+from apps.character.setup.database import async_session_factory
 
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:
@@ -27,11 +31,6 @@ async def get_db_session() -> AsyncIterator[AsyncSession]:
             await session.close()
 
 
-async def get_redis_client() -> Redis:
-    """Redis 클라이언트를 주입합니다."""
-    return await get_redis()
-
-
 async def get_character_reader(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> SqlaCharacterReader:
@@ -41,11 +40,14 @@ async def get_character_reader(
 
 async def get_catalog_reader(
     session: Annotated[AsyncSession, Depends(get_db_session)],
-    redis: Annotated[Redis, Depends(get_redis_client)],
 ) -> CatalogReader:
-    """캐시된 Catalog Reader를 주입합니다."""
+    """로컬 캐시된 Catalog Reader를 주입합니다.
+
+    로컬 인메모리 캐시를 사용하여 Redis 의존성 없이
+    빠른 응답을 제공합니다. 캐시 miss 시 DB fallback.
+    """
     db_reader = SqlaCharacterReader(session)
-    return CachedCatalogReader(db_reader, redis)
+    return LocalCachedCatalogReader(db_reader)
 
 
 async def get_character_matcher(

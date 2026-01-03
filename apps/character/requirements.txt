@@ -9,8 +9,11 @@ sqlalchemy[asyncio]>=2.0.0
 asyncpg>=0.29.0
 psycopg2-binary>=2.9.0
 
-# Redis
+# Redis (fallback용)
 redis>=5.0.0
+
+# Message Queue (캐시 동기화)
+kombu>=5.3.0
 
 # gRPC
 grpcio>=1.60.0

@@ -19,10 +19,13 @@ class Settings(BaseSettings):
     postgres_password: str = "character"
     postgres_db: str = "character"
 
-    # Redis
+    # Redis (fallback용, 로컬 캐시 우선)
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0
+
+    # RabbitMQ (캐시 동기화용)
+    celery_broker_url: str | None = None
 
     # gRPC
     grpc_port: int = 50051
