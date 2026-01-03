@@ -44,25 +44,38 @@ def save_characters_task(requests: list) -> dict[str, Any]:
     if not requests:
         return {"processed": 0, "upserted": 0, "status": "success"}
 
-    # SimpleRequest에서 kwargs 추출
+    # SimpleRequest에서 args + kwargs 추출
+    # scan.reward에서는 args=[user_id, character_id, character_code] + kwargs={...} 혼합 방식으로 호출
     batch_data = []
     for req in requests:
+        args = req.args or ()
         kwargs = req.kwargs or {}
-        if not kwargs:
-            # positional args인 경우
-            args = req.args or ()
-            if len(args) >= 7:
-                kwargs = {
-                    "user_id": args[0],
-                    "character_id": args[1],
-                    "character_code": args[2],
-                    "character_name": args[3],
-                    "character_type": args[4],
-                    "character_dialog": args[5],
-                    "source": args[6],
-                }
-        if kwargs:
-            batch_data.append(kwargs)
+
+        # args와 kwargs 병합 (scan.reward 호환)
+        merged = {}
+
+        # args에서 추출 (위치 기반)
+        if len(args) >= 1:
+            merged["user_id"] = args[0]
+        if len(args) >= 2:
+            merged["character_id"] = args[1]
+        if len(args) >= 3:
+            merged["character_code"] = args[2]
+        if len(args) >= 4:
+            merged["character_name"] = args[3]
+        if len(args) >= 5:
+            merged["character_type"] = args[4]
+        if len(args) >= 6:
+            merged["character_dialog"] = args[5]
+        if len(args) >= 7:
+            merged["source"] = args[6]
+
+        # kwargs로 덮어쓰기 (우선순위 높음)
+        merged.update(kwargs)
+
+        # 필수 필드 확인
+        if merged.get("user_id") and merged.get("character_id"):
+            batch_data.append(merged)
 
     if not batch_data:
         return {"processed": 0, "upserted": 0, "status": "success"}

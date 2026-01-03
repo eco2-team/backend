@@ -17,6 +17,25 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 default_exchange = Exchange("", type="direct")  # Default exchange
 dlx_exchange = Exchange("dlx", type="direct")  # Dead Letter Exchange
 
+# Task Routes (외부 모듈에서 import 가능)
+CELERY_TASK_ROUTES = {
+    # Scan Chain (scan-worker: AI 처리)
+    "scan.vision": {"queue": "scan.vision"},
+    "scan.rule": {"queue": "scan.rule"},
+    "scan.answer": {"queue": "scan.answer"},
+    "scan.reward": {"queue": "scan.reward"},
+    # Character match (동기 응답, 빠른 처리)
+    "character.match": {"queue": "character.match"},
+    # Character reward (fire & forget, 백그라운드)
+    "character.save_ownership": {"queue": "character.reward"},
+    # Character grant default (신규 사용자 기본 캐릭터 지급)
+    "character.grant_default": {"queue": "character.grant_default"},
+    # My reward (my-worker: my DB 저장)
+    "my.save_character": {"queue": "my.reward"},
+    # Users character (users-worker: users DB 저장, Clean Architecture)
+    "users.save_character": {"queue": "users.character"},
+}
+
 # Queue 정의 (DLX 설정 포함 - Topology CR과 완전 동기화)
 # Classic queue 사용 - x-queue-type 생략 (기본값)
 CELERY_QUEUES = (
@@ -84,6 +103,17 @@ CELERY_QUEUES = (
             "x-message-ttl": 30000,  # 30초 (빠른 응답)
         },
     ),
+    # Character grant default queue (신규 사용자 기본 캐릭터 지급)
+    Queue(
+        "character.grant_default",
+        default_exchange,
+        routing_key="character.grant_default",
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.character.grant_default",
+            "x-message-ttl": 86400000,  # 24시간
+        },
+    ),
     # Character reward queue (fire & forget, 백그라운드)
     Queue(
         "character.reward",
@@ -102,6 +132,17 @@ CELERY_QUEUES = (
         queue_arguments={
             "x-dead-letter-exchange": "dlx",
             "x-dead-letter-routing-key": "dlq.my.reward",
+            "x-message-ttl": 86400000,  # 24시간
+        },
+    ),
+    # Users character queue (users-worker: users DB 저장, Clean Architecture)
+    Queue(
+        "users.character",
+        default_exchange,
+        routing_key="users.character",
+        queue_arguments={
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "dlq.users.character",
             "x-message-ttl": 86400000,  # 24시간
         },
     ),
@@ -247,6 +288,8 @@ class CelerySettings(BaseSettings):
                 "character.save_ownership": {"queue": "character.reward"},
                 # My reward (my-worker: my DB 저장)
                 "my.save_character": {"queue": "my.reward"},
+                # Users character (users-worker: users DB 저장, Clean Architecture)
+                "users.save_character": {"queue": "users.character"},
                 # DLQ 재처리 → 각 도메인 worker가 처리
                 "dlq.reprocess_scan_vision": {"queue": "scan.vision"},
                 "dlq.reprocess_scan_rule": {"queue": "scan.rule"},
@@ -254,6 +297,7 @@ class CelerySettings(BaseSettings):
                 "dlq.reprocess_scan_reward": {"queue": "scan.reward"},
                 "dlq.reprocess_character_reward": {"queue": "character.reward"},
                 "dlq.reprocess_my_reward": {"queue": "my.reward"},
+                "dlq.reprocess_users_character": {"queue": "users.character"},
             },
             # Queue configuration (DLX 포함하여 명시적 정의)
             "task_queues": CELERY_QUEUES,
@@ -289,6 +333,11 @@ class CelerySettings(BaseSettings):
                 },
                 "reprocess-dlq-my-reward": {
                     "task": "dlq.reprocess_my_reward",
+                    "schedule": 300.0,
+                    "kwargs": {"max_messages": 10},
+                },
+                "reprocess-dlq-users-character": {
+                    "task": "dlq.reprocess_users_character",
                     "schedule": 300.0,
                     "kwargs": {"max_messages": 10},
                 },

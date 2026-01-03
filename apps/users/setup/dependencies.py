@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Annotated
 
+from celery import Celery
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +18,7 @@ from apps.users.application.profile.queries import GetProfileQuery
 from apps.users.application.profile.services import ProfileBuilder
 
 # Character domain
+from apps.users.application.character.ports import DefaultCharacterPublisher
 from apps.users.application.character.queries import (
     CheckCharacterOwnershipQuery,
     GetCharactersQuery,
@@ -29,6 +32,7 @@ from apps.users.application.identity.commands import (
 from apps.users.application.identity.queries import GetUserQuery
 
 from apps.users.domain.services import UserService
+from apps.users.infrastructure.messaging import CeleryDefaultCharacterPublisher
 from apps.users.infrastructure.persistence_postgres.adapters import (
     SqlaIdentityCommandGateway,
     SqlaIdentityQueryGateway,
@@ -39,9 +43,25 @@ from apps.users.infrastructure.persistence_postgres.adapters import (
     SqlaUsersQueryGateway,
 )
 from apps.users.infrastructure.persistence_postgres.session import get_db_session
+from apps.users.setup.config import Settings, get_settings
 
 # Type alias for dependency injection
 SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
+
+
+@lru_cache
+def get_celery_app() -> Celery:
+    """Celery 앱 인스턴스를 반환합니다."""
+    settings = get_settings()
+    return Celery(
+        "users",
+        broker=settings.celery_broker_url,
+    )
+
+
+def get_default_character_publisher() -> DefaultCharacterPublisher:
+    """DefaultCharacterPublisher 인스턴스를 반환합니다."""
+    return CeleryDefaultCharacterPublisher(get_celery_app())
 
 
 # Domain Services
@@ -71,10 +91,15 @@ def get_get_profile_query(
     )
 
 
-def get_get_characters_query(session: SessionDep) -> GetCharactersQuery:
+def get_get_characters_query(
+    session: SessionDep,
+    default_publisher: DefaultCharacterPublisher = Depends(get_default_character_publisher),
+) -> GetCharactersQuery:
     """GetCharactersQuery 인스턴스를 반환합니다."""
     return GetCharactersQuery(
         character_gateway=SqlaUsersCharacterQueryGateway(session),
+        default_publisher=default_publisher,
+        settings=get_settings(),
     )
 
 

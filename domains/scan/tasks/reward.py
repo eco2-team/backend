@@ -331,8 +331,14 @@ def _dispatch_save_tasks(
     reward: dict[str, Any],
     log_ctx: dict,
 ) -> None:
-    """DB 저장 task 발행 (Fire & Forget)."""
-    dispatched = {"character": False, "my": False}
+    """DB 저장 task 발행 (Fire & Forget).
+
+    3개의 독립적인 저장소에 저장:
+    - character.save_ownership: character.character_ownerships 테이블
+    - my.save_character: user_profile.user_characters 테이블 (레거시)
+    - users.save_character: users.user_characters 테이블 (Clean Architecture)
+    """
+    dispatched = {"character": False, "my": False, "users": False}
 
     # character.save_ownership → character.reward 큐
     try:
@@ -341,6 +347,7 @@ def _dispatch_save_tasks(
             kwargs={
                 "user_id": user_id,
                 "character_id": reward["character_id"],
+                "character_code": reward.get("character_code", ""),
                 "source": "scan",
             },
             queue="character.reward",
@@ -350,7 +357,7 @@ def _dispatch_save_tasks(
     except Exception:
         logger.exception("Failed to dispatch save_ownership_task", extra=log_ctx)
 
-    # my.save_character → my.reward 큐
+    # my.save_character → my.reward 큐 (레거시: user_profile.user_characters)
     try:
         celery_app.send_task(
             "my.save_character",
@@ -369,6 +376,27 @@ def _dispatch_save_tasks(
         logger.info("save_my_character_task dispatched", extra=log_ctx)
     except Exception:
         logger.exception("Failed to dispatch save_my_character_task", extra=log_ctx)
+
+    # users.save_character → users.character 큐 (Clean Architecture: users.user_characters)
+    try:
+        celery_app.send_task(
+            "users.save_character",
+            args=[
+                user_id,
+                reward["character_id"],
+                reward.get("character_code", ""),
+            ],
+            kwargs={
+                "character_name": reward.get("name", ""),
+                "character_type": reward.get("character_type"),
+                "source": "scan",
+            },
+            queue="users.character",
+        )
+        dispatched["users"] = True
+        logger.info("save_users_character_task dispatched", extra=log_ctx)
+    except Exception:
+        logger.exception("Failed to dispatch save_users_character_task", extra=log_ctx)
 
     logger.info(
         "Reward storage tasks dispatched",

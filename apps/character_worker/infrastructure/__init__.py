@@ -1,0 +1,1 @@
+"""Character Worker Infrastructure Layer."""

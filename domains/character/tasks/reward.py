@@ -48,18 +48,27 @@ def save_ownership_task(requests: list) -> dict[str, Any]:
 
     batch_data = []
     for req in requests:
-        # SimpleRequest에서 kwargs 추출
+        # SimpleRequest에서 kwargs 추출 (character_code 필수)
         kwargs = req.kwargs or {}
         if not kwargs:
             # positional args인 경우
             args = req.args or ()
-            if len(args) >= 3:
+            if len(args) >= 4:
+                kwargs = {
+                    "user_id": args[0],
+                    "character_id": args[1],
+                    "character_code": args[2],
+                    "source": args[3],
+                }
+            elif len(args) >= 3:
+                # Legacy: character_code 없는 경우 (호환성)
                 kwargs = {
                     "user_id": args[0],
                     "character_id": args[1],
                     "source": args[2],
                 }
-        if kwargs:
+        # character_code 필수 체크
+        if kwargs and kwargs.get("character_code"):
             batch_data.append(kwargs)
 
     if not batch_data:
@@ -92,14 +101,15 @@ def save_ownership_task(requests: list) -> dict[str, Any]:
         raise
 
 
-def _generate_ownership_id(user_id: str, character_id: str) -> UUID:
+def _generate_ownership_id(user_id: str, character_code: str) -> UUID:
     """Deterministic UUID 생성 (멱등성 보장).
 
-    동일한 (user_id, character_id) 쌍은 항상 동일한 id 생성.
+    동일한 (user_id, character_code) 쌍은 항상 동일한 id 생성.
+    users.user_characters와 동일한 기준 사용.
     """
     from uuid import NAMESPACE_DNS, uuid5
 
-    return uuid5(NAMESPACE_DNS, f"ownership:{user_id}:{character_id}")
+    return uuid5(NAMESPACE_DNS, f"ownership:{user_id}:{character_code}")
 
 
 async def _save_ownership_batch_async(
@@ -108,7 +118,7 @@ async def _save_ownership_batch_async(
     """character.character_ownerships BULK UPSERT.
 
     INSERT INTO ... VALUES (...), (...), ... ON CONFLICT DO NOTHING
-    Deterministic UUID로 멱등성 보장.
+    (user_id, character_code) 기준 멱등성 - users.user_characters와 통일.
     """
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -132,14 +142,16 @@ async def _save_ownership_batch_async(
         for i, data in enumerate(batch_data):
             user_id = data["user_id"]
             character_id = data["character_id"]
+            character_code = data["character_code"]
             values.append(
-                f"(:id_{i}, :user_id_{i}, :character_id_{i}, :source_{i}, "
+                f"(:id_{i}, :user_id_{i}, :character_id_{i}, :character_code_{i}, :source_{i}, "
                 f":status_{i}, NOW(), NOW())"
             )
-            # Deterministic UUID: 동일 입력 → 동일 id (멱등성)
-            params[f"id_{i}"] = _generate_ownership_id(user_id, character_id)
+            # Deterministic UUID: (user_id, character_code) 기준 멱등성
+            params[f"id_{i}"] = _generate_ownership_id(user_id, character_code)
             params[f"user_id_{i}"] = UUID(user_id)
             params[f"character_id_{i}"] = UUID(character_id)
+            params[f"character_code_{i}"] = character_code
             params[f"source_{i}"] = data.get("source", "scan")
             params[f"status_{i}"] = "owned"
 
@@ -149,9 +161,9 @@ async def _save_ownership_batch_async(
         sql = text(
             f"""
             INSERT INTO character.character_ownerships
-                (id, user_id, character_id, source, status, acquired_at, updated_at)
+                (id, user_id, character_id, character_code, source, status, acquired_at, updated_at)
             VALUES {", ".join(values)}
-            ON CONFLICT (user_id, character_id) DO NOTHING
+            ON CONFLICT (user_id, character_code) DO NOTHING
         """
         )
 

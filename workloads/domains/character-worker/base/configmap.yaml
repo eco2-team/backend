@@ -24,3 +24,6 @@ data:
   # gRPC settings
   GRPC_TIMEOUT_SECONDS: '10'
   GRPC_MAX_RETRIES: '3'
+  # Users DB (기본 캐릭터 지급 시 users.user_characters 저장)
+  USERS_POSTGRES_USER: users
+  USERS_POSTGRES_DB: users

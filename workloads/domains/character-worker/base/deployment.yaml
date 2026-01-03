@@ -44,7 +44,7 @@ spec:
         - -P
         - gevent  # I/O 바운드 DB 작업에 최적화
         - -Q
-        - character.reward
+        - character.reward,character.grant_default
         - -c
         - '20'  # 동시 greenlet 수 (DB 배치 처리)
         env:

@@ -105,6 +105,24 @@ spec:
     namespace: rabbitmq
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Character Grant Default Binding (신규 사용자 기본 캐릭터 지급)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: character-grant-default-binding
+  namespace: rabbitmq
+spec:
+  source: character.direct
+  destination: character.grant_default
+  destinationType: queue
+  routingKey: character.grant_default
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # My Reward Binding (my.direct → my.reward)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: rabbitmq.com/v1beta1
@@ -210,6 +228,21 @@ spec:
   destination: dlq.character.reward
   destinationType: queue
   routingKey: dlq.character.reward
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: dlq-character-grant-default-binding
+  namespace: rabbitmq
+spec:
+  source: dlx
+  destination: dlq.character.grant_default
+  destinationType: queue
+  routingKey: dlq.character.grant_default
   vhost: eco2
   rabbitmqClusterReference:
     name: eco2-rabbitmq

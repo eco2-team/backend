@@ -131,6 +131,28 @@ spec:
     namespace: rabbitmq
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Character Grant Default Queue (신규 사용자 기본 캐릭터 지급)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Queue
+metadata:
+  name: character-grant-default-queue
+  namespace: rabbitmq
+spec:
+  name: character.grant_default
+  type: classic
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  arguments:
+    x-dead-letter-exchange: dlx
+    x-dead-letter-routing-key: dlq.character.grant_default
+    x-message-ttl: 86400000  # 24시간
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # My Reward Queue (my DB 저장 - my-worker)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: rabbitmq.com/v1beta1
@@ -247,6 +269,23 @@ metadata:
   namespace: rabbitmq
 spec:
   name: dlq.character.reward
+  type: classic
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  arguments:
+    x-message-ttl: 604800000  # 7일 보관
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Queue
+metadata:
+  name: dlq-character-grant-default
+  namespace: rabbitmq
+spec:
+  name: dlq.character.grant_default
   type: classic
   durable: true
   autoDelete: false
