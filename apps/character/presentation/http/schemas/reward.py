@@ -22,6 +22,9 @@ class RewardRequest(BaseModel):
     user_id: UUID = Field(..., description="사용자 ID")
     source: CharacterRewardSource = Field(..., description="리워드 소스")
     classification: ClassificationRequest = Field(..., description="분류 결과")
+    # 리워드 조건 (레거시 정합성)
+    disposal_rules_present: bool = Field(True, description="분리수거 규칙 존재 여부")
+    insufficiencies_present: bool = Field(False, description="부적절 항목 존재 여부")
 
 
 class RewardResponse(BaseModel):

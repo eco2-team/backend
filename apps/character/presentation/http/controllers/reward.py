@@ -37,6 +37,9 @@ async def evaluate_reward(
             minor_category=request.classification.minor_category,
             confidence=request.classification.confidence,
         ),
+        # 리워드 조건 (레거시 정합성)
+        disposal_rules_present=request.disposal_rules_present,
+        insufficiencies_present=request.insufficiencies_present,
     )
 
     result = await command.execute(dto)

@@ -41,6 +41,26 @@ class EvaluateRewardCommand:
         Returns:
             리워드 결과
         """
+        # 0. 리워드 조건 체크 (레거시 정합성)
+        # - 분리수거 규칙이 있어야 함
+        # - 부적절 항목이 없어야 함
+        should_evaluate = (
+            request.disposal_rules_present
+            and not request.insufficiencies_present
+        )
+
+        if not should_evaluate:
+            logger.info(
+                "Reward conditions not met: disposal_rules=%s, insufficiencies=%s",
+                request.disposal_rules_present,
+                request.insufficiencies_present,
+            )
+            return RewardResult(
+                received=False,
+                already_owned=False,
+                match_reason="Reward conditions not met",
+            )
+
         # 1. 매칭 라벨로 캐릭터 찾기
         match_label = request.classification.middle_category
         character = await self._matcher.match_by_label(match_label)

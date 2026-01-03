@@ -31,11 +31,15 @@ class RewardRequest:
         user_id: 사용자 ID
         source: 리워드 소스
         classification: 분류 결과 요약
+        disposal_rules_present: 분리수거 규칙 존재 여부
+        insufficiencies_present: 부적절 항목 존재 여부
     """
 
     user_id: UUID
     source: CharacterRewardSource
     classification: ClassificationSummary
+    disposal_rules_present: bool = True
+    insufficiencies_present: bool = False
 
 
 @dataclass(frozen=True, slots=True)

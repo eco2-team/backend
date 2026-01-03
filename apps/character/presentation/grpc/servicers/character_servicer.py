@@ -57,6 +57,9 @@ class CharacterServicer(character_pb2_grpc.CharacterServiceServicer):
                         else None
                     ),
                 ),
+                # 리워드 조건 필드 (레거시 정합성)
+                disposal_rules_present=request.disposal_rules_present,
+                insufficiencies_present=request.insufficiencies_present,
             )
 
             # 2. Application Command 실행
