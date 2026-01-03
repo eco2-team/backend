@@ -4,7 +4,7 @@ gRPC Servicer는 외부 시스템(scan, my 등)과의 인터페이스입니다.
 이 테스트는 Protocol Buffers 변환, 에러 핸들링, 레거시 호환성을 검증합니다.
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import grpc

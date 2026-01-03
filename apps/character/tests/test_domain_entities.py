@@ -7,7 +7,6 @@ Domain Entity는 비즈니스 로직의 핵심입니다.
 from datetime import datetime, timezone
 from uuid import uuid4
 
-import pytest
 
 from apps.character.domain.entities import Character, CharacterOwnership
 from apps.character.domain.enums import CharacterOwnershipStatus

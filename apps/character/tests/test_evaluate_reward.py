@@ -5,8 +5,6 @@ from uuid import uuid4
 
 import pytest
 
-pytestmark = pytest.mark.asyncio
-
 from apps.character.application.reward.commands.evaluate_reward import (
     EvaluateRewardCommand,
 )
@@ -14,8 +12,10 @@ from apps.character.application.reward.dto import (
     ClassificationSummary,
     RewardRequest,
 )
-from apps.character.domain.enums import CharacterRewardSource
 from apps.character.domain.entities import Character
+from apps.character.domain.enums import CharacterRewardSource
+
+pytestmark = pytest.mark.asyncio
 
 
 @pytest.fixture

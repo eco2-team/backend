@@ -5,10 +5,10 @@ from uuid import uuid4
 
 import pytest
 
-pytestmark = pytest.mark.asyncio
-
 from apps.character.application.catalog.queries.get_catalog import GetCatalogQuery
 from apps.character.domain.entities import Character
+
+pytestmark = pytest.mark.asyncio
 
 
 @pytest.fixture
