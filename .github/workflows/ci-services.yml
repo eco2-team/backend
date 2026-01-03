@@ -85,6 +85,7 @@ jobs:
       skip: ${{ steps.detect.outputs.skip }}
       reason: ${{ steps.detect.outputs.reason }}
       commit_type: ${{ steps.detect.outputs.commit_type }}
+      is_canary_merge: ${{ steps.detect.outputs.is_canary_merge }}
     steps:
       - name: Detect conventional commit type
         id: detect
@@ -93,21 +94,42 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
           GITHUB_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          
+          # 기본값 설정
+          echo "is_canary_merge=false" >> "$GITHUB_OUTPUT"
+          
           if [ "${GITHUB_ACTOR}" = "github-actions[bot]" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "reason=Triggered by github-actions bot (manifest bump)" >> "$GITHUB_OUTPUT"
             echo "commit_type=bot" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          
           if [ "$EVENT_NAME" = "pull_request" ]; then
             REF_TEXT="$PR_TITLE"
           else
             # 첫 번째 줄만 사용 (멀티라인 커밋 메시지에서 본문 제외)
             # printf | head 조합은 pipefail 환경에서 SIGPIPE 에러 발생 가능
             REF_TEXT="${COMMIT_MSG%%$'\n'*}"
+            
+            # Push 이벤트: canary PR 머지인지 확인
+            PR_NUM=$(echo "$COMMIT_MSG" | grep -oE '#[0-9]+' | head -1 | tr -d '#' || true)
+            if [ -n "$PR_NUM" ]; then
+              LABELS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUM" --jq '.labels[].name' 2>/dev/null || true)
+              if echo "$LABELS" | grep -q "^canary$"; then
+                echo "is_canary_merge=true" >> "$GITHUB_OUTPUT"
+                echo "skip=true" >> "$GITHUB_OUTPUT"
+                echo "reason=Canary PR merge - stable build handled by ci-canary.yml" >> "$GITHUB_OUTPUT"
+                echo "commit_type=canary" >> "$GITHUB_OUTPUT"
+                echo "🐤 Canary PR #$PR_NUM merge detected - skipping stable build"
+                exit 0
+              fi
+            fi
           fi
+          
           REF_TEXT="${REF_TEXT:-none}"
           TYPE=$(printf '%s\n' "$REF_TEXT" | sed -n 's/^\([A-Za-z0-9_-]\+\):.*/\1/p' | tr '[:upper:]' '[:lower:]')
           if [[ "$TYPE" =~ ^(docs)$ ]]; then
@@ -129,12 +151,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Publish skip summary
+        env:
+          IS_CANARY: ${{ needs.commit-filter.outputs.is_canary_merge }}
         run: |
-          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
           ## ⏭️ Service CI Skipped
           - Reason: ${{ needs.commit-filter.outputs.reason }}
-          - Commit type: `${{ needs.commit-filter.outputs.commit_type }}`
+          - Commit type: \`${{ needs.commit-filter.outputs.commit_type }}\`
           EOF
+          
+          if [ "$IS_CANARY" = "true" ]; then
+            cat <<'CANARY' >> "$GITHUB_STEP_SUMMARY"
+          
+          ### 🐤 Canary Deployment
+          
+          Canary PR 머지가 감지되었습니다. Stable 빌드는 건너뛰고 **ci-canary.yml**에서 canary 이미지만 업데이트합니다.
+          
+          ArgoCD Image Updater가 canary 이미지 변경을 감지하면 자동으로 canary deployment가 업데이트됩니다.
+          
+          **테스트 방법:**
+          \`\`\`bash
+          curl -H "X-Canary: true" https://api.growbin.app/api/v1/<service>/health
+          \`\`\`
+          CANARY
+          fi
 
   detect-api-changes:
     name: 🔍 Detect API Changes

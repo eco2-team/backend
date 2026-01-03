@@ -38,8 +38,12 @@ spec:
       annotations:
         # ArgoCD Image Updater - 이미지 자동 업데이트
         # digest 전략: 같은 태그라도 이미지가 변경되면 자동 배포
-        argocd-image-updater.argoproj.io/image-list: stable=docker.io/mng990/eco2:{{name}}-api-dev-latest
+        #
+        # stable: 일반 PR 머지 시 업데이트 (ci-services.yml)
+        # canary: canary 라벨 PR 머지 시 업데이트 (ci-canary.yml)
+        argocd-image-updater.argoproj.io/image-list: stable=docker.io/mng990/eco2:{{name}}-api-dev-latest,canary=docker.io/mng990/eco2:{{name}}-api-dev-canary
         argocd-image-updater.argoproj.io/stable.update-strategy: digest
+        argocd-image-updater.argoproj.io/canary.update-strategy: digest
         argocd-image-updater.argoproj.io/write-back-method: argocd
     spec:
       project: dev

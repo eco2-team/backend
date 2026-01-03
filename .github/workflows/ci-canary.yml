@@ -1,12 +1,20 @@
 name: CI Canary Build
 
 # PR에 'canary' 라벨이 붙으면 canary 이미지 빌드
+# PR 머지 시에도 canary 이미지 업데이트
 on:
   pull_request:
     types: [labeled, synchronize]
     branches:
       - develop
       - main
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "apps/**"
+      - "domains/**"
 
 permissions:
   contents: write
@@ -14,7 +22,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: ci-canary-${{ github.event.pull_request.number }}
+  group: ci-canary-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -26,18 +34,49 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       is_canary: ${{ steps.check.outputs.is_canary }}
+      pr_number: ${{ steps.check.outputs.pr_number }}
     steps:
       - name: Check for canary label
         id: check
         env:
           PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          EVENT_NAME: ${{ github.event_name }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if echo "$PR_LABELS" | jq -e 'contains(["canary"])' > /dev/null; then
-            echo "is_canary=true" >> "$GITHUB_OUTPUT"
-            echo "✅ Canary label detected - will build canary images"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # PR 이벤트: 직접 라벨 체크
+            if echo "$PR_LABELS" | jq -e 'contains(["canary"])' > /dev/null; then
+              echo "is_canary=true" >> "$GITHUB_OUTPUT"
+              echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+              echo "✅ Canary label detected (PR event)"
+            else
+              echo "is_canary=false" >> "$GITHUB_OUTPUT"
+              echo "ℹ️ No canary label - skipping"
+            fi
           else
-            echo "is_canary=false" >> "$GITHUB_OUTPUT"
-            echo "ℹ️ No canary label - skipping canary build"
+            # Push 이벤트: 커밋 메시지에서 PR 번호 추출 후 라벨 확인
+            # Squash merge: "Title (#123)" 또는 Merge commit: "Merge pull request #123"
+            PR_NUM=$(echo "$COMMIT_MSG" | grep -oE '#[0-9]+' | head -1 | tr -d '#' || true)
+            
+            if [ -n "$PR_NUM" ]; then
+              echo "pr_number=$PR_NUM" >> "$GITHUB_OUTPUT"
+              echo "📌 Found PR #$PR_NUM from commit message"
+              
+              # GitHub API로 PR 라벨 확인
+              LABELS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUM" --jq '.labels[].name' 2>/dev/null || true)
+              
+              if echo "$LABELS" | grep -q "^canary$"; then
+                echo "is_canary=true" >> "$GITHUB_OUTPUT"
+                echo "✅ Canary label detected (from merged PR #$PR_NUM)"
+              else
+                echo "is_canary=false" >> "$GITHUB_OUTPUT"
+                echo "ℹ️ PR #$PR_NUM has no canary label - skipping"
+              fi
+            else
+              echo "is_canary=false" >> "$GITHUB_OUTPUT"
+              echo "ℹ️ No PR number in commit - skipping"
+            fi
           fi
 
   # ============================================================================
