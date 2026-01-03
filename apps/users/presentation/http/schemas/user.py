@@ -28,13 +28,16 @@ class UserUpdateRequest(BaseModel):
 
 
 class UserCharacterResponse(BaseModel):
-    """사용자 캐릭터 응답 스키마 (domains/my 호환)."""
+    """사용자 캐릭터 응답 스키마 (domains/my 호환).
 
-    id: UUID = Field(..., description="캐릭터 소유 ID")
+    Note: id는 character_id입니다 (소유권 ID 아님).
+    """
+
+    id: UUID = Field(..., description="캐릭터 ID (character_id)")
     code: str = Field(..., description="캐릭터 코드")
     name: str = Field(..., description="캐릭터 이름")
-    type: str | None = Field(None, description="캐릭터 타입")
-    dialog: str | None = Field(None, description="캐릭터 대사")
+    type: str = Field(..., description="캐릭터 타입")
+    dialog: str = Field(..., description="캐릭터 대사")
     acquired_at: datetime = Field(..., description="획득 시각")
 
     model_config = {"from_attributes": True}

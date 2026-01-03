@@ -55,11 +55,13 @@ async def get_characters(
     return CharacterListResponse(
         characters=[
             UserCharacterResponse(
-                id=c.id,
+                # domains/my 호환: character_id를 id로 반환
+                id=c.character_id,
                 code=c.character_code,
                 name=c.character_name,
-                type=c.character_type,
-                dialog=c.character_dialog,
+                # domains/my 호환: None이면 빈 문자열
+                type=c.character_type or "",
+                dialog=c.character_dialog or "",
                 acquired_at=c.acquired_at,
             )
             for c in characters
