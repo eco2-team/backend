@@ -12,6 +12,7 @@ on:
       # (sse-gateway, event-router는 → ci-sse-components.yml)
       - "apps/auth/**"
       - "apps/users/**"
+      - "apps/character/**"
       - "domains/auth/**"
       - "domains/character/**"
       - "domains/chat/**"
@@ -41,6 +42,7 @@ on:
       # (sse-gateway, event-router는 → ci-sse-components.yml)
       - "apps/auth/**"
       - "apps/users/**"
+      - "apps/character/**"
       - "domains/auth/**"
       - "domains/character/**"
       - "domains/chat/**"
@@ -197,6 +199,7 @@ jobs:
           files: |
             apps/auth/**
             apps/users/**
+            apps/character/**
             domains/auth/**
             domains/character/**
             domains/chat/**
