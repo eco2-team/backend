@@ -99,9 +99,7 @@ class TestCharactersController:
     ) -> None:
         """캐릭터 목록 조회."""
         mock_get_characters_query.execute.return_value = sample_characters
-        app.dependency_overrides[get_get_characters_query] = (
-            lambda: mock_get_characters_query
-        )
+        app.dependency_overrides[get_get_characters_query] = lambda: mock_get_characters_query
 
         # X-User-Id 헤더로 인증 시뮬레이션
         response = client.get(
@@ -133,9 +131,7 @@ class TestCharactersController:
             acquired_at=datetime.now(timezone.utc),
         )
         mock_get_characters_query.execute.return_value = [default_char]
-        app.dependency_overrides[get_get_characters_query] = (
-            lambda: mock_get_characters_query
-        )
+        app.dependency_overrides[get_get_characters_query] = lambda: mock_get_characters_query
 
         response = client.get(
             "/me/characters",
@@ -158,9 +154,7 @@ class TestProfileController:
     ) -> None:
         """프로필 조회."""
         mock_get_profile_query.execute.return_value = sample_profile
-        app.dependency_overrides[get_get_profile_query] = (
-            lambda: mock_get_profile_query
-        )
+        app.dependency_overrides[get_get_profile_query] = lambda: mock_get_profile_query
 
         response = client.get(
             "/me/profile",
