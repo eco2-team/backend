@@ -26,6 +26,7 @@ opentelemetry-instrumentation-redis>=0.42b0
 opentelemetry-instrumentation-grpc>=0.42b0
 opentelemetry-exporter-otlp>=1.21.0
 opentelemetry-distro>=0.42b0
+opentelemetry-propagator-b3>=1.21.0
 
 # Testing
 httpx>=0.25.0
