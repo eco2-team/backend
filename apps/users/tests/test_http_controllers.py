@@ -151,7 +151,7 @@ class TestProfileController:
         app.dependency_overrides[get_get_profile_query] = lambda: mock_get_profile_query
 
         response = client.get(
-            "/user/me/profile",
+            "/user/me",
             headers={"X-User-Id": str(uuid4())},
         )
         assert response.status_code in [200, 401, 403]
