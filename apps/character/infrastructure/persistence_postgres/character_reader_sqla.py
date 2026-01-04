@@ -13,7 +13,7 @@ from apps.character.infrastructure.persistence_postgres.mappers import (
 )
 from apps.character.infrastructure.persistence_postgres.models import CharacterModel
 
-DEFAULT_CHARACTER_CODE = "default"
+DEFAULT_CHARACTER_CODE = "char-eco"
 
 
 class SqlaCharacterReader(CatalogReader, CharacterMatcher):
