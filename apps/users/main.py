@@ -47,9 +47,9 @@ def create_app() -> FastAPI:
     )
 
     # 라우터 등록
-    app.include_router(health_router)
-    app.include_router(profile_router)
-    app.include_router(characters_router)
+    app.include_router(health_router)  # /health, /ping (prefix 없음)
+    app.include_router(profile_router, prefix="/api/v1")
+    app.include_router(characters_router, prefix="/api/v1")
 
     return app
 
