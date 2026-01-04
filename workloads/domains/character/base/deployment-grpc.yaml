@@ -28,10 +28,7 @@ spec:
         - containerPort: 50051
           name: grpc
         env:
-        - name: POSTGRES_HOST
-          value: postgresql.postgres.svc.cluster.local
-        - name: REDIS_HOST
-          value: redis.redis.svc.cluster.local
+        # POSTGRES_HOST, REDIS_HOST는 character-secret에서 가져옴
         - name: CHARACTER_MY_GRPC_HOST
           value: my-grpc.my.svc.cluster.local
         - name: CHARACTER_MY_GRPC_PORT
