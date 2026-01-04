@@ -6,6 +6,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from apps.users.infrastructure.persistence_postgres.mappings import start_mappers
 from apps.users.presentation.http.controllers import (
@@ -47,6 +48,21 @@ def create_app() -> FastAPI:
         openapi_url="/api/v1/users/openapi.json",
         redoc_url="/api/v1/users/redoc",
         lifespan=lifespan,
+    )
+
+    # CORS 미들웨어 (domains/my 호환)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://frontend1.dev.growbin.app",
+            "https://frontend2.dev.growbin.app",
+            "https://frontend.dev.growbin.app",
+            "http://localhost:5173",
+            "https://localhost:5173",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     # 라우터 등록
