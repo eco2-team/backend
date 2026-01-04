@@ -282,3 +282,39 @@ gh workflow run ci-services.yml -f target_services=auth
 # ArgoCD 수동 sync
 ./scripts/sync-argocd-all.sh
 ```
+
+## ⚠️ 코드 변경 전 필수 검증 절차
+
+**커밋 전에 반드시 다음 검증을 수행하여 CI 실패를 방지합니다.**
+
+### Python 코드 변경 시
+```bash
+# 1. Black 포매팅 (필수)
+black <변경된_파일_또는_디렉토리>
+
+# 2. Ruff 린트 검사 (필수)
+ruff check <변경된_파일_또는_디렉토리> --fix
+
+# 3. 테스트 실행 (권장)
+pytest <변경된_서비스>/tests/ -v
+
+# 예시: character 서비스 전체 검증
+black apps/character
+ruff check apps/character --fix
+pytest apps/character/tests/ -v
+```
+
+### 전체 검증 (커밋 직전)
+```bash
+# 변경된 서비스에 대해 실행
+black --check apps/<service>
+ruff check apps/<service>
+pytest apps/<service>/tests/ -v
+```
+
+### CI 체크 항목
+1. **black --check**: 코드 포매팅 검사
+2. **ruff check**: 린트 검사
+3. **pytest**: 단위 테스트
+
+> 💡 **팁**: pre-commit hook이 black/ruff를 자동 실행하지만, 테스트는 수동으로 확인해야 합니다.
