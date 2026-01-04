@@ -24,7 +24,7 @@ from apps.users.setup.dependencies import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/user/me/characters", tags=["characters"])
+router = APIRouter(prefix="/me/characters", tags=["characters"])
 
 
 def get_auth_user_id(
