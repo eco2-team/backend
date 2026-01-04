@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 의존성 설치
+COPY apps/location/requirements.txt /app/apps/location/
+RUN pip install --no-cache-dir -r apps/location/requirements.txt
+RUN pip install --no-cache-dir pytest pytest-asyncio pytest-cov httpx
+
+# 공유 코드 복사
+COPY domains/_shared /app/domains/_shared
+
+# Location 앱 소스 복사
+COPY apps/location /app/apps/location
+
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+CMD ["pytest", "apps/location/tests/", "-v", "--cov=apps/location", "--cov-report=term-missing", "--cov-fail-under=80"]

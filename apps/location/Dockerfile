@@ -1,29 +1,50 @@
-FROM python:3.11-slim
+# ============================================================================
+# Stage 1: Builder - 의존성 설치
+# ============================================================================
+FROM python:3.11-slim AS builder
 
-WORKDIR /app
+WORKDIR /build
 
-# 시스템 의존성 설치
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+COPY apps/location/requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ============================================================================
+# Stage 2: Runtime - 최소 이미지
+# ============================================================================
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+ENV TZ=Asia/Seoul
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /bin/bash appuser
+
+COPY --from=builder /install /usr/local
+
 # 공유 코드 복사
 COPY domains/_shared /app/domains/_shared
-
-# Location 앱 의존성 설치
-COPY apps/location/requirements.txt /app/apps/location/
-RUN pip install --no-cache-dir -r apps/location/requirements.txt
 
 # Location 앱 소스 복사
 COPY apps/location /app/apps/location
 
-# Python 경로 설정
-ENV PYTHONPATH=/app
-ENV PYTHONUNBUFFERED=1
+USER appuser
 
-# 포트 노출
 EXPOSE 8000
 
-# 서버 실행
-CMD ["uvicorn", "apps.location.main:app", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+
+CMD ["opentelemetry-instrument", "uvicorn", "apps.location.main:app", "--host", "0.0.0.0", "--port", "8000"]

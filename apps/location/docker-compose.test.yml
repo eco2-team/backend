@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  test:
+    build:
+      context: ../..
+      dockerfile: apps/location/Dockerfile.test
+    environment:
+    - PYTHONPATH=/app
+    - LOCATION_DATABASE_URL=postgresql+asyncpg://test:test@db:5432/test
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+    - ../../apps/location:/app/apps/location
+    - ../../domains/_shared:/app/domains/_shared
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: test
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U test]
+      interval: 5s
+      timeout: 5s
+      retries: 5
