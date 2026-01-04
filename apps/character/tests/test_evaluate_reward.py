@@ -12,6 +12,9 @@ from apps.character.application.reward.dto import (
     ClassificationSummary,
     RewardRequest,
 )
+from apps.character.application.reward.services.reward_policy_service import (
+    RewardPolicyService,
+)
 from apps.character.domain.entities import Character
 from apps.character.domain.enums import CharacterRewardSource
 
@@ -33,6 +36,12 @@ def mock_ownership_checker() -> AsyncMock:
     checker = AsyncMock()
     checker.is_owned = AsyncMock(return_value=False)
     return checker
+
+
+@pytest.fixture
+def policy_service() -> RewardPolicyService:
+    """RewardPolicyService 인스턴스."""
+    return RewardPolicyService()
 
 
 @pytest.fixture
@@ -70,9 +79,10 @@ class TestEvaluateRewardCommand:
         self,
         mock_matcher: AsyncMock,
         mock_ownership_checker: AsyncMock,
+        policy_service: RewardPolicyService,
     ) -> None:
         """disposal_rules가 없으면 리워드 미지급."""
-        command = EvaluateRewardCommand(mock_matcher, mock_ownership_checker)
+        command = EvaluateRewardCommand(mock_matcher, mock_ownership_checker, policy_service)
 
         request = RewardRequest(
             user_id=uuid4(),
@@ -89,16 +99,17 @@ class TestEvaluateRewardCommand:
 
         assert result.received is False
         assert result.already_owned is False
-        assert result.match_reason == "Reward conditions not met"
+        assert result.match_reason == "Conditions not met"
         mock_matcher.match_by_label.assert_not_called()
 
     async def test_conditions_not_met_has_insufficiencies(
         self,
         mock_matcher: AsyncMock,
         mock_ownership_checker: AsyncMock,
+        policy_service: RewardPolicyService,
     ) -> None:
         """insufficiencies가 있으면 리워드 미지급."""
-        command = EvaluateRewardCommand(mock_matcher, mock_ownership_checker)
+        command = EvaluateRewardCommand(mock_matcher, mock_ownership_checker, policy_service)
 
         request = RewardRequest(
             user_id=uuid4(),
@@ -115,20 +126,21 @@ class TestEvaluateRewardCommand:
 
         assert result.received is False
         assert result.already_owned is False
-        assert result.match_reason == "Reward conditions not met"
+        assert result.match_reason == "Conditions not met"
         mock_matcher.match_by_label.assert_not_called()
 
     async def test_character_matched_and_not_owned(
         self,
         mock_matcher: AsyncMock,
         mock_ownership_checker: AsyncMock,
+        policy_service: RewardPolicyService,
         sample_character: Character,
     ) -> None:
         """캐릭터 매칭 성공 + 미소유 = 리워드 지급."""
         mock_matcher.match_by_label.return_value = sample_character
         mock_ownership_checker.is_owned.return_value = False
 
-        command = EvaluateRewardCommand(mock_matcher, mock_ownership_checker)
+        command = EvaluateRewardCommand(mock_matcher, mock_ownership_checker, policy_service)
 
         request = RewardRequest(
             user_id=uuid4(),
@@ -153,13 +165,14 @@ class TestEvaluateRewardCommand:
         self,
         mock_matcher: AsyncMock,
         mock_ownership_checker: AsyncMock,
+        policy_service: RewardPolicyService,
         sample_character: Character,
     ) -> None:
         """이미 소유한 캐릭터 = 리워드 미지급."""
         mock_matcher.match_by_label.return_value = sample_character
         mock_ownership_checker.is_owned.return_value = True  # 이미 소유
 
-        command = EvaluateRewardCommand(mock_matcher, mock_ownership_checker)
+        command = EvaluateRewardCommand(mock_matcher, mock_ownership_checker, policy_service)
 
         request = RewardRequest(
             user_id=uuid4(),
@@ -182,6 +195,7 @@ class TestEvaluateRewardCommand:
         self,
         mock_matcher: AsyncMock,
         mock_ownership_checker: AsyncMock,
+        policy_service: RewardPolicyService,
         default_character: Character,
     ) -> None:
         """매칭 실패 시 기본 캐릭터로 폴백."""
@@ -189,7 +203,7 @@ class TestEvaluateRewardCommand:
         mock_matcher.get_default.return_value = default_character
         mock_ownership_checker.is_owned.return_value = False
 
-        command = EvaluateRewardCommand(mock_matcher, mock_ownership_checker)
+        command = EvaluateRewardCommand(mock_matcher, mock_ownership_checker, policy_service)
 
         request = RewardRequest(
             user_id=uuid4(),

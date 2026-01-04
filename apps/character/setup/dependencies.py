@@ -12,8 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.character.application.catalog import GetCatalogQuery
 from apps.character.application.catalog.ports import CatalogReader
+from apps.character.application.catalog.services.catalog_service import CatalogService
 from apps.character.application.reward import EvaluateRewardCommand
 from apps.character.application.reward.ports import CharacterMatcher, OwnershipChecker
+from apps.character.application.reward.services.reward_policy_service import RewardPolicyService
 from apps.character.infrastructure.cache import LocalCachedCatalogReader
 from apps.character.infrastructure.persistence_postgres import (
     SqlaCharacterReader,
@@ -64,16 +66,28 @@ async def get_ownership_checker(
     return SqlaOwnershipChecker(session)
 
 
+async def get_catalog_service() -> CatalogService:
+    """CatalogService를 주입합니다."""
+    return CatalogService()
+
+
 async def get_catalog_query(
     reader: Annotated[CatalogReader, Depends(get_catalog_reader)],
+    service: Annotated[CatalogService, Depends(get_catalog_service)],
 ) -> GetCatalogQuery:
     """GetCatalogQuery를 주입합니다."""
-    return GetCatalogQuery(reader)
+    return GetCatalogQuery(reader, service)
+
+
+async def get_reward_policy_service() -> RewardPolicyService:
+    """RewardPolicyService를 주입합니다."""
+    return RewardPolicyService()
 
 
 async def get_evaluate_reward_command(
     matcher: Annotated[CharacterMatcher, Depends(get_character_matcher)],
     checker: Annotated[OwnershipChecker, Depends(get_ownership_checker)],
+    policy: Annotated[RewardPolicyService, Depends(get_reward_policy_service)],
 ) -> EvaluateRewardCommand:
     """EvaluateRewardCommand를 주입합니다."""
-    return EvaluateRewardCommand(matcher, checker)
+    return EvaluateRewardCommand(matcher, checker, policy)

@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from apps.character.application.catalog.queries.get_catalog import GetCatalogQuery
+from apps.character.application.catalog.services.catalog_service import CatalogService
 from apps.character.domain.entities import Character
 
 pytestmark = pytest.mark.asyncio
@@ -17,6 +18,12 @@ def mock_reader() -> AsyncMock:
     reader = AsyncMock()
     reader.list_all = AsyncMock()
     return reader
+
+
+@pytest.fixture
+def catalog_service() -> CatalogService:
+    """CatalogService 인스턴스."""
+    return CatalogService()
 
 
 @pytest.fixture
@@ -56,11 +63,13 @@ def sample_characters() -> list[Character]:
 class TestGetCatalogQuery:
     """GetCatalogQuery 테스트."""
 
-    async def test_empty_catalog(self, mock_reader: AsyncMock) -> None:
+    async def test_empty_catalog(
+        self, mock_reader: AsyncMock, catalog_service: CatalogService
+    ) -> None:
         """빈 카탈로그 반환."""
         mock_reader.list_all.return_value = []
 
-        query = GetCatalogQuery(mock_reader)
+        query = GetCatalogQuery(mock_reader, catalog_service)
         result = await query.execute()
 
         assert result.total == 0
@@ -69,12 +78,13 @@ class TestGetCatalogQuery:
     async def test_catalog_with_characters(
         self,
         mock_reader: AsyncMock,
+        catalog_service: CatalogService,
         sample_characters: list[Character],
     ) -> None:
         """캐릭터가 있는 카탈로그 반환."""
         mock_reader.list_all.return_value = sample_characters
 
-        query = GetCatalogQuery(mock_reader)
+        query = GetCatalogQuery(mock_reader, catalog_service)
         result = await query.execute()
 
         assert result.total == 3
@@ -95,6 +105,7 @@ class TestGetCatalogQuery:
     async def test_dialog_fallback_to_description(
         self,
         mock_reader: AsyncMock,
+        catalog_service: CatalogService,
     ) -> None:
         """dialog가 없으면 description으로 폴백."""
         character = Character(
@@ -108,7 +119,7 @@ class TestGetCatalogQuery:
         )
         mock_reader.list_all.return_value = [character]
 
-        query = GetCatalogQuery(mock_reader)
+        query = GetCatalogQuery(mock_reader, catalog_service)
         result = await query.execute()
 
         assert result.items[0].dialog == "설명입니다"
@@ -116,6 +127,7 @@ class TestGetCatalogQuery:
     async def test_dialog_fallback_to_empty_string(
         self,
         mock_reader: AsyncMock,
+        catalog_service: CatalogService,
     ) -> None:
         """dialog와 description 모두 없으면 빈 문자열."""
         character = Character(
@@ -129,7 +141,7 @@ class TestGetCatalogQuery:
         )
         mock_reader.list_all.return_value = [character]
 
-        query = GetCatalogQuery(mock_reader)
+        query = GetCatalogQuery(mock_reader, catalog_service)
         result = await query.execute()
 
         assert result.items[0].dialog == ""
