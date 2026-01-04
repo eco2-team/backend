@@ -25,16 +25,16 @@ class UserCharacter:
     character_type: str | None = None
     character_dialog: str | None = None
     source: str | None = None
-    status: UserCharacterStatus = UserCharacterStatus.OWNED
+    status: str = UserCharacterStatus.OWNED.value  # "owned"
     acquired_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
 
     def burn(self) -> None:
         """캐릭터를 소각 처리합니다."""
-        self.status = UserCharacterStatus.BURNED
+        self.status = UserCharacterStatus.BURNED.value
         self.updated_at = datetime.utcnow()
 
     def trade(self) -> None:
         """캐릭터를 거래 처리합니다."""
-        self.status = UserCharacterStatus.TRADED
+        self.status = UserCharacterStatus.TRADED.value
         self.updated_at = datetime.utcnow()

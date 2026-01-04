@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, Enum, Table, Text, func
+from sqlalchemy import Column, DateTime, Table, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import registry
 
@@ -33,14 +33,9 @@ user_characters_table = Table(
     Column("source", Text, nullable=True),
     Column(
         "status",
-        Enum(
-            UserCharacterStatus,
-            name="user_character_status",
-            create_constraint=True,
-            native_enum=True,
-        ),
+        Text,  # domains와 호환: String(20)으로 저장됨
         nullable=False,
-        default=UserCharacterStatus.OWNED,
+        default=UserCharacterStatus.OWNED.value,  # "owned"
     ),
     Column("acquired_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column(

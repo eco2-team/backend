@@ -37,7 +37,7 @@ def _to_character_dto(char: "UserCharacter") -> UserCharacterDTO:
         character_type=char.character_type,
         character_dialog=char.character_dialog,
         source=char.source,
-        status=char.status.value,
+        status=char.status,  # 이미 문자열 ("owned", "burned", "traded")
         acquired_at=char.acquired_at,
     )
 

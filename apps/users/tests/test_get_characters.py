@@ -53,7 +53,7 @@ def sample_characters() -> list:
     char1.character_type = "기본"
     char1.character_dialog = "안녕!"
     char1.source = "default"
-    char1.status = UserCharacterStatus.OWNED
+    char1.status = UserCharacterStatus.OWNED.value  # "owned"
     char1.acquired_at = datetime.now(timezone.utc)
 
     char2 = MagicMock()
@@ -64,7 +64,7 @@ def sample_characters() -> list:
     char2.character_type = "재활용"
     char2.character_dialog = "나는 페트!"
     char2.source = "scan"
-    char2.status = UserCharacterStatus.OWNED
+    char2.status = UserCharacterStatus.OWNED.value  # "owned"
     char2.acquired_at = datetime.now(timezone.utc)
 
     return [char1, char2]
