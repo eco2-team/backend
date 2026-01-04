@@ -20,7 +20,7 @@ spec:
     - destination:
         host: users-api.users.svc.cluster.local
         port:
-          number: 8000
+          number: 80
         subset: canary
   # ======= 기본 트래픽 → Stable =======
   - match:
@@ -30,5 +30,5 @@ spec:
     - destination:
         host: users-api.users.svc.cluster.local
         port:
-          number: 8000
+          number: 80
         subset: stable
