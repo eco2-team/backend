@@ -59,10 +59,26 @@ class Container:
 
     async def init(self) -> None:
         """의존성 초기화."""
-        # 1. Infrastructure 생성
+        from redis.asyncio.retry import Retry
+        from redis.backoff import ExponentialBackoff
+        from redis.exceptions import ConnectionError, TimeoutError
+
+        # 1. Infrastructure 생성 (재시도 로직 포함)
+        retry = Retry(ExponentialBackoff(), retries=3)
         self._redis = aioredis.from_url(
             self._settings.redis_url,
             decode_responses=True,
+            # Health & Keepalive
+            health_check_interval=30,
+            socket_keepalive=True,
+            # Timeouts
+            socket_connect_timeout=5.0,
+            socket_timeout=5.0,
+            # Connection Pool
+            max_connections=50,
+            # Retry on transient errors
+            retry=retry,
+            retry_on_error=[ConnectionError, TimeoutError],
         )
         await self._redis.ping()
 
