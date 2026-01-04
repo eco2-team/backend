@@ -7,6 +7,7 @@ import logging
 
 from apps.character.application.reward.dto import RewardRequest, RewardResult
 from apps.character.application.reward.ports import CharacterMatcher, OwnershipChecker
+from apps.character.application.reward.services.reward_policy_service import RewardPolicyService
 
 logger = logging.getLogger(__name__)
 
@@ -22,15 +23,18 @@ class EvaluateRewardCommand:
         self,
         matcher: CharacterMatcher,
         ownership_checker: OwnershipChecker,
+        policy_service: RewardPolicyService,
     ) -> None:
         """Initialize.
 
         Args:
             matcher: 캐릭터 매처
             ownership_checker: 소유권 확인기
+            policy_service: 리워드 정책 서비스
         """
         self._matcher = matcher
         self._ownership_checker = ownership_checker
+        self._policy_service = policy_service
 
     async def execute(self, request: RewardRequest) -> RewardResult:
         """리워드를 평가합니다.
@@ -41,12 +45,8 @@ class EvaluateRewardCommand:
         Returns:
             리워드 결과
         """
-        # 0. 리워드 조건 체크 (레거시 정합성)
-        # - 분리수거 규칙이 있어야 함
-        # - 부적절 항목이 없어야 함
-        should_evaluate = request.disposal_rules_present and not request.insufficiencies_present
-
-        if not should_evaluate:
+        # 1. 정책 확인 (Service 위임)
+        if not self._policy_service.should_evaluate(request):
             logger.info(
                 "Reward conditions not met: disposal_rules=%s, insufficiencies=%s",
                 request.disposal_rules_present,
@@ -55,11 +55,11 @@ class EvaluateRewardCommand:
             return RewardResult(
                 received=False,
                 already_owned=False,
-                match_reason="Reward conditions not met",
+                match_reason="Conditions not met",
             )
 
-        # 1. 매칭 라벨로 캐릭터 찾기
-        match_label = request.classification.middle_category
+        # 2. 매칭 라벨 추출 (Service 위임)
+        match_label = self._policy_service.determine_match_label(request)
         character = await self._matcher.match_by_label(match_label)
 
         if character is None:
