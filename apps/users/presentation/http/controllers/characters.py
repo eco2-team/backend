@@ -13,7 +13,6 @@ from apps.users.application.character.queries import (
     GetCharactersQuery,
 )
 from apps.users.presentation.http.schemas import (
-    CharacterListResponse,
     CharacterOwnershipResponse,
     UserCharacterResponse,
 )
@@ -45,29 +44,27 @@ def get_auth_user_id(
         )
 
 
-@router.get("", response_model=CharacterListResponse)
+@router.get("", response_model=list[UserCharacterResponse])
 async def get_characters(
     auth_user_id: UUID = Depends(get_auth_user_id),
     query: GetCharactersQuery = Depends(get_get_characters_query),
-) -> CharacterListResponse:
+) -> list[UserCharacterResponse]:
     """현재 사용자의 캐릭터 목록을 조회합니다."""
     characters = await query.execute(auth_user_id)
-    return CharacterListResponse(
-        characters=[
-            UserCharacterResponse(
-                # domains/my 호환: character_id를 id로 반환
-                id=c.character_id,
-                code=c.character_code,
-                name=c.character_name,
-                # domains/my 호환: None이면 빈 문자열
-                type=c.character_type or "",
-                dialog=c.character_dialog or "",
-                acquired_at=c.acquired_at,
-            )
-            for c in characters
-        ],
-        total=len(characters),
-    )
+    # domains/my 호환: 배열 직접 반환
+    return [
+        UserCharacterResponse(
+            # domains/my 호환: character_id를 id로 반환
+            id=c.character_id,
+            code=c.character_code,
+            name=c.character_name,
+            # domains/my 호환: None이면 빈 문자열
+            type=c.character_type or "",
+            dialog=c.character_dialog or "",
+            acquired_at=c.acquired_at,
+        )
+        for c in characters
+    ]
 
 
 @router.get("/{character_name}/ownership", response_model=CharacterOwnershipResponse)
