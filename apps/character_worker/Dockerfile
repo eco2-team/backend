@@ -45,6 +45,6 @@ USER appuser
 # Celery Worker 시작
 CMD ["celery", "-A", "apps.character_worker.main:app", "worker", \
      "--loglevel=info", \
-     "--queues=character.match,character.reward,character.grant_default", \
+     "--queues=character.match,character.save_ownership,character.grant_default", \
      "--concurrency=4", \
      "--pool=prefork"]

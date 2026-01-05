@@ -20,7 +20,7 @@ spec:
     namespace: rabbitmq
 ---
 # 2. Character Exchange (Direct)
-# 라우팅 키: character.reward (character DB 저장)
+# 라우팅 키: character.save_ownership (character DB 저장)
 apiVersion: rabbitmq.com/v1beta1
 kind: Exchange
 metadata:

@@ -41,7 +41,7 @@ spec:
         - -P
         - gevent
         - -Q
-        - character.reward
+        - character.save_ownership
         - -c
         - '20'
         env:

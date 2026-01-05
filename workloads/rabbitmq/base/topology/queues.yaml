@@ -114,17 +114,17 @@ spec:
 apiVersion: rabbitmq.com/v1beta1
 kind: Queue
 metadata:
-  name: character-reward-queue
+  name: character-save-ownership-queue
   namespace: rabbitmq
 spec:
-  name: character.reward
+  name: character.save_ownership
   type: classic
   durable: true
   autoDelete: false
   vhost: eco2
   arguments:
     x-dead-letter-exchange: dlx
-    x-dead-letter-routing-key: dlq.character.reward
+    x-dead-letter-routing-key: dlq.character.save_ownership
     x-message-ttl: 86400000  # 24시간 (DB 저장 중요)
   rabbitmqClusterReference:
     name: eco2-rabbitmq
@@ -265,10 +265,10 @@ spec:
 apiVersion: rabbitmq.com/v1beta1
 kind: Queue
 metadata:
-  name: dlq-character-reward
+  name: dlq-character-save-ownership
   namespace: rabbitmq
 spec:
-  name: dlq.character.reward
+  name: dlq.character.save_ownership
   type: classic
   durable: true
   autoDelete: false

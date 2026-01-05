@@ -13,6 +13,7 @@ on:
       - "apps/auth/**"
       - "apps/users/**"
       - "apps/character/**"
+      - "apps/location/**"
       - "domains/auth/**"
       - "domains/character/**"
       - "domains/chat/**"
@@ -43,6 +44,7 @@ on:
       - "apps/auth/**"
       - "apps/users/**"
       - "apps/character/**"
+      - "apps/location/**"
       - "domains/auth/**"
       - "domains/character/**"
       - "domains/chat/**"
@@ -200,6 +202,7 @@ jobs:
             apps/auth/**
             apps/users/**
             apps/character/**
+            apps/location/**
             domains/auth/**
             domains/character/**
             domains/chat/**

@@ -1,7 +1,7 @@
 # ============================================================================
 # Users Worker Dockerfile
 # Celery Worker 전용 이미지
-# 처리 큐: users.character (유저 캐릭터 DB 동기화)
+# 처리 큐: users.save_character (유저 캐릭터 DB 동기화)
 # ============================================================================
 FROM docker.io/mng990/eco2:base-dev-latest
 
@@ -19,4 +19,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends procps && \
 USER appuser
 
 # Celery Worker 실행
-CMD ["celery", "-A", "apps.users_worker.main", "worker", "-E", "--loglevel=info", "-Q", "users.character", "-c", "2"]
+CMD ["celery", "-A", "apps.users_worker.main", "worker", "-E", "--loglevel=info", "-Q", "users.save_character", "-c", "2"]
