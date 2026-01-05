@@ -1,27 +1,24 @@
-"""Reward Task - Pipeline Stage 4.
+"""Reward Task - Pipeline Stage 4 (Final).
 
-domains/scan/tasks/reward.py와 동일한 로직.
-Celery 위임 방식으로 character-worker에 매칭 요청 후 저장 task 발행.
+Clean Architecture 마이그레이션 완료.
+domains 의존성 제거됨.
 """
 
-import json
+from __future__ import annotations
+
 import logging
-import os
 from typing import Any
 
 from celery import Task
-from celery.exceptions import TimeoutError as CeleryTimeoutError
 
+from apps.scan_worker.application.classify.dto.classify_context import ClassifyContext
 from apps.scan_worker.setup.celery import celery_app
-from domains._shared.events import get_sync_redis_client, publish_stage_event
+from apps.scan_worker.setup.dependencies import (
+    get_checkpointing_step_runner,
+    get_reward_step,
+)
 
 logger = logging.getLogger(__name__)
-
-# 결과 캐시 TTL (초)
-RESULT_CACHE_TTL = int(os.getenv("SCAN_RESULT_CACHE_TTL", "3600"))  # 1시간
-
-# 매칭 결과 대기 타임아웃 (초)
-MATCH_TIMEOUT = int(os.getenv("CHARACTER_MATCH_TIMEOUT", "10"))
 
 
 @celery_app.task(
@@ -38,13 +35,14 @@ def reward_task(
 ) -> dict[str, Any]:
     """보상 처리 태스크 (Stage 4 - Final).
 
-    domains/scan/tasks/reward.py의 scan_reward_task와 동일한 로직.
+    Clean Architecture: Step + Port/Adapter 패턴.
 
     Flow:
-        1. 조건 검증 (_should_attempt_reward)
+        1. 조건 검증
         2. character.match 호출 (동기 대기) → 매칭 결과
-        3. 즉시 응답 (SSE로 클라이언트에게 전달)
-        4. character.save_ownership, my.save_character 발행 (Fire & Forget)
+        3. character.save_ownership, users.save_character 발행 (Fire & Forget)
+        4. 결과 캐시 저장
+        5. done 이벤트 발행
 
     Args:
         prev_result: Answer 스테이지 결과
@@ -52,327 +50,66 @@ def reward_task(
     Returns:
         최종 파이프라인 결과
     """
-    task_id = prev_result.get("task_id")
-    user_id = prev_result.get("user_id")
-    classification_result = prev_result.get("classification_result", {})
-    disposal_rules = prev_result.get("disposal_rules")
-    final_answer = prev_result.get("final_answer", {})
-    metadata = prev_result.get("metadata", {})
-    category = prev_result.get("category")
+    # Context 복원
+    ctx = ClassifyContext.from_dict(prev_result)
 
     log_ctx = {
-        "task_id": task_id,
-        "user_id": user_id,
+        "task_id": ctx.task_id,
+        "user_id": ctx.user_id,
         "celery_task_id": self.request.id,
         "stage": "reward",
     }
-    logger.info("Scan reward task started", extra=log_ctx)
+    logger.info("Reward task started", extra=log_ctx)
 
-    # Redis Streams: 시작 이벤트 발행
-    redis_client = get_sync_redis_client()
-    publish_stage_event(redis_client, task_id, "reward", "started", progress=75)
+    try:
+        # Step + Runner 조립 (DI) - 체크포인팅 적용
+        step = get_reward_step(celery_app)
+        runner = get_checkpointing_step_runner()
 
-    # 1. 조건 확인
-    reward = None
-    if _should_attempt_reward(classification_result, disposal_rules, final_answer):
-        # 2. character.match 호출 (동기 대기, gevent가 greenlet 전환)
-        reward = _dispatch_character_match(
-            user_id=user_id,
-            classification_result=classification_result,
-            disposal_rules_present=bool(disposal_rules),
-            log_ctx=log_ctx,
+        # Step 실행 (이벤트 발행 + 체크포인트 저장)
+        ctx = runner.run_step(step, "reward", ctx)
+
+    except Exception as exc:
+        logger.error(
+            "Reward processing failed",
+            extra={**log_ctx, "error": str(exc)},
+            exc_info=True,
         )
+        raise self.retry(exc=exc)
 
-        # 3. DB 저장 task 발행 (Fire & Forget)
-        if reward and reward.get("received") and reward.get("character_id"):
-            _dispatch_save_tasks(
-                user_id=user_id,
-                reward=reward,
-                log_ctx=log_ctx,
-            )
-
-    # 4. 최종 결과 구성 (내부용 필드 제거, 클라이언트 표시용만)
-    reward_response = None
-    if reward:
-        reward_response = {
-            "name": reward.get("name"),
-            "dialog": reward.get("dialog"),
-            "match_reason": reward.get("match_reason"),
-            "type": reward.get("type"),
-        }
-
-    result = {
-        **prev_result,
-        "reward": reward_response,
-    }
-
+    # 구조화된 로그
     logger.info(
         "scan_task_completed",
         extra={
             "event_type": "scan_completed",
-            "task_id": task_id,
-            "user_id": user_id,
-            "category": category,
-            "duration_total_ms": metadata.get("duration_total_ms"),
-            "duration_vision_ms": metadata.get("duration_vision_ms"),
-            "duration_rule_ms": metadata.get("duration_rule_ms"),
-            "duration_answer_ms": metadata.get("duration_answer_ms"),
-            "has_disposal_rules": disposal_rules is not None,
-            "has_reward": reward_response is not None,
-            "matched_character": reward_response.get("name") if reward_response else None,
+            "task_id": ctx.task_id,
+            "user_id": ctx.user_id,
+            "category": ctx.classification.get("classification", {}).get("major_category")
+            if ctx.classification
+            else None,
+            "duration_total_ms": ctx.latencies.get("duration_total_ms"),
+            "duration_vision_ms": ctx.latencies.get("duration_vision_ms"),
+            "duration_rule_ms": ctx.latencies.get("duration_rule_ms"),
+            "duration_answer_ms": ctx.latencies.get("duration_answer_ms"),
+            "has_disposal_rules": ctx.disposal_rules is not None,
+            "has_reward": ctx.reward is not None,
+            "matched_character": ctx.reward.get("name") if ctx.reward else None,
         },
     )
 
-    # Redis Streams: 완료 이벤트 발행 (결과 포함)
-    publish_stage_event(
-        redis_client,
-        task_id,
-        "reward",
-        "completed",
-        progress=100,
-        result=result,
-    )
-
-    # done 이벤트용 결과 구성 (ClassificationResponse 스키마에 맞춤)
-    done_result = {
-        "task_id": task_id,
-        "status": "completed",
-        "message": "classification completed",
-        "pipeline_result": {
-            "classification_result": result.get("classification_result"),
-            "disposal_rules": result.get("disposal_rules"),
-            "final_answer": result.get("final_answer"),
-        },
-        "reward": result.get("reward"),
-        "error": None,
-    }
-
-    # ⚠️ 순서 중요: Cache 저장 → done 이벤트 (Race Condition #2 방지)
-    # done 이벤트를 받고 /result 호출 시 404 방지
-    _cache_result(task_id, done_result)
-
-    # Redis Streams: done 이벤트 발행 (결과 커밋 완료 신호)
-    publish_stage_event(
-        redis_client,
-        task_id,
-        "done",
-        "completed",
-        result=done_result,
-    )
-
-    # [Legacy] 커스텀 이벤트 발행 (Celery Events 방식, 마이그레이션 후 제거 예정)
+    # [Legacy] 커스텀 이벤트 발행 (Celery Events 방식)
     try:
         self.send_event(
             "task-result",
-            result=result,
-            task_id=task_id,
-            root_id=task_id,
+            result=ctx.to_dict(),
+            task_id=ctx.task_id,
+            root_id=ctx.task_id,
         )
-        logger.debug("task_result_event_sent", extra={"task_id": task_id})
+        logger.debug("task_result_event_sent", extra={"task_id": ctx.task_id})
     except Exception as e:
         logger.warning(
             "task_result_event_failed",
-            extra={"task_id": task_id, "error": str(e)},
+            extra={"task_id": ctx.task_id, "error": str(e)},
         )
 
-    return result
-
-
-# ============================================================
-# Helper Functions (domains/scan/tasks/reward.py와 동일)
-# ============================================================
-
-
-def _get_cache_redis_client():
-    """Cache Redis 클라이언트 (결과 저장용)."""
-    import redis
-
-    cache_url = os.getenv(
-        "REDIS_CACHE_URL", "redis://rfr-cache-redis.redis.svc.cluster.local:6379/0"
-    )
-    return redis.from_url(
-        cache_url,
-        decode_responses=True,
-        socket_timeout=5.0,
-        socket_connect_timeout=5.0,
-    )
-
-
-def _cache_result(task_id: str, result: dict[str, Any]) -> None:
-    """결과를 Cache Redis에 저장."""
-    cache_key = f"scan:result:{task_id}"
-    try:
-        client = _get_cache_redis_client()
-        client.setex(cache_key, RESULT_CACHE_TTL, json.dumps(result))
-        logger.debug("scan_result_cached", extra={"task_id": task_id, "ttl": RESULT_CACHE_TTL})
-    except Exception as e:
-        logger.warning(
-            "scan_result_cache_failed",
-            extra={"task_id": task_id, "error": str(e)},
-        )
-
-
-def _should_attempt_reward(
-    classification_result: dict[str, Any],
-    disposal_rules: dict | None,
-    final_answer: dict[str, Any],
-) -> bool:
-    """리워드 평가 조건 확인 (domains/scan과 동일)."""
-    reward_enabled = os.getenv("REWARD_FEATURE_ENABLED", "true").lower() == "true"
-    if not reward_enabled:
-        return False
-
-    classification = classification_result.get("classification", {})
-    major = classification.get("major_category", "").strip()
-    middle = classification.get("middle_category", "").strip()
-
-    if not major or not middle:
-        return False
-
-    if major != "재활용폐기물":
-        return False
-
-    if not disposal_rules:
-        return False
-
-    insufficiencies = final_answer.get("insufficiencies", [])
-    for entry in insufficiencies:
-        if isinstance(entry, str) and entry.strip():
-            return False
-        elif entry:
-            return False
-
-    return True
-
-
-def _dispatch_character_match(
-    user_id: str,
-    classification_result: dict[str, Any],
-    disposal_rules_present: bool,
-    log_ctx: dict,
-) -> dict[str, Any] | None:
-    """character.match task 호출 (동기 대기).
-
-    character-worker에서 로컬 캐시를 사용해 매칭 수행.
-    gevent pool에서는 블로킹 get()이 자동으로 greenlet 전환됨.
-
-    Fallback:
-        - 타임아웃 시 None 반환 (SSE 완료 보장)
-        - 에러 발생 시 None 반환 (전체 파이프라인 실패 방지)
-    """
-    try:
-        # send_task로 character.match 호출 (import 없이 이름으로)
-        async_result = celery_app.send_task(
-            "character.match",
-            kwargs={
-                "user_id": user_id,
-                "classification_result": classification_result,
-                "disposal_rules_present": disposal_rules_present,
-            },
-            queue="character.match",  # 빠른 응답용 전용 큐
-        )
-
-        # 동기 대기 (gevent가 greenlet으로 전환)
-        result = async_result.get(
-            timeout=MATCH_TIMEOUT,
-            disable_sync_subtasks=False,
-        )
-
-        logger.info(
-            "Character match completed",
-            extra={
-                **log_ctx,
-                "received": result.get("received") if result else False,
-                "character_name": result.get("name") if result else None,
-            },
-        )
-        return result
-
-    except CeleryTimeoutError:
-        # Fallback: 타임아웃 시 None 반환 (전체 파이프라인 실패 방지)
-        logger.warning(
-            "Character match timeout - returning fallback",
-            extra={
-                **log_ctx,
-                "timeout_seconds": MATCH_TIMEOUT,
-                "fallback": "None (no reward)",
-            },
-        )
-        return None
-
-    except Exception as exc:
-        # Fallback: 에러 시 None 반환 (전체 파이프라인 실패 방지)
-        logger.warning(
-            "Character match failed - returning fallback",
-            extra={
-                **log_ctx,
-                "error": str(exc),
-                "fallback": "None (no reward)",
-            },
-        )
-        return None
-
-
-def _dispatch_save_tasks(
-    user_id: str,
-    reward: dict[str, Any],
-    log_ctx: dict,
-) -> None:
-    """DB 저장 task 발행 (Fire & Forget).
-
-    3개의 독립적인 저장소에 저장:
-    - character.save_ownership: character.character_ownerships 테이블
-    - users.save_character: users.user_characters 테이블 (Clean Architecture)
-
-    ⚠️ my.save_character 제거됨 (domains 폐기 예정)
-    """
-    dispatched = {"character": False, "users": False}
-
-    # character.save_ownership (태스크 = 큐 1:1)
-    try:
-        celery_app.send_task(
-            "character.save_ownership",
-            kwargs={
-                "user_id": user_id,
-                "character_id": reward["character_id"],
-                "character_code": reward.get("character_code", ""),
-                "source": "scan",
-            },
-            queue="character.save_ownership",
-        )
-        dispatched["character"] = True
-        logger.info("save_ownership_task dispatched", extra=log_ctx)
-    except Exception:
-        logger.exception("Failed to dispatch save_ownership_task", extra=log_ctx)
-
-    # ❌ my.save_character 제거 (레거시 - domains 폐기 예정)
-
-    # users.save_character (태스크 = 큐 1:1)
-    try:
-        celery_app.send_task(
-            "users.save_character",
-            args=[
-                user_id,
-                reward["character_id"],
-                reward.get("character_code", ""),
-            ],
-            kwargs={
-                "character_name": reward.get("name", ""),
-                "character_type": reward.get("character_type"),
-                "source": "scan",
-            },
-            queue="users.save_character",
-        )
-        dispatched["users"] = True
-        logger.info("save_users_character_task dispatched", extra=log_ctx)
-    except Exception:
-        logger.exception("Failed to dispatch save_users_character_task", extra=log_ctx)
-
-    logger.info(
-        "Reward storage tasks dispatched",
-        extra={
-            **log_ctx,
-            "character_id": reward["character_id"],
-            "dispatched": dispatched,
-        },
-    )
+    return ctx.to_dict()

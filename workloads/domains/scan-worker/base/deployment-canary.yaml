@@ -1,4 +1,13 @@
-# Scan Worker Canary Deployment
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Scan Worker Canary Deployment (Clean Architecture)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 변경사항:
+# - Clean Architecture (apps/scan) 기반
+# - LLM Router: GPT-5.2 + Gemini 3.0 Pro (Fallback)
+# - Default Tier: PREMIUM
+#
+# 큐: scan.vision, scan.rule, scan.answer, scan.reward
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -10,6 +19,11 @@ metadata:
     tier: worker
     domain: scan
     release: canary
+    architecture: clean
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: scan-worker-canary=docker.io/mng990/eco2
+    argocd-image-updater.argoproj.io/scan-worker-canary.update-strategy: digest
+    argocd-image-updater.argoproj.io/scan-worker-canary.allow-tags: regexp:^scan-worker-dev-canary.*$
 spec:
   replicas: 1
   selector:
@@ -24,6 +38,7 @@ spec:
         tier: worker
         domain: scan
         release: canary
+        architecture: clean
       annotations:
         proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
     spec:
@@ -41,7 +56,7 @@ spec:
         args:
         - |
           ulimit -n 65536 2>/dev/null || echo "ulimit setting skipped (not privileged)"
-          exec celery -A domains.scan.celery_app worker \
+          exec celery -A apps.scan_worker.main worker \
             --loglevel=info \
             -E \
             -P gevent \
@@ -49,6 +64,7 @@ spec:
             -c 100 \
             --prefetch-multiplier=1
         env:
+        # === Celery ===
         - name: CELERY_BROKER_URL
           valueFrom:
             secretKeyRef:
@@ -56,16 +72,25 @@ spec:
               key: CELERY_BROKER_URL
         - name: CELERY_RESULT_BACKEND
           value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        - name: CELERY_WORKER_POOL
+          value: gevent
+        - name: CELERY_WORKER_PREFETCH_MULTIPLIER
+          value: '1'
+        # === Redis ===
         - name: REDIS_STREAMS_URL
           value: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
         - name: REDIS_CACHE_URL
           value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
         - name: SSE_SHARD_COUNT
           value: '4'
-        - name: CELERY_WORKER_POOL
-          value: gevent
-        - name: CELERY_WORKER_PREFETCH_MULTIPLIER
-          value: '1'
+        # === LLM Router Settings (Clean Architecture) ===
+        - name: LLM_PRIMARY_PROVIDER
+          value: openai
+        - name: LLM_DEFAULT_TIER
+          value: premium
+        - name: LLM_FALLBACK_ENABLED
+          value: 'true'
+        # === OpenTelemetry ===
         - name: OTEL_SERVICE_NAME
           value: scan-worker-canary
         - name: OTEL_TRACES_EXPORTER
@@ -78,15 +103,19 @@ spec:
           value: none
         - name: OTEL_PROPAGATORS
           value: b3,tracecontext,baggage
+        # === Infrastructure ===
         - name: POSTGRES_HOST
           value: postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
           value: redis.redis.svc.cluster.local
+        # === Release Info ===
         - name: RELEASE_TYPE
           value: canary
+        - name: ARCHITECTURE
+          value: clean
         envFrom:
         - configMapRef:
-            name: scan-config
+            name: scan-worker-config
         - secretRef:
             name: scan-secret
         resources:
@@ -98,21 +127,21 @@ spec:
             memory: 1Gi
         startupProbe:
           exec:
-            command: [celery, -A, domains.scan.celery_app, inspect, ping, -t, '15']
+            command: [celery, -A, apps.scan_worker.main, inspect, ping, -t, '15']
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 20
           failureThreshold: 12
         livenessProbe:
           exec:
-            command: [celery, -A, domains.scan.celery_app, inspect, ping, -t, '15']
+            command: [celery, -A, apps.scan_worker.main, inspect, ping, -t, '15']
           initialDelaySeconds: 10
           periodSeconds: 30
           timeoutSeconds: 20
           failureThreshold: 3
         readinessProbe:
           exec:
-            command: [celery, -A, domains.scan.celery_app, inspect, ping, -t, '15']
+            command: [celery, -A, apps.scan_worker.main, inspect, ping, -t, '15']
           initialDelaySeconds: 5
           periodSeconds: 20
           timeoutSeconds: 20
