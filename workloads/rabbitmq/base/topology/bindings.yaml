@@ -92,13 +92,13 @@ spec:
 apiVersion: rabbitmq.com/v1beta1
 kind: Binding
 metadata:
-  name: character-reward-binding
+  name: character-save-ownership-binding
   namespace: rabbitmq
 spec:
   source: character.direct
-  destination: character.reward
+  destination: character.save_ownership
   destinationType: queue
-  routingKey: character.reward
+  routingKey: character.save_ownership
   vhost: eco2
   rabbitmqClusterReference:
     name: eco2-rabbitmq
@@ -221,13 +221,13 @@ spec:
 apiVersion: rabbitmq.com/v1beta1
 kind: Binding
 metadata:
-  name: dlq-character-reward-binding
+  name: dlq-character-save-ownership-binding
   namespace: rabbitmq
 spec:
   source: dlx
-  destination: dlq.character.reward
+  destination: dlq.character.save_ownership
   destinationType: queue
-  routingKey: dlq.character.reward
+  routingKey: dlq.character.save_ownership
   vhost: eco2
   rabbitmqClusterReference:
     name: eco2-rabbitmq

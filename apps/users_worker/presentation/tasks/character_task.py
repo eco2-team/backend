@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 @celery_app.task(
     base=Batches,
     name="users.save_character",
-    queue="users.character",
+    queue="users.save_character",
     flush_every=50,
     flush_interval=5,
     acks_late=True,

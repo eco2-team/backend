@@ -1,6 +1,6 @@
 # Users Worker Deployment
 # 유저 캐릭터 소유권을 DB에 저장하는 Celery 워커
-# RabbitMQ (users.character) → PostgreSQL (users.user_characters)
+# RabbitMQ (users.save_character) → PostgreSQL (users.user_characters)
 apiVersion: apps/v1
 kind: Deployment
 metadata:

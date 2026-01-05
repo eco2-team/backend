@@ -1,4 +1,7 @@
-"""Celery Application Setup."""
+"""Celery Application Setup.
+
+⚠️ domains 의존성 제거 - apps 내부에서 라우팅 정의
+"""
 
 import logging
 
@@ -6,10 +9,16 @@ from celery import Celery
 from celery.signals import worker_process_init
 
 from apps.character_worker.setup.config import get_settings
-from domains._shared.celery.config import CELERY_TASK_ROUTES
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+# Character Worker Task Routes (태스크 = 큐 1:1)
+CHARACTER_TASK_ROUTES = {
+    "character.match": {"queue": "character.match"},
+    "character.save_ownership": {"queue": "character.save_ownership"},
+    "character.grant_default": {"queue": "character.grant_default"},
+}
 
 # Celery 앱 생성
 celery_app = Celery(
@@ -29,7 +38,7 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="Asia/Seoul",
     enable_utc=True,
-    task_routes=CELERY_TASK_ROUTES,
+    task_routes=CHARACTER_TASK_ROUTES,
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,
