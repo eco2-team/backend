@@ -142,7 +142,86 @@ model_config = SettingsConfigDict(
 
 ---
 
-## 5. 수정 사항 요약
+## 5. 로직 정합성
+
+### 5.1 파이프라인 흐름 (✅ 통과)
+
+```
+Vision → Rule → Answer → Reward
+  │        │       │        │
+  ▼        ▼       ▼        ▼
+ 분류    규정검색  답변생성  보상처리
+```
+
+| Step | Port | Adapter | 출력 |
+|------|------|---------|------|
+| `VisionStep` | `VisionModelPort` | `GPTVisionAdapter` | `classification` |
+| `RuleStep` | `RetrieverPort` | `JsonRegulationRetriever` | `disposal_rules` |
+| `AnswerStep` | `LLMPort` | `GPTLLMAdapter` | `final_answer` |
+| `RewardStep` | (Celery) | - | `reward` |
+
+### 5.2 Redis Streams 이벤트 형식 (✅ 호환)
+
+**Event Publisher 출력 필드:**
+
+```python
+# apps/scan_worker/infrastructure/persistence_redis/event_publisher_impl.py
+'job_id', 'stage', 'status', 'seq', 'ts', 'progress', 'result'
+```
+
+**Event Router 기대 필드:**
+
+```python
+# domains/event-router/core/consumer.py
+event["job_id"], event["stage"], event["status"], event["seq"], event["progress"], event["result"]
+```
+
+→ **형식 일치 확인 완료**
+
+### 5.3 결과 캐시 키 형식 (✅ 통과)
+
+```python
+# apps/scan_worker
+cache_key = f"scan:result:{task_id}"
+
+# apps/scan (결과 조회)
+cache_key = f"scan:result:{job_id}"
+```
+
+### 5.4 Context 직렬화 (✅ 통과)
+
+| 내부 필드 | 직렬화 키 | 복원 |
+|-----------|----------|:----:|
+| `classification` | `classification_result` | ✅ |
+| `disposal_rules` | `disposal_rules` | ✅ |
+| `final_answer` | `final_answer` | ✅ |
+| `latencies` | `metadata` | ✅ |
+
+### 5.5 DI 주입 흐름 (✅ 통과)
+
+```
+1. Task receives: task_id, user_id, image_url, model
+2. create_context() → ClassifyContext with llm_model
+3. get_vision_step(model) → VisionStep with GPTVisionAdapter
+4. Step.run(ctx) → ctx with classification
+5. ctx.to_dict() → next Task
+```
+
+### 5.6 Reward 로직 검증 (✅ 통과)
+
+| 조건 | 검증 |
+|------|:----:|
+| `major_category == "재활용폐기물"` | ✅ |
+| `disposal_rules` 존재 | ✅ |
+| `insufficiencies` 없음 | ✅ |
+| `character.match` 동기 호출 (10초 타임아웃) | ✅ |
+| `character.save_ownership` Fire & Forget | ✅ |
+| `users.save_character` Fire & Forget | ✅ |
+| 결과 캐시 저장 후 `done` 이벤트 발행 | ✅ |
+
+---
+
+## 6. 수정 사항 요약
 
 | 파일 | 변경 내용 |
 |------|----------|
@@ -153,9 +232,9 @@ model_config = SettingsConfigDict(
 
 ---
 
-## 6. 배포 후 검증 절차
+## 7. 배포 후 검증 절차
 
-### 6.1 RabbitMQ 큐 확인
+### 7.1 RabbitMQ 큐 확인
 
 ```bash
 kubectl exec -n rabbitmq eco2-rabbitmq-server-0 -- \
@@ -172,14 +251,14 @@ scan.reward       0
 users.save_character  0
 ```
 
-### 6.2 Workers 상태 확인
+### 7.2 Workers 상태 확인
 
 ```bash
 kubectl get pod -n scan | grep worker
 kubectl get pod -n users | grep worker
 ```
 
-### 6.3 Celery 연결 확인
+### 7.3 Celery 연결 확인
 
 ```bash
 kubectl exec -n scan deployment/scan-worker -- \
@@ -188,26 +267,26 @@ kubectl exec -n scan deployment/scan-worker -- \
 
 ---
 
-## 7. 교훈
+## 8. 교훈
 
-### 7.1 일관된 네이밍의 중요성
+### 8.1 일관된 네이밍의 중요성
 
 - RabbitMQ 사용자명이 서비스마다 다르게 설정되어 있었음
 - **대책:** ExternalSecret 템플릿 표준화 (공통 변수 추출)
 
-### 7.2 환경변수 매핑 검증
+### 8.2 환경변수 매핑 검증
 
 - pydantic `env_prefix`와 Kubernetes env 주입 간 불일치
 - **대책:** 배포 전 환경변수 매핑 테이블 검증 추가
 
-### 7.3 큐 존재 검증
+### 8.3 큐 존재 검증
 
 - 연결 실패로 인해 큐가 자동 생성되지 않음
 - **대책:** startup probe에서 큐 생성 검증 추가 고려
 
 ---
 
-## 8. 관련 문서
+## 9. 관련 문서
 
 - [Scan Worker Migration Roadmap](../../plans/scan-worker-migration-roadmap.md)
 - [Stateless Reducer Pattern](../../plans/scan-worker-stateless-reducer.md)
