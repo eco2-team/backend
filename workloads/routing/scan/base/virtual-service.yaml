@@ -3,11 +3,11 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 라우팅:
 # - POST /api/v1/scan → scan-api (비동기 제출)
-# - GET /api/v1/scan/result/{job_id} → scan-api (결과 조회)
+# - GET /api/v1/scan/{job_id}/result → scan-api (결과 조회)
 # - GET /api/v1/scan/classify → scan-api (동기 처리, 레거시)
 #
 # SSE 스트리밍은 별도 VirtualService:
-# - GET /api/v1/stream?job_id=xxx → sse-gateway
+# - GET /api/v1/scan/{job_id}/events → sse-gateway (RESTful)
 #   (workloads/routing/sse-gateway)
 #
 # 참조: docs/blogs/async/31-sse-fanout-optimization.md

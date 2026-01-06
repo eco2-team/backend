@@ -113,8 +113,8 @@ class ScanTask:
         """
         return {
             "job_id": self.task_id,
-            "stream_url": f"{base_url}/api/v1/stream?job_id={self.task_id}",
-            "result_url": f"{base_url}/api/v1/scan/result/{self.task_id}",
+            "stream_url": f"{base_url}/api/v1/scan/{self.task_id}/events",
+            "result_url": f"{base_url}/api/v1/scan/{self.task_id}/result",
             "status": self.status.value,
         }
 

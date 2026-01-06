@@ -174,8 +174,8 @@ class TestSubmitClassificationCommand:
 
         response = await command.execute(request)
 
-        assert response.stream_url == f"/api/v1/stream?job_id={response.job_id}"
-        assert response.result_url == f"/api/v1/scan/result/{response.job_id}"
+        assert response.stream_url == f"/api/v1/scan/{response.job_id}/events"
+        assert response.result_url == f"/api/v1/scan/{response.job_id}/result"
 
 
 class TestIdempotency:
@@ -203,8 +203,8 @@ class TestIdempotency:
         """동일한 idempotency_key로 재요청 시 캐시된 응답 반환."""
         cached_response = {
             "job_id": "cached-job-id",
-            "stream_url": "/api/v1/stream?job_id=cached-job-id",
-            "result_url": "/api/v1/scan/result/cached-job-id",
+            "stream_url": "/api/v1/scan/cached-job-id/events",
+            "result_url": "/api/v1/scan/cached-job-id/result",
             "status": "queued",
         }
 

@@ -145,8 +145,8 @@ class SubmitClassificationCommand:
         # 5. 응답 생성
         response = SubmitClassificationResponse(
             job_id=job_id,
-            stream_url=f"/api/v1/stream?job_id={job_id}",
-            result_url=f"/api/v1/scan/result/{job_id}",
+            stream_url=f"/api/v1/scan/{job_id}/events",
+            result_url=f"/api/v1/scan/{job_id}/result",
             status=task.status.value,
         )
 

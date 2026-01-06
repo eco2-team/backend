@@ -184,7 +184,7 @@ async def submit_scan(
 
 
 @router.get(
-    "/result/{job_id}",
+    "/{job_id}/result",
     summary="Get scan result by job_id",
     responses={
         200: {"description": "결과 반환"},
