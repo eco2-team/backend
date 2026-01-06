@@ -1,11 +1,13 @@
 """Google Gemini Vision Adapter - VisionModelPort 구현체.
 
-Gemini API generate_content 사용 (gemini-3.0-flash).
+Gemini 3 API generate_content 사용 (gemini-3-flash-preview).
+https://ai.google.dev/gemini-api/docs/gemini-3
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, List, Optional
 
 import httpx
@@ -54,25 +56,26 @@ class VisionResult(BaseModel):
 class GeminiVisionAdapter(VisionModelPort):
     """Google Gemini Vision API 구현체.
 
-    generate_content API 사용으로 JSON 스키마 기반 구조화 출력.
+    Gemini 3 API (google-genai 패키지) 사용.
+    https://ai.google.dev/gemini-api/docs/gemini-3
     """
 
     def __init__(
         self,
-        model: str = "gemini-3.0-flash",
+        model: str = "gemini-3-flash-preview",
         api_key: str | None = None,
     ):
         """초기화.
 
         Args:
-            model: Gemini 모델명 (기본: gemini-3.0-flash)
+            model: Gemini 모델명 (기본: gemini-3-flash-preview)
             api_key: Google API 키 (None이면 GOOGLE_API_KEY 환경변수 사용)
         """
-        # api_key가 제공되면 클라이언트 설정에 사용
-        if api_key:
-            self._client = genai.Client(api_key=api_key)
+        # API 키 설정
+        key = api_key or os.getenv("GOOGLE_API_KEY")
+        if key:
+            self._client = genai.Client(api_key=key)
         else:
-            # 환경변수 GOOGLE_API_KEY 자동 사용
             self._client = genai.Client()
 
         self._model = model
@@ -136,21 +139,34 @@ class GeminiVisionAdapter(VisionModelPort):
             f"{prompt}\n\n{input_text}",
         ]
 
-        # Gemini API 호출 (구조화 출력)
+        # Gemini 3 API 호출 (구조화 출력)
         response = self._client.models.generate_content(
             model=self._model,
             contents=contents,
             config={
                 "response_mime_type": "application/json",
-                "response_json_schema": VisionResult.model_json_schema(),
+                "response_schema": VisionResult,
                 "max_output_tokens": MAX_OUTPUT_TOKENS,
                 "temperature": TEMPERATURE,
             },
         )
 
         # JSON 파싱 및 Pydantic 검증
-        parsed = VisionResult.model_validate_json(response.text)
-        result = parsed.model_dump()
+        try:
+            parsed = VisionResult.model_validate_json(response.text)
+            result = parsed.model_dump()
+        except Exception as e:
+            logger.warning("JSON parsing failed, using fallback: %s", e)
+            # fallback
+            result = {
+                "classification": {
+                    "major_category": "unknown",
+                    "middle_category": "unknown",
+                    "minor_category": None,
+                },
+                "situation_tags": [],
+                "meta": {"user_input": input_text},
+            }
 
         logger.debug(
             "Vision API call completed (major=%s, middle=%s)",

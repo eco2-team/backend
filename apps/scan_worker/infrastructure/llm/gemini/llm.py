@@ -1,6 +1,7 @@
 """Google Gemini LLM Adapter - LLMPort 구현체.
 
-Gemini API generate_content 사용 (gemini-2.0-flash 등).
+Gemini 3 API generate_content 사용 (gemini-3-flash-preview).
+https://ai.google.dev/gemini-api/docs/gemini-3
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ import logging
 import os
 from typing import Any, List, Optional
 
-import google.generativeai as genai
+from google import genai
 from pydantic import BaseModel, Field
 
 from scan_worker.application.classify.ports.llm_model import LLMPort
@@ -53,35 +54,29 @@ class AnswerResult(BaseModel):
 class GeminiLLMAdapter(LLMPort):
     """Google Gemini LLM API 구현체.
 
-    generate_content API 사용으로 JSON 구조화 출력.
+    Gemini 3 API (google-genai 패키지) 사용.
+    https://ai.google.dev/gemini-api/docs/gemini-3
     """
 
     def __init__(
         self,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-3-flash-preview",
         api_key: str | None = None,
     ):
         """초기화.
 
         Args:
-            model: Gemini 모델명 (기본: gemini-2.0-flash)
+            model: Gemini 모델명 (기본: gemini-3-flash-preview)
             api_key: Google API 키 (None이면 GOOGLE_API_KEY 환경변수 사용)
         """
         # API 키 설정
         key = api_key or os.getenv("GOOGLE_API_KEY")
         if key:
-            genai.configure(api_key=key)
+            self._client = genai.Client(api_key=key)
+        else:
+            self._client = genai.Client()
 
-        # GenerativeModel 인스턴스 생성
-        self._model_name = model
-        self._model = genai.GenerativeModel(
-            model_name=model,
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=MAX_OUTPUT_TOKENS,
-                temperature=TEMPERATURE,
-            ),
-        )
-
+        self._model = model
         logger.info(
             "GeminiLLMAdapter initialized (model=%s)",
             model,
@@ -122,24 +117,8 @@ class GeminiLLMAdapter(LLMPort):
         )
         rag_json = json.dumps(disposal_rules, ensure_ascii=False, indent=2)
 
-        # JSON 스키마 지시
-        schema_instruction = """
-응답은 반드시 다음 JSON 형식으로 작성하세요:
-{
-  "disposal_steps": {
-    "단계1": "...",
-    "단계2": "...",
-    ...
-  },
-  "insufficiencies": ["부족한 정보1", "부족한 정보2"],
-  "user_answer": "사용자에게 전달할 최종 답변"
-}
-"""
-
         # Gemini는 시스템 프롬프트를 별도로 지원하지 않으므로 앞에 추가
         full_prompt = f"""{system_prompt}
-
-{schema_instruction}
 
 <context id="classification">
 {classification_json}
@@ -158,10 +137,19 @@ class GeminiLLMAdapter(LLMPort):
 </context>
 """
 
-        logger.debug("LLM API call starting (model=%s)", self._model_name)
+        logger.debug("LLM API call starting (model=%s)", self._model)
 
-        # Gemini API 호출
-        response = self._model.generate_content(full_prompt)
+        # Gemini 3 API 호출 (구조화 출력)
+        response = self._client.models.generate_content(
+            model=self._model,
+            contents=full_prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": AnswerResult,
+                "max_output_tokens": MAX_OUTPUT_TOKENS,
+                "temperature": TEMPERATURE,
+            },
+        )
 
         # JSON 파싱 및 Pydantic 검증
         try:
