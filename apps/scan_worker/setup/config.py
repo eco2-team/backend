@@ -27,8 +27,8 @@ MODEL_PROVIDER_MAP: dict[str, str] = {
     "gpt-5-pro": "gpt",
     "gpt-5-mini": "gpt",
     # === Gemini 계열 (Google) ===
-    "gemini-3-pro-preview": "gemini",
-    "gemini-3-flash-preview": "gemini",
+    "gemini-3.0-pro-preview": "gemini",
+    "gemini-3.0-flash-preview": "gemini",
     "gemini-2.5-pro": "gemini",
     "gemini-2.5-flash": "gemini",
     "gemini-2.5-flash-lite": "gemini",
