@@ -34,7 +34,7 @@ spec:
         command: [celery]
         args:
         - -A
-        - domains.scan.celery_app
+        - scan_worker.setup.celery:celery_app
         - beat
         - --loglevel=info
         - --scheduler=celery.beat:PersistentScheduler

@@ -45,7 +45,7 @@ spec:
         args:
         - |
           ulimit -n 65536 2>/dev/null || echo "ulimit setting skipped (not privileged)"
-          exec celery -A apps.scan_worker.setup.celery:celery_app worker \
+          exec celery -A scan_worker.setup.celery:celery_app worker \
             --loglevel=info \
             -E \
             -P gevent \
@@ -114,7 +114,7 @@ spec:
             command:
             - celery
             - -A
-            - apps.scan_worker.setup.celery:celery_app
+            - scan_worker.setup.celery:celery_app
             - inspect
             - ping
             - -t
@@ -128,7 +128,7 @@ spec:
             command:
             - celery
             - -A
-            - apps.scan_worker.setup.celery:celery_app
+            - scan_worker.setup.celery:celery_app
             - inspect
             - ping
             - -t
@@ -142,7 +142,7 @@ spec:
             command:
             - celery
             - -A
-            - apps.scan_worker.setup.celery:celery_app
+            - scan_worker.setup.celery:celery_app
             - inspect
             - ping
             - -t
