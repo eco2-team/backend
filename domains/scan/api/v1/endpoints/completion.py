@@ -109,7 +109,6 @@ async def classify_completion(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # nginx buffering 비활성화
         },
     )
 

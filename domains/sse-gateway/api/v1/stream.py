@@ -124,7 +124,6 @@ async def stream_events(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Nginx 버퍼링 비활성화
         },
     )
 
@@ -196,6 +195,5 @@ async def stream_events_restful(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Nginx 버퍼링 비활성화
         },
     )
