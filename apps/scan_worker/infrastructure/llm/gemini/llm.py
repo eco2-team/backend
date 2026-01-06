@@ -1,6 +1,6 @@
 """Google Gemini LLM Adapter - LLMPort 구현체.
 
-Gemini API generate_content 사용 (gemini-2.0-flash 등).
+Gemini API generate_content 사용 (gemini-3.0-flash-preview).
 """
 
 from __future__ import annotations
@@ -58,13 +58,13 @@ class GeminiLLMAdapter(LLMPort):
 
     def __init__(
         self,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-3.0-flash-preview",
         api_key: str | None = None,
     ):
         """초기화.
 
         Args:
-            model: Gemini 모델명 (기본: gemini-2.0-flash)
+            model: Gemini 모델명 (기본: gemini-3.0-flash-preview)
             api_key: Google API 키 (None이면 GOOGLE_API_KEY 환경변수 사용)
         """
         # API 키 설정

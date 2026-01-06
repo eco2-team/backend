@@ -2,7 +2,7 @@
 
 모델 패밀리별 LLM 구현체:
 - gpt/: GPT 모델 (gpt-5.1, gpt-5.2)
-- gemini/: Gemini 모델 (gemini-3.0-flash)
+- gemini/: Gemini 모델 (gemini-3.0-flash-preview)
 """
 
 from scan_worker.infrastructure.llm.gemini import (
