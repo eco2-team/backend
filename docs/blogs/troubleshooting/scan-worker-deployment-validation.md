@@ -357,7 +357,141 @@ pipeline = chain(
 
 ---
 
-## 8. 관련 문서
+## 8. Scan 엔드포인트 흐름
+
+### 8.1 전체 흐름도
+
+```
+┌────────────────────────────────────────────┐
+│ Client                                     │
+│   POST /api/v1/scan                        │
+│   { image_url, user_input?, model? }       │
+│   Headers: X-User-ID, X-Idempotency-Key?   │
+└────────────────────┬───────────────────────┘
+                     ▼
+┌────────────────────────────────────────────┐
+│ apps/scan (API)                            │
+│                                            │
+│ Controller (scan.py)                       │
+│   1. Ext-Authz에서 X-User-ID 추출          │
+│   2. 모델 검증                             │
+│   3. SubmitCommand.execute() 호출          │
+│                                            │
+│ SubmitClassificationCommand                │
+│   1. Idempotency 체크 (Redis Cache)        │
+│   2. job_id 생성 (UUID)                    │
+│   3. "queued" 이벤트 발행                  │
+│   4. Celery Chain 발행                     │
+│   5. 응답 반환                             │
+└────────────────────┬───────────────────────┘
+                     ▼
+┌────────────────────────────────────────────┐
+│ RabbitMQ                                   │
+│                                            │
+│ scan.vision → scan.rule →                  │
+│ scan.answer → scan.reward                  │
+└────────────────────┬───────────────────────┘
+                     ▼
+┌────────────────────────────────────────────┐
+│ apps/scan_worker                           │
+│                                            │
+│ [1] VisionTask (scan.vision)               │
+│     - GPTVisionAdapter로 이미지 분류       │
+│     - 체크포인트 저장                      │
+│     - 이벤트 발행 (progress: 25%)          │
+│                     ▼                      │
+│ [2] RuleTask (scan.rule)                   │
+│     - JsonRegulationRetriever로 규정 검색  │
+│     - 체크포인트 저장                      │
+│     - 이벤트 발행 (progress: 50%)          │
+│                     ▼                      │
+│ [3] AnswerTask (scan.answer)               │
+│     - GPTLLMAdapter로 답변 생성            │
+│     - 체크포인트 저장                      │
+│     - 이벤트 발행 (progress: 75%)          │
+│                     ▼                      │
+│ [4] RewardTask (scan.reward)               │
+│     a. 보상 조건 확인                      │
+│     b. character.match 동기 호출           │
+│     c. character.save_ownership 발행       │
+│     d. users.save_character 발행           │
+│     e. 결과 캐시 저장                      │
+│     f. "done" 이벤트 발행 (100%)           │
+└────────────────────┬───────────────────────┘
+                     ▼
+┌────────────────────────────────────────────┐
+│ Redis Streams (scan:events:{shard})        │
+│                                            │
+│ queued → vision → rule → answer → done     │
+│  (0%)    (25%)   (50%)   (75%)   (100%)    │
+└────────────────────┬───────────────────────┘
+                     ▼
+┌────────────────────────────────────────────┐
+│ Event Router → SSE Gateway                 │
+│   XREADGROUP → WebSocket/SSE               │
+└────────────────────┬───────────────────────┘
+                     ▼
+┌────────────────────────────────────────────┐
+│ Client (실시간)                            │
+│   GET /api/v1/stream?job_id=xxx            │
+│   SSE: { stage, status, progress }         │
+├────────────────────────────────────────────┤
+│ Client (결과 조회)                         │
+│   GET /api/v1/scan/result/{job_id}         │
+│   → Redis Cache 조회                       │
+│   → 200/202/404                            │
+└────────────────────────────────────────────┘
+```
+
+### 8.2 핵심 컴포넌트
+
+| 단계 | 컴포넌트 | 역할 |
+|:----:|----------|------|
+| 1 | Controller | 요청 검증, Command 호출 |
+| 2 | SubmitCommand | Idempotency, Celery Chain 발행 |
+| 3 | VisionTask | 이미지 분류 (GPT Vision) |
+| 4 | RuleTask | 규정 검색 (JSON Lite RAG) |
+| 5 | AnswerTask | 답변 생성 (GPT LLM) |
+| 6 | RewardTask | 보상 처리, 결과 캐싱, done 이벤트 |
+| 7 | Event Router | Redis Streams 소비 |
+| 8 | SSE Gateway | 클라이언트 실시간 전달 |
+
+### 8.3 체크포인팅 흐름
+
+```
+Task 실행 시:
+┌──────────────────────────────────────┐
+│ CheckpointingStepRunner.run_step()   │
+│                                      │
+│ 1. 체크포인트 확인                   │
+│    └─ 있으면 Skip (멱등성)           │
+│                                      │
+│ 2. Step.run(ctx) 실행                │
+│                                      │
+│ 3. 체크포인트 저장                   │
+│    └─ scan:checkpoint:{task_id}:step │
+│                                      │
+│ 4. 이벤트 발행                       │
+│    └─ scan:events:{shard}            │
+└──────────────────────────────────────┘
+
+실패 복구 시:
+┌──────────────────────────────────────┐
+│ resume_from_checkpoint(task_id)      │
+│                                      │
+│ 1. 마지막 체크포인트 조회            │
+│    └─ vision → rule → answer 순서    │
+│                                      │
+│ 2. Context 복원                      │
+│                                      │
+│ 3. 다음 Step부터 재시작              │
+│    └─ LLM 재호출 비용 절감           │
+└──────────────────────────────────────┘
+```
+
+---
+
+## 9. 관련 문서
 
 - [Scan Worker Migration Roadmap](../../plans/scan-worker-migration-roadmap.md)
 - [Stateless Reducer Pattern](../../plans/scan-worker-stateless-reducer.md)
