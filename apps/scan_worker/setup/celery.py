@@ -20,14 +20,21 @@ settings = get_settings()
 CELERY_EXCHANGE = Exchange("celery", type="topic")
 
 # RabbitMQ 큐 설정 (기존 큐와 동일하게 설정)
-QUEUE_TTL_MS = 3600000  # 1시간 (3600초 * 1000)
 DLX_EXCHANGE = "dlx"  # Dead Letter Exchange
+
+# 큐별 TTL 설정 (기존 RabbitMQ와 동일)
+QUEUE_TTL_MAP = {
+    "scan.vision": 3600000,  # 1시간
+    "scan.rule": 300000,  # 5분 (규정 조회는 빠름)
+    "scan.answer": 3600000,  # 1시간
+    "scan.reward": 3600000,  # 1시간
+}
 
 
 def _queue_args(queue_name: str) -> dict:
     """큐별 arguments 생성 (TTL + DLX + DLQ 라우팅키)."""
     return {
-        "x-message-ttl": QUEUE_TTL_MS,
+        "x-message-ttl": QUEUE_TTL_MAP.get(queue_name, 3600000),
         "x-dead-letter-exchange": DLX_EXCHANGE,
         "x-dead-letter-routing-key": f"dlq.{queue_name}",
     }
