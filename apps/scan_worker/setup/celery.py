@@ -23,35 +23,40 @@ CELERY_EXCHANGE = Exchange("celery", type="topic")
 QUEUE_TTL_MS = 3600000  # 1시간 (3600초 * 1000)
 DLX_EXCHANGE = "dlx"  # Dead Letter Exchange
 
-QUEUE_ARGUMENTS = {
-    "x-message-ttl": QUEUE_TTL_MS,
-    "x-dead-letter-exchange": DLX_EXCHANGE,
-}
+
+def _queue_args(queue_name: str) -> dict:
+    """큐별 arguments 생성 (TTL + DLX + DLQ 라우팅키)."""
+    return {
+        "x-message-ttl": QUEUE_TTL_MS,
+        "x-dead-letter-exchange": DLX_EXCHANGE,
+        "x-dead-letter-routing-key": f"dlq.{queue_name}",
+    }
+
 
 SCAN_TASK_QUEUES = (
     Queue(
         "scan.vision",
         exchange=CELERY_EXCHANGE,
         routing_key="scan.vision",
-        queue_arguments=QUEUE_ARGUMENTS,
+        queue_arguments=_queue_args("scan.vision"),
     ),
     Queue(
         "scan.rule",
         exchange=CELERY_EXCHANGE,
         routing_key="scan.rule",
-        queue_arguments=QUEUE_ARGUMENTS,
+        queue_arguments=_queue_args("scan.rule"),
     ),
     Queue(
         "scan.answer",
         exchange=CELERY_EXCHANGE,
         routing_key="scan.answer",
-        queue_arguments=QUEUE_ARGUMENTS,
+        queue_arguments=_queue_args("scan.answer"),
     ),
     Queue(
         "scan.reward",
         exchange=CELERY_EXCHANGE,
         routing_key="scan.reward",
-        queue_arguments=QUEUE_ARGUMENTS,
+        queue_arguments=_queue_args("scan.reward"),
     ),
 )
 
