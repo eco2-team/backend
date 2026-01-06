@@ -15,6 +15,18 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+def _init_orm_mappers() -> None:
+    """ORM 매퍼 초기화."""
+    from character.infrastructure.persistence_postgres.mappings import start_mappers
+
+    try:
+        start_mappers()
+        logger.info("ORM mappers initialized")
+    except Exception as e:
+        # 이미 매핑된 경우 무시
+        logger.debug(f"ORM mappers already initialized: {e}")
+
+
 async def warmup_local_cache() -> None:
     """로컬 캐시 워밍업 (DB에서 캐릭터 로드).
 
@@ -59,6 +71,9 @@ async def warmup_local_cache() -> None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """애플리케이션 라이프사이클 관리."""
     logger.info("Starting Character API service")
+
+    # ORM 매퍼 초기화 (Imperative Mapping)
+    _init_orm_mappers()
 
     # OpenTelemetry 설정
     if settings.otel_enabled:

@@ -14,19 +14,15 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, MetaData, String, Table, Text, func
+from sqlalchemy import Column, DateTime, String, Table, Text, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import registry
 
 from apps.users.domain.entities.user import User
-from apps.users.infrastructure.persistence_postgres.constants import (
-    ACCOUNTS_TABLE,
-    USERS_SCHEMA,
+from apps.users.infrastructure.persistence_postgres.constants import ACCOUNTS_TABLE
+from apps.users.infrastructure.persistence_postgres.registry import (
+    mapper_registry,
+    metadata,
 )
-
-# users 스키마용 메타데이터
-metadata = MetaData(schema=USERS_SCHEMA)
-mapper_registry = registry(metadata=metadata)
 
 # users.accounts 테이블 정의 (통합 스키마)
 accounts_table = Table(
@@ -52,6 +48,9 @@ accounts_table = Table(
 
 def start_user_mapper() -> None:
     """User 엔티티를 users.accounts 테이블에 매핑합니다."""
+    if hasattr(User, "__mapper__"):
+        return
+
     mapper_registry.map_imperatively(
         User,
         accounts_table,

@@ -10,16 +10,16 @@ from __future__ import annotations
 
 from sqlalchemy import Column, DateTime, Table, Text, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import registry
 
 from apps.users.domain.entities.user_character import UserCharacter
 from apps.users.domain.enums import UserCharacterStatus
 from apps.users.infrastructure.persistence_postgres.constants import (
     USER_CHARACTERS_TABLE,
 )
-from apps.users.infrastructure.persistence_postgres.mappings.user import metadata
-
-mapper_registry = registry(metadata=metadata)
+from apps.users.infrastructure.persistence_postgres.registry import (
+    mapper_registry,
+    metadata,
+)
 
 # users.user_characters 테이블 정의
 user_characters_table = Table(
@@ -52,6 +52,9 @@ user_characters_table = Table(
 
 def start_user_character_mapper() -> None:
     """UserCharacter 엔티티를 users.user_characters 테이블에 매핑합니다."""
+    if hasattr(UserCharacter, "__mapper__"):
+        return
+
     mapper_registry.map_imperatively(
         UserCharacter,
         user_characters_table,

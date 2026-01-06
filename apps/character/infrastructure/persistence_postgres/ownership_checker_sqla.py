@@ -1,18 +1,22 @@
-"""SQLAlchemy Ownership Checker Implementation."""
+"""SQLAlchemy Ownership Checker Implementation.
+
+Imperative Mapping을 사용하므로 도메인 엔티티를 직접 조회합니다.
+"""
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from character.application.reward.ports import OwnershipChecker
-from character.infrastructure.persistence_postgres.models import (
-    CharacterOwnershipModel,
-)
+from character.domain.entities import CharacterOwnership
 
 
 class SqlaOwnershipChecker(OwnershipChecker):
-    """SQLAlchemy 기반 소유권 확인기."""
+    """SQLAlchemy 기반 소유권 확인기.
+
+    OwnershipChecker 포트를 구현합니다.
+    """
 
     def __init__(self, session: AsyncSession) -> None:
         """Initialize.
@@ -22,12 +26,13 @@ class SqlaOwnershipChecker(OwnershipChecker):
         """
         self._session = session
 
-    async def is_owned(self, user_id: UUID, character_id: UUID) -> bool:
-        """사용자가 캐릭터를 소유하고 있는지 확인합니다."""
-        stmt = select(CharacterOwnershipModel.id).where(
-            CharacterOwnershipModel.user_id == user_id,
-            CharacterOwnershipModel.character_id == character_id,
-            CharacterOwnershipModel.status == "owned",
+    async def has_character(self, user_id: UUID, character_code: str) -> bool:
+        """사용자가 해당 캐릭터를 보유하고 있는지 확인합니다."""
+        stmt = select(
+            exists().where(
+                CharacterOwnership.user_id == user_id,
+                CharacterOwnership.character_code == character_code,
+            )
         )
         result = await self._session.execute(stmt)
-        return result.scalar_one_or_none() is not None
+        return bool(result.scalar())

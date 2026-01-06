@@ -30,15 +30,15 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import registry
 
 from apps.users.domain.enums import OAuthProvider
 from apps.users.infrastructure.persistence_postgres.constants import (
     SOCIAL_ACCOUNTS_TABLE,
 )
-from apps.users.infrastructure.persistence_postgres.mappings.user import metadata
-
-mapper_registry = registry(metadata=metadata)
+from apps.users.infrastructure.persistence_postgres.registry import (
+    mapper_registry,
+    metadata,
+)
 
 
 @dataclass
