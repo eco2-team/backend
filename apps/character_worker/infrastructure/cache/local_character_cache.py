@@ -4,7 +4,7 @@ import logging
 from typing import Mapping
 
 from apps.character.domain.entities import Character
-from apps.character_worker.application.match.ports import CharacterCache
+from character_worker.application.match.ports import CharacterCache
 
 logger = logging.getLogger(__name__)
 

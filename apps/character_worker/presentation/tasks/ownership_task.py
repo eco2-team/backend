@@ -13,10 +13,10 @@ from uuid import UUID
 
 from celery_batches import Batches
 
-from apps.character_worker.application.ownership import SaveOwnershipCommand
-from apps.character_worker.application.ownership.dto import OwnershipEvent
-from apps.character_worker.setup.celery import celery_app
-from apps.character_worker.setup.database import async_session_factory
+from character_worker.application.ownership import SaveOwnershipCommand
+from character_worker.application.ownership.dto import OwnershipEvent
+from character_worker.setup.celery import celery_app
+from character_worker.setup.database import async_session_factory
 
 logger = logging.getLogger(__name__)
 

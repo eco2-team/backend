@@ -7,13 +7,13 @@ Ref: https://rooftopsnow.tistory.com/132
 
 import logging
 from typing import Sequence
-from uuid import UUID, NAMESPACE_DNS, uuid5
+from uuid import NAMESPACE_DNS, UUID, uuid5
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.character_worker.application.ownership.dto import OwnershipEvent
-from apps.character_worker.application.ownership.ports import OwnershipStore
+from character_worker.application.ownership.dto import OwnershipEvent
+from character_worker.application.ownership.ports import OwnershipStore
 
 logger = logging.getLogger(__name__)
 
@@ -64,13 +64,15 @@ class SqlaOwnershipStore(OwnershipStore):
             )
 
         # Bulk INSERT with character_code
-        stmt = text("""
+        stmt = text(
+            """
             INSERT INTO character.character_ownerships
                 (id, user_id, character_id, character_code, source, status, acquired_at, updated_at)
             VALUES
                 (:id, :user_id, :character_id, :character_code, :source, 'owned', NOW(), NOW())
             ON CONFLICT (user_id, character_code) DO NOTHING
-        """)
+        """
+        )
 
         inserted = 0
         for value in values:

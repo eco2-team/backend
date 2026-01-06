@@ -9,8 +9,8 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from apps.location.presentation.http.controllers import health_router, location_router
-from apps.location.setup.config import get_settings
+from location.presentation.http.controllers import health_router, location_router
+from location.setup.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # OpenTelemetry 설정
     if settings.otel_enabled:
-        from domains._shared.observability.tracing import setup_tracing
+        from location.infrastructure.observability import setup_tracing
 
         setup_tracing(settings.service_name)
 

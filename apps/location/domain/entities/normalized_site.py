@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from apps.location.domain.value_objects import Coordinates
+from location.domain.value_objects import Coordinates
 
 
 @dataclass(frozen=True)

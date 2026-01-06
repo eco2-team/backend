@@ -1,6 +1,6 @@
 """Reward Application."""
 
-from apps.character.application.reward.commands.evaluate_reward import (
+from character.application.reward.commands.evaluate_reward import (
     EvaluateRewardCommand,
 )
 

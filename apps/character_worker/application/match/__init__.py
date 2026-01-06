@@ -1,6 +1,6 @@
 """Match Application."""
 
-from apps.character_worker.application.match.commands.match_character import (
+from character_worker.application.match.commands.match_character import (
     MatchCharacterCommand,
 )
 

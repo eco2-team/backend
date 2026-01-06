@@ -13,8 +13,8 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel
 
-from apps.scan_worker.application.classify.ports.vision_model import VisionModelPort
-from apps.scan_worker.infrastructure.llm.gemini.config import (
+from scan_worker.application.classify.ports.vision_model import VisionModelPort
+from scan_worker.infrastructure.llm.gemini.config import (
     GEMINI_CONNECT_TIMEOUT,
     GEMINI_READ_TIMEOUT,
     MAX_OUTPUT_TOKENS,

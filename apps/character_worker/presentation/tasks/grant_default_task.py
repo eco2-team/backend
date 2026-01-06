@@ -14,9 +14,9 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from apps.character_worker.infrastructure.cache import get_character_cache
-from apps.character_worker.setup.celery import celery_app
-from apps.character_worker.setup.config import get_settings
+from character_worker.infrastructure.cache import get_character_cache
+from character_worker.setup.celery import celery_app
+from character_worker.setup.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -121,16 +121,18 @@ def _query_default_character_from_db(code: str) -> dict[str, Any] | None:
     """DB에서 기본 캐릭터를 조회합니다."""
     from sqlalchemy import text
 
-    from apps.character_worker.setup.database import sync_session_factory
+    from character_worker.setup.database import sync_session_factory
 
     with sync_session_factory() as session:
         result = session.execute(
-            text("""
+            text(
+                """
                 SELECT id, code, name, type_label, dialog
                 FROM character.characters
                 WHERE code = :code
                 LIMIT 1
-            """),
+            """
+            ),
             {"code": code},
         )
         row = result.fetchone()
@@ -162,9 +164,13 @@ async def _save_to_users_db(
     from uuid import uuid4
 
     from sqlalchemy import text
-    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+    from sqlalchemy.ext.asyncio import (
+        AsyncSession,
+        async_sessionmaker,
+        create_async_engine,
+    )
 
-    from apps.character_worker.setup.config import get_settings
+    from character_worker.setup.config import get_settings
 
     settings = get_settings()
 
@@ -179,7 +185,8 @@ async def _save_to_users_db(
     try:
         async with async_session() as session:
             result = await session.execute(
-                text("""
+                text(
+                    """
                     INSERT INTO users.user_characters
                         (id, user_id, character_id, character_code, character_name,
                          character_type, character_dialog, source, status, acquired_at, updated_at)
@@ -187,7 +194,8 @@ async def _save_to_users_db(
                         (:id, :user_id, :character_id, :character_code, :character_name,
                          :character_type, :character_dialog, :source, 'owned', NOW(), NOW())
                     ON CONFLICT (user_id, character_code) DO NOTHING
-                """),
+                """
+                ),
                 {
                     "id": uuid4(),
                     "user_id": user_id,

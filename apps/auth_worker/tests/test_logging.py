@@ -6,7 +6,6 @@ import logging
 import os
 from unittest.mock import patch
 
-
 from apps.auth_worker.setup.config import get_settings
 
 

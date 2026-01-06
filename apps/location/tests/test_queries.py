@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apps.location.application.nearby.dto import SearchRequest
-from apps.location.application.nearby.queries import GetNearbyCentersQuery
-from apps.location.domain.entities import NormalizedSite
-from apps.location.domain.enums import PickupCategory, StoreCategory
+from location.application.nearby.dto import SearchRequest
+from location.application.nearby.queries import GetNearbyCentersQuery
+from location.domain.entities import NormalizedSite
+from location.domain.enums import PickupCategory, StoreCategory
 
 pytestmark = pytest.mark.asyncio
 

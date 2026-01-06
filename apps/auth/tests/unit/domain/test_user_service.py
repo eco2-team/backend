@@ -3,12 +3,13 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 from uuid import uuid4
+
 import pytest
 
-from apps.auth.domain.services.user_service import UserService
-from apps.auth.domain.value_objects.user_id import UserId
 from apps.auth.domain.entities.user import User
 from apps.auth.domain.entities.user_social_account import UserSocialAccount
+from apps.auth.domain.services.user_service import UserService
+from apps.auth.domain.value_objects.user_id import UserId
 
 
 class TestUserService:

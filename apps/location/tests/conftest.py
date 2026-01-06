@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apps.location.domain.entities import NormalizedSite
+from location.domain.entities import NormalizedSite
 
 
 @pytest.fixture

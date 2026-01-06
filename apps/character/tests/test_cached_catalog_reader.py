@@ -10,8 +10,8 @@ from uuid import uuid4
 
 import pytest
 
-from apps.character.domain.entities import Character
-from apps.character.infrastructure.persistence_redis.cached_catalog_reader import (
+from character.domain.entities import Character
+from character.infrastructure.persistence_redis.cached_catalog_reader import (
     CACHE_KEY,
     CACHE_TTL,
     CachedCatalogReader,

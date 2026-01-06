@@ -13,16 +13,15 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from apps.auth.domain.enums.token_type import TokenType
 from apps.auth.application.token.dto import LogoutRequest
+from apps.auth.domain.enums.token_type import TokenType
 
 if TYPE_CHECKING:
     # Services (연주자)
-    from apps.auth.application.token.services import TokenService
-
     # Ports (인프라)
     from apps.auth.application.common.ports import TransactionManager
     from apps.auth.application.token.ports import BlacklistEventPublisher
+    from apps.auth.application.token.services import TokenService
 
 logger = logging.getLogger(__name__)
 

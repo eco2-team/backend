@@ -14,14 +14,14 @@ from typing import TYPE_CHECKING, Any
 from celery import Celery
 from celery.exceptions import TimeoutError as CeleryTimeoutError
 
-from apps.scan_worker.application.common.step_interface import Step
-from apps.scan_worker.application.classify.ports.event_publisher import (
+from scan_worker.application.classify.ports.event_publisher import (
     EventPublisherPort,
 )
-from apps.scan_worker.application.classify.ports.result_cache import ResultCachePort
+from scan_worker.application.classify.ports.result_cache import ResultCachePort
+from scan_worker.application.common.step_interface import Step
 
 if TYPE_CHECKING:
-    from apps.scan_worker.application.classify.dto.classify_context import (
+    from scan_worker.application.classify.dto.classify_context import (
         ClassifyContext,
     )
 

@@ -13,7 +13,7 @@ from typing import Any
 
 import redis
 
-from apps.scan_worker.application.classify.ports.context_store import ContextStorePort
+from scan_worker.application.classify.ports.context_store import ContextStorePort
 
 logger = logging.getLogger(__name__)
 

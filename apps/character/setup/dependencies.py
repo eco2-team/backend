@@ -10,18 +10,20 @@ from typing import Annotated, AsyncIterator
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.character.application.catalog import GetCatalogQuery
-from apps.character.application.catalog.ports import CatalogReader
-from apps.character.application.catalog.services.catalog_service import CatalogService
-from apps.character.application.reward import EvaluateRewardCommand
-from apps.character.application.reward.ports import CharacterMatcher, OwnershipChecker
-from apps.character.application.reward.services.reward_policy_service import RewardPolicyService
-from apps.character.infrastructure.cache import LocalCachedCatalogReader
-from apps.character.infrastructure.persistence_postgres import (
+from character.application.catalog import GetCatalogQuery
+from character.application.catalog.ports import CatalogReader
+from character.application.catalog.services.catalog_service import CatalogService
+from character.application.reward import EvaluateRewardCommand
+from character.application.reward.ports import CharacterMatcher, OwnershipChecker
+from character.application.reward.services.reward_policy_service import (
+    RewardPolicyService,
+)
+from character.infrastructure.cache import LocalCachedCatalogReader
+from character.infrastructure.persistence_postgres import (
     SqlaCharacterReader,
     SqlaOwnershipChecker,
 )
-from apps.character.setup.database import async_session_factory
+from character.setup.database import async_session_factory
 
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:

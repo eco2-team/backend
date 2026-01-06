@@ -2,7 +2,7 @@
 
 import pytest
 
-from apps.scan.domain.enums import LLMProvider
+from scan.domain.enums import LLMProvider
 
 
 class TestLLMProvider:

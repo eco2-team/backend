@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Sequence
 
-from apps.location.domain.entities import NormalizedSite
+from location.domain.entities import NormalizedSite
 
 
 class LocationReader(ABC):

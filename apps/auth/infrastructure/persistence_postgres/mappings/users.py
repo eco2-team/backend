@@ -8,12 +8,11 @@ User 도메인 엔티티와 DB 테이블의 매핑입니다.
         - phone_number: VARCHAR(20) - E.164 표준
 """
 
-from sqlalchemy import Table, Column, String, DateTime, Text, UniqueConstraint
+from sqlalchemy import Column, DateTime, String, Table, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from apps.auth.infrastructure.persistence_postgres.registry import mapper_registry
-
 
 users_table = Table(
     "users",

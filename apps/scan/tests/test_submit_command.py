@@ -13,7 +13,7 @@ import pytest
 # 테스트용 환경변수 설정 (Settings 로드 전에 필요)
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
 
-from apps.scan.application.classify.commands import (
+from scan.application.classify.commands import (
     SubmitClassificationCommand,
     SubmitClassificationRequest,
 )

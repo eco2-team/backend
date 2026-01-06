@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from urllib.parse import urlencode
 from typing import TYPE_CHECKING
+from urllib.parse import urlencode
 
-from apps.auth.infrastructure.oauth.providers.base import OAuthProvider, OAuthProviderError
 from apps.auth.application.common.services.oauth_client import OAuthProfile
+from apps.auth.infrastructure.oauth.providers.base import (
+    OAuthProvider,
+    OAuthProviderError,
+)
 
 if TYPE_CHECKING:
     import httpx

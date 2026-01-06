@@ -1,6 +1,6 @@
 """Redis Persistence."""
 
-from apps.character.infrastructure.persistence_redis.cached_catalog_reader import (
+from character.infrastructure.persistence_redis.cached_catalog_reader import (
     CachedCatalogReader,
 )
 

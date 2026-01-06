@@ -5,11 +5,11 @@
 - gemini/: Gemini 모델 (gemini-3.0-flash)
 """
 
-from apps.scan_worker.infrastructure.llm.gemini import (
+from scan_worker.infrastructure.llm.gemini import (
     GeminiLLMAdapter,
     GeminiVisionAdapter,
 )
-from apps.scan_worker.infrastructure.llm.gpt import (
+from scan_worker.infrastructure.llm.gpt import (
     GPTLLMAdapter,
     GPTVisionAdapter,
 )

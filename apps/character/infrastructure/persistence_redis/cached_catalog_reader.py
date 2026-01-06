@@ -6,8 +6,8 @@ from typing import Any, Sequence
 
 from redis.asyncio import Redis
 
-from apps.character.application.catalog.ports import CatalogReader
-from apps.character.domain.entities import Character
+from character.application.catalog.ports import CatalogReader
+from character.domain.entities import Character
 
 logger = logging.getLogger(__name__)
 

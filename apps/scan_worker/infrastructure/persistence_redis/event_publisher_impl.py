@@ -14,7 +14,7 @@ from typing import Any
 
 import redis
 
-from apps.scan_worker.application.classify.ports.event_publisher import EventPublisherPort
+from scan_worker.application.classify.ports.event_publisher import EventPublisherPort
 
 logger = logging.getLogger(__name__)
 

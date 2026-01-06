@@ -11,9 +11,9 @@ from typing import Any
 
 from celery import Task
 
-from apps.scan_worker.application.classify.dto.classify_context import ClassifyContext
-from apps.scan_worker.setup.celery import celery_app
-from apps.scan_worker.setup.dependencies import (
+from scan_worker.application.classify.dto.classify_context import ClassifyContext
+from scan_worker.setup.celery import celery_app
+from scan_worker.setup.dependencies import (
     get_checkpointing_step_runner,
     get_reward_step,
 )

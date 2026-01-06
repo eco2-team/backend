@@ -8,11 +8,11 @@ from uuid import UUID
 
 import grpc
 
-from apps.character.application.reward import EvaluateRewardCommand
-from apps.character.application.reward.dto import ClassificationSummary, RewardRequest
-from apps.character.application.reward.ports import CharacterMatcher
-from apps.character.domain.enums import CharacterRewardSource
-from domains.character.proto import character_pb2, character_pb2_grpc
+from character.application.reward import EvaluateRewardCommand
+from character.application.reward.dto import ClassificationSummary, RewardRequest
+from character.application.reward.ports import CharacterMatcher
+from character.domain.enums import CharacterRewardSource
+from character.proto import character_pb2, character_pb2_grpc
 
 logger = logging.getLogger(__name__)
 

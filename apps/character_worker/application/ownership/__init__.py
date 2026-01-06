@@ -1,6 +1,6 @@
 """Ownership Application."""
 
-from apps.character_worker.application.ownership.commands.save_ownership import (
+from character_worker.application.ownership.commands.save_ownership import (
     SaveOwnershipCommand,
 )
 

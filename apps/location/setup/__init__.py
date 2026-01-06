@@ -1,8 +1,8 @@
 """Setup Module."""
 
-from apps.location.setup.config import Settings, get_settings
-from apps.location.setup.database import async_session_factory, get_db_session
-from apps.location.setup.dependencies import (
+from location.setup.config import Settings, get_settings
+from location.setup.database import async_session_factory, get_db_session
+from location.setup.dependencies import (
     get_location_reader,
     get_nearby_centers_query,
 )

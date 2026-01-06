@@ -1,6 +1,6 @@
 """Ownership DTOs."""
 
-from apps.character_worker.application.ownership.dto.ownership import (
+from character_worker.application.ownership.dto.ownership import (
     OwnershipEvent,
     SaveOwnershipResult,
 )

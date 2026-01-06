@@ -5,15 +5,15 @@ Celery Worker 실행 진입점입니다.
 
 import logging
 
-from apps.character_worker.setup.celery import celery_app
-from apps.character_worker.setup.config import get_settings
+from character_worker.setup.celery import celery_app
+from character_worker.setup.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # OpenTelemetry 설정
 if settings.otel_enabled:
-    from domains._shared.observability.tracing import setup_tracing
+    from character_worker.infrastructure.observability import setup_tracing
 
     setup_tracing(settings.service_name)
 

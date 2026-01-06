@@ -1,11 +1,11 @@
 """HTTP Schemas."""
 
-from apps.character.presentation.http.schemas.catalog import (
+from character.presentation.http.schemas.catalog import (
     CatalogItemResponse,
     CatalogResponse,
     CharacterProfile,
 )
-from apps.character.presentation.http.schemas.reward import (
+from character.presentation.http.schemas.reward import (
     ClassificationRequest,
     RewardRequest,
     RewardResponse,

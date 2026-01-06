@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-
-from apps.location.application.nearby.services import (
+from location.application.nearby.services import (
     CategoryClassifierService,
     LocationEntryBuilder,
     ZoomPolicyService,
 )
-from apps.location.domain.entities import NormalizedSite
-from apps.location.domain.enums import PickupCategory, StoreCategory
+from location.domain.entities import NormalizedSite
+from location.domain.enums import PickupCategory, StoreCategory
 
 
 class TestZoomPolicyService:

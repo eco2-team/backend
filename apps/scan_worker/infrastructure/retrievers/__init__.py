@@ -1,6 +1,6 @@
 """Retrievers Infrastructure - RAG Adapters."""
 
-from apps.scan_worker.infrastructure.retrievers.json_regulation import (
+from scan_worker.infrastructure.retrievers.json_regulation import (
     JsonRegulationRetriever,
 )
 

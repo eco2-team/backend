@@ -13,9 +13,9 @@ from __future__ import annotations
 import logging
 from typing import Sequence
 
-from apps.character.application.catalog.ports import CatalogReader
-from apps.character.domain.entities import Character
-from apps.character.infrastructure.cache.character_cache import (
+from character.application.catalog.ports import CatalogReader
+from character.domain.entities import Character
+from character.infrastructure.cache.character_cache import (
     CharacterLocalCache,
     get_character_cache,
 )

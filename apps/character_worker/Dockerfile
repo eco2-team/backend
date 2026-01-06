@@ -1,3 +1,5 @@
+# apps/character_worker/Dockerfile
+# Character Worker (독립적, 도메인 의존성 없음)
 # ============================================================================
 # Stage 1: Builder - 의존성 설치
 # ============================================================================
@@ -29,21 +31,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Builder에서 설치된 패키지 복사
 COPY --from=builder /install /usr/local
 
-# 공유 모듈 복사 (domains/_shared)
-COPY domains/_shared /app/domains/_shared
+# 앱 코드만 복사 (완전 독립)
+COPY apps/character_worker /app/character_worker
 
-# 애플리케이션 코드 복사
-COPY apps/character /app/apps/character
-COPY apps/character_worker /app/apps/character_worker
-
-# PYTHONPATH 설정
+# 환경 변수
 ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
 
 # 보안: non-root 사용자로 실행
 USER appuser
 
 # Celery Worker 시작
-CMD ["celery", "-A", "apps.character_worker.main:app", "worker", \
+CMD ["celery", "-A", "character_worker.main:app", "worker", \
      "--loglevel=info", \
      "--queues=character.match,character.save_ownership,character.grant_default", \
      "--concurrency=4", \

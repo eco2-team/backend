@@ -11,8 +11,8 @@ from typing import Any
 
 from celery import Task
 
-from apps.scan_worker.setup.celery import celery_app
-from apps.scan_worker.setup.dependencies import (
+from scan_worker.setup.celery import celery_app
+from scan_worker.setup.dependencies import (
     create_context,
     get_checkpointing_step_runner,
     get_vision_step,

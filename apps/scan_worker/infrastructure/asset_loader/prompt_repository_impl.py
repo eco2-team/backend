@@ -13,7 +13,9 @@ from typing import Any
 
 import yaml
 
-from apps.scan_worker.application.classify.ports.prompt_repository import PromptRepositoryPort
+from scan_worker.application.classify.ports.prompt_repository import (
+    PromptRepositoryPort,
+)
 
 logger = logging.getLogger(__name__)
 

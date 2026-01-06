@@ -151,9 +151,7 @@ class TestMain:
         mock_worker.start = AsyncMock()
 
         with patch.dict(os.environ, env_vars, clear=True):
-            with patch(
-                "apps.auth_worker.main.setup_logging"
-            ) as mock_setup_logging:
+            with patch("apps.auth_worker.main.setup_logging") as mock_setup_logging:
                 with patch(
                     "apps.auth_worker.main.AuthWorker",
                     return_value=mock_worker,

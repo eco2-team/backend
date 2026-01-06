@@ -2,10 +2,9 @@
 
 from datetime import datetime
 from typing import Generic, TypeVar
-
-from pydantic import BaseModel, Field
 from uuid import UUID
 
+from pydantic import BaseModel, Field
 
 DataT = TypeVar("DataT")
 

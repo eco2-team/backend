@@ -86,7 +86,11 @@ class TestBlacklistHandler:
         handler: BlacklistHandler,
     ) -> None:
         """jti 필드 누락시 DROP."""
-        data = {"type": "add", "expires_at": "2025-12-31T23:59:59", "timestamp": "2025-01-01T00:00:00"}
+        data = {
+            "type": "add",
+            "expires_at": "2025-12-31T23:59:59",
+            "timestamp": "2025-01-01T00:00:00",
+        }
 
         result = await handler.handle(data)
 

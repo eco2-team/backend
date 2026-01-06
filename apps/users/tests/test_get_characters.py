@@ -43,6 +43,7 @@ def mock_settings() -> MagicMock:
 def sample_characters() -> list:
     """테스트용 캐릭터 목록 (DB 엔티티 mock)."""
     from unittest.mock import MagicMock
+
     from apps.users.domain.enums import UserCharacterStatus
 
     char1 = MagicMock()

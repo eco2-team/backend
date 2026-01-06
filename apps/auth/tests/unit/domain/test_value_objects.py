@@ -7,10 +7,10 @@ import uuid
 
 import pytest
 
-from apps.auth.domain.value_objects.user_id import UserId
+from apps.auth.domain.enums.token_type import TokenType
 from apps.auth.domain.value_objects.email import Email
 from apps.auth.domain.value_objects.token_payload import TokenPayload
-from apps.auth.domain.enums.token_type import TokenType
+from apps.auth.domain.value_objects.user_id import UserId
 
 
 class TestUserId:

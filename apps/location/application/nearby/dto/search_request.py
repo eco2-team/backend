@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from apps.location.domain.enums import PickupCategory, StoreCategory
+from location.domain.enums import PickupCategory, StoreCategory
 
 
 @dataclass

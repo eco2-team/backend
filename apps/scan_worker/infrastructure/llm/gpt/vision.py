@@ -12,8 +12,8 @@ import httpx
 from openai import OpenAI
 from pydantic import BaseModel
 
-from apps.scan_worker.application.classify.ports.vision_model import VisionModelPort
-from apps.scan_worker.infrastructure.llm.gpt.config import (
+from scan_worker.application.classify.ports.vision_model import VisionModelPort
+from scan_worker.infrastructure.llm.gpt.config import (
     MAX_RETRIES,
     OPENAI_LIMITS,
     OPENAI_TIMEOUT,

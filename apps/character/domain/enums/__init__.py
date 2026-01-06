@@ -1,6 +1,6 @@
 """Domain Enums."""
 
-from apps.character.domain.enums.character import (
+from character.domain.enums.character import (
     CharacterOwnershipStatus,
     CharacterRewardSource,
 )

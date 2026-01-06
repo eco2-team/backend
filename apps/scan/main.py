@@ -8,8 +8,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from apps.scan.presentation.http.controllers import health_router, scan_router
-from apps.scan.setup.config import get_settings
+from scan.presentation.http.controllers import health_router, scan_router
+from scan.setup.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

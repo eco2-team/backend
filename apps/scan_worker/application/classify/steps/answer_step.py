@@ -10,14 +10,14 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from apps.scan_worker.application.common.step_interface import Step
-from apps.scan_worker.application.classify.ports.llm_model import LLMPort
-from apps.scan_worker.application.classify.ports.prompt_repository import (
+from scan_worker.application.classify.ports.llm_model import LLMPort
+from scan_worker.application.classify.ports.prompt_repository import (
     PromptRepositoryPort,
 )
+from scan_worker.application.common.step_interface import Step
 
 if TYPE_CHECKING:
-    from apps.scan_worker.application.classify.dto.classify_context import (
+    from scan_worker.application.classify.dto.classify_context import (
         ClassifyContext,
     )
 

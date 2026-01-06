@@ -18,8 +18,8 @@ from fastapi import Depends
 from apps.auth.setup.config import Settings, get_settings
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
     import redis.asyncio as aioredis
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 # ============================================================
@@ -58,7 +58,9 @@ async def get_users_command_gateway(
     session: "AsyncSession" = Depends(get_db_session),
 ):
     """UsersCommandGateway 제공자."""
-    from apps.auth.infrastructure.persistence_postgres.adapters import SqlaUsersCommandGateway
+    from apps.auth.infrastructure.persistence_postgres.adapters import (
+        SqlaUsersCommandGateway,
+    )
 
     return SqlaUsersCommandGateway(session)
 
@@ -67,7 +69,9 @@ async def get_users_query_gateway(
     session: "AsyncSession" = Depends(get_db_session),
 ):
     """UsersQueryGateway 제공자."""
-    from apps.auth.infrastructure.persistence_postgres.adapters import SqlaUsersQueryGateway
+    from apps.auth.infrastructure.persistence_postgres.adapters import (
+        SqlaUsersQueryGateway,
+    )
 
     return SqlaUsersQueryGateway(session)
 
@@ -87,7 +91,9 @@ async def get_login_audit_gateway(
     session: "AsyncSession" = Depends(get_db_session),
 ):
     """LoginAuditGateway 제공자."""
-    from apps.auth.infrastructure.persistence_postgres.adapters import SqlaLoginAuditGateway
+    from apps.auth.infrastructure.persistence_postgres.adapters import (
+        SqlaLoginAuditGateway,
+    )
 
     return SqlaLoginAuditGateway(session)
 
@@ -105,7 +111,9 @@ async def get_transaction_manager(
     session: "AsyncSession" = Depends(get_db_session),
 ):
     """TransactionManager 제공자."""
-    from apps.auth.infrastructure.persistence_postgres.adapters import SqlaTransactionManager
+    from apps.auth.infrastructure.persistence_postgres.adapters import (
+        SqlaTransactionManager,
+    )
 
     return SqlaTransactionManager(session)
 
@@ -259,8 +267,8 @@ def get_users_management_gateway(settings: Settings = Depends(get_settings)):
 
     users 도메인과 gRPC 통신을 위한 어댑터입니다.
     """
-    from apps.auth.infrastructure.grpc.client import UsersGrpcClient
     from apps.auth.infrastructure.grpc.adapters import UsersManagementGatewayGrpc
+    from apps.auth.infrastructure.grpc.client import UsersGrpcClient
 
     client = UsersGrpcClient(settings)
     return UsersManagementGatewayGrpc(client)

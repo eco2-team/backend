@@ -9,14 +9,6 @@ from celery import Celery
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Profile domain
-from apps.users.application.profile.commands import (
-    DeleteUserInteractor,
-    UpdateProfileInteractor,
-)
-from apps.users.application.profile.queries import GetProfileQuery
-from apps.users.application.profile.services import ProfileBuilder
-
 # Character domain
 from apps.users.application.character.ports import DefaultCharacterPublisher
 from apps.users.application.character.queries import (
@@ -31,6 +23,13 @@ from apps.users.application.identity.commands import (
 )
 from apps.users.application.identity.queries import GetUserQuery
 
+# Profile domain
+from apps.users.application.profile.commands import (
+    DeleteUserInteractor,
+    UpdateProfileInteractor,
+)
+from apps.users.application.profile.queries import GetProfileQuery
+from apps.users.application.profile.services import ProfileBuilder
 from apps.users.domain.services import UserService
 from apps.users.infrastructure.messaging import CeleryDefaultCharacterPublisher
 from apps.users.infrastructure.persistence_postgres.adapters import (

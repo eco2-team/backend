@@ -5,9 +5,9 @@ from uuid import uuid4
 
 import pytest
 
-from apps.character.application.catalog.queries.get_catalog import GetCatalogQuery
-from apps.character.application.catalog.services.catalog_service import CatalogService
-from apps.character.domain.entities import Character
+from character.application.catalog.queries.get_catalog import GetCatalogQuery
+from character.application.catalog.services.catalog_service import CatalogService
+from character.domain.entities import Character
 
 pytestmark = pytest.mark.asyncio
 

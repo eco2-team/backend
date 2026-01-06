@@ -1,6 +1,6 @@
 """Match DTOs."""
 
-from apps.character_worker.application.match.dto.match import (
+from character_worker.application.match.dto.match import (
     MatchRequest,
     MatchResult,
 )

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from apps.character.domain.enums import CharacterOwnershipStatus
+from character.domain.enums import CharacterOwnershipStatus
 
 
 @dataclass
@@ -45,4 +45,4 @@ class CharacterOwnership:
 
 
 # Circular import 해결
-from apps.character.domain.entities.character import Character  # noqa: E402
+from character.domain.entities.character import Character  # noqa: E402

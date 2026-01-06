@@ -5,8 +5,8 @@
 
 import logging
 
-from apps.character_worker.application.match.dto import MatchRequest, MatchResult
-from apps.character_worker.application.match.ports import CharacterCache
+from character_worker.application.match.dto import MatchRequest, MatchResult
+from character_worker.application.match.ports import CharacterCache
 
 logger = logging.getLogger(__name__)
 

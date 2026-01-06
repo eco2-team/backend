@@ -9,7 +9,7 @@ Usage:
         --loglevel=INFO
 """
 
-from apps.scan_worker.setup.celery import celery_app
+from scan_worker.setup.celery import celery_app
 
 # Celery app export for worker startup
 app = celery_app

@@ -7,18 +7,17 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from apps.scan.application.classify.commands import SubmitClassificationCommand
-from apps.scan.application.classify.ports import EventPublisher, IdempotencyCache
-from apps.scan.application.result.ports import ResultCache
-from apps.scan.application.result.queries import GetCategoriesQuery, GetResultQuery
-from apps.scan.infrastructure.persistence_redis import (
+from scan.application.classify.commands import SubmitClassificationCommand
+from scan.application.classify.ports import EventPublisher, IdempotencyCache
+from scan.application.result.ports import ResultCache
+from scan.application.result.queries import GetCategoriesQuery, GetResultQuery
+from scan.infrastructure.persistence_redis import (
     EventPublisherRedis,
     IdempotencyCacheRedis,
     ResultCacheRedis,
 )
-from apps.scan.setup.celery_app import celery_app
-from apps.scan.setup.config import Settings, get_settings
-
+from scan.setup.celery_app import celery_app
+from scan.setup.config import Settings, get_settings
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Infrastructure Dependencies
@@ -72,11 +71,13 @@ def get_result_query(
 
 
 def get_categories_query() -> GetCategoriesQuery:
-    """Get Categories Query 인스턴스 반환."""
-    # TODO: RuleRepository 구현 후 주입
-    from apps.scan.infrastructure.rule_retrieval import YamlRuleRepository
+    """Get Categories Query 인스턴스 반환.
 
-    return GetCategoriesQuery(rule_repository=YamlRuleRepository())
+    Note:
+        카테고리 목록은 정적 데이터이므로 외부 의존성 없이 반환합니다.
+        실제 RAG (배출 규정 검색)는 scan_worker에서 수행합니다.
+    """
+    return GetCategoriesQuery()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

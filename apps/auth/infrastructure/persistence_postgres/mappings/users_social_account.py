@@ -6,12 +6,19 @@
         - email: VARCHAR(320) - RFC 5321 표준
 """
 
-from sqlalchemy import Table, Column, String, DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from apps.auth.infrastructure.persistence_postgres.registry import mapper_registry
-
 
 users_social_accounts_table = Table(
     "user_social_accounts",

@@ -5,18 +5,18 @@ from uuid import uuid4
 
 import pytest
 
-from apps.character.application.reward.commands.evaluate_reward import (
+from character.application.reward.commands.evaluate_reward import (
     EvaluateRewardCommand,
 )
-from apps.character.application.reward.dto import (
+from character.application.reward.dto import (
     ClassificationSummary,
     RewardRequest,
 )
-from apps.character.application.reward.services.reward_policy_service import (
+from character.application.reward.services.reward_policy_service import (
     RewardPolicyService,
 )
-from apps.character.domain.entities import Character
-from apps.character.domain.enums import CharacterRewardSource
+from character.domain.entities import Character
+from character.domain.enums import CharacterRewardSource
 
 pytestmark = pytest.mark.asyncio
 

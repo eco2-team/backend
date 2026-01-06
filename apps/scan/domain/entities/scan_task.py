@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from apps.scan.domain.enums import PipelineStage, TaskStatus
-from apps.scan.domain.value_objects import Classification, PipelineResult
+from scan.domain.enums import PipelineStage, TaskStatus
+from scan.domain.value_objects import Classification, PipelineResult
 
 
 @dataclass(slots=True)

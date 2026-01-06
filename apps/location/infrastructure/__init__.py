@@ -1,6 +1,6 @@
 """Location Infrastructure Layer."""
 
-from apps.location.infrastructure.persistence_postgres import (
+from location.infrastructure.persistence_postgres import (
     Base,
     NormalizedLocationSite,
     SqlaLocationReader,

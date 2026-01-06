@@ -9,7 +9,7 @@ from redis.backoff import ExponentialBackoff
 from redis.exceptions import ConnectionError, TimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from apps.character.setup.config import get_settings
+from character.setup.config import get_settings
 
 # Redis connection settings (domains 정합성)
 HEALTH_CHECK_INTERVAL = 30  # seconds

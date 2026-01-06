@@ -6,12 +6,11 @@ from typing import Any
 
 import pytest
 
-from apps.scan_worker.application.classify.dto.classify_context import ClassifyContext
-from apps.scan_worker.application.classify.ports.llm_model import LLMPort
-from apps.scan_worker.application.classify.ports.prompt_repository import (
+from scan_worker.application.classify.dto.classify_context import ClassifyContext
+from scan_worker.application.classify.ports.llm_model import LLMPort
+from scan_worker.application.classify.ports.prompt_repository import (
     PromptRepositoryPort,
 )
-
 
 # ============================================================
 # Mock Implementations
@@ -69,7 +68,7 @@ class TestAnswerStep:
     def test_run_with_disposal_rules(self):
         """배출 규정 있을 때 답변 생성 테스트."""
         # Delayed import to avoid Celery dependency
-        from apps.scan_worker.application.classify.steps.answer_step import AnswerStep
+        from scan_worker.application.classify.steps.answer_step import AnswerStep
 
         # Given
         llm = MockLLM()
@@ -100,7 +99,7 @@ class TestAnswerStep:
 
     def test_run_without_disposal_rules(self):
         """배출 규정 없을 때 fallback 답변 테스트."""
-        from apps.scan_worker.application.classify.steps.answer_step import AnswerStep
+        from scan_worker.application.classify.steps.answer_step import AnswerStep
 
         # Given
         llm = MockLLM()
@@ -126,7 +125,7 @@ class TestAnswerStep:
 
     def test_run_calculates_total_duration(self):
         """총 소요시간 계산 테스트."""
-        from apps.scan_worker.application.classify.steps.answer_step import AnswerStep
+        from scan_worker.application.classify.steps.answer_step import AnswerStep
 
         # Given
         llm = MockLLM()

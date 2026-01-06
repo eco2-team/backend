@@ -5,8 +5,12 @@ Health check와 Metrics 엔드포인트입니다.
 
 from fastapi import APIRouter
 
-from apps.auth.presentation.http.controllers.general.health import router as health_router
-from apps.auth.presentation.http.controllers.general.metrics import router as metrics_router
+from apps.auth.presentation.http.controllers.general.health import (
+    router as health_router,
+)
+from apps.auth.presentation.http.controllers.general.metrics import (
+    router as metrics_router,
+)
 
 router = APIRouter()
 

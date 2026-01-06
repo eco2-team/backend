@@ -1,6 +1,6 @@
 """Location Application Layer."""
 
-from apps.location.application.nearby import (
+from location.application.nearby import (
     CategoryClassifierService,
     GetNearbyCentersQuery,
     LocationEntryBuilder,

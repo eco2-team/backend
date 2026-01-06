@@ -7,9 +7,8 @@ Domain Entity는 비즈니스 로직의 핵심입니다.
 from datetime import datetime, timezone
 from uuid import uuid4
 
-
-from apps.character.domain.entities import Character, CharacterOwnership
-from apps.character.domain.enums import CharacterOwnershipStatus
+from character.domain.entities import Character, CharacterOwnership
+from character.domain.enums import CharacterOwnershipStatus
 
 
 class TestCharacterEntity:
@@ -290,7 +289,7 @@ class TestCharacterRewardSourceEnum:
         이유:
         리워드 소스에 따라 다른 처리가 필요할 수 있습니다.
         """
-        from apps.character.domain.enums import CharacterRewardSource
+        from character.domain.enums import CharacterRewardSource
 
         assert CharacterRewardSource.SCAN.value == "scan"
 
@@ -303,7 +302,7 @@ class TestCharacterRewardSourceEnum:
         이유:
         외부 시스템에서 문자열로 전달받아 enum으로 변환합니다.
         """
-        from apps.character.domain.enums import CharacterRewardSource
+        from character.domain.enums import CharacterRewardSource
 
         source = CharacterRewardSource("scan")
         assert source == CharacterRewardSource.SCAN

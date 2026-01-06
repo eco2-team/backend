@@ -1,4 +1,7 @@
-"""Result Cache Redis Adapter - 결과 캐시 저장/조회."""
+"""Result Cache Redis Adapter - 결과 캐시 저장/조회.
+
+domains 의존성 제거 - 내부 messaging 모듈 사용.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +12,11 @@ from typing import Any
 
 import redis
 
-from apps.scan.application.result.ports.result_cache import ResultCache
+from scan.application.result.ports.result_cache import ResultCache
+from scan.infrastructure.messaging import (
+    get_async_cache_client,
+    get_async_streams_client,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +51,9 @@ class ResultCacheRedis(ResultCache):
         )
         self._default_ttl = default_ttl
         self._sync_client: redis.Redis | None = None
-        self._async_client = None
 
     async def get(self, job_id: str) -> dict[str, Any] | None:
         """결과 조회 (비동기)."""
-        from domains._shared.events import get_async_cache_client
-
         cache_key = f"scan:result:{job_id}"
 
         try:
@@ -90,14 +94,14 @@ class ResultCacheRedis(ResultCache):
 
     async def get_state(self, job_id: str) -> dict[str, Any] | None:
         """현재 작업 상태 조회 (State KV)."""
-        from domains._shared.events import get_async_redis_client
-
         state_key = f"scan:state:{job_id}"
 
         try:
-            client = await get_async_redis_client()
+            client = await get_async_streams_client()
             data = await client.get(state_key)
             if data:
+                if isinstance(data, bytes):
+                    data = data.decode()
                 return json.loads(data)
         except Exception as e:
             logger.warning(

@@ -36,6 +36,8 @@ if TYPE_CHECKING:
     from apps.users.presentation.grpc.protos import (
         GetOrCreateFromOAuthRequest,
         GetUserRequest,
+    )
+    from apps.users.presentation.grpc.protos import (
         UpdateLoginTimeRequest as UpdateLoginTimeRequestProto,
     )
     from apps.users.setup.dependencies import GrpcUseCaseFactory

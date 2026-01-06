@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from apps.character.domain.entities import Character
+from character.domain.entities import Character
 
 
 class CharacterMatcher(ABC):

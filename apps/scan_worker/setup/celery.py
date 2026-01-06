@@ -10,7 +10,7 @@ from typing import Any
 from celery import Celery
 from celery.signals import worker_ready, worker_shutdown
 
-from apps.scan_worker.setup.config import get_settings
+from scan_worker.setup.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -30,10 +30,10 @@ celery_app = Celery(
     backend=settings.celery_result_backend,
 )
 
-# Task 모듈 자동 검색 (apps 내부만)
+# Task 모듈 자동 검색 (독립 모듈)
 celery_app.autodiscover_tasks(
     [
-        "apps.scan_worker.presentation.tasks",
+        "scan_worker.presentation.tasks",
     ]
 )
 

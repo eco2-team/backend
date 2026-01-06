@@ -11,13 +11,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from apps.character.application.catalog.dto import CatalogItem, CatalogResult
-from apps.character.application.reward.dto import RewardResult
-from apps.character.presentation.http.controllers.catalog import (
+from character.application.catalog.dto import CatalogItem, CatalogResult
+from character.application.reward.dto import RewardResult
+from character.presentation.http.controllers.catalog import (
     router as catalog_router,
 )
-from apps.character.presentation.http.controllers.reward import router as reward_router
-from apps.character.setup.dependencies import (
+from character.presentation.http.controllers.reward import router as reward_router
+from character.setup.dependencies import (
     get_catalog_query,
     get_evaluate_reward_command,
 )

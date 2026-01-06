@@ -12,7 +12,9 @@ from sqlalchemy import Column, DateTime, MetaData, String, Table, select
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.users.application.identity.ports.social_account_gateway import SocialAccountInfo
+from apps.users.application.identity.ports.social_account_gateway import (
+    SocialAccountInfo,
+)
 from apps.users.infrastructure.persistence_postgres.constants import (
     AUTH_SCHEMA,
     AUTH_USER_SOCIAL_ACCOUNTS_TABLE,

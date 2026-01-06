@@ -1,9 +1,9 @@
 """Scan Domain Enums."""
 
-from apps.scan.domain.enums.llm_provider import LLMProvider
-from apps.scan.domain.enums.pipeline_stage import PipelineStage
-from apps.scan.domain.enums.task_status import TaskStatus
-from apps.scan.domain.enums.waste_category import WasteCategory
+from scan.domain.enums.llm_provider import LLMProvider
+from scan.domain.enums.pipeline_stage import PipelineStage
+from scan.domain.enums.task_status import TaskStatus
+from scan.domain.enums.waste_category import WasteCategory
 
 __all__ = ["LLMProvider", "PipelineStage", "TaskStatus", "WasteCategory"]
 

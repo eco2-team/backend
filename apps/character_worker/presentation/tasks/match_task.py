@@ -8,10 +8,10 @@ domains/character/tasks/match.py와 동일한 인터페이스를 유지합니다
 import logging
 from typing import Any
 
-from apps.character_worker.application.match import MatchCharacterCommand
-from apps.character_worker.application.match.dto import MatchRequest
-from apps.character_worker.infrastructure.cache import get_character_cache
-from apps.character_worker.setup.celery import celery_app
+from character_worker.application.match import MatchCharacterCommand
+from character_worker.application.match.dto import MatchRequest
+from character_worker.infrastructure.cache import get_character_cache
+from character_worker.setup.celery import celery_app
 
 logger = logging.getLogger(__name__)
 

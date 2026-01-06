@@ -8,8 +8,8 @@
 
 from apps.auth.application.common.exceptions.base import ApplicationError
 from apps.auth.application.common.exceptions.gateway import (
-    GatewayError,
     DataMapperError,
+    GatewayError,
 )
 
 __all__ = [

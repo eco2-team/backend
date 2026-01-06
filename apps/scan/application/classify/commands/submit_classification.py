@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from apps.scan.application.classify.ports import EventPublisher, IdempotencyCache
-from apps.scan.domain.entities import ScanTask
-from apps.scan.domain.enums import PipelineStage
+from scan.application.classify.ports import EventPublisher, IdempotencyCache
+from scan.domain.entities import ScanTask
+from scan.domain.enums import PipelineStage
 
 if TYPE_CHECKING:
     from celery import Celery

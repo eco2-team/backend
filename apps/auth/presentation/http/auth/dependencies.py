@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING
 
 from fastapi import Cookie, Depends, HTTPException, status
 
-from apps.auth.presentation.http.auth.cookie_params import ACCESS_COOKIE_NAME
 from apps.auth.application.token.queries.validate import (
-    ValidateTokenQueryService,
     ValidatedUser,
+    ValidateTokenQueryService,
 )
+from apps.auth.presentation.http.auth.cookie_params import ACCESS_COOKIE_NAME
 
 if TYPE_CHECKING:
     pass

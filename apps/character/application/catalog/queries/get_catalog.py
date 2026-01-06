@@ -3,9 +3,9 @@
 캐릭터 카탈로그 조회 Query입니다.
 """
 
-from apps.character.application.catalog.dto import CatalogResult
-from apps.character.application.catalog.ports import CatalogReader
-from apps.character.application.catalog.services.catalog_service import CatalogService
+from character.application.catalog.dto import CatalogResult
+from character.application.catalog.ports import CatalogReader
+from character.application.catalog.services.catalog_service import CatalogService
 
 
 class GetCatalogQuery:

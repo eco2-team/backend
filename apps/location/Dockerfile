@@ -1,3 +1,5 @@
+# apps/location/Dockerfile
+# Location API (독립적, 도메인 의존성 없음)
 # ============================================================================
 # Stage 1: Builder - 의존성 설치
 # ============================================================================
@@ -34,11 +36,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /install /usr/local
 
-# 공유 코드 복사
-COPY domains/_shared /app/domains/_shared
-
-# Location 앱 소스 복사
-COPY apps/location /app/apps/location
+# 앱 코드만 복사 (완전 독립)
+COPY apps/location /app/location
 
 USER appuser
 
@@ -47,4 +46,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
-CMD ["opentelemetry-instrument", "uvicorn", "apps.location.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["opentelemetry-instrument", "uvicorn", "location.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 from kombu import Connection, Exchange, Queue
 from kombu.mixins import ConsumerMixin
 
-from apps.character.infrastructure.cache.character_cache import (
+from character.infrastructure.cache.character_cache import (
     CharacterLocalCache,
     get_character_cache,
 )

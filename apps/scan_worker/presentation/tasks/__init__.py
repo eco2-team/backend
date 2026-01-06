@@ -6,10 +6,10 @@ Clean Architecture:
 - domains 의존성 제거됨
 """
 
-from apps.scan_worker.presentation.tasks.answer_task import answer_task
-from apps.scan_worker.presentation.tasks.reward_task import reward_task
-from apps.scan_worker.presentation.tasks.rule_task import rule_task
-from apps.scan_worker.presentation.tasks.vision_task import vision_task
+from scan_worker.presentation.tasks.answer_task import answer_task
+from scan_worker.presentation.tasks.reward_task import reward_task
+from scan_worker.presentation.tasks.rule_task import rule_task
+from scan_worker.presentation.tasks.vision_task import vision_task
 
 __all__ = [
     "vision_task",

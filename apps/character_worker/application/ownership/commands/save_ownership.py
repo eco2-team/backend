@@ -8,11 +8,11 @@ from typing import Sequence
 
 from sqlalchemy.exc import OperationalError
 
-from apps.character_worker.application.ownership.dto import (
+from character_worker.application.ownership.dto import (
     OwnershipEvent,
     SaveOwnershipResult,
 )
-from apps.character_worker.application.ownership.ports import OwnershipStore
+from character_worker.application.ownership.ports import OwnershipStore
 
 logger = logging.getLogger(__name__)
 

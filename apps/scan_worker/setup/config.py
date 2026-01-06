@@ -14,7 +14,6 @@ from pathlib import Path
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 # ==========================================
 # 모델 → Provider 명시적 매핑 (추론 없음)
 # ==========================================
@@ -54,6 +53,10 @@ class Settings(BaseSettings):
     celery_broker_url: str = Field(
         "amqp://guest:guest@localhost:5672//",
         description="Celery broker URL (RabbitMQ). prod에서는 env 필수.",
+    )
+    celery_result_backend: str | None = Field(
+        None,
+        description="Celery result backend. None이면 결과 저장 안 함.",
     )
 
     # === Redis ===

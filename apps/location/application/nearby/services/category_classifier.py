@@ -9,8 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from apps.location.domain.entities import NormalizedSite
-from apps.location.domain.enums import PickupCategory, StoreCategory
+from location.domain.entities import NormalizedSite
+from location.domain.enums import PickupCategory, StoreCategory
 
 
 @dataclass(frozen=True)

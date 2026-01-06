@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
-    from apps.scan_worker.application.classify.dto.classify_context import (
+    from scan_worker.application.classify.dto.classify_context import (
         ClassifyContext,
     )
 

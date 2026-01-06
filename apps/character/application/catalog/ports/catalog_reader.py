@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Sequence
 
-from apps.character.domain.entities import Character
+from character.domain.entities import Character
 
 
 class CatalogReader(ABC):

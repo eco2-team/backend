@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from apps.location.domain.enums import PickupCategory, StoreCategory
-from apps.location.main import app
-from apps.location.presentation.http.controllers.location import (
+from location.domain.enums import PickupCategory, StoreCategory
+from location.main import app
+from location.presentation.http.controllers.location import (
     _parse_pickup_category_param,
     _parse_store_category_param,
 )

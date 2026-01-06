@@ -5,8 +5,8 @@ OAuthClientService 포트의 구현체입니다.
 
 from __future__ import annotations
 
-import hashlib
 import base64
+import hashlib
 import logging
 from typing import TYPE_CHECKING
 

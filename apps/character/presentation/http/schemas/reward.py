@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from apps.character.domain.enums import CharacterRewardSource
+from character.domain.enums import CharacterRewardSource
 
 
 class ClassificationRequest(BaseModel):

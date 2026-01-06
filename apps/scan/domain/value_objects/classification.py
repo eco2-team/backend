@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from apps.scan.domain.enums import WasteCategory
+from scan.domain.enums import WasteCategory
 
 
 @dataclass(frozen=True, slots=True)

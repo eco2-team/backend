@@ -12,7 +12,7 @@ from typing import Any
 
 import redis
 
-from apps.scan_worker.application.classify.ports.result_cache import ResultCachePort
+from scan_worker.application.classify.ports.result_cache import ResultCachePort
 
 logger = logging.getLogger(__name__)
 

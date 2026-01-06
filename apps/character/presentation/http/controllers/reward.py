@@ -7,11 +7,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from apps.character.application.reward import EvaluateRewardCommand
-from apps.character.application.reward.dto import ClassificationSummary
-from apps.character.application.reward.dto import RewardRequest as RewardRequestDTO
-from apps.character.presentation.http.schemas import RewardRequest, RewardResponse
-from apps.character.setup.dependencies import get_evaluate_reward_command
+from character.application.reward import EvaluateRewardCommand
+from character.application.reward.dto import ClassificationSummary
+from character.application.reward.dto import RewardRequest as RewardRequestDTO
+from character.presentation.http.schemas import RewardRequest, RewardResponse
+from character.setup.dependencies import get_evaluate_reward_command
 
 router = APIRouter(prefix="/internal/characters", tags=["internal"])
 

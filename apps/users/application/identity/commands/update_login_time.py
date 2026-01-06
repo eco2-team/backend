@@ -6,7 +6,9 @@ from datetime import datetime, timezone
 
 from apps.users.application.common.ports.transaction_manager import TransactionManager
 from apps.users.application.identity.dto.oauth import UpdateLoginTimeRequest
-from apps.users.application.identity.ports.identity_gateway import IdentityCommandGateway
+from apps.users.application.identity.ports.identity_gateway import (
+    IdentityCommandGateway,
+)
 
 
 class UpdateLoginTimeCommand:

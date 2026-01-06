@@ -6,9 +6,9 @@
 from apps.auth.presentation.http.auth.cookie_params import (
     ACCESS_COOKIE_NAME,
     REFRESH_COOKIE_NAME,
+    clear_auth_cookies,
     get_cookie_params,
     set_auth_cookies,
-    clear_auth_cookies,
 )
 from apps.auth.presentation.http.auth.dependencies import (
     get_current_user,

@@ -11,7 +11,6 @@ from urllib.parse import urlparse, urlunparse
 from fastapi import Request
 from fastapi.responses import RedirectResponse
 
-
 # 프론트엔드 오리진 헤더 키
 FRONTEND_ORIGIN_HEADER = "x-frontend-origin"
 

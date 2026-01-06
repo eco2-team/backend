@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from apps.character.domain.enums import CharacterRewardSource
+from character.domain.enums import CharacterRewardSource
 
 
 @dataclass(frozen=True, slots=True)

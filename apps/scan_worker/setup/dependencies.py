@@ -9,46 +9,46 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
-from apps.scan_worker.application.classify.commands.execute_pipeline import (
+from scan_worker.application.classify.commands.execute_pipeline import (
     CheckpointingStepRunner,
     ClassifyPipeline,
     SingleStepRunner,
 )
-from apps.scan_worker.application.classify.ports.context_store import ContextStorePort
-from apps.scan_worker.application.classify.dto.classify_context import ClassifyContext
-from apps.scan_worker.application.classify.ports.event_publisher import (
+from scan_worker.application.classify.dto.classify_context import ClassifyContext
+from scan_worker.application.classify.ports.context_store import ContextStorePort
+from scan_worker.application.classify.ports.event_publisher import (
     EventPublisherPort,
 )
-from apps.scan_worker.application.classify.ports.llm_model import LLMPort
-from apps.scan_worker.application.classify.ports.prompt_repository import (
+from scan_worker.application.classify.ports.llm_model import LLMPort
+from scan_worker.application.classify.ports.prompt_repository import (
     PromptRepositoryPort,
 )
-from apps.scan_worker.application.classify.ports.result_cache import ResultCachePort
-from apps.scan_worker.application.classify.ports.retriever import RetrieverPort
-from apps.scan_worker.application.classify.ports.vision_model import VisionModelPort
-from apps.scan_worker.application.classify.steps.answer_step import AnswerStep
-from apps.scan_worker.application.classify.steps.reward_step import RewardStep
-from apps.scan_worker.application.classify.steps.rule_step import RuleStep
-from apps.scan_worker.application.classify.steps.vision_step import VisionStep
-from apps.scan_worker.infrastructure.llm import (
+from scan_worker.application.classify.ports.result_cache import ResultCachePort
+from scan_worker.application.classify.ports.retriever import RetrieverPort
+from scan_worker.application.classify.ports.vision_model import VisionModelPort
+from scan_worker.application.classify.steps.answer_step import AnswerStep
+from scan_worker.application.classify.steps.reward_step import RewardStep
+from scan_worker.application.classify.steps.rule_step import RuleStep
+from scan_worker.application.classify.steps.vision_step import VisionStep
+from scan_worker.infrastructure.asset_loader.prompt_repository_impl import (
+    FilePromptRepository,
+)
+from scan_worker.infrastructure.llm import (
     GeminiLLMAdapter,
     GeminiVisionAdapter,
     GPTLLMAdapter,
     GPTVisionAdapter,
 )
-from apps.scan_worker.infrastructure.persistence_redis.event_publisher_impl import (
+from scan_worker.infrastructure.persistence_redis.event_publisher_impl import (
     RedisEventPublisher,
 )
-from apps.scan_worker.infrastructure.persistence_redis.result_cache_impl import (
+from scan_worker.infrastructure.persistence_redis.result_cache_impl import (
     RedisResultCache,
 )
-from apps.scan_worker.infrastructure.asset_loader.prompt_repository_impl import (
-    FilePromptRepository,
-)
-from apps.scan_worker.infrastructure.retrievers.json_regulation import (
+from scan_worker.infrastructure.retrievers.json_regulation import (
     JsonRegulationRetriever,
 )
-from apps.scan_worker.setup.config import get_settings
+from scan_worker.setup.config import get_settings
 
 if TYPE_CHECKING:
     from celery import Celery
@@ -96,7 +96,7 @@ def get_result_cache() -> ResultCachePort:
 @lru_cache
 def get_context_store() -> ContextStorePort:
     """ContextStore 싱글톤 (체크포인팅)."""
-    from apps.scan_worker.infrastructure.persistence_redis.context_store_impl import (
+    from scan_worker.infrastructure.persistence_redis.context_store_impl import (
         RedisContextStore,
     )
 

@@ -4,9 +4,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from apps.character.application.catalog import GetCatalogQuery
-from apps.character.presentation.http.schemas import CharacterProfile
-from apps.character.setup.dependencies import get_catalog_query
+from character.application.catalog import GetCatalogQuery
+from character.presentation.http.schemas import CharacterProfile
+from character.setup.dependencies import get_catalog_query
 
 router = APIRouter(prefix="/character", tags=["character"])
 

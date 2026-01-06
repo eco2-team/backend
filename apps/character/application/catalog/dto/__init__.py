@@ -1,6 +1,6 @@
 """Catalog DTOs."""
 
-from apps.character.application.catalog.dto.catalog import (
+from character.application.catalog.dto.catalog import (
     CatalogItem,
     CatalogResult,
 )

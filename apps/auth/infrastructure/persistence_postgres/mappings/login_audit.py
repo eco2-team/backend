@@ -4,12 +4,11 @@
     - TEXT: 기본 문자열 타입
 """
 
-from sqlalchemy import Table, Column, DateTime, ForeignKey, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Table, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from apps.auth.infrastructure.persistence_postgres.registry import mapper_registry
-
 
 login_audits_table = Table(
     "login_audits",

@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from apps.scan.application.result.ports import ResultCache
+from scan.application.result.ports import ResultCache
 
 logger = logging.getLogger(__name__)
 

@@ -16,15 +16,15 @@ from concurrent import futures
 
 import grpc
 
-from apps.character.application.reward import EvaluateRewardCommand
-from apps.character.infrastructure.persistence_postgres import (
+from character.application.reward import EvaluateRewardCommand
+from character.infrastructure.persistence_postgres import (
     SqlaCharacterReader,
     SqlaOwnershipChecker,
 )
-from apps.character.presentation.grpc.servicers import CharacterServicer
-from apps.character.setup.config import get_settings
-from apps.character.setup.database import async_session_factory
-from domains.character.proto import character_pb2_grpc
+from character.presentation.grpc.servicers import CharacterServicer
+from character.proto import character_pb2_grpc
+from character.setup.config import get_settings
+from character.setup.database import async_session_factory
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +144,7 @@ async def serve() -> None:
     # OpenTelemetry 설정 (선택적)
     if settings.otel_enabled:
         try:
-            from domains._shared.observability.tracing import setup_tracing
+            from character.infrastructure.observability import setup_tracing
 
             setup_tracing(f"{settings.service_name}-grpc")
             logger.info("OpenTelemetry tracing enabled for gRPC server")

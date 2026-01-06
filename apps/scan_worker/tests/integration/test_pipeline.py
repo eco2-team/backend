@@ -6,17 +6,16 @@ from typing import Any
 
 import pytest
 
-from apps.scan_worker.application.classify.dto.classify_context import ClassifyContext
-from apps.scan_worker.application.classify.ports.event_publisher import (
+from scan_worker.application.classify.dto.classify_context import ClassifyContext
+from scan_worker.application.classify.ports.event_publisher import (
     EventPublisherPort,
 )
-from apps.scan_worker.application.classify.ports.llm_model import LLMPort
-from apps.scan_worker.application.classify.ports.prompt_repository import (
+from scan_worker.application.classify.ports.llm_model import LLMPort
+from scan_worker.application.classify.ports.prompt_repository import (
     PromptRepositoryPort,
 )
-from apps.scan_worker.application.classify.ports.retriever import RetrieverPort
-from apps.scan_worker.application.classify.ports.vision_model import VisionModelPort
-
+from scan_worker.application.classify.ports.retriever import RetrieverPort
+from scan_worker.application.classify.ports.vision_model import VisionModelPort
 
 # ============================================================
 # Mock Implementations
@@ -115,12 +114,12 @@ class TestClassifyPipeline:
     def _create_pipeline_with_mocks(self):
         """Mock을 사용한 파이프라인 생성."""
         # Delayed imports to avoid Celery dependency
-        from apps.scan_worker.application.classify.commands.execute_pipeline import (
+        from scan_worker.application.classify.commands.execute_pipeline import (
             ClassifyPipeline,
         )
-        from apps.scan_worker.application.classify.steps.answer_step import AnswerStep
-        from apps.scan_worker.application.classify.steps.rule_step import RuleStep
-        from apps.scan_worker.application.classify.steps.vision_step import VisionStep
+        from scan_worker.application.classify.steps.answer_step import AnswerStep
+        from scan_worker.application.classify.steps.rule_step import RuleStep
+        from scan_worker.application.classify.steps.vision_step import VisionStep
 
         vision_model = MockVisionModel()
         retriever = MockRetriever()
@@ -188,10 +187,10 @@ class TestClassifyPipeline:
 
     def test_pipeline_error_handling(self):
         """파이프라인 에러 처리 테스트."""
-        from apps.scan_worker.application.classify.commands.execute_pipeline import (
+        from scan_worker.application.classify.commands.execute_pipeline import (
             ClassifyPipeline,
         )
-        from apps.scan_worker.application.classify.steps.vision_step import VisionStep
+        from scan_worker.application.classify.steps.vision_step import VisionStep
 
         # Given
         event_publisher = MockEventPublisher()

@@ -6,17 +6,17 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from apps.auth.domain.exceptions.base import DomainError
-from apps.auth.domain.exceptions.user import UserNotFoundError
-from apps.auth.domain.exceptions.auth import (
-    InvalidTokenError,
-    TokenExpiredError,
-    TokenTypeMismatchError,
-    TokenRevokedError,
-)
 from apps.auth.application.common.exceptions import ApplicationError
 from apps.auth.application.oauth.exceptions import InvalidStateError, OAuthProviderError
 from apps.auth.application.token.exceptions import AuthenticationError
+from apps.auth.domain.exceptions.auth import (
+    InvalidTokenError,
+    TokenExpiredError,
+    TokenRevokedError,
+    TokenTypeMismatchError,
+)
+from apps.auth.domain.exceptions.base import DomainError
+from apps.auth.domain.exceptions.user import UserNotFoundError
 
 
 def register_exception_handlers(app: FastAPI) -> None:

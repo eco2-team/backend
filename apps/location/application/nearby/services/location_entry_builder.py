@@ -9,11 +9,12 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from typing import Any
+
 from zoneinfo import ZoneInfo
 
-from apps.location.application.nearby.dto import LocationEntryDTO
-from apps.location.domain.entities import NormalizedSite
-from apps.location.domain.enums import PickupCategory, StoreCategory
+from location.application.nearby.dto import LocationEntryDTO
+from location.domain.entities import NormalizedSite
+from location.domain.enums import PickupCategory, StoreCategory
 
 
 class LocationEntryBuilder:

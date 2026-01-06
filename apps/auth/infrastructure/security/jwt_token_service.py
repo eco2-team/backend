@@ -12,6 +12,7 @@ from typing import Any
 
 from jose import JWTError, jwt
 
+from apps.auth.application.token.ports import TokenPair
 from apps.auth.domain.enums.token_type import TokenType
 from apps.auth.domain.exceptions.auth import (
     InvalidTokenError,
@@ -20,7 +21,6 @@ from apps.auth.domain.exceptions.auth import (
 )
 from apps.auth.domain.value_objects.token_payload import TokenPayload
 from apps.auth.domain.value_objects.user_id import UserId
-from apps.auth.application.token.ports import TokenPair
 
 
 class JwtTokenService:

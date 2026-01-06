@@ -7,8 +7,10 @@ import json
 import time
 from unittest.mock import AsyncMock
 from uuid import uuid4
+
 import pytest
 
+from apps.auth.application.oauth.ports import OAuthState
 from apps.auth.infrastructure.persistence_redis.adapters.state_store_redis import (
     RedisStateStore,
 )
@@ -24,7 +26,6 @@ from apps.auth.infrastructure.persistence_redis.constants import (
     TOKEN_META_KEY_PREFIX,
     USER_TOKENS_KEY_PREFIX,
 )
-from apps.auth.application.oauth.ports import OAuthState
 
 
 class TestRedisStateStore:

@@ -7,12 +7,24 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from apps.character.presentation.http.controllers import catalog, health, reward
-from apps.character.setup.config import get_settings
-from apps.character.setup.database import close_redis
+from character.presentation.http.controllers import catalog, health, reward
+from character.setup.config import get_settings
+from character.setup.database import close_redis
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+def _init_orm_mappers() -> None:
+    """ORM 매퍼 초기화."""
+    from character.infrastructure.persistence_postgres.mappings import start_mappers
+
+    try:
+        start_mappers()
+        logger.info("ORM mappers initialized")
+    except Exception as e:
+        # 이미 매핑된 경우 무시
+        logger.debug(f"ORM mappers already initialized: {e}")
 
 
 async def warmup_local_cache() -> None:
@@ -22,11 +34,11 @@ async def warmup_local_cache() -> None:
     로컬 인메모리 캐시를 초기화합니다.
     """
     try:
-        from apps.character.infrastructure.cache import get_character_cache
-        from apps.character.infrastructure.persistence_postgres import (
+        from character.infrastructure.cache import get_character_cache
+        from character.infrastructure.persistence_postgres import (
             SqlaCharacterReader,
         )
-        from apps.character.setup.database import async_session_factory
+        from character.setup.database import async_session_factory
 
         cache = get_character_cache()
 
@@ -60,9 +72,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """애플리케이션 라이프사이클 관리."""
     logger.info("Starting Character API service")
 
+    # ORM 매퍼 초기화 (Imperative Mapping)
+    _init_orm_mappers()
+
     # OpenTelemetry 설정
     if settings.otel_enabled:
-        from domains._shared.observability.tracing import setup_tracing
+        from character.infrastructure.observability import setup_tracing
 
         setup_tracing(settings.service_name)
 
@@ -71,7 +86,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # MQ Consumer 시작 (캐시 실시간 동기화)
     if settings.celery_broker_url:
-        from apps.character.infrastructure.cache import start_cache_consumer
+        from character.infrastructure.cache import start_cache_consumer
 
         start_cache_consumer(settings.celery_broker_url)
         logger.info("Cache consumer started for real-time sync")
@@ -82,7 +97,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Shutting down Character API service")
 
     # MQ Consumer 중지
-    from apps.character.infrastructure.cache import stop_cache_consumer
+    from character.infrastructure.cache import stop_cache_consumer
 
     stop_cache_consumer()
 

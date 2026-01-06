@@ -4,7 +4,7 @@
 포트 의존성 없는 순수 애플리케이션 로직을 담당합니다.
 """
 
-from apps.character.application.reward.dto import RewardRequest
+from character.application.reward.dto import RewardRequest
 
 
 class RewardPolicyService:

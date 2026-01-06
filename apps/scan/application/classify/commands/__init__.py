@@ -1,6 +1,6 @@
 """Classify Commands."""
 
-from apps.scan.application.classify.commands.submit_classification import (
+from scan.application.classify.commands.submit_classification import (
     SubmitClassificationCommand,
     SubmitClassificationRequest,
     SubmitClassificationResponse,

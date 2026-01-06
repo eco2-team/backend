@@ -9,9 +9,9 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.location.application.nearby.ports import LocationReader
-from apps.location.domain.entities import NormalizedSite
-from apps.location.infrastructure.persistence_postgres.models import NormalizedLocationSite
+from location.application.nearby.ports import LocationReader
+from location.domain.entities import NormalizedSite
+from location.infrastructure.persistence_postgres.models import NormalizedLocationSite
 
 
 class SqlaLocationReader(LocationReader):

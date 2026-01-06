@@ -6,9 +6,8 @@ from typing import Any
 
 import pytest
 
-from apps.scan_worker.application.classify.dto.classify_context import ClassifyContext
-from apps.scan_worker.application.classify.ports.retriever import RetrieverPort
-
+from scan_worker.application.classify.dto.classify_context import ClassifyContext
+from scan_worker.application.classify.ports.retriever import RetrieverPort
 
 # ============================================================
 # Mock Implementations
@@ -54,7 +53,7 @@ class TestRuleStep:
     def test_run_with_matching_rules(self):
         """규정 매칭 성공 테스트."""
         # Delayed import to avoid Celery dependency
-        from apps.scan_worker.application.classify.steps.rule_step import RuleStep
+        from scan_worker.application.classify.steps.rule_step import RuleStep
 
         # Given
         retriever = MockRetriever()
@@ -84,7 +83,7 @@ class TestRuleStep:
 
     def test_run_without_classification(self):
         """분류 결과 없을 때 스킵 테스트."""
-        from apps.scan_worker.application.classify.steps.rule_step import RuleStep
+        from scan_worker.application.classify.steps.rule_step import RuleStep
 
         # Given
         retriever = MockRetriever()
@@ -107,7 +106,7 @@ class TestRuleStep:
 
     def test_run_without_matching_rules(self):
         """규정 매칭 실패 테스트."""
-        from apps.scan_worker.application.classify.steps.rule_step import RuleStep
+        from scan_worker.application.classify.steps.rule_step import RuleStep
 
         # Given
         retriever = MockRetrieverNoMatch()

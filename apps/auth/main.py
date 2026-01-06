@@ -9,10 +9,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from apps.auth.setup.config import get_settings
-from apps.auth.setup.logging import setup_logging
 from apps.auth.presentation.http.controllers import root_router
 from apps.auth.presentation.http.errors import register_exception_handlers
+from apps.auth.setup.config import get_settings
+from apps.auth.setup.logging import setup_logging
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ import logging
 from celery import Celery
 from celery.signals import worker_process_init
 
-from apps.character_worker.setup.config import get_settings
+from character_worker.setup.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -57,8 +57,8 @@ def init_worker_process(**kwargs):
     from sqlalchemy import text
 
     from apps.character.domain.entities import Character
-    from apps.character_worker.infrastructure.cache import get_character_cache
-    from apps.character_worker.setup.database import sync_session_factory
+    from character_worker.infrastructure.cache import get_character_cache
+    from character_worker.setup.database import sync_session_factory
 
     cache = get_character_cache()
 
@@ -70,11 +70,13 @@ def init_worker_process(**kwargs):
     try:
         with sync_session_factory() as session:
             result = session.execute(
-                text("""
+                text(
+                    """
                     SELECT id, code, name, type_label, dialog, match_label
                     FROM character.characters
                     WHERE match_label IS NOT NULL
-                """)
+                """
+                )
             )
             rows = result.fetchall()
 

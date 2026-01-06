@@ -1,7 +1,9 @@
-"""Classify Ports - Event Publisher/Subscriber/Idempotency."""
+"""Classify Ports - Event Publisher, Idempotency Cache.
 
-from apps.scan.application.classify.ports.event_publisher import EventPublisher
-from apps.scan.application.classify.ports.event_subscriber import EventSubscriber
-from apps.scan.application.classify.ports.idempotency_cache import IdempotencyCache
+EventSubscriber 제거됨 (sse-gateway로 대체).
+"""
 
-__all__ = ["EventPublisher", "EventSubscriber", "IdempotencyCache"]
+from scan.application.classify.ports.event_publisher import EventPublisher
+from scan.application.classify.ports.idempotency_cache import IdempotencyCache
+
+__all__ = ["EventPublisher", "IdempotencyCache"]

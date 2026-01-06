@@ -5,8 +5,8 @@ Entity를 DTO로 변환하는 등 Catalog 관련 순수 애플리케이션 로�
 
 from typing import Sequence
 
-from apps.character.application.catalog.dto import CatalogItem
-from apps.character.domain.entities import Character
+from character.application.catalog.dto import CatalogItem
+from character.domain.entities import Character
 
 
 class CatalogService:

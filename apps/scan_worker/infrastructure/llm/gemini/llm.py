@@ -12,8 +12,8 @@ from typing import Any, List, Optional
 from google import genai
 from pydantic import BaseModel, Field
 
-from apps.scan_worker.application.classify.ports.llm_model import LLMPort
-from apps.scan_worker.infrastructure.llm.gemini.config import (
+from scan_worker.application.classify.ports.llm_model import LLMPort
+from scan_worker.infrastructure.llm.gemini.config import (
     MAX_OUTPUT_TOKENS,
     TEMPERATURE,
 )

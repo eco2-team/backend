@@ -1,4 +1,7 @@
-"""Idempotency Cache Redis Adapter - 멱등성 캐시 Redis 구현체."""
+"""Idempotency Cache Redis Adapter - 멱등성 캐시 Redis 구현체.
+
+domains 의존성 제거 - 내부 messaging 모듈 사용.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +9,8 @@ import json
 import logging
 from typing import Any
 
-from apps.scan.application.classify.ports.idempotency_cache import IdempotencyCache
+from scan.application.classify.ports.idempotency_cache import IdempotencyCache
+from scan.infrastructure.messaging import get_async_cache_client
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +25,6 @@ class IdempotencyCacheRedis(IdempotencyCache):
 
     async def get(self, key: str) -> dict[str, Any] | None:
         """캐시된 응답 조회."""
-        from domains._shared.events import get_async_cache_client
-
         cache_key = f"scan:idempotency:{key}"
 
         try:
@@ -40,8 +42,6 @@ class IdempotencyCacheRedis(IdempotencyCache):
 
     async def set(self, key: str, response: dict[str, Any], ttl: int) -> None:
         """응답 캐시 저장."""
-        from domains._shared.events import get_async_cache_client
-
         cache_key = f"scan:idempotency:{key}"
 
         try:

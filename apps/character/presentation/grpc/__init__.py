@@ -1,6 +1,6 @@
 """gRPC Presentation."""
 
-from apps.character.presentation.grpc.servicers.character_servicer import (
+from character.presentation.grpc.servicers.character_servicer import (
     CharacterServicer,
 )
 

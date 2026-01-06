@@ -5,10 +5,10 @@ from typing import Annotated, AsyncIterator
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.location.application.nearby import GetNearbyCentersQuery
-from apps.location.application.nearby.ports import LocationReader
-from apps.location.infrastructure.persistence_postgres import SqlaLocationReader
-from apps.location.setup.database import async_session_factory
+from location.application.nearby import GetNearbyCentersQuery
+from location.application.nearby.ports import LocationReader
+from location.infrastructure.persistence_postgres import SqlaLocationReader
+from location.setup.database import async_session_factory
 
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:

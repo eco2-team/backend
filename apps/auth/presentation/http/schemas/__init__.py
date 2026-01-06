@@ -3,10 +3,10 @@
 from apps.auth.presentation.http.schemas.auth import (
     AuthorizeResponse,
     CallbackRequest,
-    UserResponse,
     TokenResponse,
+    UserResponse,
 )
-from apps.auth.presentation.http.schemas.common import HealthResponse, ErrorResponse
+from apps.auth.presentation.http.schemas.common import ErrorResponse, HealthResponse
 
 __all__ = [
     "AuthorizeResponse",

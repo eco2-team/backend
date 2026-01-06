@@ -10,12 +10,12 @@ from uuid import uuid4
 import grpc
 import pytest
 
-from apps.character.application.reward.dto import RewardResult
-from apps.character.domain.entities import Character
-from apps.character.presentation.grpc.servicers.character_servicer import (
+from character.application.reward.dto import RewardResult
+from character.domain.entities import Character
+from character.presentation.grpc.servicers.character_servicer import (
     CharacterServicer,
 )
-from domains.character.proto import character_pb2
+from character.proto import character_pb2
 
 pytestmark = pytest.mark.asyncio
 

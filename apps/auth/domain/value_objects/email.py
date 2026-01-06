@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from apps.auth.domain.value_objects.base import ValueObject
 from apps.auth.domain.exceptions.validation import InvalidEmailError
+from apps.auth.domain.value_objects.base import ValueObject
 
 # RFC 5322 간소화 버전
 EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")

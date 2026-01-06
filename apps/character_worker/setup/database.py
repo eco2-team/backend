@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from apps.character_worker.setup.config import get_settings
+from character_worker.setup.config import get_settings
 
 settings = get_settings()
 

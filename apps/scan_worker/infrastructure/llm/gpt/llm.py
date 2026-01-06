@@ -13,8 +13,8 @@ import httpx
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from apps.scan_worker.application.classify.ports.llm_model import LLMPort
-from apps.scan_worker.infrastructure.llm.gpt.config import (
+from scan_worker.application.classify.ports.llm_model import LLMPort
+from scan_worker.infrastructure.llm.gpt.config import (
     MAX_RETRIES,
     OPENAI_LIMITS,
     OPENAI_TIMEOUT,

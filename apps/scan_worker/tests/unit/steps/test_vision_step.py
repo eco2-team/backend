@@ -6,12 +6,11 @@ from typing import Any
 
 import pytest
 
-from apps.scan_worker.application.classify.dto.classify_context import ClassifyContext
-from apps.scan_worker.application.classify.ports.prompt_repository import (
+from scan_worker.application.classify.dto.classify_context import ClassifyContext
+from scan_worker.application.classify.ports.prompt_repository import (
     PromptRepositoryPort,
 )
-from apps.scan_worker.application.classify.ports.vision_model import VisionModelPort
-
+from scan_worker.application.classify.ports.vision_model import VisionModelPort
 
 # ============================================================
 # Mock Implementations
@@ -67,7 +66,7 @@ class TestVisionStep:
     def test_run_success(self):
         """정상 실행 테스트."""
         # Delayed import to avoid Celery dependency
-        from apps.scan_worker.application.classify.steps.vision_step import VisionStep
+        from scan_worker.application.classify.steps.vision_step import VisionStep
 
         # Given
         vision_model = MockVisionModel()
@@ -92,7 +91,7 @@ class TestVisionStep:
 
     def test_run_with_situation_tags(self):
         """상황 태그 포함 테스트."""
-        from apps.scan_worker.application.classify.steps.vision_step import VisionStep
+        from scan_worker.application.classify.steps.vision_step import VisionStep
 
         # Given
         vision_model = MockVisionModel()
@@ -115,7 +114,7 @@ class TestVisionStep:
 
     def test_prompt_rendering(self):
         """프롬프트 렌더링 테스트."""
-        from apps.scan_worker.application.classify.steps.vision_step import VisionStep
+        from scan_worker.application.classify.steps.vision_step import VisionStep
 
         # Given
         vision_model = MockVisionModel()
@@ -136,7 +135,7 @@ class TestVisionStep:
 
     def test_user_input_passed_to_vision_model(self):
         """user_input이 VisionModel에 전달되는지 테스트."""
-        from apps.scan_worker.application.classify.steps.vision_step import VisionStep
+        from scan_worker.application.classify.steps.vision_step import VisionStep
 
         # Given
         vision_model = MockVisionModel()
@@ -158,7 +157,7 @@ class TestVisionStep:
 
     def test_user_input_none_passed(self):
         """user_input이 None일 때 None이 전달되는지 테스트."""
-        from apps.scan_worker.application.classify.steps.vision_step import VisionStep
+        from scan_worker.application.classify.steps.vision_step import VisionStep
 
         # Given
         vision_model = MockVisionModel()

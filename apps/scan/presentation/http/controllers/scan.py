@@ -15,14 +15,14 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, HttpUrl
 
-from apps.scan.application.classify.commands import (
+from scan.application.classify.commands import (
     SubmitClassificationRequest,
 )
-from apps.scan.setup.config import get_settings
-from apps.scan.application.result.queries.get_result import (
+from scan.application.result.queries.get_result import (
     ProcessingResponse,
 )
-from apps.scan.setup.dependencies import (
+from scan.setup.config import get_settings
+from scan.setup.dependencies import (
     GetCategoriesQueryDep,
     GetResultQueryDep,
     SubmitCommandDep,

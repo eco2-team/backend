@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from apps.scan_worker.application.classify.ports.retriever import RetrieverPort
+from scan_worker.application.classify.ports.retriever import RetrieverPort
 
 logger = logging.getLogger(__name__)
 

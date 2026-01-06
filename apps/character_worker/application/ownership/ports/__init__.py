@@ -1,6 +1,6 @@
 """Ownership Ports."""
 
-from apps.character_worker.application.ownership.ports.ownership_store import (
+from character_worker.application.ownership.ports.ownership_store import (
     OwnershipStore,
 )
 

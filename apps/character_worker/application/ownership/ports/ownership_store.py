@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Sequence
 
-from apps.character_worker.application.ownership.dto import OwnershipEvent
+from character_worker.application.ownership.dto import OwnershipEvent
 
 
 class OwnershipStore(ABC):

@@ -23,13 +23,12 @@ from apps.auth.application.users.exceptions import UserServiceUnavailableError
 
 if TYPE_CHECKING:
     # Services (연주자)
-    from apps.auth.application.audit.services import LoginAuditService
-    from apps.auth.application.oauth.services import OAuthFlowService
-    from apps.auth.application.token.services import TokenService
-
     # Ports (인프라)
     from apps.auth.application.audit.ports import LoginAuditGateway
+    from apps.auth.application.audit.services import LoginAuditService
     from apps.auth.application.common.ports import Flusher, TransactionManager
+    from apps.auth.application.oauth.services import OAuthFlowService
+    from apps.auth.application.token.services import TokenService
     from apps.auth.application.users.ports import UsersManagementGateway
 
 logger = logging.getLogger(__name__)

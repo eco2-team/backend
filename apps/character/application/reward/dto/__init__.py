@@ -1,6 +1,6 @@
 """Reward DTOs."""
 
-from apps.character.application.reward.dto.reward import (
+from character.application.reward.dto.reward import (
     ClassificationSummary,
     RewardRequest,
     RewardResult,

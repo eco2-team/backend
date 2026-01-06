@@ -4,7 +4,7 @@ from typing import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from apps.location.setup.config import get_settings
+from location.setup.config import get_settings
 
 settings = get_settings()
 

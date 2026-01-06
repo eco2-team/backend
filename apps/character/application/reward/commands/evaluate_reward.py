@@ -5,9 +5,11 @@
 
 import logging
 
-from apps.character.application.reward.dto import RewardRequest, RewardResult
-from apps.character.application.reward.ports import CharacterMatcher, OwnershipChecker
-from apps.character.application.reward.services.reward_policy_service import RewardPolicyService
+from character.application.reward.dto import RewardRequest, RewardResult
+from character.application.reward.ports import CharacterMatcher, OwnershipChecker
+from character.application.reward.services.reward_policy_service import (
+    RewardPolicyService,
+)
 
 logger = logging.getLogger(__name__)
 

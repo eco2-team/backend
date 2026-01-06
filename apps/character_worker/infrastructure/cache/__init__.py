@@ -1,6 +1,6 @@
 """Cache Infrastructure."""
 
-from apps.character_worker.infrastructure.cache.local_character_cache import (
+from character_worker.infrastructure.cache.local_character_cache import (
     LocalCharacterCache,
 )
 

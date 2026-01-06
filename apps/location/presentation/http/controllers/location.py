@@ -6,10 +6,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from apps.location.application.nearby import GetNearbyCentersQuery, SearchRequest
-from apps.location.domain.enums import PickupCategory, StoreCategory
-from apps.location.presentation.http.schemas import LocationEntry
-from apps.location.setup.dependencies import get_nearby_centers_query
+from location.application.nearby import GetNearbyCentersQuery, SearchRequest
+from location.domain.enums import PickupCategory, StoreCategory
+from location.presentation.http.schemas import LocationEntry
+from location.setup.dependencies import get_nearby_centers_query
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
