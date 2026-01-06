@@ -2,7 +2,9 @@
 # SSE Gateway 외부 라우팅
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 라우팅:
-# - GET /api/v1/stream?job_id=xxx → sse-gateway (SSE 스트리밍)
+# - GET /api/v1/stream?job_id=xxx → sse-gateway (레거시)
+# - GET /api/v1/{service}/{id}/events → sse-gateway (RESTful)
+#   예: /api/v1/scan/{job_id}/events, /api/v1/chat/{job_id}/events
 #
 # Event Router + Pub/Sub 아키텍처:
 # - 어느 Pod에 연결되든 Redis Pub/Sub를 통해 동일 이벤트 수신
@@ -24,7 +26,50 @@ spec:
   gateways:
   - istio-system/eco2-gateway
   http:
-  # ======= Canary 라우팅 (X-Canary: true 헤더) =======
+  # ======= RESTful SSE: /{service}/{id}/events (Canary) =======
+  - name: sse-events-canary
+    match:
+    - headers:
+        x-canary:
+          exact: 'true'
+      uri:
+        regex: /api/v1/[^/]+/[^/]+/events
+      method:
+        exact: GET
+    route:
+    - destination:
+        host: sse-gateway.sse-consumer.svc.cluster.local
+        port:
+          number: 8000
+        subset: canary
+    timeout: 86400s
+    retries:
+      attempts: 0
+    headers:
+      request:
+        set:
+          x-sse-gateway: 'true'
+  # ======= RESTful SSE: /{service}/{id}/events (Stable) =======
+  - name: sse-events
+    match:
+    - uri:
+        regex: /api/v1/[^/]+/[^/]+/events
+      method:
+        exact: GET
+    route:
+    - destination:
+        host: sse-gateway.sse-consumer.svc.cluster.local
+        port:
+          number: 8000
+        subset: stable
+    timeout: 86400s
+    retries:
+      attempts: 0
+    headers:
+      request:
+        set:
+          x-sse-gateway: 'true'
+  # ======= 레거시 SSE: /stream (Canary) =======
   - name: sse-stream-canary
     match:
     - headers:
@@ -47,7 +92,7 @@ spec:
       request:
         set:
           x-sse-gateway: 'true'
-  # ======= 기본 트래픽 → Stable =======
+  # ======= 레거시 SSE: /stream (Stable) =======
   - name: sse-stream
     match:
     - uri:

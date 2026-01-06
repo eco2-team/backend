@@ -136,8 +136,8 @@ async def submit_scan(
 
         response = ScanSubmitResponse(
             job_id=job_id,
-            stream_url=f"/api/v1/stream?job_id={job_id}",
-            result_url=f"/api/v1/scan/result/{job_id}",
+            stream_url=f"/api/v1/scan/{job_id}/events",
+            result_url=f"/api/v1/scan/{job_id}/result",
             status="queued",
         )
 
@@ -181,7 +181,7 @@ async def classify(
 
 
 @router.get(
-    "/result/{job_id}",
+    "/{job_id}/result",
     summary="Get scan result by job_id",
     response_model=None,  # Union[Response, Pydantic]은 response_model 자동 생성 불가
     responses={

@@ -109,7 +109,6 @@ async def classify_completion(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # nginx buffering 비활성화
         },
     )
 
@@ -257,7 +256,7 @@ async def _completion_generator_v2(
             # done 이벤트 (파이프라인 완료)
             if stage == "done":
                 sse_data["result"] = event.get("result")
-                sse_data["result_url"] = f"/api/v1/scan/result/{task_id}"
+                sse_data["result_url"] = f"/api/v1/scan/{task_id}/result"
                 yield _format_sse(sse_data, event_type="ready")
                 logger.info("completion_stream_done", extra={"task_id": task_id})
                 break

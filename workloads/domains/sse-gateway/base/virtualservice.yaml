@@ -7,6 +7,10 @@
 # - LEAST_REQUEST 로드밸런싱으로 연결 분산
 # - SSE 장기 연결에 적합
 #
+# 라우팅:
+# - /api/v1/stream?job_id=xxx (레거시)
+# - /api/v1/{service}/{id}/events (RESTful)
+#
 # 참조: docs/blogs/async/34-sse-HA-architecture.md
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: networking.istio.io/v1
@@ -21,6 +25,20 @@ spec:
   - sse-gateway.sse-consumer.svc.cluster.local
   - sse-gateway
   http:
+  # RESTful SSE: /{service}/{id}/events
+  - name: sse-events
+    match:
+    - uri:
+        regex: /api/v1/[^/]+/[^/]+/events
+    route:
+    - destination:
+        host: sse-gateway.sse-consumer.svc.cluster.local
+        port:
+          number: 8000
+    timeout: 86400s
+    retries:
+      attempts: 0
+  # 레거시 SSE: /stream
   - name: sse-stream
     match:
     - uri:
@@ -30,10 +48,9 @@ spec:
         host: sse-gateway.sse-consumer.svc.cluster.local
         port:
           number: 8000
-    # timeout: SSE는 long-lived connection
-    timeout: 86400s    # 24시간
+    timeout: 86400s
     retries:
-      attempts: 0    # SSE는 재시도 불가
+      attempts: 0
   - name: default
     route:
     - destination:

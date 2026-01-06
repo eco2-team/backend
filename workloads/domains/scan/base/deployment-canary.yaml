@@ -1,3 +1,14 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Scan API Canary Deployment (Clean Architecture)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 변경사항:
+# - Clean Architecture (apps/scan) 기반
+# - LLM Router: GPT-5.2 + Gemini 3.0 Pro (Fallback)
+# - Default Tier: PREMIUM
+#
+# Canary 테스트:
+#   curl -H "X-Canary: true" https://api.growbin.app/api/v1/scan
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -9,6 +20,11 @@ metadata:
     tier: business-logic
     domain: scan
     release: canary
+    architecture: clean
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: scan-canary=docker.io/mng990/eco2
+    argocd-image-updater.argoproj.io/scan-canary.update-strategy: digest
+    argocd-image-updater.argoproj.io/scan-canary.allow-tags: regexp:^scan-api-dev-canary.*$
 spec:
   replicas: 1
   selector:
@@ -23,6 +39,7 @@ spec:
         tier: business-logic
         domain: scan
         release: canary
+        architecture: clean
     spec:
       containers:
       - name: scan-api
@@ -39,6 +56,7 @@ spec:
             cpu: 500m
             memory: 512Mi
         env:
+        # === OpenTelemetry ===
         - name: OTEL_SERVICE_NAME
           value: scan-api-canary
         - name: OTEL_TRACES_EXPORTER
@@ -51,6 +69,7 @@ spec:
           value: none
         - name: OTEL_PROPAGATORS
           value: b3,tracecontext,baggage
+        # === Infrastructure ===
         - name: POSTGRES_HOST
           value: postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
@@ -61,6 +80,14 @@ spec:
           value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
         - name: SSE_SHARD_COUNT
           value: '4'
+        # === LLM Router Settings (Clean Architecture) ===
+        - name: LLM_PRIMARY_PROVIDER
+          value: openai
+        - name: LLM_DEFAULT_TIER
+          value: premium
+        - name: LLM_FALLBACK_ENABLED
+          value: 'true'
+        # === Celery ===
         - name: CELERY_BROKER_URL
           valueFrom:
             secretKeyRef:
@@ -68,8 +95,11 @@ spec:
               key: CELERY_BROKER_URL
         - name: CELERY_RESULT_BACKEND
           value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+        # === Release Info ===
         - name: RELEASE_TYPE
           value: canary
+        - name: ARCHITECTURE
+          value: clean
         envFrom:
         - configMapRef:
             name: scan-config

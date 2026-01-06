@@ -1,5 +1,5 @@
 # Scan Worker ConfigMap
-# Celery Worker 환경 설정
+# Celery Worker 환경 설정 (Clean Architecture - apps/scan_worker)
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,7 +12,6 @@ data:
   # Celery settings
   CELERY_TASK_SERIALIZER: json
   CELERY_RESULT_SERIALIZER: json
-  # CELERY_ACCEPT_CONTENT는 코드 기본값 사용 (["json"])
   CELERY_TIMEZONE: Asia/Seoul
   CELERY_ENABLE_UTC: 'true'
   CELERY_TASK_ACKS_LATE: 'true'
@@ -20,3 +19,9 @@ data:
   CELERY_WORKER_PREFETCH_MULTIPLIER: '1'
   CELERY_TASK_TIME_LIMIT: '300'
   CELERY_TASK_SOFT_TIME_LIMIT: '240'
+  # Checkpointing (Stateless Reducer)
+  CHECKPOINT_TTL: '3600'
+  # LLM Model Settings (Explicit Provider Mapping)
+  DEFAULT_MODEL: gpt-5.2
+  SUPPORTED_GPT_MODELS: gpt-5.2,gpt-5.2-pro,gpt-5.1,gpt-5,gpt-5-pro,gpt-5-mini
+  SUPPORTED_GEMINI_MODELS: gemini-3-pro-preview,gemini-3-flash-preview,gemini-2.5-pro,gemini-2.5-flash,gemini-2.5-flash-lite,gemini-2.0-flash,gemini-2.0-flash-lite

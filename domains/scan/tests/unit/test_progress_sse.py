@@ -214,7 +214,6 @@ class TestStreamProgressEndpoint:
             response = await stream_progress(task_id="test-123", last_event_id=None)
 
             assert response.headers.get("Cache-Control") == "no-cache"
-            assert response.headers.get("X-Accel-Buffering") == "no"
 
 
 class TestEventGeneratorEdgeCases:
