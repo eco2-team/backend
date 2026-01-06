@@ -72,7 +72,7 @@ async def event_generator(
 
 @router.get(
     "/stream",
-    summary="SSE 스트림 구독",
+    summary="SSE 스트림 구독 (레거시)",
     description="job_id에 대한 실시간 이벤트 스트림을 제공합니다.",
     responses={
         200: {
@@ -86,7 +86,7 @@ async def stream_events(
     request: Request,
     job_id: str = Query(..., description="작업 ID (UUID)", min_length=10),
 ) -> EventSourceResponse:
-    """SSE 스트림 엔드포인트.
+    """SSE 스트림 엔드포인트 (레거시).
 
     Args:
         request: FastAPI Request
@@ -113,6 +113,78 @@ async def stream_events(
     logger.info(
         "sse_stream_started",
         extra={
+            "job_id": job_id,
+            "client_ip": request.client.host if request.client else "unknown",
+        },
+    )
+
+    return EventSourceResponse(
+        event_generator(job_id, request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Nginx 버퍼링 비활성화
+        },
+    )
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# RESTful SSE 엔드포인트: /{service}/{job_id}/events
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+@router.get(
+    "/{service}/{job_id}/events",
+    summary="SSE 스트림 구독 (RESTful)",
+    description="서비스별 job_id에 대한 실시간 이벤트 스트림을 제공합니다.",
+    responses={
+        200: {
+            "description": "SSE 스트림",
+            "content": {"text/event-stream": {}},
+        },
+        400: {"description": "잘못된 job_id"},
+    },
+)
+async def stream_events_restful(
+    request: Request,
+    service: str,
+    job_id: str,
+) -> EventSourceResponse:
+    """RESTful SSE 스트림 엔드포인트.
+
+    Args:
+        request: FastAPI Request
+        service: 서비스명 (scan, chat 등)
+        job_id: 작업 ID (UUID)
+
+    Returns:
+        EventSourceResponse (text/event-stream)
+
+    Example:
+        ```javascript
+        // scan 서비스
+        const eventSource = new EventSource('/api/v1/scan/abc-123/events');
+
+        // chat 서비스
+        const eventSource = new EventSource('/api/v1/chat/xyz-456/events');
+
+        eventSource.addEventListener('vision', (e) => {
+            console.log('Vision 완료:', JSON.parse(e.data));
+        });
+        eventSource.addEventListener('done', (e) => {
+            console.log('완료:', JSON.parse(e.data));
+            eventSource.close();
+        });
+        ```
+    """
+    if not job_id or len(job_id) < 10:
+        raise HTTPException(status_code=400, detail="유효하지 않은 job_id입니다")
+
+    logger.info(
+        "sse_stream_started",
+        extra={
+            "service": service,
             "job_id": job_id,
             "client_ip": request.client.host if request.client else "unknown",
         },
