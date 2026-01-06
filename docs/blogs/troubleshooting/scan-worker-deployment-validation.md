@@ -286,7 +286,108 @@ kubectl exec -n scan deployment/scan-worker -- \
 
 ---
 
-## 9. 관련 문서
+## 9. Legacy vs Apps 정합성 비교
+
+### 9.1 API Endpoint 비교
+
+| 항목 | domains/scan | apps/scan | 정합성 |
+|------|:-----------:|:---------:|:------:|
+| Endpoint | `POST /scan` | `POST /scan` | ✅ |
+| 인증 방식 | JWT (FastAPI Depends) | Ext-Authz (X-User-ID 헤더) | 🔄 변경 |
+| Idempotency | `X-Idempotency-Key` | `X-Idempotency-Key` | ✅ |
+| 모델 선택 | ❌ | `model` 필드 | ➕ 추가 |
+| 응답 스키마 | `ScanSubmitResponse` | `ScanSubmitResponse` | ✅ |
+
+### 9.2 Celery Chain 비교
+
+**domains/scan (레거시):**
+
+```python
+pipeline = chain(
+    vision_task.s(job_id, user_id, image_url, user_input),
+    rule_task.s(),
+    answer_task.s(),
+    scan_reward_task.s(),
+)
+```
+
+**apps/scan (Clean Architecture):**
+
+```python
+pipeline = chain(
+    self._celery_app.signature(
+        "scan.vision",
+        args=[job_id, request.user_id, request.image_url, user_input],
+        kwargs={"model": model},
+        queue="scan.vision",
+    ),
+    self._celery_app.signature("scan.rule", queue="scan.rule"),
+    self._celery_app.signature("scan.answer", queue="scan.answer"),
+    self._celery_app.signature("scan.reward", queue="scan.reward"),
+)
+```
+
+| 차이점 | 설명 |
+|--------|------|
+| Task 참조 | 직접 import → 이름으로 signature |
+| Queue 지정 | decorator에서 → 호출 시 명시 |
+| Model 전달 | ❌ → kwargs로 전달 |
+
+### 9.3 Task Return 형식 비교
+
+**vision_task 반환 형식:**
+
+| 키 | domains/scan | apps/scan_worker | 정합성 |
+|----|:-----------:|:----------------:|:------:|
+| `task_id` | ✅ | ✅ | ✅ |
+| `user_id` | ✅ | ✅ | ✅ |
+| `image_url` | ✅ | ✅ | ✅ |
+| `user_input` | ✅ | ✅ | ✅ |
+| `classification_result` | ✅ | ✅ | ✅ |
+| `metadata` | ✅ | ✅ | ✅ |
+| `llm_provider` | ❌ | ✅ | ➕ 추가 |
+| `llm_model` | ❌ | ✅ | ➕ 추가 |
+
+### 9.4 Reward Task 큐 라우팅 비교
+
+| Task | domains/scan 큐 | apps/scan_worker 큐 | 변경 |
+|------|:--------------:|:------------------:|:----:|
+| `character.save_ownership` | `character.reward` | `character.save_ownership` | 🔄 1:1 정책 |
+| `users.save_character` | `users.character` | `users.save_character` | 🔄 1:1 정책 |
+| `my.save_character` | `my.reward` | **제거됨** | ❌ deprecated |
+
+### 9.5 이벤트 발행 비교
+
+| 항목 | domains/scan | apps/scan_worker | 정합성 |
+|------|:-----------:|:----------------:|:------:|
+| 발행 함수 | `publish_stage_event()` | `EventPublisherPort.publish_stage_event()` | ✅ |
+| Stream 키 | `scan:events:{shard}` | `scan:events:{shard}` | ✅ |
+| 필드 형식 | `job_id, stage, status, seq, ts, progress, result` | 동일 | ✅ |
+| 멱등성 | Lua Script | Lua Script | ✅ |
+
+### 9.6 결과 캐시 비교
+
+| 항목 | domains/scan | apps/scan_worker | 정합성 |
+|------|:-----------:|:----------------:|:------:|
+| 캐시 키 | `scan:result:{task_id}` | `scan:result:{task_id}` | ✅ |
+| TTL | 3600초 (1시간) | 3600초 (1시간) | ✅ |
+| 저장 시점 | done 이벤트 전 | done 이벤트 전 | ✅ |
+
+### 9.7 정합성 결론
+
+| 카테고리 | 상태 | 비고 |
+|----------|:----:|------|
+| API 스키마 | ✅ | 응답 형식 100% 호환 |
+| Celery Chain | ✅ | Task 이름 및 순서 동일 |
+| 이벤트 형식 | ✅ | Event Router/SSE Gateway 호환 |
+| 결과 캐시 | ✅ | /result 엔드포인트 호환 |
+| 큐 라우팅 | 🔄 | 1:1 정책으로 변경 (character-worker, users-worker에서 수용) |
+| 인증 | 🔄 | JWT → Ext-Authz 변경 (인프라 수준) |
+| my 도메인 | ❌ | 제거됨 (users로 통합) |
+
+---
+
+## 10. 관련 문서
 
 - [Scan Worker Migration Roadmap](../../plans/scan-worker-migration-roadmap.md)
 - [Stateless Reducer Pattern](../../plans/scan-worker-stateless-reducer.md)
