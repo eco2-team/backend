@@ -17,20 +17,20 @@ metadata:
     app: sse-gateway
     tier: integration
     domain: sse
-    release: stable
+    version: v1
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: sse-gateway
-      release: stable
+      version: v1
   template:
     metadata:
       labels:
         app: sse-gateway
         tier: integration
         domain: sse
-        release: stable
+        version: v1
       annotations:
         prometheus.io/scrape: 'true'
         prometheus.io/port: '8000'
