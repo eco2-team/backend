@@ -123,24 +123,6 @@ spec:
     namespace: rabbitmq
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# My Reward Binding (my.direct → my.reward)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-apiVersion: rabbitmq.com/v1beta1
-kind: Binding
-metadata:
-  name: my-reward-binding
-  namespace: rabbitmq
-spec:
-  source: my.direct
-  destination: my.reward
-  destinationType: queue
-  routingKey: my.reward
-  vhost: eco2
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
----
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Dead Letter Bindings
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: rabbitmq.com/v1beta1
@@ -243,54 +225,6 @@ spec:
   destination: dlq.character.grant_default
   destinationType: queue
   routingKey: dlq.character.grant_default
-  vhost: eco2
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
----
-apiVersion: rabbitmq.com/v1beta1
-kind: Binding
-metadata:
-  name: dlq-my-reward-binding
-  namespace: rabbitmq
-spec:
-  source: dlx
-  destination: dlq.my.reward
-  destinationType: queue
-  routingKey: dlq.my.reward
-  vhost: eco2
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
----
-apiVersion: rabbitmq.com/v1beta1
-kind: Binding
-metadata:
-  name: dlq-celery-binding
-  namespace: rabbitmq
-spec:
-  source: dlx
-  destination: dlq.celery
-  destinationType: queue
-  routingKey: dlq.celery
-  vhost: eco2
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
----
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Celery Default Binding
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-apiVersion: rabbitmq.com/v1beta1
-kind: Binding
-metadata:
-  name: celery-default-binding
-  namespace: rabbitmq
-spec:
-  source: celery
-  destination: celery
-  destinationType: queue
-  routingKey: celery
   vhost: eco2
   rabbitmqClusterReference:
     name: eco2-rabbitmq

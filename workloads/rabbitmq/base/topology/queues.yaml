@@ -152,27 +152,6 @@ spec:
     name: eco2-rabbitmq
     namespace: rabbitmq
 ---
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# My Reward Queue (my DB 저장 - my-worker)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-apiVersion: rabbitmq.com/v1beta1
-kind: Queue
-metadata:
-  name: my-reward-queue
-  namespace: rabbitmq
-spec:
-  name: my.reward
-  type: classic
-  durable: true
-  autoDelete: false
-  vhost: eco2
-  arguments:
-    x-dead-letter-exchange: dlx
-    x-dead-letter-routing-key: dlq.my.reward
-    x-message-ttl: 86400000  # 24시간 (DB 저장 중요)
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Dead Letter Queues (실패 메시지 보관)
@@ -296,44 +275,12 @@ spec:
     name: eco2-rabbitmq
     namespace: rabbitmq
 ---
-apiVersion: rabbitmq.com/v1beta1
-kind: Queue
-metadata:
-  name: dlq-my-reward
-  namespace: rabbitmq
-spec:
-  name: dlq.my.reward
-  type: classic
-  durable: true
-  autoDelete: false
-  vhost: eco2
-  arguments:
-    x-message-ttl: 604800000  # 7일 보관
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
----
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Celery Default Queue
+# NOTE: my-reward, celery-default 큐 제거됨
+# - my-worker → users-worker 마이그레이션 완료
+# - celery 기본 큐 미사용
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-apiVersion: rabbitmq.com/v1beta1
-kind: Queue
-metadata:
-  name: celery-default-queue
-  namespace: rabbitmq
-spec:
-  name: celery
-  type: classic
-  durable: true
-  autoDelete: false
-  vhost: eco2
-  arguments:
-    x-dead-letter-exchange: dlx
-    x-dead-letter-routing-key: dlq.celery
-    x-message-ttl: 3600000
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
+namespace: rabbitmq
 ---
 apiVersion: rabbitmq.com/v1beta1
 kind: Queue
