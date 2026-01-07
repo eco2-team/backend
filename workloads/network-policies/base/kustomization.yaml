@@ -13,7 +13,7 @@ resources:
 - allow-scan-to-character-grpc.yaml
 - allow-scan-egress-to-character.yaml
 - allow-ingress-to-character-from-gateway.yaml
-- allow-character-to-my-grpc.yaml
+- allow-character-to-users-grpc.yaml  # my → users 마이그레이션
 - allow-rabbitmq-access.yaml
 - allow-rabbitmq-egress.yaml
 - allow-keda-egress.yaml

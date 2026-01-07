@@ -76,9 +76,10 @@ spec:
           value: postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
           value: redis.redis.svc.cluster.local
-        - name: MY_GRPC_HOST
-          value: my-api-grpc.my.svc.cluster.local
-        - name: MY_GRPC_PORT
+        # gRPC (users-api 연결용, my → users 마이그레이션)
+        - name: USERS_GRPC_HOST
+          value: users-api-grpc.users.svc.cluster.local
+        - name: USERS_GRPC_PORT
           value: '50051'
         - name: RELEASE_TYPE
           value: canary
