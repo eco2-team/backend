@@ -14,10 +14,13 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # Character Worker Task Routes (태스크 = 큐 1:1)
+# ⚠️ reward.character는 Named Exchange (reward.direct)로 발행됨
+#    Binding: reward.character routing_key → character.save_ownership 큐
 CHARACTER_TASK_ROUTES = {
     "character.match": {"queue": "character.match"},
     "character.save_ownership": {"queue": "character.save_ownership"},
     "character.grant_default": {"queue": "character.grant_default"},
+    "reward.character": {"queue": "character.save_ownership"},  # 1:N 이벤트
 }
 
 # Celery 앱 생성
@@ -28,6 +31,7 @@ celery_app = Celery(
         "character_worker.presentation.tasks.match_task",
         "character_worker.presentation.tasks.ownership_task",
         "character_worker.presentation.tasks.grant_default_task",
+        "character_worker.presentation.tasks.reward_event_task",
     ],
 )
 

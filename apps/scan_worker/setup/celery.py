@@ -1,6 +1,8 @@
 """Celery App Configuration.
 
-⚠️ domains 의존성 제거 - apps 내부에서 라우팅 정의
+⚠️ 큐 생성은 RabbitMQ Topology CR에 위임
+   (workloads/rabbitmq/base/topology/queues.yaml)
+   Python에서는 task routing만 정의
 """
 
 import logging
@@ -9,78 +11,14 @@ from typing import Any
 
 from celery import Celery
 from celery.signals import worker_ready, worker_shutdown
-from kombu import Exchange, Queue
 
 from scan_worker.setup.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# RabbitMQ Exchange 설정 (AMQP default exchange - domains와 동일)
-DEFAULT_EXCHANGE = Exchange("", type="direct")
-
-# RabbitMQ 큐 설정 (기존 큐와 동일하게 설정)
-DLX_EXCHANGE = "dlx"  # Dead Letter Exchange
-
-# 큐별 TTL 설정 (기존 RabbitMQ와 동일)
-QUEUE_TTL_MAP = {
-    "scan.vision": 3600000,  # 1시간
-    "scan.rule": 300000,  # 5분 (규정 조회는 빠름)
-    "scan.answer": 3600000,  # 1시간
-    "scan.reward": 3600000,  # 1시간
-}
-
-
-def _queue_args(queue_name: str) -> dict:
-    """큐별 arguments 생성 (TTL + DLX + DLQ 라우팅키)."""
-    return {
-        "x-message-ttl": QUEUE_TTL_MAP.get(queue_name, 3600000),
-        "x-dead-letter-exchange": DLX_EXCHANGE,
-        "x-dead-letter-routing-key": f"dlq.{queue_name}",
-    }
-
-
-# 기본 큐 (task_create_missing_queues=False 때문에 필요)
-CELERY_DEFAULT_QUEUE = Queue(
-    "celery",
-    exchange=DEFAULT_EXCHANGE,
-    routing_key="celery",
-    queue_arguments={
-        "x-message-ttl": 3600000,
-        "x-dead-letter-exchange": DLX_EXCHANGE,
-        "x-dead-letter-routing-key": "dlq.celery",
-    },
-)
-
-SCAN_TASK_QUEUES = (
-    CELERY_DEFAULT_QUEUE,
-    Queue(
-        "scan.vision",
-        exchange=DEFAULT_EXCHANGE,
-        routing_key="scan.vision",
-        queue_arguments=_queue_args("scan.vision"),
-    ),
-    Queue(
-        "scan.rule",
-        exchange=DEFAULT_EXCHANGE,
-        routing_key="scan.rule",
-        queue_arguments=_queue_args("scan.rule"),
-    ),
-    Queue(
-        "scan.answer",
-        exchange=DEFAULT_EXCHANGE,
-        routing_key="scan.answer",
-        queue_arguments=_queue_args("scan.answer"),
-    ),
-    Queue(
-        "scan.reward",
-        exchange=DEFAULT_EXCHANGE,
-        routing_key="scan.reward",
-        queue_arguments=_queue_args("scan.reward"),
-    ),
-)
-
 # Scan Worker Task Routes (태스크 = 큐 1:1)
+# ⚠️ 큐 이름은 Topology CR과 일치해야 함
 SCAN_TASK_ROUTES = {
     "scan.vision": {"queue": "scan.vision"},
     "scan.rule": {"queue": "scan.rule"},
@@ -102,17 +40,13 @@ celery_app.autodiscover_tasks(
     ]
 )
 
-# Task 라우팅 및 큐 설정
-celery_app.conf.task_routes = SCAN_TASK_ROUTES
-celery_app.conf.task_queues = SCAN_TASK_QUEUES
-
 # Celery 설정
 celery_app.conf.update(
-    # Exchange 설정 (AMQP default exchange - domains와 동일)
+    # Task routing (큐 생성은 Topology CR에 위임)
+    task_routes=SCAN_TASK_ROUTES,
+    task_default_queue="celery",
     task_default_exchange="",  # AMQP default exchange (direct routing)
     task_default_routing_key="celery",
-    # 큐 자동 생성 비활성화 (RabbitMQ Topology CR로 생성된 큐 사용)
-    task_create_missing_queues=False,
     # 일반 설정
     task_track_started=True,
     task_serializer="json",
@@ -120,6 +54,8 @@ celery_app.conf.update(
     accept_content=["json"],
     timezone="Asia/Seoul",
     enable_utc=True,
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
     worker_send_task_events=True,
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=100,

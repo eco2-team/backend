@@ -87,18 +87,38 @@ spec:
     namespace: rabbitmq
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Character Reward Binding (fire & forget)
+# Reward → Character Save Ownership Binding (1:N 라우팅 #1)
+# reward.direct에서 reward.character 키로 발행 시 이 큐로 전달
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: rabbitmq.com/v1beta1
 kind: Binding
 metadata:
-  name: character-save-ownership-binding
+  name: reward-to-character-ownership
   namespace: rabbitmq
 spec:
-  source: character.direct
+  source: reward.direct
   destination: character.save_ownership
   destinationType: queue
-  routingKey: character.save_ownership
+  routingKey: reward.character
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Reward → Users Save Character Binding (1:N 라우팅 #2)
+# 동일한 reward.character 키로 이 큐에도 전달
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: reward-to-users-save-character
+  namespace: rabbitmq
+spec:
+  source: reward.direct
+  destination: users.save_character
+  destinationType: queue
+  routingKey: reward.character
   vhost: eco2
   rabbitmqClusterReference:
     name: eco2-rabbitmq
@@ -117,24 +137,6 @@ spec:
   destination: character.grant_default
   destinationType: queue
   routingKey: character.grant_default
-  vhost: eco2
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
----
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Users Save Character Binding
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-apiVersion: rabbitmq.com/v1beta1
-kind: Binding
-metadata:
-  name: users-save-character-binding
-  namespace: rabbitmq
-spec:
-  source: users.direct
-  destination: users.save_character
-  destinationType: queue
-  routingKey: users.save_character
   vhost: eco2
   rabbitmqClusterReference:
     name: eco2-rabbitmq

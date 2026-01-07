@@ -178,9 +178,8 @@ class RewardStep(Step):
 
         Fallback: 타임아웃/에러 시 None 반환 (SSE 완료 보장).
 
-        ⚠️ routing_key만 사용 - task_create_missing_queues=False이므로
-           queue= 사용 시 task_queues 검증 발생. AMQP default exchange는
-           routing_key와 동일한 이름의 큐로 직접 라우팅.
+        ⚠️ queue= 사용: task_queues에 cross-domain 큐가 정의되어 있어야 함.
+           (celery.py의 CROSS_DOMAIN_QUEUES 참조)
         """
         try:
             async_result = self._celery.send_task(
@@ -190,7 +189,7 @@ class RewardStep(Step):
                     "classification_result": ctx.classification,
                     "disposal_rules_present": bool(ctx.disposal_rules),
                 },
-                routing_key="character.match",
+                queue="character.match",
             )
 
             result = async_result.get(
@@ -223,45 +222,36 @@ class RewardStep(Step):
             return None
 
     def _dispatch_save_tasks(self, user_id: str, reward: dict[str, Any]) -> None:
-        """DB 저장 Task 발행 (Fire & Forget).
+        """DB 저장 이벤트 발행 (Fire & Forget, 1:N 라우팅).
 
-        - character.save_ownership: character DB 저장 (routing_key: character.save_ownership)
-        - users.save_character: users DB 저장 (routing_key: users.save_character)
+        reward.direct Exchange로 1번 publish → RabbitMQ가 2개 큐로 복제:
+        - character.save_ownership 큐 → character-worker
+        - users.save_character 큐 → users-worker
 
-        ⚠️ routing_key만 사용 - AMQP default exchange 직접 라우팅
+        각 Worker가 동일 task 이름(reward.character)으로 자신만의 구현 제공.
         """
-        # character.save_ownership
         try:
             self._celery.send_task(
-                "character.save_ownership",
+                "reward.character",
                 kwargs={
                     "user_id": user_id,
                     "character_id": reward["character_id"],
                     "character_code": reward.get("character_code", ""),
-                    "source": "scan",
-                },
-                routing_key="character.save_ownership",
-            )
-            logger.info("save_ownership_task dispatched")
-        except Exception:
-            logger.exception("Failed to dispatch save_ownership_task")
-
-        # users.save_character
-        try:
-            self._celery.send_task(
-                "users.save_character",
-                args=[
-                    user_id,
-                    reward["character_id"],
-                    reward.get("character_code", ""),
-                ],
-                kwargs={
                     "character_name": reward.get("name", ""),
                     "character_type": reward.get("character_type"),
                     "source": "scan",
                 },
-                routing_key="users.save_character",
+                exchange="reward.direct",
+                routing_key="reward.character",
             )
-            logger.info("save_users_character_task dispatched")
+            logger.info(
+                "reward_character_event_dispatched",
+                extra={
+                    "user_id": user_id,
+                    "character_id": reward["character_id"],
+                    "exchange": "reward.direct",
+                    "routing_key": "reward.character",
+                },
+            )
         except Exception:
-            logger.exception("Failed to dispatch save_users_character_task")
+            logger.exception("Failed to dispatch reward.character event")

@@ -1,6 +1,10 @@
 """Celery Application.
 
 users-worker에서 사용하는 Celery 앱 인스턴스입니다.
+
+⚠️ 큐 생성은 RabbitMQ Topology CR에 위임
+   (workloads/rabbitmq/base/topology/queues.yaml)
+   Python에서는 task routing만 정의
 """
 
 from __future__ import annotations
@@ -17,6 +21,15 @@ from users_worker.setup.config import get_settings
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+# Users Worker Task Routes (태스크 = 큐 1:1)
+# ⚠️ 큐 이름은 Topology CR과 일치해야 함
+# ⚠️ reward.character는 Named Exchange (reward.direct)로 발행됨
+#    Binding: reward.character routing_key → users.save_character 큐
+USERS_TASK_ROUTES = {
+    "users.save_character": {"queue": "users.save_character"},
+    "reward.character": {"queue": "users.save_character"},  # 1:N 이벤트
+}
+
 # Celery 앱 생성
 celery_app = Celery("users_worker")
 
@@ -24,6 +37,7 @@ celery_app = Celery("users_worker")
 celery_app.conf.update(
     broker_url=settings.celery_broker_url,
     result_backend=settings.celery_result_backend,
+    task_routes=USERS_TASK_ROUTES,
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],

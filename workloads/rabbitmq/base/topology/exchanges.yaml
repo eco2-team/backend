@@ -36,15 +36,16 @@ spec:
     name: eco2-rabbitmq
     namespace: rabbitmq
 ---
-# 3. Users Exchange (Direct)
-# 라우팅 키: users.save_character (users DB 저장)
+# 3. Reward Exchange (Direct)
+# 1:N 라우팅: reward.character → character.save_ownership + users.save_character
+# scan.reward 완료 시 1번 publish로 다중 Consumer에게 전달
 apiVersion: rabbitmq.com/v1beta1
 kind: Exchange
 metadata:
-  name: users-direct
+  name: reward-direct
   namespace: rabbitmq
 spec:
-  name: users.direct
+  name: reward.direct
   type: direct
   durable: true
   autoDelete: false
@@ -105,19 +106,6 @@ spec:
     name: eco2-rabbitmq
     namespace: rabbitmq
 ---
-# 7. Celery Default Exchange (Topic)
-# Celery 기본 Exchange (celery.* 라우팅)
-apiVersion: rabbitmq.com/v1beta1
-kind: Exchange
-metadata:
-  name: celery-default
-  namespace: rabbitmq
-spec:
-  name: celery
-  type: topic
-  durable: true
-  autoDelete: false
-  vhost: eco2
-  rabbitmqClusterReference:
-    name: eco2-rabbitmq
-    namespace: rabbitmq
+# 7. Celery Default Exchange - 삭제됨
+# Celery는 AMQP Default Exchange ("") 사용
+# Named Exchange로 마이그레이션 완료 시 이 주석도 삭제
