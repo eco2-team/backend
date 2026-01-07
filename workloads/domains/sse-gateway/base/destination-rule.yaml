@@ -11,10 +11,10 @@ spec:
   subsets:
   - name: stable
     labels:
-      release: stable
+      version: v1
   - name: canary
     labels:
-      release: canary
+      version: v2
   trafficPolicy:
     loadBalancer:
       simple: LEAST_REQUEST
