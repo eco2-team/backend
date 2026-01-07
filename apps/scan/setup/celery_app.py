@@ -20,8 +20,8 @@ broker_url = os.getenv(
     "amqp://admin:admin@localhost:5672/eco2",
 )
 
-# RabbitMQ Exchange 설정 (scan_worker와 동일)
-CELERY_EXCHANGE = Exchange("celery", type="topic")
+# RabbitMQ Exchange 설정 (AMQP default exchange - domains와 동일)
+DEFAULT_EXCHANGE = Exchange("", type="direct")
 
 # Dead Letter Exchange
 DLX_EXCHANGE = "dlx"
@@ -44,29 +44,29 @@ def _queue_args(queue_name: str) -> dict:
     }
 
 
-# 큐 설정 (scan_worker와 동일)
+# 큐 설정 (scan_worker와 동일 - AMQP default exchange)
 SCAN_TASK_QUEUES = (
     Queue(
         "scan.vision",
-        exchange=CELERY_EXCHANGE,
+        exchange=DEFAULT_EXCHANGE,
         routing_key="scan.vision",
         queue_arguments=_queue_args("scan.vision"),
     ),
     Queue(
         "scan.rule",
-        exchange=CELERY_EXCHANGE,
+        exchange=DEFAULT_EXCHANGE,
         routing_key="scan.rule",
         queue_arguments=_queue_args("scan.rule"),
     ),
     Queue(
         "scan.answer",
-        exchange=CELERY_EXCHANGE,
+        exchange=DEFAULT_EXCHANGE,
         routing_key="scan.answer",
         queue_arguments=_queue_args("scan.answer"),
     ),
     Queue(
         "scan.reward",
-        exchange=CELERY_EXCHANGE,
+        exchange=DEFAULT_EXCHANGE,
         routing_key="scan.reward",
         queue_arguments=_queue_args("scan.reward"),
     ),
@@ -94,10 +94,9 @@ celery_app.conf.update(
         "scan.answer": {"queue": "scan.answer"},
         "scan.reward": {"queue": "scan.reward"},
     },
-    # Task 기본 설정
+    # Task 기본 설정 (AMQP default exchange - domains와 동일)
     task_default_queue="scan.default",
-    task_default_exchange="celery",  # scan_worker와 동일
-    task_default_exchange_type="topic",
+    task_default_exchange="",  # AMQP default exchange
     task_default_routing_key="scan.default",
     # 이벤트 설정 (레거시 호환)
     task_send_sent_event=True,
