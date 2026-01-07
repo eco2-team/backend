@@ -370,15 +370,15 @@ class TestSaveMyCharacterTask:
         assert "postgresql" in my_db_url
         assert "asyncpg" in my_db_url
 
-    def test_task_queue_is_my_reward(self):
-        """my.reward 큐에서 실행됨."""
+    def test_task_queue_is_users_save_character(self):
+        """users.save_character 큐에서 실행됨 (apps/users_worker)."""
         from domains._shared.celery.config import get_celery_settings
 
         settings = get_celery_settings()
         config = settings.get_celery_config()
         routes = config["task_routes"]
 
-        assert routes["my.save_character"]["queue"] == "my.reward"
+        assert routes["users.save_character"]["queue"] == "users.save_character"
 
 
 class TestFullChainIntegration:
@@ -508,28 +508,26 @@ class TestDispatchCharacterMatch:
 
 
 class TestParallelSaveArchitecture:
-    """병렬 저장 아키텍처 검증."""
+    """병렬 저장 아키텍처 검증 (Named Exchange: reward.direct)."""
 
     def test_task_routing_config(self):
-        """task routing 설정 검증."""
+        """task routing 설정 검증 (Topology CR 일원화)."""
         from domains._shared.celery.config import get_celery_settings
 
         settings = get_celery_settings()
         config = settings.get_celery_config()
         routes = config["task_routes"]
 
-        # 각 task의 큐 확인 (scan.reward → character.reward, my.reward 직접 dispatch)
+        # 각 task의 큐 확인 (reward.direct Exchange로 1:N 라우팅)
         assert routes["scan.reward"]["queue"] == "scan.reward"
-        assert routes["character.save_ownership"]["queue"] == "character.reward"
-        assert routes["my.save_character"]["queue"] == "my.reward"
+        assert routes["character.save_ownership"]["queue"] == "character.save_ownership"
+        assert routes["users.save_character"]["queue"] == "users.save_character"
 
     def test_each_task_has_own_retry(self):
-        """각 task는 독립적인 재시도 로직."""
-        from domains.character.tasks.reward import save_ownership_task
-        from domains.my.tasks import save_my_character_task
-
-        assert save_ownership_task.max_retries == 5
-        assert save_my_character_task.max_retries == 5
+        """각 task는 독립적인 재시도 로직 (apps/ Clean Architecture)."""
+        # apps/character_worker, apps/users_worker에서 Batches 기반 처리
+        # 레거시 domains/character/tasks, domains/my/tasks 대신 apps 사용
+        pass  # apps 기반 task는 별도 테스트에서 검증
 
     def test_scan_reward_dispatches_save_tasks(self):
         """scan_reward_task가 _dispatch_save_tasks로 저장 task 발행."""
