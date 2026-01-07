@@ -5,6 +5,10 @@
 # Consumer Group으로 이벤트 소비 후 Pub/Sub로 발행
 #
 # 참조: docs/blogs/async/34-sse-HA-architecture.md
+#
+# NOTE: ArgoCD Image Updater 제거
+# - digest 전략이 @dummy placeholder 문제 유발
+# - :latest 태그 사용 시 imagePullPolicy: Always로 충분
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -13,14 +17,6 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: '43'
-    # ArgoCD Image Updater - 이미지 자동 업데이트
-    argocd-image-updater.argoproj.io/image-list: stable=docker.io/mng990/eco2:event-router-dev-latest,canary=docker.io/mng990/eco2:event-router-dev-canary
-    argocd-image-updater.argoproj.io/stable.update-strategy: digest
-    argocd-image-updater.argoproj.io/canary.update-strategy: digest
-    argocd-image-updater.argoproj.io/write-back-method: argocd
-    # Kustomize 이미지 설정
-    argocd-image-updater.argoproj.io/stable.kustomize.image-name: docker.io/mng990/eco2
-    argocd-image-updater.argoproj.io/canary.kustomize.image-name: docker.io/mng990/eco2
   finalizers:
   - resources-finalizer.argocd.argoproj.io
 spec:

@@ -59,6 +59,8 @@ spec:
           - my
           - location
           - image
+          - event-router
+          - sse-gateway
     ports:
     - port: 4317  # OTLP gRPC
       protocol: TCP

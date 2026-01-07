@@ -68,9 +68,11 @@ spec:
           value: development
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         # OTEL 설정
+        # NOTE: k8s-event-router → k8s-master(Jaeger) 네트워크 차단으로 비활성화
+        # TODO: AWS Security Group 수정 후 활성화
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         - name: OTEL_ENABLED
-          value: 'true'
+          value: 'false'
         - name: OTEL_SAMPLE_RATE
           value: '0.1'
         - name: OTEL_SERVICE_NAME
