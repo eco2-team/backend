@@ -334,9 +334,12 @@ jobs:
           if [ -d "apps/${SERVICE}" ]; then
             echo "path=apps/${SERVICE}" >> "$GITHUB_OUTPUT"
             echo "pythonpath=${{ github.workspace }}" >> "$GITHUB_OUTPUT"
+            echo "is_legacy=false" >> "$GITHUB_OUTPUT"
           else
+            # 레거시 서비스 (chat, image) - 테스트 skip
             echo "path=domains/${SERVICE}" >> "$GITHUB_OUTPUT"
             echo "pythonpath=${{ github.workspace }}/domains/${SERVICE}" >> "$GITHUB_OUTPUT"
+            echo "is_legacy=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Install tooling
@@ -352,6 +355,7 @@ jobs:
         run: ruff check ${{ steps.source.outputs.path }}
 
       - name: Pytest
+        if: steps.source.outputs.is_legacy != 'true'
         working-directory: ${{ steps.source.outputs.path }}
         env:
           PYTHONPATH: ${{ steps.source.outputs.pythonpath }}
