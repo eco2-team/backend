@@ -34,14 +34,14 @@ spec:
         command: [celery]
         args:
         - -A
-        - domains.character.celery_app
+        - character_worker.main:app
         - worker
         - --loglevel=info
         - -E
         - -P
         - gevent
         - -Q
-        - character.save_ownership
+        - character.save_ownership,character.grant_default
         - -c
         - '20'
         env:
@@ -97,21 +97,42 @@ spec:
             memory: 512Mi
         startupProbe:
           exec:
-            command: [celery, -A, domains.character.celery_app, inspect, ping, -t, '15']
+            command:
+            - celery
+            - -A
+            - character_worker.main:app
+            - inspect
+            - ping
+            - -t
+            - '15'
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 20
           failureThreshold: 12
         livenessProbe:
           exec:
-            command: [celery, -A, domains.character.celery_app, inspect, ping, -t, '15']
+            command:
+            - celery
+            - -A
+            - character_worker.main:app
+            - inspect
+            - ping
+            - -t
+            - '15'
           initialDelaySeconds: 10
           periodSeconds: 30
           timeoutSeconds: 20
           failureThreshold: 3
         readinessProbe:
           exec:
-            command: [celery, -A, domains.character.celery_app, inspect, ping, -t, '15']
+            command:
+            - celery
+            - -A
+            - character_worker.main:app
+            - inspect
+            - ping
+            - -t
+            - '15'
           initialDelaySeconds: 5
           periodSeconds: 20
           timeoutSeconds: 20

@@ -32,7 +32,7 @@ spec:
         command: [celery]
         args:
         - -A
-        - domains.character.celery_app
+        - character_worker.main:app
         - worker
         - --loglevel=info
         - -E  # Events 활성화
@@ -87,7 +87,7 @@ spec:
             command:
             - celery
             - -A
-            - domains.character.celery_app
+            - character_worker.main:app
             - inspect
             - ping
             - -t
@@ -101,7 +101,7 @@ spec:
             command:
             - celery
             - -A
-            - domains.character.celery_app
+            - character_worker.main:app
             - inspect
             - ping
             - -t
