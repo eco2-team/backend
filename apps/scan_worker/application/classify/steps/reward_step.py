@@ -177,6 +177,11 @@ class RewardStep(Step):
         """character.match Task 호출 (동기 대기).
 
         Fallback: 타임아웃/에러 시 None 반환 (SSE 완료 보장).
+
+        ⚠️ Exchange 명시 필수:
+        - character-worker는 character.direct (direct) exchange 사용
+        - scan-worker는 celery (topic) exchange를 기본 사용
+        - 명시적으로 exchange를 지정해야 메시지 전달됨
         """
         try:
             async_result = self._celery.send_task(
@@ -187,6 +192,8 @@ class RewardStep(Step):
                     "disposal_rules_present": bool(ctx.disposal_rules),
                 },
                 queue="character.match",
+                exchange="character.direct",
+                routing_key="character.match",
             )
 
             result = async_result.get(
@@ -225,8 +232,11 @@ class RewardStep(Step):
         - users.save_character: users DB 저장 (Clean Architecture)
 
         ⚠️ my.save_character 제거됨 (domains 폐기)
+        ⚠️ Exchange 명시 필수: RabbitMQ Topology CR과 일치해야 함
+           - character.* → character.direct exchange
+           - users.* → users.direct exchange
         """
-        # character.save_ownership (태스크 = 큐 1:1)
+        # character.save_ownership (Topology CR: character.direct exchange)
         try:
             self._celery.send_task(
                 "character.save_ownership",
@@ -237,12 +247,14 @@ class RewardStep(Step):
                     "source": "scan",
                 },
                 queue="character.save_ownership",
+                exchange="character.direct",
+                routing_key="character.save_ownership",
             )
             logger.info("save_ownership_task dispatched")
         except Exception:
             logger.exception("Failed to dispatch save_ownership_task")
 
-        # users.save_character (태스크 = 큐 1:1)
+        # users.save_character (Topology CR: users.direct exchange)
         try:
             self._celery.send_task(
                 "users.save_character",
@@ -257,6 +269,8 @@ class RewardStep(Step):
                     "source": "scan",
                 },
                 queue="users.save_character",
+                exchange="users.direct",
+                routing_key="users.save_character",
             )
             logger.info("save_users_character_task dispatched")
         except Exception:
