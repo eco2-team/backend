@@ -44,8 +44,21 @@ def _queue_args(queue_name: str) -> dict:
     }
 
 
+# 기본 큐 (task_create_missing_queues=False 때문에 필요)
+CELERY_DEFAULT_QUEUE = Queue(
+    "celery",
+    exchange=DEFAULT_EXCHANGE,
+    routing_key="celery",
+    queue_arguments={
+        "x-message-ttl": 3600000,
+        "x-dead-letter-exchange": DLX_EXCHANGE,
+        "x-dead-letter-routing-key": "dlq.celery",
+    },
+)
+
 # 큐 설정 (scan_worker와 동일 - AMQP default exchange)
 SCAN_TASK_QUEUES = (
+    CELERY_DEFAULT_QUEUE,
     Queue(
         "scan.vision",
         exchange=DEFAULT_EXCHANGE,
@@ -95,9 +108,9 @@ celery_app.conf.update(
         "scan.reward": {"queue": "scan.reward"},
     },
     # Task 기본 설정 (AMQP default exchange - domains와 동일)
-    task_default_queue="scan.default",
+    task_default_queue="celery",
     task_default_exchange="",  # AMQP default exchange
-    task_default_routing_key="scan.default",
+    task_default_routing_key="celery",
     # 큐 자동 생성 비활성화 (RabbitMQ Topology CR로 생성된 큐 사용)
     task_create_missing_queues=False,
     # 이벤트 설정 (레거시 호환)
