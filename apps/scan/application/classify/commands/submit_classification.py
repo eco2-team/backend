@@ -126,15 +126,9 @@ class SubmitClassificationCommand:
                 kwargs={"model": model},
                 options={"routing_key": "scan.vision"},
             ),
-            self._celery_app.signature(
-                "scan.rule", options={"routing_key": "scan.rule"}
-            ),
-            self._celery_app.signature(
-                "scan.answer", options={"routing_key": "scan.answer"}
-            ),
-            self._celery_app.signature(
-                "scan.reward", options={"routing_key": "scan.reward"}
-            ),
+            self._celery_app.signature("scan.rule", options={"routing_key": "scan.rule"}),
+            self._celery_app.signature("scan.answer", options={"routing_key": "scan.answer"}),
+            self._celery_app.signature("scan.reward", options={"routing_key": "scan.reward"}),
         )
         pipeline.apply_async(task_id=job_id)
 
