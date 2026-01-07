@@ -318,3 +318,58 @@ pytest apps/<service>/tests/ -v
 3. **pytest**: 단위 테스트
 
 > 💡 **팁**: pre-commit hook이 black/ruff를 자동 실행하지만, 테스트는 수동으로 확인해야 합니다.
+
+## 🔄 Pod 업데이트 절차
+
+### 정상 업데이트 플로우
+1. **ArgoCD Sync** - Application 동기화
+2. **Deployment 삭제** - 이전 버전 정리
+3. **Self-Heal** - ArgoCD가 자동으로 재생성
+
+```bash
+# 1. ArgoCD Application Sync
+kubectl -n argocd annotate application <app-name> argocd.argoproj.io/refresh=hard --overwrite
+kubectl -n argocd patch application <app-name> --type merge -p '{"operation":{"sync":{"prune":true}}}'
+
+# 2. Deployment 삭제 (ArgoCD가 self-heal)
+kubectl delete deployment <deployment-name> -n <namespace>
+
+# 3. 상태 확인
+kubectl get pods -n <namespace> -w
+```
+
+### 데드락 상황 복구
+ArgoCD Sync가 막힌 데드락 상황에서는 상위 Kubernetes 리소스를 삭제하여 복구합니다.
+
+```bash
+# 1. 문제 Application 확인
+kubectl get applications -n argocd | grep -v Synced
+
+# 2. 상위 리소스 삭제 (cascade)
+kubectl delete deployment <deployment-name> -n <namespace> --cascade=foreground
+
+# 3. 이전 ReplicaSet 스케일 다운
+kubectl scale replicaset <old-rs-name> --replicas=0 -n <namespace>
+
+# 4. 강제 Pod 삭제
+kubectl delete pod <pod-name> -n <namespace> --grace-period=0 --force
+
+# 5. ArgoCD Application 재동기화
+kubectl -n argocd delete application <app-name>
+# (ApplicationSet이 자동 재생성)
+```
+
+### RabbitMQ 큐 설정 충돌 해결
+```bash
+# 큐 목록 확인
+kubectl exec -n rabbitmq eco2-rabbitmq-server-0 -- rabbitmqctl list_queues -p eco2 name arguments
+
+# 메시지 수 확인 (삭제 전 안전 확인)
+kubectl exec -n rabbitmq eco2-rabbitmq-server-0 -- rabbitmqctl list_queues -p eco2 name messages
+
+# 큐 삭제 (메시지 0개일 때만)
+kubectl exec -n rabbitmq eco2-rabbitmq-server-0 -- rabbitmqctl delete_queue -p eco2 <queue-name>
+
+# Worker 재시작
+kubectl rollout restart deployment/<worker-name> -n <namespace>
+```
