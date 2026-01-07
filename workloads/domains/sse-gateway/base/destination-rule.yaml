@@ -11,10 +11,10 @@ spec:
   subsets:
   - name: stable
     labels:
-      app: sse-gateway
+      release: stable
   - name: canary
     labels:
-      version: v2
+      release: canary
   trafficPolicy:
     loadBalancer:
       simple: LEAST_REQUEST
