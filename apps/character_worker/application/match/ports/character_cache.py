@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Mapping
 
-from apps.character.domain.entities import Character
+from character_worker.domain import Character
 
 
 class CharacterCache(ABC):

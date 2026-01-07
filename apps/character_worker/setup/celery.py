@@ -25,9 +25,9 @@ celery_app = Celery(
     "character_worker",
     broker=settings.broker_url,
     include=[
-        "apps.character_worker.presentation.tasks.match_task",
-        "apps.character_worker.presentation.tasks.ownership_task",
-        "apps.character_worker.presentation.tasks.grant_default_task",
+        "character_worker.presentation.tasks.match_task",
+        "character_worker.presentation.tasks.ownership_task",
+        "character_worker.presentation.tasks.grant_default_task",
     ],
 )
 
@@ -56,7 +56,7 @@ def init_worker_process(**kwargs):
 
     from sqlalchemy import text
 
-    from apps.character.domain.entities import Character
+    from character_worker.domain import Character
     from character_worker.infrastructure.cache import get_character_cache
     from character_worker.setup.database import sync_session_factory
 

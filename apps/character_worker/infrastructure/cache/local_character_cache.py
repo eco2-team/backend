@@ -3,8 +3,8 @@
 import logging
 from typing import Mapping
 
-from apps.character.domain.entities import Character
 from character_worker.application.match.ports import CharacterCache
+from character_worker.domain import Character
 
 logger = logging.getLogger(__name__)
 
