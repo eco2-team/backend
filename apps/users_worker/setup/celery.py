@@ -38,6 +38,8 @@ celery_app.conf.update(
     broker_url=settings.celery_broker_url,
     result_backend=settings.celery_result_backend,
     task_routes=USERS_TASK_ROUTES,
+    # 큐 생성을 Topology CR에 위임 (TTL, DLX 등 인자 충돌 방지)
+    task_create_missing_queues=False,
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],

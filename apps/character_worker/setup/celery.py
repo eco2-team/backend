@@ -46,6 +46,8 @@ celery_app.conf.update(
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,
+    # 큐 생성을 Topology CR에 위임 (TTL, DLX 등 인자 충돌 방지)
+    task_create_missing_queues=False,
 )
 
 

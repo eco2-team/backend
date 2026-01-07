@@ -47,6 +47,8 @@ celery_app.conf.update(
     task_default_queue="celery",
     task_default_exchange="",  # AMQP default exchange (direct routing)
     task_default_routing_key="celery",
+    # 큐 생성을 Topology CR에 위임 (TTL, DLX 등 인자 충돌 방지)
+    task_create_missing_queues=False,
     # 일반 설정
     task_track_started=True,
     task_serializer="json",
