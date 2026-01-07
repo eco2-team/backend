@@ -3,7 +3,7 @@
 Celery Worker를 시작합니다.
 
 Usage:
-    celery -A apps.users_worker.main worker -Q users.save_character -c 2 --loglevel=info
+    celery -A users_worker.main worker -Q users.save_character -c 2 --loglevel=info
 """
 
 from users_worker.setup.celery import celery_app

@@ -43,8 +43,8 @@ class TestAuthRelay:
         mock_container.relay_loop = mock_relay_loop
 
         with patch.dict(os.environ, env_vars, clear=False):
-            with patch("apps.auth_relay.main.Container", return_value=mock_container):
-                with patch("apps.auth_relay.main.setup_logging"):
+            with patch("auth_relay.main.Container", return_value=mock_container):
+                with patch("auth_relay.main.setup_logging"):
                     from auth_relay.main import AuthRelay
 
                     relay = AuthRelay()
@@ -117,8 +117,8 @@ class TestMain:
         mock_relay.start = AsyncMock()
 
         with patch.dict(os.environ, env_vars, clear=False):
-            with patch("apps.auth_relay.main.setup_logging"):
-                with patch("apps.auth_relay.main.AuthRelay", return_value=mock_relay):
+            with patch("auth_relay.main.setup_logging"):
+                with patch("auth_relay.main.AuthRelay", return_value=mock_relay):
                     from auth_relay.main import main
 
                     await main()

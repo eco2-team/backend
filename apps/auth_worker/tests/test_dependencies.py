@@ -64,7 +64,7 @@ class TestContainer:
 
         with patch.dict(os.environ, env_vars, clear=True):
             with patch(
-                "apps.auth_worker.setup.dependencies.aioredis.from_url",
+                "auth_worker.setup.dependencies.aioredis.from_url",
                 return_value=mock_redis,
             ):
                 from auth_worker.setup.dependencies import Container

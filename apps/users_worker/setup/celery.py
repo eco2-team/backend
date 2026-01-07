@@ -37,7 +37,7 @@ celery_app.conf.update(
 # Task 모듈 자동 검색
 celery_app.autodiscover_tasks(
     [
-        "apps.users_worker.presentation.tasks",
+        "users_worker.presentation.tasks",
     ]
 )
 

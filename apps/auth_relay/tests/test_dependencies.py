@@ -38,7 +38,7 @@ class TestContainer:
         with patch.dict(os.environ, env_vars, clear=False):
             with patch("redis.asyncio.from_url", return_value=mock_redis):
                 with patch(
-                    "apps.auth_relay.setup.dependencies.RabbitMQEventPublisher",
+                    "auth_relay.setup.dependencies.RabbitMQEventPublisher",
                     return_value=mock_publisher,
                 ):
                     from auth_relay.setup.dependencies import Container
@@ -64,7 +64,7 @@ class TestContainer:
         with patch.dict(os.environ, env_vars, clear=False):
             with patch("redis.asyncio.from_url", return_value=mock_redis):
                 with patch(
-                    "apps.auth_relay.setup.dependencies.RabbitMQEventPublisher",
+                    "auth_relay.setup.dependencies.RabbitMQEventPublisher",
                     return_value=mock_publisher,
                 ):
                     from auth_relay.setup.dependencies import Container
@@ -98,7 +98,7 @@ class TestContainer:
         with patch.dict(os.environ, env_vars, clear=False):
             with patch("redis.asyncio.from_url", return_value=mock_redis):
                 with patch(
-                    "apps.auth_relay.setup.dependencies.RabbitMQEventPublisher",
+                    "auth_relay.setup.dependencies.RabbitMQEventPublisher",
                     return_value=mock_publisher,
                 ):
                     from auth_relay.setup.dependencies import Container

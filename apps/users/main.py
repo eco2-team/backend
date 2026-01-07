@@ -80,7 +80,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "apps.users.main:app",
+        "users.main:app",
         host="0.0.0.0",
         port=8000,
         reload=settings.environment == "local",
