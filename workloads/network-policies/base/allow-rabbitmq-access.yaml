@@ -30,10 +30,14 @@ spec:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: chat
-        # my-api, my-worker (유저 캐릭터 동기화)
+        # my-api (레거시)
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: my
+        # users-worker (유저 캐릭터 동기화)
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: users
         # KEDA (queue length monitoring for autoscaling)
     - namespaceSelector:
         matchLabels:
