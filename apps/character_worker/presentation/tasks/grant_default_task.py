@@ -86,7 +86,7 @@ def grant_default_character_task(self, user_id: str) -> dict[str, Any]:
         )
         return {"success": True, **result}
 
-    except Exception as e:
+    except Exception:
         logger.exception("Grant default character failed", extra=log_ctx)
         raise
 
