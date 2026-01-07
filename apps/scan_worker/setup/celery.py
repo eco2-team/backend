@@ -40,7 +40,20 @@ def _queue_args(queue_name: str) -> dict:
     }
 
 
+# 기본 큐 (task_create_missing_queues=False 때문에 필요)
+CELERY_DEFAULT_QUEUE = Queue(
+    "celery",
+    exchange=DEFAULT_EXCHANGE,
+    routing_key="celery",
+    queue_arguments={
+        "x-message-ttl": 3600000,
+        "x-dead-letter-exchange": DLX_EXCHANGE,
+        "x-dead-letter-routing-key": "dlq.celery",
+    },
+)
+
 SCAN_TASK_QUEUES = (
+    CELERY_DEFAULT_QUEUE,
     Queue(
         "scan.vision",
         exchange=DEFAULT_EXCHANGE,
