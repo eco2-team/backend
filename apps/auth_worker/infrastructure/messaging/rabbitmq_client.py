@@ -71,11 +71,16 @@ class RabbitMQClient:
             durable=True,
         )
 
-        # Queue 선언 (durable, auto-delete=False)
+        # Queue 선언 (CRD와 동일한 인자)
         self._queue = await self._channel.declare_queue(
             self.QUEUE_NAME,
             durable=True,
             auto_delete=False,
+            arguments={
+                "x-message-ttl": 86400000,  # 24시간
+                "x-dead-letter-exchange": "dlx",
+                "x-dead-letter-routing-key": f"dlq.{self.QUEUE_NAME}",
+            },
         )
 
         # Exchange에 Queue 바인딩
