@@ -52,8 +52,35 @@ CELERY_DEFAULT_QUEUE = Queue(
     },
 )
 
+# Cross-domain 큐 (RabbitMQ Topology CR에서 정의된 것과 동일한 arguments)
+# ⚠️ 기존 큐가 이미 RabbitMQ에 존재하면 arguments가 정확히 일치해야 함
+CROSS_DOMAIN_QUEUES = (
+    Queue(
+        "character.match",
+        exchange=DEFAULT_EXCHANGE,
+        routing_key="character.match",
+        queue_arguments={
+            "x-message-ttl": 30000,  # 30초
+            "x-dead-letter-exchange": DLX_EXCHANGE,
+            "x-dead-letter-routing-key": "dlq.character.match",
+        },
+    ),
+    # character.save_ownership / users.save_character: RabbitMQ에 DLX/TTL 없이 생성됨
+    Queue(
+        "character.save_ownership",
+        exchange=DEFAULT_EXCHANGE,
+        routing_key="character.save_ownership",
+    ),
+    Queue(
+        "users.save_character",
+        exchange=DEFAULT_EXCHANGE,
+        routing_key="users.save_character",
+    ),
+)
+
 SCAN_TASK_QUEUES = (
     CELERY_DEFAULT_QUEUE,
+    *CROSS_DOMAIN_QUEUES,
     Queue(
         "scan.vision",
         exchange=DEFAULT_EXCHANGE,
