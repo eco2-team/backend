@@ -19,4 +19,5 @@ resources:
 - allow-keda-egress.yaml
 - allow-sse-gateway.yaml
 - allow-auth-to-users-grpc.yaml
+- allow-auth-to-character.yaml
 # - default-deny-all.yaml

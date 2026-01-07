@@ -1,15 +1,15 @@
 ---
-# auth 도메인에서 users-api-grpc로의 gRPC 통신 허용
-# OAuth 로그인 시 auth → users gRPC 호출에 필요
+# auth 도메인에서 character-api로의 HTTP 통신 허용
+# OAuth 로그인 후 기본 캐릭터 부여에 필요
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-auth-to-users-grpc
-  namespace: users
+  name: allow-auth-to-character
+  namespace: character
 spec:
   podSelector:
     matchLabels:
-      app: users-api-grpc
+      app: character-api
   policyTypes:
   - Ingress
   ingress:
@@ -19,13 +19,13 @@ spec:
           kubernetes.io/metadata.name: auth
     ports:
     - protocol: TCP
-      port: 50051
+      port: 8000
 ---
-# auth에서 users namespace로의 egress 허용
+# auth에서 character namespace로의 egress 허용
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-auth-egress-to-users
+  name: allow-auth-egress-to-character
   namespace: auth
 spec:
   podSelector: {}  # 모든 auth pods
@@ -35,7 +35,7 @@ spec:
   - to:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: users
+          kubernetes.io/metadata.name: character
     ports:
     - protocol: TCP
-      port: 50051
+      port: 8000
