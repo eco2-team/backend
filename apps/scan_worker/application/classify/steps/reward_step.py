@@ -177,9 +177,12 @@ class RewardStep(Step):
         """character.match Task 호출 (동기 대기).
 
         Fallback: 타임아웃/에러 시 None 반환 (SSE 완료 보장).
+
+        ⚠️ routing_key만 사용 - task_create_missing_queues=False이므로
+           queue= 사용 시 task_queues 검증 발생. AMQP default exchange는
+           routing_key와 동일한 이름의 큐로 직접 라우팅.
         """
         try:
-            # domains/scan과 동일하게 queue= 사용 (AMQP default exchange)
             async_result = self._celery.send_task(
                 "character.match",
                 kwargs={
@@ -187,7 +190,7 @@ class RewardStep(Step):
                     "classification_result": ctx.classification,
                     "disposal_rules_present": bool(ctx.disposal_rules),
                 },
-                queue="character.match",
+                routing_key="character.match",
             )
 
             result = async_result.get(
@@ -222,10 +225,12 @@ class RewardStep(Step):
     def _dispatch_save_tasks(self, user_id: str, reward: dict[str, Any]) -> None:
         """DB 저장 Task 발행 (Fire & Forget).
 
-        - character.save_ownership: character DB 저장 (queue: character.reward)
-        - users.save_character: users DB 저장 (queue: users.character)
+        - character.save_ownership: character DB 저장 (routing_key: character.save_ownership)
+        - users.save_character: users DB 저장 (routing_key: users.save_character)
+
+        ⚠️ routing_key만 사용 - AMQP default exchange 직접 라우팅
         """
-        # character.save_ownership → character.reward 큐 (domains와 동일)
+        # character.save_ownership
         try:
             self._celery.send_task(
                 "character.save_ownership",
@@ -235,13 +240,13 @@ class RewardStep(Step):
                     "character_code": reward.get("character_code", ""),
                     "source": "scan",
                 },
-                queue="character.reward",
+                routing_key="character.save_ownership",
             )
             logger.info("save_ownership_task dispatched")
         except Exception:
             logger.exception("Failed to dispatch save_ownership_task")
 
-        # users.save_character → users.character 큐 (domains와 동일)
+        # users.save_character
         try:
             self._celery.send_task(
                 "users.save_character",
@@ -255,7 +260,7 @@ class RewardStep(Step):
                     "character_type": reward.get("character_type"),
                     "source": "scan",
                 },
-                queue="users.character",
+                routing_key="users.save_character",
             )
             logger.info("save_users_character_task dispatched")
         except Exception:
