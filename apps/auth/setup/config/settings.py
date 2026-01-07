@@ -64,15 +64,6 @@ class Settings(BaseSettings):
         None  # 콤마 구분, 예: "https://frontend.dev.growbin.app,https://growbin.app"
     )
 
-    # Character service integration
-    character_api_base_url: str = "http://character-api.character.svc.cluster.local:8000"
-    character_default_grant_endpoint: str = "/api/v1/internal/characters/default"
-    character_api_timeout_seconds: float = 5.0
-    character_api_token: Optional[str] = None
-    character_onboarding_enabled: bool = True
-    character_onboarding_retry_attempts: int = 3
-    character_onboarding_retry_backoff_seconds: float = 0.5
-
     # Users gRPC service integration
     users_grpc_target: str = "users-api-grpc.users.svc.cluster.local:50051"
     grpc_timeout_seconds: float = 5.0
