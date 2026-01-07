@@ -178,12 +178,13 @@ class RewardStep(Step):
 
         Fallback: 타임아웃/에러 시 None 반환 (SSE 완료 보장).
 
-        ⚠️ 기본 exchange 사용:
-        - character-match-worker는 기본 exchange("")로 큐를 consume
-        - RabbitMQ 기본 exchange는 routing_key와 동일한 이름의 큐로 직접 전달
+        ⚠️ 큐 auto-declare 회피:
+        - character.match 큐는 RabbitMQ Topology CR로 이미 생성됨 (TTL 30초)
+        - Celery가 queue= 옵션으로 큐를 선언하면 arguments 불일치로 실패
+        - routing_key만 사용하고 큐 선언은 건너뜀
         """
         try:
-            # 기본 exchange 사용 - queue 이름으로 직접 라우팅
+            # routing_key만 사용 (queue 선언 X, 기본 exchange로 라우팅)
             async_result = self._celery.send_task(
                 "character.match",
                 kwargs={
@@ -191,7 +192,7 @@ class RewardStep(Step):
                     "classification_result": ctx.classification,
                     "disposal_rules_present": bool(ctx.disposal_rules),
                 },
-                queue="character.match",
+                routing_key="character.match",
             )
 
             result = async_result.get(
@@ -229,7 +230,7 @@ class RewardStep(Step):
         - character.save_ownership: character DB 저장
         - users.save_character: users DB 저장 (Clean Architecture)
 
-        ⚠️ 기본 exchange 사용 - queue 이름으로 직접 라우팅
+        ⚠️ routing_key만 사용 (queue 선언 X) - Topology CR과 arguments 충돌 방지
         """
         # character.save_ownership
         try:
@@ -241,7 +242,7 @@ class RewardStep(Step):
                     "character_code": reward.get("character_code", ""),
                     "source": "scan",
                 },
-                queue="character.save_ownership",
+                routing_key="character.save_ownership",
             )
             logger.info("save_ownership_task dispatched")
         except Exception:
@@ -261,7 +262,7 @@ class RewardStep(Step):
                     "character_type": reward.get("character_type"),
                     "source": "scan",
                 },
-                queue="users.save_character",
+                routing_key="users.save_character",
             )
             logger.info("save_users_character_task dispatched")
         except Exception:
