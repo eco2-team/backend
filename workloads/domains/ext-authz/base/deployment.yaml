@@ -7,17 +7,20 @@ metadata:
     app: ext-authz
     tier: business-logic
     domain: ext-authz
+    version: v1
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: ext-authz
+      version: v1
   template:
     metadata:
       labels:
         app: ext-authz
         tier: business-logic
         domain: ext-authz
+        version: v1
       annotations:
         # Istio Sidecar가 Ready될 때까지 앱 시작 대기
         # 이 설정 없으면 앱이 먼저 시작되어 Redis 연결 실패 발생
