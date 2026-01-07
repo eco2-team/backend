@@ -23,7 +23,7 @@ spec:
       - name: character-grpc
         image: docker.io/mng990/eco2:character-api-dev-latest
         imagePullPolicy: Always
-        command: [python, -m, apps.character.presentation.grpc.server]
+        command: [python, -m, character.presentation.grpc.server]
         ports:
         - containerPort: 50051
           name: grpc

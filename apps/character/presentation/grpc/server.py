@@ -4,7 +4,7 @@ Clean Architecture 기반 gRPC 서버 진입점입니다.
 Graceful shutdown, OpenTelemetry 트레이싱을 지원합니다.
 
 Usage:
-    python -m apps.character.presentation.grpc.server
+    python -m character.presentation.grpc.server
 """
 
 from __future__ import annotations
