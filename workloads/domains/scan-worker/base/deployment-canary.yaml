@@ -105,7 +105,7 @@ spec:
           value: b3,tracecontext,baggage
         # === Infrastructure ===
         - name: POSTGRES_HOST
-          value: postgresql.postgres.svc.cluster.local
+          value: dev-postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
           value: redis.redis.svc.cluster.local
         # === Release Info ===
