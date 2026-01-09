@@ -26,10 +26,6 @@ from domains.image.schemas.image import (
 
 logger = logging.getLogger(__name__)
 
-# Retry configuration
-MAX_RETRIES = 3
-RETRY_BASE_DELAY = 0.1  # 100ms
-
 
 class PendingUpload:
     def __init__(
@@ -193,7 +189,10 @@ class ImageService:
     async def _save_pending_upload(self, object_key: str, pending: PendingUpload) -> None:
         """Save pending upload with retry on Redis connection errors."""
         last_error: Exception | None = None
-        for attempt in range(MAX_RETRIES):
+        max_retries = self.settings.redis_retry_attempts
+        base_delay = self.settings.redis_retry_base_delay
+
+        for attempt in range(max_retries):
             try:
                 await self._redis.setex(
                     self._pending_key(object_key),
@@ -207,19 +206,22 @@ class ImageService:
                     "Redis setex failed, retrying",
                     extra={
                         "attempt": attempt + 1,
-                        "max_retries": MAX_RETRIES,
+                        "max_retries": max_retries,
                         "key": object_key,
                         "error": str(e),
                     },
                 )
-                if attempt < MAX_RETRIES - 1:
-                    await asyncio.sleep(RETRY_BASE_DELAY * (2**attempt))
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(base_delay * (2**attempt))
         raise last_error  # type: ignore[misc]
 
     async def _load_pending_upload(self, object_key: str) -> Optional[PendingUpload]:
         """Load pending upload with retry on Redis connection errors."""
         last_error: Exception | None = None
-        for attempt in range(MAX_RETRIES):
+        max_retries = self.settings.redis_retry_attempts
+        base_delay = self.settings.redis_retry_base_delay
+
+        for attempt in range(max_retries):
             try:
                 payload = await self._redis.get(self._pending_key(object_key))
                 if not payload:
@@ -231,19 +233,22 @@ class ImageService:
                     "Redis get failed, retrying",
                     extra={
                         "attempt": attempt + 1,
-                        "max_retries": MAX_RETRIES,
+                        "max_retries": max_retries,
                         "key": object_key,
                         "error": str(e),
                     },
                 )
-                if attempt < MAX_RETRIES - 1:
-                    await asyncio.sleep(RETRY_BASE_DELAY * (2**attempt))
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(base_delay * (2**attempt))
         raise last_error  # type: ignore[misc]
 
     async def _delete_pending_upload(self, object_key: str) -> None:
         """Delete pending upload with retry on Redis connection errors."""
         last_error: Exception | None = None
-        for attempt in range(MAX_RETRIES):
+        max_retries = self.settings.redis_retry_attempts
+        base_delay = self.settings.redis_retry_base_delay
+
+        for attempt in range(max_retries):
             try:
                 await self._redis.delete(self._pending_key(object_key))
                 return
@@ -253,13 +258,13 @@ class ImageService:
                     "Redis delete failed, retrying",
                     extra={
                         "attempt": attempt + 1,
-                        "max_retries": MAX_RETRIES,
+                        "max_retries": max_retries,
                         "key": object_key,
                         "error": str(e),
                     },
                 )
-                if attempt < MAX_RETRIES - 1:
-                    await asyncio.sleep(RETRY_BASE_DELAY * (2**attempt))
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(base_delay * (2**attempt))
         raise last_error  # type: ignore[misc]
 
     async def metrics(self) -> dict:

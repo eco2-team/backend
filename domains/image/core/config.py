@@ -51,6 +51,43 @@ class Settings(BaseSettings):
     )
     allowed_targets: tuple[Literal["chat", "scan", "my"], ...] = ("chat", "scan", "my")
 
+    # Redis connection settings
+    redis_health_check_interval: int = Field(
+        30,
+        ge=5,
+        le=300,
+        description="Redis health check interval in seconds",
+        validation_alias=AliasChoices("IMAGE_REDIS_HEALTH_CHECK_INTERVAL"),
+    )
+    redis_retry_attempts: int = Field(
+        3,
+        ge=1,
+        le=10,
+        description="Max retry attempts for Redis operations",
+        validation_alias=AliasChoices("IMAGE_REDIS_RETRY_ATTEMPTS"),
+    )
+    redis_retry_base_delay: float = Field(
+        0.1,
+        ge=0.01,
+        le=5.0,
+        description="Base delay for exponential backoff in seconds",
+        validation_alias=AliasChoices("IMAGE_REDIS_RETRY_BASE_DELAY"),
+    )
+    redis_socket_timeout: int = Field(
+        5,
+        ge=1,
+        le=30,
+        description="Redis socket timeout in seconds",
+        validation_alias=AliasChoices("IMAGE_REDIS_SOCKET_TIMEOUT"),
+    )
+    redis_socket_connect_timeout: int = Field(
+        5,
+        ge=1,
+        le=30,
+        description="Redis socket connect timeout in seconds",
+        validation_alias=AliasChoices("IMAGE_REDIS_SOCKET_CONNECT_TIMEOUT"),
+    )
+
     model_config = SettingsConfigDict(
         env_prefix="IMAGE_",
         case_sensitive=False,

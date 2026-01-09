@@ -11,23 +11,15 @@ from domains.image.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# Redis connection pool health check interval (seconds)
-# Prevents "Connection closed by server" errors from idle connections
-HEALTH_CHECK_INTERVAL = 30
-
-# Retry configuration
-RETRY_ATTEMPTS = 3
-RETRY_BASE_DELAY = 0.1  # 100ms base delay
-
 _redis_client: Redis | None = None
 
 
 def get_upload_redis() -> Redis:
     """Get Redis client with retry and connection pool settings.
 
-    Retry policy:
-    - ExponentialBackoff: 100ms → 200ms → 400ms
-    - Max 3 retries on connection errors
+    Retry policy (configurable via Settings):
+    - ExponentialBackoff with base delay
+    - Max retries on connection errors
     - Auto-reconnect on connection failures
     """
     global _redis_client
@@ -36,14 +28,14 @@ def get_upload_redis() -> Redis:
 
         # Retry with exponential backoff
         retry = Retry(
-            backoff=ExponentialBackoff(base=RETRY_BASE_DELAY),
-            retries=RETRY_ATTEMPTS,
+            backoff=ExponentialBackoff(base=settings.redis_retry_base_delay),
+            retries=settings.redis_retry_attempts,
         )
 
         _redis_client = redis.from_url(
             settings.redis_url,
             decode_responses=True,
-            health_check_interval=HEALTH_CHECK_INTERVAL,
+            health_check_interval=settings.redis_health_check_interval,
             retry=retry,
             retry_on_timeout=True,
             retry_on_error=[
@@ -53,14 +45,16 @@ def get_upload_redis() -> Redis:
                 ConnectionError,
             ],
             socket_keepalive=True,
-            socket_connect_timeout=5,
-            socket_timeout=5,
+            socket_connect_timeout=settings.redis_socket_connect_timeout,
+            socket_timeout=settings.redis_socket_timeout,
         )
         logger.info(
             "Redis client initialized",
             extra={
-                "health_check_interval": HEALTH_CHECK_INTERVAL,
-                "retry_attempts": RETRY_ATTEMPTS,
+                "health_check_interval": settings.redis_health_check_interval,
+                "retry_attempts": settings.redis_retry_attempts,
+                "retry_base_delay": settings.redis_retry_base_delay,
+                "socket_timeout": settings.redis_socket_timeout,
             },
         )
     return _redis_client
