@@ -46,7 +46,7 @@ spec:
         - configMapRef:
             name: image-config
         - secretRef:
-            name: image-secret
+            name: images-secret
         livenessProbe:
           httpGet:
             path: /health
