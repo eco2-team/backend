@@ -35,8 +35,9 @@ USERS_TASK_ROUTES = {
 # 소비할 큐 정의 (이름만, arguments 없음 → Topology CR 정의 사용)
 # task_create_missing_queues=False 시 -Q 옵션 사용을 위해 필요
 # no_declare=True: Celery가 큐를 선언하지 않음 (Topology CR이 생성)
+# ⚠️ exchange="", routing_key=<queue_name> 명시 → AMQP Default Exchange 사용
 USERS_TASK_QUEUES = [
-    Queue("users.save_character", no_declare=True),
+    Queue("users.save_character", exchange="", routing_key="users.save_character", no_declare=True),
 ]
 
 # Celery 앱 생성

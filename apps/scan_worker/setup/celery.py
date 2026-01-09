@@ -31,14 +31,15 @@ SCAN_TASK_ROUTES = {
 # 소비할 큐 정의 (이름만, arguments 없음 → Topology CR 정의 사용)
 # task_create_missing_queues=False 시 -Q 옵션 사용을 위해 필요
 # no_declare=True: Celery가 큐를 선언하지 않음 (Topology CR이 생성)
+# ⚠️ exchange="", routing_key=<queue_name> 명시 → AMQP Default Exchange 사용
 SCAN_TASK_QUEUES = [
-    Queue("celery", no_declare=True),  # default queue (task_default_queue)
-    Queue("scan.vision", no_declare=True),
-    Queue("scan.rule", no_declare=True),
-    Queue("scan.answer", no_declare=True),
-    Queue("scan.reward", no_declare=True),
+    Queue("celery", exchange="", routing_key="celery", no_declare=True),
+    Queue("scan.vision", exchange="", routing_key="scan.vision", no_declare=True),
+    Queue("scan.rule", exchange="", routing_key="scan.rule", no_declare=True),
+    Queue("scan.answer", exchange="", routing_key="scan.answer", no_declare=True),
+    Queue("scan.reward", exchange="", routing_key="scan.reward", no_declare=True),
     # Cross-domain 큐 (발행용, 소비하지 않음)
-    Queue("character.match", no_declare=True),  # RewardStep에서 발행
+    Queue("character.match", exchange="", routing_key="character.match", no_declare=True),
 ]
 
 # Celery 앱 생성
