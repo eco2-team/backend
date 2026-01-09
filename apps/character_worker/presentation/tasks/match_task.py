@@ -57,21 +57,12 @@ def match_character_task(
     cache = get_character_cache()
 
     if not cache.is_loaded():
-        logger.warning(
-            "Character cache not loaded, attempting lazy load",
-            extra={**log_ctx, "cache_id": id(cache)},
-        )
+        logger.info("Character cache not loaded, attempting lazy load", extra=log_ctx)
         # Lazy loading: 캐시가 없으면 로드 시도
-        try:
-            from character_worker.setup.celery import _init_character_cache
+        from character_worker.setup.celery import _init_character_cache
 
-            _init_character_cache()
-        except Exception as e:
-            logger.error(f"Failed to lazy load character cache: {e}", extra=log_ctx)
-            return None
-
-        if not cache.is_loaded():
-            logger.error("Character cache still not loaded after lazy load", extra=log_ctx)
+        if not _init_character_cache():
+            logger.error("Failed to lazy load character cache", extra=log_ctx)
             return None
 
     # classification_result에서 middle_category 추출

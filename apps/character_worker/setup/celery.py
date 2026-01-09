@@ -75,8 +75,13 @@ celery_app.conf.update(
 )
 
 
-def _init_character_cache():
-    """캐릭터 캐시를 DB에서 로드하는 공통 로직."""
+def _init_character_cache() -> bool:
+    """캐릭터 캐시를 DB에서 로드하는 공통 로직.
+
+    Returns:
+        True: 캐시 로드 성공 또는 이미 로드됨
+        False: 캐시 로드 실패
+    """
     from sqlalchemy import text
 
     from character_worker.domain import Character
@@ -87,7 +92,7 @@ def _init_character_cache():
 
     if cache.is_loaded():
         logger.info("Character cache already loaded")
-        return
+        return True
 
     # DB에서 캐릭터 로드
     try:
@@ -121,17 +126,19 @@ def _init_character_cache():
                 "Character cache initialized from DB",
                 extra={"count": len(characters)},
             )
+            return True
 
-    except Exception:
-        logger.exception("Failed to initialize character cache")
-        raise
+    except Exception as e:
+        logger.warning(f"Failed to initialize character cache: {e}")
+        return False
 
 
 @worker_process_init.connect
 def init_worker_process(**kwargs):
-    """Worker 프로세스 초기화 (prefork/gevent pool).
+    """Worker 프로세스 초기화 (prefork pool 전용).
 
-    HPA 스케일아웃 시 각 Pod마다 실행됩니다.
+    prefork pool에서 각 worker process가 fork될 때 호출됩니다.
+    gevent/threads pool에서는 호출되지 않음.
     """
     logger.info("Initializing character worker process (worker_process_init)")
     _init_character_cache()
@@ -139,15 +146,12 @@ def init_worker_process(**kwargs):
 
 @worker_ready.connect
 def init_worker_ready(**kwargs):
-    """Worker 준비 완료 시 초기화 (threads pool).
+    """Worker 준비 완료 시 초기화 (모든 pool 타입).
 
-    character-match-worker는 threads pool을 사용하므로 이 시그널에서 초기화.
-    gevent/prefork pool에서는 worker_process_init에서 이미 초기화됨.
+    모든 pool 타입에서 worker가 준비되면 호출됩니다.
+    캐시가 이미 로드되었으면 skip합니다.
+    실패해도 task 실행 시 lazy loading으로 재시도합니다.
     """
     logger.info("Initializing character worker (worker_ready)")
-    try:
-        _init_character_cache()
-    except Exception as e:
-        # gevent/prefork에서는 worker_process_init에서 이미 초기화됨
-        # threads pool에서만 이 시그널이 유일한 초기화 경로
-        logger.warning(f"Cache init in worker_ready failed (may retry in task): {e}")
+    if not _init_character_cache():
+        logger.info("Cache will be loaded on first task execution (lazy loading)")
