@@ -266,11 +266,6 @@ class RewardStep(Step):
                     exchange=fanout_exchange,
                     routing_key="",
                     serializer="json",
-                    content_type="application/json",
-                    headers={
-                        "task": "reward.character",
-                        "id": task_id,
-                    },
                 )
 
             logger.info(
