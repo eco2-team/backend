@@ -142,6 +142,12 @@ def init_worker_ready(**kwargs):
     """Worker 준비 완료 시 초기화 (threads pool).
 
     character-match-worker는 threads pool을 사용하므로 이 시그널에서 초기화.
+    gevent/prefork pool에서는 worker_process_init에서 이미 초기화됨.
     """
     logger.info("Initializing character worker (worker_ready)")
-    _init_character_cache()
+    try:
+        _init_character_cache()
+    except Exception as e:
+        # gevent/prefork에서는 worker_process_init에서 이미 초기화됨
+        # threads pool에서만 이 시그널이 유일한 초기화 경로
+        logger.warning(f"Cache init in worker_ready failed (may retry in task): {e}")
