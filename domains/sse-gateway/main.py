@@ -84,10 +84,19 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS
+# CORS - credentials 사용 시 특정 origin 필요
+ALLOWED_ORIGINS = [
+    "https://frontend1.dev.growbin.app",
+    "https://frontend2.dev.growbin.app",
+    "https://frontend.dev.growbin.app",
+    "https://api.dev.growbin.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "OPTIONS"],
     allow_headers=["*"],
