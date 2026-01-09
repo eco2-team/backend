@@ -3,6 +3,27 @@
 # Classic Queue 사용 (Celery global QoS 호환)
 ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Celery Default Queue
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Celery task_default_queue 설정에서 참조하는 기본 큐
+# chain/group 등 캔버스 기능 내부에서 사용됨
+apiVersion: rabbitmq.com/v1beta1
+kind: Queue
+metadata:
+  name: celery-default-queue
+  namespace: rabbitmq
+spec:
+  name: celery
+  type: classic
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  # arguments 없음 (기본 큐, TTL/DLX 불필요)
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Scan Pipeline Queues (AI 파이프라인)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 apiVersion: rabbitmq.com/v1beta1
