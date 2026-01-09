@@ -30,11 +30,12 @@ SCAN_TASK_ROUTES = {
 
 # 소비할 큐 정의 (이름만, arguments 없음 → Topology CR 정의 사용)
 # task_create_missing_queues=False 시 -Q 옵션 사용을 위해 필요
+# no_declare=True: Celery가 큐를 선언하지 않음 (Topology CR이 생성)
 SCAN_TASK_QUEUES = [
-    Queue("scan.vision"),
-    Queue("scan.rule"),
-    Queue("scan.answer"),
-    Queue("scan.reward"),
+    Queue("scan.vision", no_declare=True),
+    Queue("scan.rule", no_declare=True),
+    Queue("scan.answer", no_declare=True),
+    Queue("scan.reward", no_declare=True),
 ]
 
 # Celery 앱 생성
