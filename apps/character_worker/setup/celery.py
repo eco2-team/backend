@@ -1,12 +1,15 @@
 """Celery Application Setup.
 
 ⚠️ domains 의존성 제거 - apps 내부에서 라우팅 정의
+⚠️ 큐 생성은 Topology CR에 위임 (task_create_missing_queues=False)
+   task_queues는 이름만 정의 (arguments 없음 → 기존 큐 그대로 사용)
 """
 
 import logging
 
 from celery import Celery
 from celery.signals import worker_process_init
+from kombu import Queue
 
 from character_worker.setup.config import get_settings
 
@@ -22,6 +25,14 @@ CHARACTER_TASK_ROUTES = {
     "character.grant_default": {"queue": "character.grant_default"},
     "reward.character": {"queue": "character.save_ownership"},  # 1:N 이벤트
 }
+
+# 소비할 큐 정의 (이름만, arguments 없음 → Topology CR 정의 사용)
+# task_create_missing_queues=False 시 -Q 옵션 사용을 위해 필요
+CHARACTER_TASK_QUEUES = [
+    Queue("character.match"),
+    Queue("character.save_ownership"),
+    Queue("character.grant_default"),
+]
 
 # Celery 앱 생성
 celery_app = Celery(
@@ -43,6 +54,7 @@ celery_app.conf.update(
     timezone="Asia/Seoul",
     enable_utc=True,
     task_routes=CHARACTER_TASK_ROUTES,
+    task_queues=CHARACTER_TASK_QUEUES,  # -Q 옵션 사용을 위해 필요
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,

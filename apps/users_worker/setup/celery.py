@@ -5,6 +5,7 @@ users-worker에서 사용하는 Celery 앱 인스턴스입니다.
 ⚠️ 큐 생성은 RabbitMQ Topology CR에 위임
    (workloads/rabbitmq/base/topology/queues.yaml)
    Python에서는 task routing만 정의
+⚠️ task_queues는 이름만 정의 (arguments 없음 → 기존 큐 그대로 사용)
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from typing import Any
 
 from celery import Celery
 from celery.signals import worker_ready
+from kombu import Queue
 
 from users_worker.setup.config import get_settings
 
@@ -30,6 +32,12 @@ USERS_TASK_ROUTES = {
     "reward.character": {"queue": "users.save_character"},  # 1:N 이벤트
 }
 
+# 소비할 큐 정의 (이름만, arguments 없음 → Topology CR 정의 사용)
+# task_create_missing_queues=False 시 -Q 옵션 사용을 위해 필요
+USERS_TASK_QUEUES = [
+    Queue("users.save_character"),
+]
+
 # Celery 앱 생성
 celery_app = Celery("users_worker")
 
@@ -38,6 +46,7 @@ celery_app.conf.update(
     broker_url=settings.celery_broker_url,
     result_backend=settings.celery_result_backend,
     task_routes=USERS_TASK_ROUTES,
+    task_queues=USERS_TASK_QUEUES,  # -Q 옵션 사용을 위해 필요
     # 큐 생성을 Topology CR에 위임 (TTL, DLX 등 인자 충돌 방지)
     task_create_missing_queues=False,
     task_serializer="json",

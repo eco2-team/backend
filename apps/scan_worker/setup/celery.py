@@ -3,6 +3,7 @@
 ⚠️ 큐 생성은 RabbitMQ Topology CR에 위임
    (workloads/rabbitmq/base/topology/queues.yaml)
    Python에서는 task routing만 정의
+⚠️ task_queues는 이름만 정의 (arguments 없음 → 기존 큐 그대로 사용)
 """
 
 import logging
@@ -11,6 +12,7 @@ from typing import Any
 
 from celery import Celery
 from celery.signals import worker_ready, worker_shutdown
+from kombu import Queue
 
 from scan_worker.setup.config import get_settings
 
@@ -25,6 +27,15 @@ SCAN_TASK_ROUTES = {
     "scan.answer": {"queue": "scan.answer"},
     "scan.reward": {"queue": "scan.reward"},
 }
+
+# 소비할 큐 정의 (이름만, arguments 없음 → Topology CR 정의 사용)
+# task_create_missing_queues=False 시 -Q 옵션 사용을 위해 필요
+SCAN_TASK_QUEUES = [
+    Queue("scan.vision"),
+    Queue("scan.rule"),
+    Queue("scan.answer"),
+    Queue("scan.reward"),
+]
 
 # Celery 앱 생성
 celery_app = Celery(
@@ -44,6 +55,7 @@ celery_app.autodiscover_tasks(
 celery_app.conf.update(
     # Task routing (큐 생성은 Topology CR에 위임)
     task_routes=SCAN_TASK_ROUTES,
+    task_queues=SCAN_TASK_QUEUES,  # -Q 옵션 사용을 위해 필요
     task_default_queue="celery",
     task_default_exchange="",  # AMQP default exchange (direct routing)
     task_default_routing_key="celery",
