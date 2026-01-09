@@ -8,7 +8,7 @@
 import logging
 
 from celery import Celery
-from celery.signals import worker_process_init
+from celery.signals import worker_process_init, worker_ready
 from kombu import Queue
 
 from character_worker.setup.config import get_settings
@@ -75,15 +75,8 @@ celery_app.conf.update(
 )
 
 
-@worker_process_init.connect
-def init_worker_process(**kwargs):
-    """Worker 프로세스 초기화.
-
-    캐릭터 캐시를 DB에서 로드합니다.
-    HPA 스케일아웃 시 각 Pod마다 실행됩니다.
-    """
-    logger.info("Initializing character worker process")
-
+def _init_character_cache():
+    """캐릭터 캐시를 DB에서 로드하는 공통 로직."""
     from sqlalchemy import text
 
     from character_worker.domain import Character
@@ -132,3 +125,23 @@ def init_worker_process(**kwargs):
     except Exception:
         logger.exception("Failed to initialize character cache")
         raise
+
+
+@worker_process_init.connect
+def init_worker_process(**kwargs):
+    """Worker 프로세스 초기화 (prefork/gevent pool).
+
+    HPA 스케일아웃 시 각 Pod마다 실행됩니다.
+    """
+    logger.info("Initializing character worker process (worker_process_init)")
+    _init_character_cache()
+
+
+@worker_ready.connect
+def init_worker_ready(**kwargs):
+    """Worker 준비 완료 시 초기화 (threads pool).
+
+    character-match-worker는 threads pool을 사용하므로 이 시그널에서 초기화.
+    """
+    logger.info("Initializing character worker (worker_ready)")
+    _init_character_cache()

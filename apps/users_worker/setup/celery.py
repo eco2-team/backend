@@ -113,7 +113,7 @@ def _setup_celery_tracing() -> None:
         CeleryInstrumentor().instrument()
         logger.info(
             "Celery tracing enabled",
-            extra={"endpoint": endpoint, "service": "users-worker"},
+            extra={"endpoint": endpoint, "service_name": "users-worker"},
         )
 
     except ImportError as e:
