@@ -122,8 +122,16 @@ jobs:
           files = os.environ.get("CHANGED_FILES", "").split()
           any_changed = os.environ.get("ANY_CHANGED", "false").lower() == "true"
           
-          # API 서비스 (apps/ Clean Architecture + 레거시 chat, image)
-          API_SERVICES = ["auth", "users", "character", "location", "scan", "chat", "image"]
+          # API 서비스 (apps/ Clean Architecture + 레거시 chat)
+          API_SERVICES = ["auth", "users", "character", "location", "scan", "images", "chat"]
+          
+          # apps 경로명 → 이미지 태그명 매핑
+          app_to_image_slug = {
+              "images": "image",  # apps/images → image-api
+              "sse_gateway": "sse-gateway",
+              "event_router": "event-router",
+              "ext_authz": "ext-authz",
+          }
           
           # Worker 서비스 (apps/ Clean Architecture)
           WORKER_MAP = {
@@ -162,17 +170,17 @@ jobs:
                           has_auth_worker = True
                       if svc == "users_worker":
                           has_users_worker = True
+                      if svc == "ext_authz":
+                          has_ext_authz = True
+                      if svc == "sse_gateway":
+                          has_sse_gateway = True
                   
-                  # domains/<service>/ 경로 감지 (레거시: chat, image, ext-authz, sse-gateway)
+                  # domains/<service>/ 경로 감지 (레거시: chat)
                   elif len(parts) >= 2 and parts[0] == "domains":
                       svc = parts[1]
                       
-                      if svc in ["chat", "image"] and svc not in api_services:
+                      if svc == "chat" and svc not in api_services:
                           api_services.append(svc)
-                      elif svc == "ext-authz":
-                          has_ext_authz = True
-                      elif svc == "sse-gateway":
-                          has_sse_gateway = True
                   
                   # workloads/domains/<service>/ 경로 감지
                   elif len(parts) >= 3 and parts[0] == "workloads" and parts[1] == "domains":
