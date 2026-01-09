@@ -7,7 +7,24 @@
 # 참조: docs/blogs/async/34-sse-HA-architecture.md
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-FROM python:3.11-slim
+# ============================================================================
+# Stage 1: Builder - 의존성 설치
+# ============================================================================
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY apps/event_router/requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ============================================================================
+# Stage 2: Runtime - 최소 이미지
+# ============================================================================
+FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
@@ -16,20 +33,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app
 
-# 시스템 의존성
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /bin/bash appuser
 
-# Python 의존성
-COPY apps/event_router/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=builder /install /usr/local
 
-# 애플리케이션 코드
+# 애플리케이션 코드 복사
 COPY apps/event_router /app/apps/event_router
 
-# 비root 사용자
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# 비루트 사용자
+RUN chown -R appuser:appuser /app
 USER appuser
 
 # Health check
