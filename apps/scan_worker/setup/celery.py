@@ -32,6 +32,7 @@ SCAN_TASK_ROUTES = {
 # task_create_missing_queues=False 시 -Q 옵션 사용을 위해 필요
 # no_declare=True: Celery가 큐를 선언하지 않음 (Topology CR이 생성)
 SCAN_TASK_QUEUES = [
+    Queue("celery", no_declare=True),  # default queue (task_default_queue)
     Queue("scan.vision", no_declare=True),
     Queue("scan.rule", no_declare=True),
     Queue("scan.answer", no_declare=True),
