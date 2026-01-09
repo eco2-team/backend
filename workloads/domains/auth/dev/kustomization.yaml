@@ -6,7 +6,7 @@ images:
 - name: docker.io/mng990/eco2
   newTag: auth-api-dev-latest
 - name: docker.io/mng990/eco2:ext-authz
-  newTag: docker.io/mng990/eco2:ext-authz-dev-8fd9b1
+  newTag: docker.io/mng990/eco2:ext-authz-dev-2bb9cf
 labels:
 - includeSelectors: true
   pairs:
