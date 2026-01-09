@@ -131,16 +131,16 @@ spec:
               path: /metrics/status
               interval: 30s
               scrapeTimeout: 5s
-          - name: image-api
+          - name: images-api
             labels:
               monitoring.sesacthon.dev/target: domain-api
-              monitoring.sesacthon.dev/domain: image
+              monitoring.sesacthon.dev/domain: images
             namespaceSelector:
               matchNames:
-              - image
+              - images
             selector:
               matchLabels:
-                app: image-api
+                app: images-api
             endpoints:
             - port: http
               path: /metrics/status

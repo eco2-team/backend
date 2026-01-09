@@ -21,7 +21,7 @@ spec:
         phase: '2'
       - name: location
         phase: '2'
-      - name: image
+      - name: images
         phase: '3'
       - name: chat
         phase: '3'

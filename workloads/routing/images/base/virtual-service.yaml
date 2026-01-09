@@ -2,7 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: image-vs
-  namespace: image
+  namespace: images
 spec:
   hosts:
   - api.growbin.app
@@ -18,7 +18,7 @@ spec:
         prefix: /api/v1/image
     route:
     - destination:
-        host: image-api.image.svc.cluster.local
+        host: images-api.images.svc.cluster.local
         port:
           number: 8000
         subset: canary
@@ -28,7 +28,7 @@ spec:
         prefix: /api/v1/image
     route:
     - destination:
-        host: image-api.image.svc.cluster.local
+        host: images-api.images.svc.cluster.local
         port:
           number: 8000
         subset: stable

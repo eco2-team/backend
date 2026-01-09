@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: image-api
-  namespace: image
+  namespace: images
 spec:
   replicas: 2
   template:

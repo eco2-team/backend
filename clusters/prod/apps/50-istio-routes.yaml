@@ -28,9 +28,9 @@ spec:
       - name: sse-gateway
         namespace: default
         path: workloads/routing/sse-gateway/prod
-      - name: image
-        namespace: image
-        path: workloads/routing/image/prod
+      - name: images
+        namespace: images
+        path: workloads/routing/images/prod
       - name: location
         namespace: location
         path: workloads/routing/location/prod

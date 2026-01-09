@@ -2,9 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: image-api
-  namespace: image
+  namespace: images
   labels:
-    app: image-api
+    app: images-api
     version: v1
     tier: business-logic
     domain: image
@@ -12,12 +12,12 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: image-api
+      app: images-api
       version: v1
   template:
     metadata:
       labels:
-        app: image-api
+        app: images-api
         version: v1
         tier: business-logic
         domain: image

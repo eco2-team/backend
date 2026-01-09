@@ -2,12 +2,12 @@ apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
   name: image-api
-  namespace: image
+  namespace: images
   labels:
-    app: image-api
+    app: images-api
     domain: image
 spec:
-  host: image-api.image.svc.cluster.local
+  host: images-api.images.svc.cluster.local
   subsets:
   - name: stable
     labels:

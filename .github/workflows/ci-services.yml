@@ -23,7 +23,7 @@ on:
       - "workloads/domains/location/**"
       - "workloads/domains/scan/**"
       - "workloads/domains/chat/**"
-      - "workloads/domains/image/**"
+      - "workloads/domains/images/**"
       # Worker는 별도 파이프라인 → ci-workers.yml
       # ext-authz는 Go → ci-ext-authz.yml
       # sse-gateway, event-router는 → ci-sse-components.yml
@@ -49,7 +49,7 @@ on:
       - "workloads/domains/location/**"
       - "workloads/domains/scan/**"
       - "workloads/domains/chat/**"
-      - "workloads/domains/image/**"
+      - "workloads/domains/images/**"
       # Worker는 별도 파이프라인 → ci-workers.yml
       # ext-authz는 Go → ci-ext-authz.yml
       # sse-gateway, event-router는 → ci-sse-components.yml
@@ -202,7 +202,7 @@ jobs:
             workloads/domains/location/**
             workloads/domains/scan/**
             workloads/domains/chat/**
-            workloads/domains/image/**
+            workloads/domains/images/**
 
       - name: Prepare service matrix
         id: prepare
@@ -475,23 +475,12 @@ jobs:
           git checkout -B "${BRANCH_NAME}"
           git pull --rebase origin "${BRANCH_NAME}"
 
-      - name: Determine workload path
-        id: workload
-        run: |
-          SERVICE="${{ matrix.service }}"
-          # apps/images → workloads/domains/image 매핑
-          case "$SERVICE" in
-            images) WORKLOAD_NAME="image" ;;
-            *) WORKLOAD_NAME="$SERVICE" ;;
-          esac
-          echo "name=${WORKLOAD_NAME}" >> "$GITHUB_OUTPUT"
-
       - name: Update dev manifest tag
         if: >
           github.ref == 'refs/heads/develop'
         id: update_dev
         env:
-          KUSTOMIZE_FILE: workloads/domains/${{ steps.workload.outputs.name }}/dev/kustomization.yaml
+          KUSTOMIZE_FILE: workloads/domains/${{ matrix.service }}/dev/kustomization.yaml
           TAG_NAME: ${{ steps.meta.outputs.manifest_tag }}
         run: |
           python -m pip install --upgrade pip pyyaml
@@ -511,7 +500,7 @@ jobs:
           github.ref == 'refs/heads/main'
         id: update_prod
         env:
-          KUSTOMIZE_FILE: workloads/domains/${{ steps.workload.outputs.name }}/prod/kustomization.yaml
+          KUSTOMIZE_FILE: workloads/domains/${{ matrix.service }}/prod/kustomization.yaml
           TAG_NAME: ${{ steps.meta.outputs.tag_name }}
         run: |
           python -m pip install --upgrade pip pyyaml

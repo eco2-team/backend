@@ -31,9 +31,9 @@ spec:
       - name: sse-gateway
         namespace: default
         path: workloads/routing/sse-gateway/dev
-      - name: image
-        namespace: image
-        path: workloads/routing/image/dev
+      - name: images
+        namespace: images
+        path: workloads/routing/images/dev
       - name: location
         namespace: location
         path: workloads/routing/location/dev
