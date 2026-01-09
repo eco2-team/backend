@@ -81,7 +81,7 @@ spec:
           value: b3,tracecontext,baggage
         # Database
         - name: POSTGRES_HOST
-          value: postgresql.postgres.svc.cluster.local
+          value: dev-postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
           value: redis.redis.svc.cluster.local
         # gRPC (users-api 연결용, my → users 마이그레이션)

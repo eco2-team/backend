@@ -67,7 +67,7 @@ spec:
           value: b3,tracecontext,baggage
         # Database (캐시 fallback용)
         - name: POSTGRES_HOST
-          value: postgresql.postgres.svc.cluster.local
+          value: dev-postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
           value: redis.redis.svc.cluster.local
         envFrom:
