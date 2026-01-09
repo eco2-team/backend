@@ -7,9 +7,10 @@ Fanout 패턴: scan.reward → reward.events (fanout) → character.save_ownersh
                                                   → users.save_character 큐
 
 모든 바인딩 큐에 동일 메시지가 복제됩니다.
+
+Note: character-worker는 gevent pool 사용 → asyncio 대신 동기 DB 사용.
 """
 
-import asyncio
 import logging
 from typing import Any
 from uuid import UUID
@@ -17,7 +18,7 @@ from uuid import UUID
 from celery_batches import Batches
 
 from character_worker.setup.celery import celery_app
-from character_worker.setup.database import async_session_factory
+from character_worker.setup.database import sync_session_factory
 
 logger = logging.getLogger(__name__)
 
@@ -76,12 +77,7 @@ def reward_character_task(requests: list) -> dict[str, Any]:
     )
 
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            result = loop.run_until_complete(_save_ownership_batch_async(batch_data))
-        finally:
-            loop.close()
+        result = _save_ownership_batch_sync(batch_data)
 
         logger.info(
             "reward.character batch completed (character-worker)",
@@ -107,17 +103,19 @@ def _generate_ownership_id(user_id: str, character_code: str) -> UUID:
     return uuid5(NAMESPACE_DNS, f"ownership:{user_id}:{character_code}")
 
 
-async def _save_ownership_batch_async(
+def _save_ownership_batch_sync(
     batch_data: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """character.character_ownerships BULK UPSERT.
+    """character.character_ownerships BULK UPSERT (동기 버전).
 
     INSERT INTO ... VALUES (...), (...), ... ON CONFLICT DO NOTHING
     (user_id, character_code) 기준 멱등성.
+
+    Note: gevent pool 호환을 위해 동기 DB 세션 사용.
     """
     from sqlalchemy import text
 
-    async with async_session_factory() as session:
+    with sync_session_factory() as session:
         values = []
         params = {}
         for i, data in enumerate(batch_data):
@@ -147,8 +145,8 @@ async def _save_ownership_batch_async(
         """
         )
 
-        result = await session.execute(sql, params)
-        await session.commit()
+        result = session.execute(sql, params)
+        session.commit()
 
         return {
             "processed": len(batch_data),
