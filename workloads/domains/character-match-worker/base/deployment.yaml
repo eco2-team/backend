@@ -68,8 +68,6 @@ spec:
         # Database (캐시 fallback용)
         - name: POSTGRES_HOST
           value: dev-postgresql.postgres.svc.cluster.local
-        - name: REDIS_HOST
-          value: redis.redis.svc.cluster.local
         envFrom:
         - configMapRef:
             name: character-match-worker-config

@@ -106,8 +106,6 @@ spec:
         # === Infrastructure ===
         - name: POSTGRES_HOST
           value: dev-postgresql.postgres.svc.cluster.local
-        - name: REDIS_HOST
-          value: redis.redis.svc.cluster.local
         # === Release Info ===
         - name: RELEASE_TYPE
           value: canary

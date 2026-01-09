@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: character-api
+  namespace: character
+spec:
+  template:
+    spec:
+      containers:
+      - name: character-api
+        env:
+        - name: POSTGRES_HOST
+          value: dev-postgresql.postgres.svc.cluster.local

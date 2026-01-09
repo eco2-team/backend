@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-beat
+  namespace: scan
+spec:
+  template:
+    spec:
+      containers:
+      - name: celery-beat
+        env:
+        - name: POSTGRES_HOST
+          value: dev-postgresql.postgres.svc.cluster.local

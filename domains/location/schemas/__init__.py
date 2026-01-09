@@ -1,1 +1,0 @@
-"""location app/schemas package"""

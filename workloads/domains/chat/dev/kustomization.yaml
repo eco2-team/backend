@@ -11,3 +11,4 @@ labels:
     environment: dev
 patches:
 - path: patch-configmap.yaml
+- path: patch-deployment.yaml

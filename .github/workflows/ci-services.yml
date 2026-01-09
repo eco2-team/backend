@@ -12,9 +12,10 @@ on:
       - "apps/character/**"
       - "apps/location/**"
       - "apps/scan/**"
+      - "apps/images/**"
       # 레거시 서비스 (아직 마이그레이션 안 됨)
       - "domains/chat/**"
-      - "domains/image/**"
+      - "domains/_shared/**"
       # Kubernetes manifests
       - "workloads/domains/auth/**"
       - "workloads/domains/users/**"
@@ -37,9 +38,10 @@ on:
       - "apps/character/**"
       - "apps/location/**"
       - "apps/scan/**"
+      - "apps/images/**"
       # 레거시 서비스 (아직 마이그레이션 안 됨)
       - "domains/chat/**"
-      - "domains/image/**"
+      - "domains/_shared/**"
       # Kubernetes manifests
       - "workloads/domains/auth/**"
       - "workloads/domains/users/**"
@@ -192,8 +194,8 @@ jobs:
             apps/character/**
             apps/location/**
             apps/scan/**
+            apps/images/**
             domains/chat/**
-            domains/image/**
             workloads/domains/auth/**
             workloads/domains/users/**
             workloads/domains/character/**
@@ -218,7 +220,7 @@ jobs:
           
           # FastAPI API 서비스 목록
           # - apps/: Clean Architecture (마이그레이션 완료)
-          # - domains/chat, domains/image: 레거시 (마이그레이션 예정)
+          # - domains/chat: 레거시 (마이그레이션 예정)
           # ext-authz는 Go → ci-ext-authz.yml
           # sse-gateway, event-router → ci-sse-components.yml
           SERVICES = [
@@ -227,12 +229,13 @@ jobs:
               "character", # apps/character
               "location",  # apps/location
               "scan",      # apps/scan
+              "images",    # apps/images (구 domains/image)
               "chat",      # domains/chat (레거시)
-              "image",     # domains/image (레거시)
           ]
           
           alias_map = {
-              "info": "image",
+              "info": "images",
+              "image": "images",  # 레거시 alias
           }
 
           def normalize(service: str) -> str:
@@ -333,10 +336,11 @@ jobs:
           SERVICE="${{ matrix.service }}"
           if [ -d "apps/${SERVICE}" ]; then
             echo "path=apps/${SERVICE}" >> "$GITHUB_OUTPUT"
-            echo "pythonpath=${{ github.workspace }}" >> "$GITHUB_OUTPUT"
+            # apps/ 서비스: apps 디렉토리가 PYTHONPATH (from images.*, from scan.* 등)
+            echo "pythonpath=${{ github.workspace }}/apps" >> "$GITHUB_OUTPUT"
             echo "is_legacy=false" >> "$GITHUB_OUTPUT"
           else
-            # 레거시 서비스 (chat, image) - 테스트 skip
+            # 레거시 서비스 (chat) - 테스트 skip
             echo "path=domains/${SERVICE}" >> "$GITHUB_OUTPUT"
             echo "pythonpath=${{ github.workspace }}/domains/${SERVICE}" >> "$GITHUB_OUTPUT"
             echo "is_legacy=true" >> "$GITHUB_OUTPUT"

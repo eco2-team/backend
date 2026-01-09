@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-api
+  namespace: chat
+spec:
+  template:
+    spec:
+      containers:
+      - name: chat-api
+        env:
+        - name: POSTGRES_HOST
+          value: dev-postgresql.postgres.svc.cluster.local

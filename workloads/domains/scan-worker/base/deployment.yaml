@@ -90,11 +90,9 @@ spec:
         # Trace Context Propagation (API → Worker 연결)
         - name: OTEL_PROPAGATORS
           value: b3,tracecontext,baggage
-        # Database & Redis
+        # Database
         - name: POSTGRES_HOST
           value: dev-postgresql.postgres.svc.cluster.local
-        - name: REDIS_HOST
-          value: redis.redis.svc.cluster.local
         # API Keys
         envFrom:
         - configMapRef:

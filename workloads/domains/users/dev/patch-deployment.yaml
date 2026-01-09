@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-api
+  namespace: users
+spec:
+  template:
+    spec:
+      containers:
+      - name: users-api
+        env:
+        - name: POSTGRES_HOST
+          value: dev-postgresql.postgres.svc.cluster.local

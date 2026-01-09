@@ -6,3 +6,5 @@ resources:
 images:
 - name: docker.io/mng990/eco2
   newTag: users-api-dev-latest
+patches:
+- path: patch-deployment.yaml

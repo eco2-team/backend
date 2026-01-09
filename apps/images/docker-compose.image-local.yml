@@ -1,0 +1,41 @@
+services:
+  redis:
+    image: redis:7
+    container_name: image-local-redis
+    command: [redis-server, --appendonly, no]
+    ports:
+    - 6386:6379
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/images/Dockerfile
+    container_name: image-local-api
+    environment:
+      IMAGE_AWS_REGION: ${IMAGE_AWS_REGION:-ap-northeast-2}
+      IMAGE_S3_BUCKET: ${IMAGE_S3_BUCKET:-dev-sesacthon-dev-images}
+      IMAGE_CDN_DOMAIN: ${IMAGE_CDN_DOMAIN:-https://images.dev.growbin.app}
+      IMAGE_PRESIGN_EXPIRES: ${IMAGE_PRESIGN_EXPIRES:-900}
+      IMAGE_UPLOAD_STATE_TTL: ${IMAGE_UPLOAD_STATE_TTL:-900}
+      IMAGE_REDIS_URL: ${IMAGE_REDIS_URL:-redis://redis:6379/6}
+      IMAGE_AUTH_DISABLED: ${IMAGE_AUTH_DISABLED:-true}
+      IMAGE_JWT_SECRET_KEY: ${IMAGE_JWT_SECRET_KEY:-local-image-secret}
+      IMAGE_JWT_ISSUER: ${IMAGE_JWT_ISSUER:-sesacthon-auth}
+      IMAGE_JWT_AUDIENCE: ${IMAGE_JWT_AUDIENCE:-sesacthon-clients}
+      IMAGE_JWT_ALGORITHM: ${IMAGE_JWT_ALGORITHM:-HS256}
+      IMAGE_ACCESS_COOKIE_NAME: ${IMAGE_ACCESS_COOKIE_NAME:-s_access}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+    ports:
+    - 8020:8000
+    depends_on:
+      redis:
+        condition: service_started
+    command:
+    - uvicorn
+    - images.main:app
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8000'

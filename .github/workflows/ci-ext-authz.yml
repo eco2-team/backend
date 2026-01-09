@@ -6,14 +6,14 @@ on:
       - main
       - develop
     paths:
-      - "domains/ext-authz/**"
+      - "apps/ext_authz/**"
       - ".github/workflows/ci-ext-authz.yml"
   pull_request:
     branches:
       - main
       - develop
     paths:
-      - "domains/ext-authz/**"
+      - "apps/ext_authz/**"
       - ".github/workflows/ci-ext-authz.yml"
 
 permissions:
@@ -32,10 +32,10 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
-          cache-dependency-path: domains/ext-authz/go.sum
+          cache-dependency-path: apps/ext_authz/go.sum
 
       - name: Test
-        working-directory: domains/ext-authz
+        working-directory: apps/ext_authz
         run: |
           go mod download
           go test -v ./...
@@ -79,7 +79,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: domains/ext-authz
+          context: .
+          file: apps/ext_authz/Dockerfile
           push: true
           tags: |
             ${{ steps.meta.outputs.tag }}

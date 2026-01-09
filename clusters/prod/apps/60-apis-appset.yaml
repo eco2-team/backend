@@ -13,8 +13,6 @@ spec:
         phase: '1'
       - name: ext-authz
         phase: '1'
-      - name: my
-        phase: '1'
       - name: users
         phase: '1'
       - name: scan

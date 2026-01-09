@@ -6,9 +6,8 @@ on:
       - main
       - develop
     paths:
-      - "domains/sse-gateway/**"
-      - "domains/event-router/**"
-      - "domains/_shared/events/**"
+      - "apps/sse_gateway/**"
+      - "apps/event_router/**"
       - "workloads/domains/sse-gateway/**"
       - "workloads/domains/event-router/**"
   pull_request:
@@ -16,9 +15,8 @@ on:
       - main
       - develop
     paths:
-      - "domains/sse-gateway/**"
-      - "domains/event-router/**"
-      - "domains/_shared/events/**"
+      - "apps/sse_gateway/**"
+      - "apps/event_router/**"
       - "workloads/domains/sse-gateway/**"
       - "workloads/domains/event-router/**"
   workflow_dispatch:
@@ -115,9 +113,8 @@ jobs:
         uses: tj-actions/changed-files@v45
         with:
           files: |
-            domains/sse-gateway/**
-            domains/event-router/**
-            domains/_shared/events/**
+            apps/sse_gateway/**
+            apps/event_router/**
             workloads/domains/sse-gateway/**
             workloads/domains/event-router/**
 
@@ -136,15 +133,20 @@ jobs:
           force_all = os.environ.get("FORCE_ALL", "false").lower() == "true"
 
           # SSE 컴포넌트 목록 (API suffix 없이 빌드되는 서비스들)
+          # apps/ 디렉토리명은 underscore, 이미지 태그는 hyphen
           SSE_COMPONENTS = [
-              "sse-gateway",
-              "event-router",
+              "sse_gateway",
+              "event_router",
           ]
 
-          # 공유 코드가 변경되면 영향받는 컴포넌트
-          shared_triggers = {
-              "domains/_shared/events": ["sse-gateway", "event-router"],
+          # 컴포넌트명 → 이미지 태그명 매핑
+          component_to_image_slug = {
+              "sse_gateway": "sse-gateway",
+              "event_router": "event-router",
           }
+
+          # 공유 코드가 변경되면 영향받는 컴포넌트 (현재 없음)
+          shared_triggers = {}
 
           raw_targets = [
               s.strip()
@@ -165,24 +167,24 @@ jobs:
                       sys.exit(1)
                   components = list(OrderedDict.fromkeys(raw_targets))
 
+          # workloads 경로명 → apps 경로명 매핑
+          workload_to_app = {
+              "sse-gateway": "sse_gateway",
+              "event-router": "event_router",
+          }
+
           if not components and any_changed:
               for path in files:
-                  # shared 경로에 대한 트리거
-                  for prefix, comp_list in shared_triggers.items():
-                      if path.startswith(prefix):
-                          for comp in comp_list:
-                              if comp in all_components and comp not in components:
-                                  components.append(comp)
-
                   parts = path.split("/")
-                  # domains/<component>/ 경로 감지
-                  if len(parts) >= 2 and parts[0] == "domains":
+                  # apps/<component>/ 경로 감지
+                  if len(parts) >= 2 and parts[0] == "apps":
                       comp = parts[1]
                       if comp and comp in all_components and comp not in components:
                           components.append(comp)
                   # workloads/domains/<component>/ 경로 감지
                   elif len(parts) >= 3 and parts[0] == "workloads" and parts[1] == "domains":
-                      comp = parts[2]
+                      workload_name = parts[2]
+                      comp = workload_to_app.get(workload_name)
                       if comp and comp in all_components and comp not in components:
                           components.append(comp)
 
@@ -240,18 +242,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install black==24.4.2 ruff==0.6.9 pytest==8.3.3 pytest-asyncio==0.24.0
-          pip install -r domains/${{ matrix.component }}/requirements.txt
+          pip install -r apps/${{ matrix.component }}/requirements.txt
 
       - name: Black (format check)
-        run: black --check domains/${{ matrix.component }}
+        run: black --check apps/${{ matrix.component }}
 
       - name: Ruff lint
-        run: ruff check domains/${{ matrix.component }}
+        run: ruff check apps/${{ matrix.component }}
 
       - name: Pytest
-        working-directory: domains/${{ matrix.component }}
+        working-directory: apps/${{ matrix.component }}
         env:
-          PYTHONPATH: ${{ github.workspace }}/domains/${{ matrix.component }}
+          # apps/ 디렉토리가 PYTHONPATH (from sse_gateway.*, from event_router.* 등)
+          PYTHONPATH: ${{ github.workspace }}/apps
         run: pytest
 
   build-push:
@@ -295,9 +298,9 @@ jobs:
           IMAGE_REPO="docker.io/mng990/eco2"
           
           # SSE 컴포넌트는 -api suffix 없이 빌드
-          # sse-gateway → sse-gateway
-          # event-router → event-router
-          COMPONENT_SLUG="${COMPONENT}"
+          # sse_gateway → sse-gateway
+          # event_router → event-router
+          COMPONENT_SLUG="${COMPONENT//_/-}"
           
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             IS_PR=true
@@ -337,7 +340,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: domains/${{ matrix.component }}/Dockerfile
+          file: apps/${{ matrix.component }}/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
@@ -354,12 +357,20 @@ jobs:
           git checkout -B "${BRANCH_NAME}"
           git pull --rebase origin "${BRANCH_NAME}"
 
+      - name: Determine workload path
+        id: workload
+        run: |
+          # apps 경로명 → workloads 경로명 변환 (underscore → hyphen)
+          COMPONENT="${{ matrix.component }}"
+          WORKLOAD_NAME="${COMPONENT//_/-}"
+          echo "name=${WORKLOAD_NAME}" >> "$GITHUB_OUTPUT"
+
       - name: Update dev manifest tag
         if: >
           github.ref == 'refs/heads/develop'
         id: update_dev
         env:
-          KUSTOMIZE_FILE: workloads/domains/${{ matrix.component }}/dev/kustomization.yaml
+          KUSTOMIZE_FILE: workloads/domains/${{ steps.workload.outputs.name }}/dev/kustomization.yaml
           TAG_NAME: ${{ steps.meta.outputs.manifest_tag }}
         run: |
           python -m pip install --upgrade pip pyyaml
@@ -379,7 +390,7 @@ jobs:
           github.ref == 'refs/heads/main'
         id: update_prod
         env:
-          KUSTOMIZE_FILE: workloads/domains/${{ matrix.component }}/prod/kustomization.yaml
+          KUSTOMIZE_FILE: workloads/domains/${{ steps.workload.outputs.name }}/prod/kustomization.yaml
           TAG_NAME: ${{ steps.meta.outputs.tag_name }}
         run: |
           python -m pip install --upgrade pip pyyaml

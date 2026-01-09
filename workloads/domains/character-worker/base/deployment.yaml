@@ -82,8 +82,6 @@ spec:
         # Database
         - name: POSTGRES_HOST
           value: dev-postgresql.postgres.svc.cluster.local
-        - name: REDIS_HOST
-          value: redis.redis.svc.cluster.local
         # gRPC (users-api 연결용, my → users 마이그레이션)
         - name: USERS_GRPC_HOST
           value: users-api-grpc.users.svc.cluster.local
