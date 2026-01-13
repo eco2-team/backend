@@ -45,10 +45,22 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# State KV 접두사
-STATE_KEY_PREFIX = "scan:state:"
-# Pub/Sub 채널 접두사
+# 도메인별 State KV 접두사
+DOMAIN_STATE_PREFIXES = {
+    "scan": "scan:state:",
+    "chat": "chat:state:",
+}
+DEFAULT_STATE_PREFIX = "scan:state:"
+
+# Pub/Sub 채널 접두사 (모든 도메인 공통)
 PUBSUB_CHANNEL_PREFIX = "sse:events:"
+
+
+def get_state_prefix(domain: str | None = None) -> str:
+    """도메인별 State KV 접두사 반환."""
+    if domain and domain in DOMAIN_STATE_PREFIXES:
+        return DOMAIN_STATE_PREFIXES[domain]
+    return DEFAULT_STATE_PREFIX
 
 
 @dataclass
@@ -61,6 +73,7 @@ class SubscriberQueue:
     """
 
     job_id: str
+    domain: str = "scan"  # scan, chat
     queue: asyncio.Queue[dict[str, Any]] = field(default_factory=lambda: asyncio.Queue(maxsize=100))
     created_at: float = field(default_factory=time.time)
     last_event_at: float = field(default_factory=time.time)
@@ -238,6 +251,7 @@ class SSEBroadcastManager:
     async def subscribe(
         self,
         job_id: str,
+        domain: str = "scan",
         timeout_seconds: float = 15.0,
         max_wait_seconds: int = 300,
     ) -> AsyncGenerator[dict[str, Any], None]:
@@ -245,13 +259,14 @@ class SSEBroadcastManager:
 
         Args:
             job_id: Chain의 root task ID
+            domain: 서비스 도메인 (scan, chat)
             timeout_seconds: Queue.get() 타임아웃 (keepalive 주기)
             max_wait_seconds: 최대 대기 시간 (기본 5분)
 
         Yields:
             이벤트 딕셔너리
         """
-        subscriber = SubscriberQueue(job_id=job_id)
+        subscriber = SubscriberQueue(job_id=job_id, domain=domain)
         connection_start = time.time()
         first_event_time: float | None = None
         event_count = 0
@@ -283,12 +298,12 @@ class SSEBroadcastManager:
                 SSE_PUBSUB_SUBSCRIBE_LATENCY.observe(1.0)
                 logger.warning(
                     "pubsub_subscribe_timeout",
-                    extra={"job_id": job_id},
+                    extra={"job_id": job_id, "domain": domain},
                 )
 
         # 3. State에서 현재 상태 복구 (구독 후 조회 = 누락 방지)
         # NOTE: State에서 last_seq를 갱신하지 않음!
-        state = await self._get_state_snapshot(job_id)
+        state = await self._get_state_snapshot(job_id, domain)
         if state:
             state_seq = state.get("seq", 0)
             try:
@@ -309,7 +324,7 @@ class SSEBroadcastManager:
             )
 
             async for event in self._catch_up_from_streams(
-                job_id, from_seq=subscriber.last_seq, to_seq=state_seq
+                job_id, from_seq=subscriber.last_seq, to_seq=state_seq, domain=domain
             ):
                 event_count += 1
                 if first_event_time is None:
@@ -387,7 +402,7 @@ class SSEBroadcastManager:
                 except asyncio.TimeoutError:
                     # 무소식 타임아웃 → State 재조회
                     if time.time() - last_event_time > self._state_timeout_seconds:
-                        state = await self._get_state_snapshot(job_id)
+                        state = await self._get_state_snapshot(job_id, subscriber.domain)
                         if state:
                             state_seq = state.get("seq", 0)
                             try:
@@ -412,6 +427,7 @@ class SSEBroadcastManager:
                                         "broadcast_subscribe_done_from_state_catch_up",
                                         extra={
                                             "job_id": job_id,
+                                            "domain": subscriber.domain,
                                             "state_seq": state_seq,
                                             "last_seq": subscriber.last_seq,
                                         },
@@ -421,6 +437,7 @@ class SSEBroadcastManager:
                                         job_id,
                                         from_seq=subscriber.last_seq,
                                         to_seq=state_seq,
+                                        domain=subscriber.domain,
                                     ):
                                         event_count += 1
                                         SSE_EVENTS_DISTRIBUTED.labels(
@@ -553,18 +570,25 @@ class SSEBroadcastManager:
             await pubsub.close()
             logger.debug("pubsub_unsubscribed", extra={"job_id": job_id})
 
-    async def _get_state_snapshot(self, job_id: str) -> dict[str, Any] | None:
+    async def _get_state_snapshot(
+        self, job_id: str, domain: str = "scan"
+    ) -> dict[str, Any] | None:
         """State KV에서 현재 상태 스냅샷 조회 (Streams Redis).
 
         재접속/늦은 연결 시 마지막 상태를 즉시 반환.
         State는 내구성 있는 Streams Redis에 저장됨.
+
+        Args:
+            job_id: 작업 ID
+            domain: 서비스 도메인 (scan, chat)
         """
         if not self._streams_client:
             SSE_STATE_SNAPSHOT_MISSES.inc()
             return None
 
         try:
-            key = f"{STATE_KEY_PREFIX}{job_id}"
+            state_prefix = get_state_prefix(domain)
+            key = f"{state_prefix}{job_id}"
             data = await self._streams_client.get(key)
             if data:
                 SSE_STATE_SNAPSHOT_HITS.inc()
@@ -575,7 +599,7 @@ class SSEBroadcastManager:
             SSE_STATE_SNAPSHOT_MISSES.inc()
             logger.warning(
                 "state_snapshot_error",
-                extra={"job_id": job_id, "error": str(e)},
+                extra={"job_id": job_id, "domain": domain, "error": str(e)},
             )
 
         return None
@@ -627,7 +651,7 @@ class SSEBroadcastManager:
             )
 
     async def _catch_up_from_streams(
-        self, job_id: str, from_seq: int, to_seq: int
+        self, job_id: str, from_seq: int, to_seq: int, domain: str = "scan"
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Streams에서 누락된 이벤트를 catch-up.
 
@@ -637,6 +661,7 @@ class SSEBroadcastManager:
             job_id: job ID
             from_seq: 마지막으로 수신한 seq (이 이후부터 읽음)
             to_seq: 목표 seq (이 seq까지 읽음)
+            domain: 서비스 도메인 (scan, chat)
 
         Yields:
             누락된 이벤트들 (seq 순서대로)
@@ -644,14 +669,14 @@ class SSEBroadcastManager:
         if not self._streams_client:
             return
 
-        # job_id 기반 shard 계산 (scan_worker와 동일한 해시 함수)
+        # job_id 기반 shard 계산 (worker와 동일한 해시 함수)
         import hashlib
 
         shard = (
             int.from_bytes(hashlib.md5(job_id.encode()).digest()[:8], "big")
             % self._shard_count
         )
-        stream_key = f"scan:events:{shard}"
+        stream_key = f"{domain}:events:{shard}"
 
         try:
             # Streams에서 전체 이벤트 읽기 (최근 100개)

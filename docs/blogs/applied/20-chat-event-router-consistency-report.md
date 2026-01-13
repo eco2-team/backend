@@ -34,16 +34,16 @@
 └──────────│─────────────────────────────│───────────────┘
            │                              │
            ▼                              │
-┌─────────────────────────────────────────┼───────────────┐
-│  Chat API                               │               │
-│  ┌────────────────┐   ┌─────────────────┴────────────┐  │
-│  │ JobProducer    │   │ SSE Gateway (sse.py)         │  │
-│  │ XADD task      │   │ - GET chat:state:{job_id}    │  │
-│  └───────┬────────┘   │ - SUB sse:events:{job_id}    │  │
-│          │            └──────────────────────────────┘  │
-└──────────│──────────────────────────────────────────────┘
-           │
-           ▼
+┌────────────────────┐   ┌────────────────┴───────────────┐
+│  Chat API          │   │  SSE Gateway (별도 서비스)     │
+│  ┌──────────────┐  │   │  ┌──────────────────────────┐  │
+│  │ JobProducer  │  │   │  │ BroadcastManager         │  │
+│  │ XADD task    │  │   │  │ - GET {domain}:state:id  │  │
+│  └──────┬───────┘  │   │  │ - SUB sse:events:{id}    │  │
+│         │          │   │  └──────────────────────────┘  │
+└─────────│──────────┘   └────────────────────────────────┘
+          │
+          ▼
 ┌──────────────────────────────────────────────────────────┐
 │  Redis (Task Queue)                                      │
 │  chat:tasks                                              │
@@ -157,10 +157,11 @@
 |---|------------|----------|------|
 | 1 | Stream Key 형식 | chat_worker, event_router | ✅ `chat:events:{shard}` |
 | 2 | Shard 수 | chat_worker, event_router, sse_gateway | ✅ 4개 |
-| 3 | State Key Prefix | event_router, chat API SSE | ✅ `chat:state` |
-| 4 | Pub/Sub Channel | event_router, chat API SSE | ✅ `sse:events` |
+| 3 | State Key Prefix | event_router, sse_gateway | ✅ `chat:state`, `scan:state` |
+| 4 | Pub/Sub Channel | event_router, sse_gateway | ✅ `sse:events` |
 | 5 | Token/Stage seq 분리 | chat_worker, event_router | ✅ Stage(0-79), Token(1000+) |
 | 6 | 환경 변수 매핑 | 모든 config, deployment, configmap | ✅ 일치 |
+| 7 | SSE 처리 분리 | Chat API → SSE Gateway | ✅ 멀티 도메인 지원 |
 
 ---
 
@@ -172,7 +173,8 @@
 |---------|------|------|
 | **Chat Worker** | LangGraph 파이프라인, 이벤트 발행 | `apps/chat_worker/` |
 | **Event Router** | Redis Streams → State KV + Pub/Sub | `apps/event_router/` |
-| **Chat API** | SSE Gateway, 상태 조회 | `apps/chat/` |
+| **SSE Gateway** | 멀티 도메인 SSE 스트리밍 | `apps/sse_gateway/` |
+| **Chat API** | 작업 제출, 상태 조회 | `apps/chat/` |
 
 ### 1.2 검증 항목
 
@@ -585,6 +587,7 @@ env:
 | Token/Stage seq 분리 | ✅ |
 | Subagent 호환성 | ✅ |
 | 도메인 분리 | ✅ |
+| SSE 처리 통합 | ✅ |
 
 ### 8.2 수정된 파일 목록
 
@@ -597,8 +600,11 @@ env:
 | `chat-worker/configmap.yaml` | CHAT_SHARD_COUNT |
 | `get_job_status.py` | State KV 조회 |
 | `sse_gateway/config.py` | SSE_SHARD_COUNT 환경변수 추가 |
-| `sse_gateway/broadcast_manager.py` | 하드코딩 제거, 설정 사용 |
+| `sse_gateway/broadcast_manager.py` | 멀티 도메인 지원 (scan, chat) |
+| `sse_gateway/stream.py` | domain 파라미터 전달 |
 | `sse-gateway/deployment.yaml` | SSE_SHARD_COUNT 환경변수 |
+| `chat/main.py` | 내장 SSE 제거 |
+| `chat/presentation/http/sse.py` | 삭제 (SSE Gateway로 이전) |
 
 ### 8.3 권장사항
 
@@ -628,6 +634,12 @@ env:
    - `apps/chat_worker/.../factory.py`
    - `apps/chat_worker/.../redis_progress_notifier.py`
 
+4. **refactor(sse-gateway): add multi-domain support (scan, chat)**
+   - `apps/sse_gateway/core/broadcast_manager.py`: 도메인별 state prefix
+   - `apps/sse_gateway/api/v1/stream.py`: domain 파라미터 지원
+   - `apps/chat/main.py`: 내장 SSE 제거
+   - `apps/chat/presentation/http/sse.py`: 삭제 (SSE Gateway로 이전)
+
 ### Summary
 
 | 변경 | 설명 |
@@ -638,5 +650,7 @@ env:
 | Event Router env | SSE_SHARD_COUNT → SHARD_COUNT |
 | Location Subagent | HITL 제거, gRPC 통일 |
 | HITL 흐름 | needs_input 이벤트 + HTTP 입력 |
+| SSE 처리 통합 | Chat API 내장 SSE → SSE Gateway |
+| 멀티 도메인 | SSE Gateway가 scan + chat 모두 처리 |
 
 **Affected Services**: `chat_worker`, `event_router`, `chat`, `sse_gateway`

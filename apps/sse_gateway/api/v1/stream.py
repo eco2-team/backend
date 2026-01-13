@@ -23,19 +23,21 @@ router = APIRouter(tags=["SSE"])
 async def event_generator(
     job_id: str,
     request: Request,
+    domain: str = "scan",
 ) -> AsyncGenerator[dict[str, str], None]:
     """SSE 이벤트 제너레이터.
 
     Args:
         job_id: Chain root task ID
         request: FastAPI Request (연결 상태 확인용)
+        domain: 서비스 도메인 (scan, chat)
 
     Yields:
         SSE 이벤트 딕셔너리 (event, data)
     """
     manager = await SSEBroadcastManager.get_instance()
 
-    async for event in manager.subscribe(job_id):
+    async for event in manager.subscribe(job_id, domain=domain):
         # 클라이언트 연결 해제 확인
         if await request.is_disconnected():
             logger.info(
@@ -133,6 +135,9 @@ async def stream_events(
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
+SUPPORTED_DOMAINS = {"scan", "chat"}
+
+
 @router.get(
     "/{service}/{job_id}/events",
     summary="SSE 스트림 구독 (RESTful)",
@@ -142,7 +147,7 @@ async def stream_events(
             "description": "SSE 스트림",
             "content": {"text/event-stream": {}},
         },
-        400: {"description": "잘못된 job_id"},
+        400: {"description": "잘못된 요청"},
     },
 )
 async def stream_events_restful(
@@ -154,7 +159,7 @@ async def stream_events_restful(
 
     Args:
         request: FastAPI Request
-        service: 서비스명 (scan, chat 등)
+        service: 서비스명 (scan, chat)
         job_id: 작업 ID (UUID)
 
     Returns:
@@ -180,6 +185,12 @@ async def stream_events_restful(
     if not job_id or len(job_id) < 10:
         raise HTTPException(status_code=400, detail="유효하지 않은 job_id입니다")
 
+    if service not in SUPPORTED_DOMAINS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"지원하지 않는 서비스입니다. (지원: {', '.join(SUPPORTED_DOMAINS)})",
+        )
+
     logger.info(
         "sse_stream_started",
         extra={
@@ -190,7 +201,7 @@ async def stream_events_restful(
     )
 
     return EventSourceResponse(
-        event_generator(job_id, request),
+        event_generator(job_id, request, domain=service),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
