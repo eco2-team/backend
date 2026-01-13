@@ -67,6 +67,9 @@ spec:
           value: INFO
         - name: ENVIRONMENT
           value: development
+        # Shard 설정 (scan_worker, event_router와 일치 필요)
+        - name: SSE_SHARD_COUNT
+          value: '4'
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         # OTEL 설정 (샘플링 낮춤)
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

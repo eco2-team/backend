@@ -157,6 +157,7 @@ class SSEBroadcastManager:
         self._shutdown: bool = False
         # 설정
         self._state_timeout_seconds: int = 30
+        self._shard_count: int = 4  # scan_worker, event_router와 일치 필요
 
     @classmethod
     async def get_instance(cls) -> SSEBroadcastManager:
@@ -180,6 +181,7 @@ class SSEBroadcastManager:
 
         settings = get_settings()
         self._state_timeout_seconds = settings.state_timeout_seconds
+        self._shard_count = settings.shard_count
 
         # Streams Redis - State 조회용 (내구성)
         self._streams_client = aioredis.from_url(
@@ -206,6 +208,7 @@ class SSEBroadcastManager:
             extra={
                 "streams_url": settings.redis_streams_url,
                 "pubsub_url": settings.redis_pubsub_url,
+                "shard_count": self._shard_count,
             },
         )
 
@@ -641,12 +644,13 @@ class SSEBroadcastManager:
         if not self._streams_client:
             return
 
-        # job_id 기반 shard 계산
+        # job_id 기반 shard 계산 (scan_worker와 동일한 해시 함수)
         import hashlib
 
         shard = (
-            int.from_bytes(hashlib.md5(job_id.encode()).digest()[:8], "big") % 4
-        )  # shard_count = 4
+            int.from_bytes(hashlib.md5(job_id.encode()).digest()[:8], "big")
+            % self._shard_count
+        )
         stream_key = f"scan:events:{shard}"
 
         try:
