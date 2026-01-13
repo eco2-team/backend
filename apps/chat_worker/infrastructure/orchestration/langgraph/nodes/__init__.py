@@ -6,6 +6,7 @@
 
 노드 구성:
 - intent_node: 의도 분류
+- vision_node: 이미지 분류 (Vision)
 - rag_node: RAG 검색
 - answer_node: 답변 생성
 - character_node: 캐릭터 서브에이전트
@@ -27,9 +28,13 @@ from chat_worker.infrastructure.orchestration.langgraph.nodes.location_node impo
 from chat_worker.infrastructure.orchestration.langgraph.nodes.rag_node import (
     create_rag_node,
 )
+from chat_worker.infrastructure.orchestration.langgraph.nodes.vision_node import (
+    create_vision_node,
+)
 
 __all__ = [
     "create_intent_node",
+    "create_vision_node",
     "create_rag_node",
     "create_answer_node",
     "create_character_subagent_node",

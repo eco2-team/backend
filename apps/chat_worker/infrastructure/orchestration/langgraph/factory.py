@@ -4,18 +4,23 @@ Intent-Routed Workflow with Subagent 패턴 그래프 생성.
 
 아키텍처:
 ```
-START → intent → router
-                   │
-        ┌──────────┼──────────┬───────────┐
-        ▼          ▼          ▼           ▼
-     waste    character   location    general
-     (RAG)    (gRPC)      (gRPC)    (passthrough)
-        │          │          │           │
-        └──────────┴──────────┴───────────┘
-                   │
-                   ▼
-                answer → END
+START → intent → [vision?] → router
+                               │
+                    ┌──────────┼──────────┬───────────┐
+                    ▼          ▼          ▼           ▼
+                 waste    character   location    general
+                 (RAG)    (gRPC)      (gRPC)    (passthrough)
+                    │          │          │           │
+                    └──────────┴──────────┴───────────┘
+                               │
+                               ▼
+                            answer → END
 ```
+
+Vision 노드:
+- image_url이 있으면 Vision 분석 수행
+- classification_result를 state에 저장
+- RAG 노드가 분류 결과 활용
 
 체크포인팅:
 - Scan: Stateless Reducer + Redis (단일 요청)
@@ -40,6 +45,7 @@ from chat_worker.infrastructure.orchestration.langgraph.nodes import (
     create_intent_node,
     create_location_subagent_node,
     create_rag_node,
+    create_vision_node,
 )
 
 if TYPE_CHECKING:
@@ -51,8 +57,24 @@ if TYPE_CHECKING:
     from chat_worker.application.ports.events import ProgressNotifierPort
     from chat_worker.application.ports.llm import LLMClientPort
     from chat_worker.application.ports.retrieval import RetrieverPort
+    from chat_worker.application.ports.vision import VisionModelPort
 
 logger = logging.getLogger(__name__)
+
+
+def route_after_intent(state: dict[str, Any]) -> str:
+    """Intent 후 라우팅 - Vision 필요 여부 결정.
+
+    Args:
+        state: 현재 상태
+
+    Returns:
+        다음 노드 이름 (vision 또는 router)
+    """
+    # image_url이 있고 아직 분류 안됐으면 vision으로
+    if state.get("image_url") and not state.get("classification_result"):
+        return "vision"
+    return "router"
 
 
 def route_by_intent(state: dict[str, Any]) -> str:
@@ -71,6 +93,7 @@ def create_chat_graph(
     llm: "LLMClientPort",
     retriever: "RetrieverPort",
     event_publisher: "ProgressNotifierPort",
+    vision_model: "VisionModelPort | None" = None,
     character_client: "CharacterClientPort | None" = None,
     location_client: "LocationClientPort | None" = None,
     input_requester: "InputRequesterPort | None" = None,  # Reserved for future use
@@ -82,6 +105,7 @@ def create_chat_graph(
         llm: LLM 클라이언트
         retriever: RAG 리트리버
         event_publisher: 이벤트 발행자 (SSE)
+        vision_model: Vision 모델 클라이언트 (선택, 이미지 분류)
         character_client: Character gRPC 클라이언트 (선택)
         location_client: Location gRPC 클라이언트 (선택)
         input_requester: Reserved for future use (현재 미사용)
@@ -91,20 +115,38 @@ def create_chat_graph(
         컴파일된 LangGraph
 
     Note:
+        - vision_model이 있고 image_url이 있으면 Vision 분석 수행
         - character_client, location_client가 None이면 passthrough 노드 사용
         - 모든 Subagent는 gRPC로 통신
         - checkpointer가 있으면 thread_id로 멀티턴 대화 컨텍스트 유지
     """
     _ = input_requester  # Reserved for future use
+
     # 핵심 노드 생성
     intent_node = create_intent_node(llm, event_publisher)
     rag_node = create_rag_node(retriever, event_publisher)
     answer_node = create_answer_node(llm, event_publisher)
 
+    # Vision 노드 (선택)
+    if vision_model is not None:
+        vision_node = create_vision_node(vision_model, event_publisher)
+        logger.info("Vision node created")
+    else:
+        async def vision_node(state: dict[str, Any]) -> dict[str, Any]:
+            logger.debug("Vision model not configured, skipping")
+            return state
+        logger.warning("Vision node using passthrough (no model)")
+
+    # Router 노드 (조건부 라우팅을 위한 passthrough)
+    async def router_node(state: dict[str, Any]) -> dict[str, Any]:
+        return state
+
     graph = StateGraph(dict)
 
     # 핵심 노드 등록
     graph.add_node("intent", intent_node)
+    graph.add_node("vision", vision_node)
+    graph.add_node("router", router_node)
     graph.add_node("waste_rag", rag_node)
     graph.add_node("answer", answer_node)
 
@@ -151,8 +193,22 @@ def create_chat_graph(
     # 엣지 연결
     graph.set_entry_point("intent")
 
+    # Intent → Vision or Router
     graph.add_conditional_edges(
         "intent",
+        route_after_intent,
+        {
+            "vision": "vision",
+            "router": "router",
+        },
+    )
+
+    # Vision → Router
+    graph.add_edge("vision", "router")
+
+    # Router → Intent-based routing
+    graph.add_conditional_edges(
+        "router",
         route_by_intent,
         {
             "waste": "waste_rag",
