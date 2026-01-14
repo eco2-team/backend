@@ -53,6 +53,7 @@ from chat_worker.infrastructure.orchestration.langgraph.nodes.web_search_node im
 
 if TYPE_CHECKING:
     from langgraph.checkpoint.base import BaseCheckpointSaver
+    from redis.asyncio import Redis
 
     from chat_worker.application.integrations.character.ports import CharacterClientPort
     from chat_worker.application.integrations.location.ports import LocationClientPort
@@ -101,6 +102,7 @@ def create_chat_graph(
     character_client: "CharacterClientPort | None" = None,
     location_client: "LocationClientPort | None" = None,
     web_search_client: "WebSearchPort | None" = None,
+    redis: "Redis | None" = None,  # P2: Intent 캐싱용
     input_requester: "InputRequesterPort | None" = None,  # Reserved for future use
     checkpointer: "BaseCheckpointSaver | None" = None,
 ) -> StateGraph:
@@ -129,7 +131,7 @@ def create_chat_graph(
     _ = input_requester  # Reserved for future use
 
     # 핵심 노드 생성
-    intent_node = create_intent_node(llm, event_publisher)
+    intent_node = create_intent_node(llm, event_publisher, redis=redis)  # P2: 캐싱
     rag_node = create_rag_node(retriever, event_publisher)
     answer_node = create_answer_node(llm, event_publisher)
 

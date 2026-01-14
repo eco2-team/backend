@@ -406,6 +406,7 @@ async def get_chat_graph(
     llm = create_llm_client(provider, model)
     vision_model = create_vision_client(provider, model)
     retriever = get_retriever()
+    redis = await get_redis()  # P2: Intent 캐싱용
     progress_notifier = await get_progress_notifier()
     character_client = await get_character_client()
     location_client = await get_location_client()
@@ -421,6 +422,7 @@ async def get_chat_graph(
         character_client=character_client,
         location_client=location_client,
         web_search_client=web_search_client,
+        redis=redis,  # P2: Intent 캐싱
         input_requester=input_requester,
         checkpointer=checkpointer,
     )

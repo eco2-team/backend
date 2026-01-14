@@ -31,13 +31,22 @@ class ChatIntent:
             object.__setattr__(self, "confidence", max(0.0, min(1.0, self.confidence)))
 
     @property
+    def is_complex(self) -> bool:
+        """복잡한 질문인지 여부.
+
+        Returns:
+            True if complexity is COMPLEX
+        """
+        return self.complexity == QueryComplexity.COMPLEX
+
+    @property
     def needs_subagent(self) -> bool:
         """Subagent 호출이 필요한지 여부.
 
         Returns:
             True if complexity is COMPLEX
         """
-        return self.complexity == QueryComplexity.COMPLEX
+        return self.is_complex
 
     @property
     def is_high_confidence(self) -> bool:

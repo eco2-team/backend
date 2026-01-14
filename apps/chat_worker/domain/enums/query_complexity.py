@@ -34,3 +34,18 @@ class QueryComplexity(str, Enum):
     def from_bool(cls, is_complex: bool) -> "QueryComplexity":
         """bool에서 QueryComplexity 생성."""
         return cls.COMPLEX if is_complex else cls.SIMPLE
+
+    @classmethod
+    def from_string(cls, value: str) -> "QueryComplexity":
+        """문자열에서 QueryComplexity 생성.
+
+        Args:
+            value: 복잡도 문자열 (case-insensitive)
+
+        Returns:
+            매칭된 QueryComplexity, 없으면 SIMPLE
+        """
+        try:
+            return cls(value.lower())
+        except ValueError:
+            return cls.SIMPLE
