@@ -138,48 +138,50 @@ START → intent → [vision?] → router → [waste_rag/character/location/gene
 
 ## 3. 의사결정
 
-### 3.1 Vision 모델 선택: GPT-4o vs Gemini 2.0 Flash
+### 3.1 Vision 모델 선택: GPT-5.2 vs Gemini 3 Flash
 
-| 비교 항목 | GPT-4o | Gemini 2.0 Flash |
-|----------|--------|------------------|
-| **비용** | ~$0.003/이미지 (low) | ~$0.0001/이미지 |
-| **속도** | ~2-3초 | ~1-2초 |
-| **정확도** | 높음 | 높음 |
+| 비교 항목 | GPT-5.2-turbo | Gemini 3 Flash Preview |
+|----------|---------------|------------------------|
+| **비용** | ~$0.002/이미지 (low) | ~$0.0001/이미지 |
+| **속도** | ~1-2초 | ~0.5-1초 |
+| **정확도** | 매우 높음 | 매우 높음 |
 | **구조화 출력** | Structured Outputs | response_schema |
 | **한국어** | 우수 | 우수 |
-| **코드베이스 모델** | `gpt-4o` | `gemini-2.0-flash` |
+| **Vision 지원** | 네이티브 멀티모달 | 네이티브 멀티모달 |
 
-> **참고**: LLM 클라이언트는 `gpt-5.2-turbo`/`gemini-3-flash-preview` 사용
-> Vision 클라이언트는 이미지 처리 특화 모델인 `gpt-4o`/`gemini-2.0-flash` 사용
+> **통일된 모델**: LLM과 Vision 모두 동일 모델 사용
+> - OpenAI: `gpt-5.2-turbo`
+> - Google: `gemini-3-flash-preview`
 
-**결정**: 둘 다 지원 (Factory Pattern으로 교체 가능)
+**결정**: 둘 다 지원 (Factory Pattern으로 교체 가능, settings에서 모델 통일)
 
 ```python
 # dependencies.py
 def create_vision_client(
     provider: Literal["openai", "gemini"] = "openai",
 ) -> VisionModelPort:
+    settings = get_settings()
     if provider == "gemini":
-        return GeminiVisionClient(model="gemini-2.0-flash")
-    return OpenAIVisionClient(model="gpt-4o")
+        return GeminiVisionClient(model=settings.gemini_default_model)
+    return OpenAIVisionClient(model=settings.openai_default_model)
 ```
 
 ### 3.2 이미지 detail 레벨: high vs low
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│              OpenAI Vision detail 비교                      │
+│              GPT-5.2 Vision detail 비교                     │
 ├────────────────────────────────────────────────────────────┤
 │  detail: high                                              │
-│  - 최대 2048x2048 타일 분할                                 │
-│  - 토큰: ~765 (base) + 타일당 ~170                          │
+│  - 고해상도 타일 분할 처리                                   │
+│  - 토큰: 이미지 크기에 비례                                  │
 │  - 비용: 높음                                               │
 │  - 용도: 세밀한 텍스트 인식, 복잡한 이미지                   │
 ├────────────────────────────────────────────────────────────┤
 │  detail: low  ✅ 선택                                       │
-│  - 고정 512x512 리사이즈                                    │
-│  - 토큰: 85 (고정)                                          │
-│  - 비용: ~89% 절감                                          │
+│  - 저해상도 단일 이미지                                     │
+│  - 토큰: 최소화                                             │
+│  - 비용: 대폭 절감                                          │
 │  - 용도: 폐기물 대분류 (충분)                               │
 └────────────────────────────────────────────────────────────┘
 ```
@@ -556,15 +558,15 @@ async def test_vision_to_rag_flow():
 │  - 일 1,000건 이미지 요청                                   │
 │  - 월 30,000건                                             │
 │                                                            │
-│  GPT-4o (detail: low):                                     │
-│  - 입력: 85 토큰 (고정) + 텍스트                             │
+│  GPT-5.2-turbo (detail: low):                              │
+│  - 입력: 이미지 + 텍스트 토큰                                │
 │  - 출력: ~100 토큰                                          │
-│  - 월: ~$15-25 (가격 변동)                                  │
+│  - 월: ~$10-20 (멀티모달 효율화)                             │
 │                                                            │
-│  Gemini 2.0 Flash:                                         │
-│  - 무료 티어: 15 RPM, 100만 토큰/일                          │
-│  - 유료: ~$0.075/1M 입력, ~$0.30/1M 출력                    │
-│  - 월: ~$3-5                                               │
+│  Gemini 3 Flash Preview:                                   │
+│  - 무료 티어: 충분한 일일 한도                               │
+│  - 유료: 경쟁력 있는 가격                                   │
+│  - 월: ~$2-5                                               │
 └────────────────────────────────────────────────────────────┘
 ```
 

@@ -154,12 +154,12 @@ def create_vision_client(
 
     if provider == "gemini":
         return GeminiVisionClient(
-            model=model or "gemini-2.0-flash",
+            model=model or settings.gemini_default_model,
             api_key=settings.google_api_key,
         )
     else:
         return OpenAIVisionClient(
-            model=model or "gpt-4o",
+            model=model or settings.openai_default_model,
             api_key=settings.openai_api_key,
         )
 

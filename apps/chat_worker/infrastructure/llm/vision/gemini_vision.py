@@ -52,13 +52,13 @@ class GeminiVisionClient(VisionModelPort):
 
     def __init__(
         self,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-3-flash-preview",
         api_key: str | None = None,
     ):
         """초기화.
 
         Args:
-            model: 모델명 (기본: gemini-2.0-flash)
+            model: 모델명 (기본: gemini-3-flash-preview)
             api_key: API 키 (None이면 환경변수에서)
         """
         self._model = model
