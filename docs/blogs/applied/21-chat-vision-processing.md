@@ -13,23 +13,23 @@
 
 ### 1.1 왜 Vision이 필요한가?
 
-기존 Chat Worker는 텍스트 기반 질문만 처리했습니다:
+기존 Chat Worker는 텍스트 입력만 처리했습니다:
 
 ```
 사용자: "페트병 어떻게 버려요?"
 → Intent 분류 → RAG 검색 → 답변 생성
 ```
 
-하지만 실제 사용자는 **사진을 찍어서** 질문합니다:
+그런데 사용자 입장에서 폐기물을 정확히 설명하기란 쉽지 않습니다. "이게 PP인지 PE인지 모르겠는데요"라는 질문에는 텍스트만으로 답하기 어렵습니다.
+
+**이미지가 있다면?**
 
 ```
 사용자: [📷 이미지] "이거 어떻게 버려요?"
-→ ??? → 답변 생성
+→ 이미지 분류 → RAG 검색 → 답변 생성
 ```
 
-**문제**: 이미지만으로는 Intent 분류와 RAG 검색이 불가능
-
-**해결**: Vision 모델로 이미지를 먼저 분류 → 분류 결과로 RAG 검색
+Vision 모델이 이미지를 먼저 분석하여 폐기물 종류를 파악하고, 그 결과를 기반으로 정확한 규정을 검색합니다.
 
 ### 1.2 목표
 
@@ -57,7 +57,7 @@ START → intent → router → [waste_rag/character/location/general] → answe
 
 **After (Vision 추가)**:
 ```
-START → intent → [vision?] → router → [waste_rag/character/location/general] → answer → END
+START → intent → [vision?] → router → [waste_rag/...] → answer → END
 ```
 
 ```
@@ -96,7 +96,7 @@ START → intent → [vision?] → router → [waste_rag/character/location/gene
 ```
 
 **조건부 라우팅 로직**:
-- `image_url` 있고 `classification_result` 없음 → Vision 노드
+- `image_url` 존재 + `classification_result` 미존재 → Vision 노드
 - 그 외 → Router로 직행
 
 ### 2.2 Clean Architecture 계층 분리
@@ -125,14 +125,14 @@ START → intent → [vision?] → router → [waste_rag/character/location/gene
 │  │   │ OpenAIVision    │     │ GeminiVision    │         │  │
 │  │   │    Client       │     │    Client       │         │  │
 │  │   │                 │     │                 │         │  │
-│  │   │  - GPT-4o       │     │  - Gemini 2.0   │         │  │
-│  │   │  - detail: low  │     │  - Flash        │         │  │
+│  │   │  - gpt-5.2      │     │  - gemini-3-    │         │  │
+│  │   │  - detail: low  │     │    flash-preview│         │  │
 │  │   └─────────────────┘     └─────────────────┘         │  │
 │  └───────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**핵심 원칙**: Application Layer는 구체적인 LLM 구현을 몰라야 함
+**핵심 원칙**: Application Layer는 구체적인 LLM 구현을 몰라야 합니다.
 
 ---
 
@@ -155,7 +155,7 @@ START → intent → [vision?] → router → [waste_rag/character/location/gene
 >
 > GPT-5.2 시리즈: `gpt-5.2`, `gpt-5.2-pro`, `gpt-5.2-instant`, `gpt-5-mini`
 
-**결정**: 둘 다 지원 (Factory Pattern으로 교체 가능)
+**결정**: 둘 다 지원하며 Factory Pattern으로 런타임에 교체 가능
 
 ```python
 # dependencies.py
@@ -165,7 +165,6 @@ def create_vision_client(
     settings = get_settings()
     if provider == "gemini":
         return GeminiVisionClient(model=settings.gemini_default_model)
-    # OpenAI GPT-5.2는 멀티모달이므로 LLM과 동일 모델
     return OpenAIVisionClient(model=settings.openai_default_model)
 ```
 
@@ -189,14 +188,14 @@ def create_vision_client(
 └────────────────────────────────────────────────────────────┘
 ```
 
-**결정**: `detail: low` — 폐기물 분류는 대분류 수준이면 충분
+**결정**: `detail: low` — 폐기물 대분류에는 저해상도로 충분합니다.
 
 ### 3.3 Vision 노드 위치: Intent 전 vs Intent 후
 
 | 옵션 | Intent → Vision | Intent → Vision? |
 |------|-----------------|------------------|
-| **장점** | 간단한 플로우 | 불필요한 Vision 호출 방지 |
-| **단점** | 항상 Vision 호출 | 조건부 라우팅 복잡 |
+| **장점** | 단순한 플로우 | 불필요한 Vision 호출 방지 |
+| **단점** | 항상 Vision 호출 | 조건부 라우팅 복잡도 증가 |
 | **비용** | 높음 | 낮음 |
 
 **결정**: Intent 후 조건부 Vision 호출
@@ -218,7 +217,7 @@ def route_after_intent(state: dict) -> str:
 # application/ports/vision/vision_model.py
 class VisionModelPort(ABC):
     """Vision 모델 Port - 이미지 분류 추상 인터페이스."""
-    
+
     @abstractmethod
     async def analyze_image(
         self,
@@ -226,7 +225,7 @@ class VisionModelPort(ABC):
         user_input: str | None = None,
     ) -> dict[str, Any]:
         """이미지 분석 → 분류 결과 반환.
-        
+
         Returns:
             {
                 "classification": {
@@ -246,6 +245,13 @@ class VisionModelPort(ABC):
 ```python
 # infrastructure/llm/vision/openai_vision.py
 class OpenAIVisionClient(VisionModelPort):
+    """OpenAI GPT-5.2 Vision 클라이언트."""
+
+    def __init__(self, model: str = "gpt-5.2", api_key: str | None = None):
+        self._model = model
+        self._client = OpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
+        self._prompt = self._load_prompt()
+
     async def analyze_image(self, image_url: str, user_input: str | None = None):
         response = self._client.beta.chat.completions.parse(
             model=self._model,
@@ -275,11 +281,11 @@ def create_vision_node(vision_model: VisionModelPort, event_publisher: ProgressN
     async def vision_node(state: dict) -> dict:
         job_id = state.get("job_id", "")
         image_url = state.get("image_url")
-        
+
         # 이미지 없으면 스킵
         if not image_url:
             return state
-        
+
         # 1. 진행 이벤트 발행
         await event_publisher.notify_stage(
             task_id=job_id,
@@ -288,26 +294,31 @@ def create_vision_node(vision_model: VisionModelPort, event_publisher: ProgressN
             progress=15,
             message="🔍 이미지 분석 중...",
         )
-        
-        # 2. Vision 모델 호출
-        result = await vision_model.analyze_image(image_url, state.get("message"))
-        
-        # 3. 완료 이벤트 발행
-        await event_publisher.notify_stage(
-            task_id=job_id,
-            stage="vision",
-            status="completed",
-            progress=25,
-            message=f"✅ 분류 완료: {result['classification']['major_category']}",
-        )
-        
-        # 4. state 업데이트
-        return {
-            **state,
-            "classification_result": result,
-            "has_image": True,
-        }
-    
+
+        try:
+            # 2. Vision 모델 호출
+            result = await vision_model.analyze_image(image_url, state.get("message"))
+
+            # 3. 완료 이벤트 발행
+            major_category = result.get("classification", {}).get("major_category", "unknown")
+            await event_publisher.notify_stage(
+                task_id=job_id,
+                stage="vision",
+                status="completed",
+                progress=25,
+                result={"major_category": major_category},
+                message=f"✅ 분류 완료: {major_category}",
+            )
+
+            # 4. state 업데이트
+            return {**state, "classification_result": result, "has_image": True}
+
+        except Exception as e:
+            await event_publisher.notify_stage(
+                task_id=job_id, stage="vision", status="failed", message="⚠️ 이미지 분석 실패"
+            )
+            return {**state, "classification_result": None, "has_image": True, "vision_error": str(e)}
+
     return vision_node
 ```
 
@@ -327,15 +338,15 @@ def create_chat_graph(
         vision_node = create_vision_node(vision_model, event_publisher)
     else:
         async def vision_node(state): return state  # passthrough
-    
+
     graph = StateGraph(dict)
-    
+
     # 노드 등록
     graph.add_node("intent", intent_node)
     graph.add_node("vision", vision_node)
     graph.add_node("router", router_node)
     ...
-    
+
     # 조건부 엣지
     graph.add_conditional_edges("intent", route_after_intent, {
         "vision": "vision",
@@ -348,7 +359,7 @@ def create_chat_graph(
 
 ## 5. 데이터 흐름
 
-### 5.1 이미지 있는 요청 처리
+### 5.1 이미지 요청 처리
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -383,10 +394,10 @@ def create_chat_graph(
 │  │  │   Intent    │  → intent: "waste"                         │    │
 │  │  └──────┬──────┘                                            │    │
 │  │         │                                                   │    │
-│  │         │  image_url 있음 → vision 분기                      │    │
+│  │         │  image_url 존재 → vision 분기                      │    │
 │  │         ▼                                                   │    │
 │  │  ┌─────────────┐                                            │    │
-│  │  │   Vision    │  → GPT-4o / Gemini Vision 호출             │    │
+│  │  │   Vision    │  → GPT-5.2 / Gemini Vision 호출            │    │
 │  │  └──────┬──────┘                                            │    │
 │  │         │                                                   │    │
 │  │  State 업데이트:                                              │    │
@@ -517,9 +528,9 @@ class MockVisionModel(VisionModelPort):
 async def test_vision_node_with_image():
     node = create_vision_node(MockVisionModel(), MockNotifier())
     state = {"job_id": "test", "image_url": "https://example.com/pet.jpg"}
-    
+
     result = await node(state)
-    
+
     assert result["classification_result"] is not None
     assert result["has_image"] is True
 ```
@@ -530,10 +541,10 @@ async def test_vision_node_with_image():
 async def test_vision_to_rag_flow():
     # Vision 분석
     state = await vision_node({"image_url": "https://...", "message": "이거 뭐야?"})
-    
+
     # RAG 검색 (Vision 결과 활용)
     state = await rag_node(state)
-    
+
     # 분류 결과로 규정 검색했는지 확인
     assert retriever.search_called
     assert state["disposal_rules"] is not None
@@ -547,7 +558,7 @@ async def test_vision_to_rag_flow():
 
 | 최적화 항목 | 적용 방법 | 효과 |
 |------------|----------|------|
-| **detail: low** | OpenAI 파라미터 | 토큰 89% 절감 |
+| **detail: low** | OpenAI 파라미터 | 토큰 대폭 절감 |
 | **이미지 캐싱** | 동일 이미지 재분류 방지 | API 호출 절감 |
 | **병렬 처리** | Intent와 Vision 동시 실행 (향후) | 지연 시간 단축 |
 
@@ -591,7 +602,7 @@ image_urls: list[str] | None
 
 ### 9.2 이미지 분류 캐싱
 
-동일 이미지(해시 기준)에 대한 분류 결과 캐싱:
+동일 이미지(해시 기준)에 대한 분류 결과를 캐싱합니다:
 
 ```python
 class VisionCache:
@@ -600,7 +611,7 @@ class VisionCache:
         cached = await redis.get(cache_key)
         if cached:
             return json.loads(cached)
-        
+
         result = await vision_model.analyze_image(image_url)
         await redis.setex(cache_key, 3600, json.dumps(result))
         return result
@@ -613,7 +624,7 @@ class VisionCache:
 | 항목 | 결정 | 이유 |
 |------|------|------|
 | **Vision 위치** | Intent 후 조건부 | 불필요한 호출 방지 |
-| **기본 모델** | GPT-4o (low) | 정확도 + 비용 균형 |
+| **기본 모델** | GPT-5.2 (low) | 정확도 + 비용 균형 |
 | **detail 레벨** | low | 폐기물 대분류에 충분 |
 | **결과 저장** | state.classification_result | RAG 노드 활용 |
 | **이벤트 발행** | vision stage (15%→25%) | 실시간 진행 표시 |
@@ -644,9 +655,8 @@ Flow:
 
 주요 파일:
 - `application/ports/vision/vision_model.py` — VisionModelPort (ABC)
-- `infrastructure/llm/vision/openai_vision.py` — OpenAI GPT-4V 클라이언트
+- `infrastructure/llm/vision/openai_vision.py` — OpenAI GPT-5.2 클라이언트
 - `infrastructure/llm/vision/gemini_vision.py` — Gemini Vision 클라이언트
 - `infrastructure/orchestration/langgraph/nodes/vision_node.py` — Vision 노드
 - `infrastructure/orchestration/langgraph/factory.py` — 그래프 플로우 수정
 - `setup/dependencies.py` — create_vision_client 팩토리 추가
-
