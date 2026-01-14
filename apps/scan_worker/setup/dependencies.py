@@ -39,12 +39,8 @@ from scan_worker.infrastructure.llm import (
     GPTLLMAdapter,
     GPTVisionAdapter,
 )
-from scan_worker.infrastructure.persistence_redis.event_publisher_impl import (
-    RedisEventPublisher,
-)
-from scan_worker.infrastructure.persistence_redis.result_cache_impl import (
-    RedisResultCache,
-)
+from scan_worker.infrastructure.event_bus import RedisEventPublisher
+from scan_worker.infrastructure.persistence_redis import RedisResultCache
 from scan_worker.infrastructure.retrievers.json_regulation import (
     JsonRegulationRetriever,
 )

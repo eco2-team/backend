@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     # Assets
     assets_path: str | None = None
 
+    # Web Search (Subagent용)
+    # Tavily API 키 (LLM 최적화 검색, 선택적)
+    # 없으면 DuckDuckGo 사용 (무료, API 키 불필요)
+    tavily_api_key: str | None = None
+
     # gRPC Clients (Subagent용)
     # Character gRPC: 캐릭터 정보 조회 (별도 Pod)
     character_grpc_host: str = "character-grpc.character.svc.cluster.local"

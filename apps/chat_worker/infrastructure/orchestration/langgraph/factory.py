@@ -6,15 +6,15 @@ Intent-Routed Workflow with Subagent 패턴 그래프 생성.
 ```
 START → intent → [vision?] → router
                                │
-                    ┌──────────┼──────────┬───────────┐
-                    ▼          ▼          ▼           ▼
-                 waste    character   location    general
-                 (RAG)    (gRPC)      (gRPC)    (passthrough)
-                    │          │          │           │
-                    └──────────┴──────────┴───────────┘
-                               │
-                               ▼
-                            answer → END
+                    ┌──────────┼──────────┬───────────┬───────────┐
+                    ▼          ▼          ▼           ▼           ▼
+                 waste    character   location   web_search   general
+                 (RAG)    (gRPC)      (gRPC)    (DuckDuckGo)  (passthrough)
+                    │          │          │           │           │
+                    └──────────┴──────────┴───────────┴───────────┘
+                                          │
+                                          ▼
+                                       answer → END
 ```
 
 Vision 노드:
@@ -47,6 +47,9 @@ from chat_worker.infrastructure.orchestration.langgraph.nodes import (
     create_rag_node,
     create_vision_node,
 )
+from chat_worker.infrastructure.orchestration.langgraph.nodes.web_search_node import (
+    create_web_search_node,
+)
 
 if TYPE_CHECKING:
     from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -58,6 +61,7 @@ if TYPE_CHECKING:
     from chat_worker.application.ports.llm import LLMClientPort
     from chat_worker.application.ports.retrieval import RetrieverPort
     from chat_worker.application.ports.vision import VisionModelPort
+    from chat_worker.application.ports.web_search import WebSearchPort
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +100,7 @@ def create_chat_graph(
     vision_model: "VisionModelPort | None" = None,
     character_client: "CharacterClientPort | None" = None,
     location_client: "LocationClientPort | None" = None,
+    web_search_client: "WebSearchPort | None" = None,
     input_requester: "InputRequesterPort | None" = None,  # Reserved for future use
     checkpointer: "BaseCheckpointSaver | None" = None,
 ) -> StateGraph:
@@ -108,6 +113,7 @@ def create_chat_graph(
         vision_model: Vision 모델 클라이언트 (선택, 이미지 분류)
         character_client: Character gRPC 클라이언트 (선택)
         location_client: Location gRPC 클라이언트 (선택)
+        web_search_client: 웹 검색 클라이언트 (선택, DuckDuckGo/Tavily)
         input_requester: Reserved for future use (현재 미사용)
         checkpointer: LangGraph 체크포인터 (세션 유지용)
 
@@ -116,8 +122,8 @@ def create_chat_graph(
 
     Note:
         - vision_model이 있고 image_url이 있으면 Vision 분석 수행
-        - character_client, location_client가 None이면 passthrough 노드 사용
-        - 모든 Subagent는 gRPC로 통신
+        - character_client, location_client, web_search_client가 None이면 passthrough
+        - 모든 Subagent는 gRPC로 통신 (web_search는 외부 API)
         - checkpointer가 있으면 thread_id로 멀티턴 대화 컨텍스트 유지
     """
     _ = input_requester  # Reserved for future use
@@ -181,6 +187,21 @@ def create_chat_graph(
 
         logger.warning("Location subagent node using passthrough (no client)")
 
+    # Subagent 노드: Web Search
+    if web_search_client is not None:
+        web_search_node = create_web_search_node(
+            web_search_client=web_search_client,
+            event_publisher=event_publisher,
+        )
+        logger.info("Web search subagent node created (DuckDuckGo/Tavily)")
+    else:
+        # Fallback: passthrough
+        async def web_search_node(state: dict[str, Any]) -> dict[str, Any]:
+            logger.warning("Web search client not configured, using passthrough")
+            return state
+
+        logger.warning("Web search subagent node using passthrough (no client)")
+
     # General 노드: passthrough
     async def general_node(state: dict[str, Any]) -> dict[str, Any]:
         return state
@@ -188,6 +209,7 @@ def create_chat_graph(
     # 노드 등록
     graph.add_node("character", character_node)
     graph.add_node("location", location_node)
+    graph.add_node("web_search", web_search_node)
     graph.add_node("general", general_node)
 
     # 엣지 연결
@@ -214,11 +236,12 @@ def create_chat_graph(
             "waste": "waste_rag",
             "character": "character",
             "location": "location",
+            "web_search": "web_search",
             "general": "general",
         },
     )
 
-    for node_name in ["waste_rag", "character", "location", "general"]:
+    for node_name in ["waste_rag", "character", "location", "web_search", "general"]:
         graph.add_edge(node_name, "answer")
 
     graph.add_edge("answer", END)

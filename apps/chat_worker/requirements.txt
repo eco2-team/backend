@@ -19,6 +19,10 @@ langgraph-checkpoint-postgres>=2.0.0  # PostgreSQL 체크포인터
 # Redis
 redis>=5.2.0
 
+# Web Search
+duckduckgo-search>=6.0.0
+tavily-python>=0.3.0  # Optional: LLM-optimized search
+
 # Settings
 pydantic>=2.10.0
 pydantic-settings>=2.6.0

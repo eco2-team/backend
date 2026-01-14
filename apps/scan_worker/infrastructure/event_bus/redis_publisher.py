@@ -1,7 +1,11 @@
 """Redis Event Publisher - EventPublisherPort 구현체.
 
-domains/_shared/events/redis_streams.py 로직 이전.
 Redis Streams 기반 멱등성 이벤트 발행.
+
+Event Router + SSE Gateway 아키텍처:
+- scan_worker → Redis Streams (scan:events:{shard})
+- Event Router → Streams 소비 → Pub/Sub 발행
+- SSE Gateway → Pub/Sub 구독 → 클라이언트 전달
 """
 
 from __future__ import annotations

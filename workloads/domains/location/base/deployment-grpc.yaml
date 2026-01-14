@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: location-grpc
+  namespace: location
+  labels:
+    app: location-grpc
+    tier: business-logic
+    domain: location
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: location-grpc
+  template:
+    metadata:
+      labels:
+        app: location-grpc
+        tier: business-logic
+        domain: location
+    spec:
+      containers:
+      - name: location-grpc
+        image: docker.io/mng990/eco2:location-api-dev-latest
+        imagePullPolicy: Always
+        command: [python, -m, location.presentation.grpc.server]
+        ports:
+        - containerPort: 50051
+          name: grpc
+        envFrom:
+        - configMapRef:
+            name: location-config
+        - secretRef:
+            name: location-secret
+        livenessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: location
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: location
+        effect: NoSchedule

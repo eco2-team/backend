@@ -3,6 +3,10 @@
 Redis Streams Consumer Group을 사용하여 이벤트를 소비하고
 Redis Pub/Sub로 발행.
 
+멀티 도메인 지원:
+- scan:events → scan:state
+- chat:events → chat:state
+
 참조: docs/blogs/async/34-sse-HA-architecture.md
 """
 
@@ -72,12 +76,18 @@ async def startup() -> None:
     """앱 시작."""
     global redis_streams_client, redis_pubsub_client, consumer, reclaimer, consumer_task, reclaimer_task
 
+    # 멀티 도메인 스트림 설정: [(prefix, shard_count), ...]
+    stream_configs = [
+        (prefix, settings.get_shard_count(prefix))
+        for prefix in settings.stream_prefixes
+    ]
+
     logger.info(
         "event_router_starting",
         extra={
             "consumer_group": settings.consumer_group,
             "consumer_name": settings.consumer_name,
-            "shard_count": settings.shard_count,
+            "stream_configs": stream_configs,
         },
     )
 
@@ -104,36 +114,37 @@ async def startup() -> None:
     # EventProcessor 초기화
     # - Streams Redis: State KV 갱신 (내구성)
     # - Pub/Sub Redis: 실시간 브로드캐스트
+    # - state_key_prefix: stream_name에서 자동 결정 (멀티 도메인)
     processor = EventProcessor(
         streams_client=redis_streams_client,
         pubsub_client=redis_pubsub_client,
-        state_key_prefix=settings.state_key_prefix,
         published_key_prefix=settings.router_published_prefix,
         pubsub_channel_prefix=settings.pubsub_channel_prefix,
         state_ttl=settings.state_ttl,
         published_ttl=settings.published_ttl,
     )
 
-    # Consumer 초기화 (Streams 클라이언트 사용)
+    # Consumer 초기화 (멀티 도메인 지원)
     consumer = StreamConsumer(
         redis_client=redis_streams_client,
         processor=processor,
         consumer_group=settings.consumer_group,
         consumer_name=settings.consumer_name,
-        stream_prefix=settings.stream_prefix,
-        shard_count=settings.shard_count,
+        stream_configs=stream_configs,
         block_ms=settings.xread_block_ms,
         count=settings.xread_count,
     )
 
-    # Reclaimer 초기화 (Streams 클라이언트 사용)
+    # Reclaimer 초기화 (첫 번째 스트림만 - TODO: 멀티 도메인 지원)
+    # 현재는 scan:events만 Reclaim
+    first_prefix, first_shard_count = stream_configs[0]
     reclaimer = PendingReclaimer(
         redis_client=redis_streams_client,
         processor=processor,
         consumer_group=settings.consumer_group,
         consumer_name=settings.consumer_name,
-        stream_prefix=settings.stream_prefix,
-        shard_count=settings.shard_count,
+        stream_prefix=first_prefix,
+        shard_count=first_shard_count,
         min_idle_ms=settings.reclaim_min_idle_ms,
         interval_seconds=settings.reclaim_interval_seconds,
     )
@@ -253,6 +264,8 @@ async def info() -> JSONResponse:
             "environment": settings.environment,
             "consumer_group": settings.consumer_group,
             "consumer_name": settings.consumer_name,
+            "stream_prefixes": settings.stream_prefixes,
             "shard_count": settings.shard_count,
+            "chat_shard_count": settings.chat_shard_count,
         }
     )

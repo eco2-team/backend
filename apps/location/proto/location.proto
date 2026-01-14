@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package location.v1;
+
+service LocationService {
+  // 주변 재활용 센터 검색 (Chat Worker용)
+  rpc SearchNearby (SearchNearbyRequest) returns (SearchNearbyResponse) {}
+}
+
+message SearchNearbyRequest {
+  double latitude = 1;
+  double longitude = 2;
+  int32 radius = 3;              // 미터 (0이면 기본값 5000m)
+  int32 limit = 4;               // 최대 반환 개수 (기본 10)
+  string store_category = 5;     // "all" | "recycling_center" | "zerowaste"
+  string pickup_category = 6;    // "all" | "plastic" | "paper" | ...
+}
+
+message SearchNearbyResponse {
+  repeated LocationEntry entries = 1;
+  int32 total_count = 2;
+}
+
+message LocationEntry {
+  int64 id = 1;
+  string name = 2;
+  string road_address = 3;
+  double latitude = 4;
+  double longitude = 5;
+  double distance_km = 6;
+  string distance_text = 7;
+  string store_category = 8;
+  repeated string pickup_categories = 9;
+  bool is_open = 10;
+  string phone = 11;
+}

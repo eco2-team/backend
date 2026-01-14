@@ -33,6 +33,7 @@ from chat_worker.application.ports import (
     RetrieverPort,
 )
 from chat_worker.application.ports.vision import VisionModelPort
+from chat_worker.application.ports.web_search import WebSearchPort
 from chat_worker.application.integrations.character.ports import CharacterClientPort
 from chat_worker.application.integrations.location.ports import LocationClientPort
 from chat_worker.application.interaction.ports import (
@@ -56,6 +57,7 @@ from chat_worker.infrastructure.integrations import (
     CharacterGrpcClient,
     LocationGrpcClient,
 )
+from chat_worker.infrastructure.integrations.web_search import DuckDuckGoSearchClient
 from chat_worker.infrastructure.interaction import (
     RedisInputRequester,
     RedisInteractionStateStore,
@@ -75,6 +77,7 @@ _domain_event_bus: RedisStreamDomainEventBus | None = None
 _retriever: RetrieverPort | None = None
 _character_client: CharacterClientPort | None = None
 _location_client: LocationClientPort | None = None
+_web_search_client: WebSearchPort | None = None
 _interaction_state_store: InteractionStateStorePort | None = None
 _input_requester: InputRequesterPort | None = None
 _checkpointer = None  # BaseCheckpointSaver
@@ -224,6 +227,41 @@ async def get_location_client() -> LocationClientPort:
 
 
 # ============================================================
+# Web Search Client Factory
+# ============================================================
+
+
+def get_web_search_client() -> WebSearchPort:
+    """웹 검색 클라이언트 싱글톤.
+
+    웹 검색 서브에이전트에서 사용.
+    기본: DuckDuckGo (무료, API 키 불필요)
+    선택: Tavily (LLM 최적화, API 키 필요)
+
+    환경변수:
+    - TAVILY_API_KEY: 설정 시 Tavily 사용
+    """
+    global _web_search_client
+    if _web_search_client is None:
+        settings = get_settings()
+
+        # Tavily API 키가 있으면 Tavily 사용
+        if settings.tavily_api_key:
+            from chat_worker.infrastructure.integrations.web_search.tavily import (
+                TavilySearchClient,
+            )
+
+            _web_search_client = TavilySearchClient(api_key=settings.tavily_api_key)
+            logger.info("Tavily web search client created (LLM-optimized)")
+        else:
+            # 기본: DuckDuckGo
+            _web_search_client = DuckDuckGoSearchClient()
+            logger.info("DuckDuckGo web search client created (free, no API key)")
+
+    return _web_search_client
+
+
+# ============================================================
 # Interaction Factory (Human-in-the-Loop)
 # ============================================================
 
@@ -354,12 +392,12 @@ async def get_chat_graph(
     ```
     START → intent → [vision?] → router
                                    │
-                        ┌──────────┼──────────┬───────────┐
-                        ▼          ▼          ▼           ▼
-                     waste    character   location    general
-                     (RAG)    (gRPC)      (gRPC)    (passthrough)
-                        │          │          │           │
-                        └──────────┴──────────┴───────────┘
+                  ┌────────┬───────┼───────┬────────┬────────┐
+                  ▼        ▼       ▼       ▼        ▼        ▼
+               waste   character location web_search general
+               (RAG)   (gRPC)   (gRPC)   (DDG)   (passthrough)
+                  │        │       │       │        │
+                  └────────┴───────┴───────┴────────┘
                                    │
                                    ▼
                                 answer → END
@@ -371,6 +409,7 @@ async def get_chat_graph(
     progress_notifier = await get_progress_notifier()
     character_client = await get_character_client()
     location_client = await get_location_client()
+    web_search_client = get_web_search_client()
     input_requester = await get_input_requester()
     checkpointer = await get_checkpointer()
 
@@ -381,6 +420,7 @@ async def get_chat_graph(
         vision_model=vision_model,
         character_client=character_client,
         location_client=location_client,
+        web_search_client=web_search_client,
         input_requester=input_requester,
         checkpointer=checkpointer,
     )

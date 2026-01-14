@@ -10,6 +10,7 @@ Architecture:
     │   ├── waste_instruction.txt
     │   ├── character_instruction.txt
     │   ├── location_instruction.txt
+    │   ├── web_instruction.txt
     │   └── general_instruction.txt
     ├── classification/      # 분류 프롬프트
     │   ├── intent.txt
@@ -40,13 +41,14 @@ logger = logging.getLogger(__name__)
 PROMPTS_DIR = Path(__file__).parent.parent.parent / "assets" / "prompts"
 
 # Intent 타입
-IntentType = Literal["waste", "character", "location", "general"]
+IntentType = Literal["waste", "character", "location", "web_search", "general"]
 
 # Intent -> 파일명 매핑
 INTENT_FILE_MAP: dict[IntentType, str] = {
     "waste": "waste_instruction",
     "character": "character_instruction",
     "location": "location_instruction",
+    "web_search": "web_instruction",
     "general": "general_instruction",
 }
 
@@ -88,22 +90,22 @@ class PromptBuilder:
         prompt = builder.build("waste")  # Global + Waste Local
 
     Architecture:
-        ┌─────────────────────────────────────────────────────┐
-        │               GLOBAL PROMPT (고정)                  │
-        │  캐릭터 정의, 톤, 공통 규칙 - 모든 Intent에서 사용  │
-        └─────────────────────────────────────────────────────┘
-                               │
-                               ▼
-        ┌──────────┬──────────┬──────────┬──────────┐
-        │  WASTE   │  CHAR    │ LOCATION │ GENERAL  │  LOCAL
-        │ INSTRUCT │ INSTRUCT │ INSTRUCT │ INSTRUCT │  (최적화 가능)
-        └──────────┴──────────┴──────────┴──────────┘
-                               │
-                               ▼
-        ┌─────────────────────────────────────────────────────┐
-        │               FINAL PROMPT                          │
-        │  = GLOBAL + LOCAL[intent]                           │
-        └─────────────────────────────────────────────────────┘
+        ┌────────────────────────────────────────────────────────────┐
+        │                   GLOBAL PROMPT (고정)                     │
+        │    캐릭터 정의, 톤, 공통 규칙 - 모든 Intent에서 사용       │
+        └────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+        ┌──────────┬──────────┬──────────┬──────────┬──────────┐
+        │  WASTE   │  CHAR    │ LOCATION │   WEB    │ GENERAL  │ LOCAL
+        │ INSTRUCT │ INSTRUCT │ INSTRUCT │ INSTRUCT │ INSTRUCT │
+        └──────────┴──────────┴──────────┴──────────┴──────────┘
+                                    │
+                                    ▼
+        ┌────────────────────────────────────────────────────────────┐
+        │                      FINAL PROMPT                          │
+        │               = GLOBAL + LOCAL[intent]                     │
+        └────────────────────────────────────────────────────────────┘
     """
 
     def __init__(self):
@@ -178,6 +180,10 @@ class PromptBuilder:
             "location": "location",
             "location_query": "location",
             "zerowaste": "location",
+            "web_search": "web_search",
+            "search": "web_search",
+            "news": "web_search",
+            "policy": "web_search",
             "general": "general",
             "greeting": "general",
             "unknown": "general",

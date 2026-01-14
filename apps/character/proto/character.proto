@@ -5,6 +5,22 @@ package character.v1;
 service CharacterService {
   rpc GetCharacterReward (RewardRequest) returns (RewardResponse) {}
   rpc GetDefaultCharacter (GetDefaultCharacterRequest) returns (GetDefaultCharacterResponse) {}
+
+  // Chat Worker용: 매칭 라벨로 캐릭터 조회
+  rpc GetCharacterByMatch (GetByMatchRequest) returns (GetByMatchResponse) {}
+}
+
+// Chat Worker용 메시지
+message GetByMatchRequest {
+  string match_label = 1;  // 폐기물 중분류 (예: "플라스틱", "종이류")
+}
+
+message GetByMatchResponse {
+  bool found = 1;
+  string character_name = 2;
+  string character_type = 3;
+  string character_dialog = 4;
+  string match_label = 5;
 }
 
 message GetDefaultCharacterRequest {}

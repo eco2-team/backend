@@ -4,7 +4,9 @@ namespace: location
 resources:
 - deployment.yaml
 - deployment-canary.yaml
+- deployment-grpc.yaml
 - service.yaml
+- service-grpc.yaml
 - configmap.yaml
 - destination-rule.yaml
 labels:
