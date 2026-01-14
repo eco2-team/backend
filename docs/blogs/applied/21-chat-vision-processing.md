@@ -13,7 +13,7 @@
 
 ### 1.1 기존 Vision 파이프라인
 
-Vision 처리는 이미 `domains/chat`에 구현되어 있었습니다. 이미지가 포함된 요청이 들어오면 Vision 파이프라인을 타는 방식이었죠:
+Vision 처리는 이미 `domains/chat`에 이미지가 포함된 요청이 들어오면 Vision 파이프라인을 타는 방식으로 구현되어 있었습니다.
 
 ```
 사용자: [📷 이미지] "이거 어떻게 버려요?"
@@ -50,6 +50,94 @@ Vision 처리는 이미 `domains/chat`에 구현되어 있었습니다. 이미�
 - `VisionModelPort` — Application Layer 추상 인터페이스
 - `OpenAIVisionClient`, `GeminiVisionClient` — Infrastructure 어댑터
 - `vision_node` — LangGraph 파이프라인 통합
+- **프롬프트 구조 개선** — JSON → 자연어 (SSE 스트리밍 호환)
+
+### 1.4 domains/scan 대비 프롬프트 개선
+
+기존 `scan_worker`의 답변 생성 프롬프트는 **Structured JSON**을 반환했습니다:
+
+```json
+// scan_worker/answer_generation_prompt.txt 출력 형식
+{
+  "disposal_steps": { "단계1": "...", "단계2": "..." },
+  "insufficiencies": ["라벨을 제거해야 합니다"],
+  "user_answer": "페트병은 투명 페트병 수거함에..."
+}
+```
+
+**문제점**:
+1. **무거운 응답 구조** — 프론트엔드에서 파싱 후 재구성 필요
+2. **SSE 스트리밍 불가** — JSON 전체가 완성되어야 파싱 가능
+3. **토큰 낭비** — JSON 키와 구조에 토큰 소모
+
+**개선된 프롬프트** (`chat_worker/waste_answer_prompt.txt`):
+
+```
+# Output
+자연어로 답변하세요. Markdown 서식 사용 가능.
+
+# 금지사항
+- JSON 형식 출력 금지
+```
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  프롬프트 구조 비교                          │
+├─────────────────────────────────────────────────────────────┤
+│  scan_worker (기존):                                        │
+│  - 출력: Structured JSON                                    │
+│  - 스트리밍: ❌ 불가 (전체 JSON 완성 필요)                    │
+│  - 프론트: JSON 파싱 → UI 매핑 필요                          │
+│                                                             │
+│  chat_worker (개선):                                        │
+│  - 출력: 자연어 텍스트 + Markdown                            │
+│  - 스트리밍: ✅ 토큰 단위 SSE 가능                           │
+│  - 프론트: 그대로 렌더링 가능                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 1.5 SSE 스트리밍 응답 설계
+
+Vision 분류 후 답변을 **토큰 단위로 스트리밍**해야 합니다:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   SSE 스트리밍 플로우                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Vision Node                                                │
+│  └─ stage: "vision" (15% → 25%)                            │
+│       └─ 분류 결과 발행 (JSON, 1회)                          │
+│                                                             │
+│  Answer Node                                                │
+│  └─ stage: "answer" (75%)                                  │
+│       └─ token: "페" "트" "병" "은" "..." (스트리밍)          │
+│                                                             │
+│  Done                                                       │
+│  └─ stage: "done" (100%)                                   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**핵심 고려사항**:
+
+| 이벤트 타입 | 내용 | 스트리밍 여부 |
+|------------|------|-------------|
+| `stage:vision` | 분류 결과 (major/middle/minor) | ❌ 1회 발행 |
+| `stage:answer` | 답변 생성 시작 | ❌ 1회 발행 |
+| `token` | 답변 토큰 | ✅ 토큰 단위 |
+| `stage:done` | 완료 | ❌ 1회 발행 |
+
+**LLM 스트리밍 설정**:
+
+```python
+# answer_node에서 스트리밍 호출
+async for chunk in llm.stream(prompt):
+    await event_publisher.notify_token(
+        task_id=job_id,
+        token=chunk.content,
+    )
+```
 
 ### 1.3 재구성 목표
 
