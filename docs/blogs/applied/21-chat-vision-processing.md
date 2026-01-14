@@ -138,22 +138,22 @@ START → intent → [vision?] → router → [waste_rag/character/location/gene
 
 ## 3. 의사결정
 
-### 3.1 Vision 모델 선택: GPT-5.2 vs Gemini 3 Flash
+### 3.1 Vision 모델 선택: GPT-5.2-vision vs Gemini 3 Flash
 
-| 비교 항목 | GPT-5.2-turbo | Gemini 3 Flash Preview |
-|----------|---------------|------------------------|
+| 비교 항목 | GPT-5.2-vision | Gemini 3 Flash Preview |
+|----------|----------------|------------------------|
 | **비용** | ~$0.002/이미지 (low) | ~$0.0001/이미지 |
 | **속도** | ~1-2초 | ~0.5-1초 |
 | **정확도** | 매우 높음 | 매우 높음 |
 | **구조화 출력** | Structured Outputs | response_schema |
 | **한국어** | 우수 | 우수 |
-| **Vision 지원** | 네이티브 멀티모달 | 네이티브 멀티모달 |
+| **특화** | Vision 전용 모델 | 멀티모달 통합 |
 
-> **통일된 모델**: LLM과 Vision 모두 동일 모델 사용
-> - OpenAI: `gpt-5.2-turbo`
-> - Google: `gemini-3-flash-preview`
+> **모델 구성**:
+> - OpenAI: LLM `gpt-5.2-turbo` / Vision `gpt-5.2-vision` (전용 모델)
+> - Google: LLM/Vision 통합 `gemini-3-flash-preview` (멀티모달)
 
-**결정**: 둘 다 지원 (Factory Pattern으로 교체 가능, settings에서 모델 통일)
+**결정**: 둘 다 지원 (Factory Pattern으로 교체 가능)
 
 ```python
 # dependencies.py
@@ -162,15 +162,17 @@ def create_vision_client(
 ) -> VisionModelPort:
     settings = get_settings()
     if provider == "gemini":
+        # Gemini는 멀티모달이므로 LLM과 동일 모델
         return GeminiVisionClient(model=settings.gemini_default_model)
-    return OpenAIVisionClient(model=settings.openai_default_model)
+    # OpenAI는 Vision 전용 모델
+    return OpenAIVisionClient(model="gpt-5.2-vision")
 ```
 
 ### 3.2 이미지 detail 레벨: high vs low
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│              GPT-5.2 Vision detail 비교                     │
+│            GPT-5.2-vision detail 비교                       │
 ├────────────────────────────────────────────────────────────┤
 │  detail: high                                              │
 │  - 고해상도 타일 분할 처리                                   │
@@ -558,14 +560,14 @@ async def test_vision_to_rag_flow():
 │  - 일 1,000건 이미지 요청                                   │
 │  - 월 30,000건                                             │
 │                                                            │
-│  GPT-5.2-turbo (detail: low):                              │
-│  - 입력: 이미지 + 텍스트 토큰                                │
+│  GPT-5.2-vision (detail: low):                             │
+│  - Vision 전용 모델 (이미지 처리 최적화)                     │
 │  - 출력: ~100 토큰                                          │
-│  - 월: ~$10-20 (멀티모달 효율화)                             │
+│  - 월: ~$10-20                                             │
 │                                                            │
 │  Gemini 3 Flash Preview:                                   │
+│  - 멀티모달 통합 모델                                       │
 │  - 무료 티어: 충분한 일일 한도                               │
-│  - 유료: 경쟁력 있는 가격                                   │
 │  - 월: ~$2-5                                               │
 └────────────────────────────────────────────────────────────┘
 ```
