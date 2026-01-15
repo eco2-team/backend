@@ -79,12 +79,13 @@ MULTI_DETECT_CACHE_PREFIX = "multi_detect:"
 # Intent Transition Boost (Chain-of-Intent 논문 적용)
 INTENT_TRANSITION_BOOST: dict[Intent, dict[Intent, float]] = {
     Intent.WASTE: {
-        Intent.LOCATION: 0.15,
+        Intent.LOCATION: 0.15,  # "버리고 싶은데 센터 어디야?"
         Intent.CHARACTER: 0.05,
     },
     Intent.GENERAL: {
         Intent.WASTE: 0.10,
         Intent.CHARACTER: 0.05,
+        Intent.LOCATION: 0.08,
     },
     Intent.LOCATION: {
         Intent.WASTE: 0.10,
@@ -292,7 +293,19 @@ class IntentClassifierService:
         keyword_map = {
             Intent.WASTE: ["버려", "버리", "분리", "재활용", "쓰레기", "폐기"],
             Intent.CHARACTER: ["캐릭터", "얻", "모아", "컬렉션"],
-            Intent.LOCATION: ["어디", "근처", "가까", "센터", "위치", "샵"],
+            # LOCATION: 장소 검색 (카카오맵)
+            Intent.LOCATION: [
+                "어디",
+                "근처",
+                "가까",
+                "센터",
+                "위치",
+                "샵",
+                "제로웨이스트",
+                "대형폐기물",
+                "재활용센터",
+                "수거",
+            ],
             Intent.WEB_SEARCH: ["최신", "최근", "뉴스", "정책", "규제", "발표", "공지"],
             Intent.GENERAL: ["안녕", "뭐야", "왜", "어때"],
         }
