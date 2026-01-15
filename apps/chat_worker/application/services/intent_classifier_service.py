@@ -81,6 +81,7 @@ INTENT_TRANSITION_BOOST: dict[Intent, dict[Intent, float]] = {
     Intent.WASTE: {
         Intent.LOCATION: 0.15,  # "버리고 싶은데 센터 어디야?"
         Intent.CHARACTER: 0.05,
+        Intent.COLLECTION_POINT: 0.10,  # "어디서 버려?" → 수거함
     },
     Intent.GENERAL: {
         Intent.WASTE: 0.10,
@@ -92,6 +93,18 @@ INTENT_TRANSITION_BOOST: dict[Intent, dict[Intent, float]] = {
     },
     Intent.CHARACTER: {
         Intent.WASTE: 0.08,
+    },
+    Intent.BULK_WASTE: {
+        Intent.LOCATION: 0.12,  # 대형폐기물 → 센터 위치
+        Intent.RECYCLABLE_PRICE: 0.08,  # 대형폐기물 → 시세
+    },
+    Intent.RECYCLABLE_PRICE: {
+        Intent.LOCATION: 0.10,  # 시세 → 센터 위치
+        Intent.COLLECTION_POINT: 0.08,
+    },
+    Intent.COLLECTION_POINT: {
+        Intent.WASTE: 0.10,  # 수거함 → 분리배출 방법
+        Intent.LOCATION: 0.08,
     },
 }
 
@@ -298,15 +311,56 @@ class IntentClassifierService:
                 "어디",
                 "근처",
                 "가까",
-                "센터",
                 "위치",
                 "샵",
                 "제로웨이스트",
-                "대형폐기물",
                 "재활용센터",
-                "수거",
+            ],
+            # BULK_WASTE: 대형폐기물 (행정안전부 API)
+            Intent.BULK_WASTE: [
+                "대형폐기물",
+                "대형",
+                "소파",
+                "냉장고",
+                "세탁기",
+                "가구",
+                "수수료",
+                "신청",
+                "가전",
+                "매트리스",
+                "침대",
+            ],
+            # RECYCLABLE_PRICE: 재활용자원 시세 (한국환경공단 API)
+            Intent.RECYCLABLE_PRICE: [
+                "시세",
+                "가격",
+                "얼마",
+                "고철",
+                "폐지",
+                "매입",
+                "kg",
+                "킬로",
+            ],
+            # COLLECTION_POINT: 수거함 위치 (KECO API)
+            Intent.COLLECTION_POINT: [
+                "수거함",
+                "의류수거",
+                "폐건전지",
+                "폐형광등",
+                "형광등",
+                "건전지",
+                "의류",
             ],
             Intent.WEB_SEARCH: ["최신", "최근", "뉴스", "정책", "규제", "발표", "공지"],
+            # IMAGE_GENERATION: 이미지 생성 (Responses API)
+            Intent.IMAGE_GENERATION: [
+                "이미지",
+                "그림",
+                "인포그래픽",
+                "시각",
+                "보여줘",
+                "그려",
+            ],
             Intent.GENERAL: ["안녕", "뭐야", "왜", "어때"],
         }
 
