@@ -11,10 +11,11 @@ anthropic>=0.40.0
 google-genai>=0.3.0
 tiktoken>=0.8.0
 
-# LangGraph
-langgraph>=0.2.0
+# LangGraph 1.0+ (Context Compression 지원)
+langgraph>=1.0.6
 langchain-core>=0.3.0
 langgraph-checkpoint-postgres>=2.0.0  # PostgreSQL 체크포인터
+langgraph-checkpoint-redis>=1.0.0  # Redis 체크포인터 (Fallback)
 
 # Redis
 redis>=5.2.0

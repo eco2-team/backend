@@ -1,7 +1,9 @@
 """LangGraph Infrastructure - 워크플로우 오케스트레이션.
 
-- factory.py: 그래프 생성
+- factory.py: 그래프 생성 (Intent-Routed Workflow + Feedback Loop)
 - checkpointer.py: 체크포인팅 (PostgreSQL + Redis)
+- state.py: ChatState TypedDict (멀티턴 대화 상태)
+- summarization.py: 컨텍스트 압축 (LangGraph 1.0+)
 - nodes/: 노드 구현체들
 """
 
