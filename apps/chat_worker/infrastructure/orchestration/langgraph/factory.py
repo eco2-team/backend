@@ -67,6 +67,7 @@ from chat_worker.infrastructure.orchestration.langgraph.nodes import (
     create_intent_node,
     create_location_subagent_node,
     create_rag_node,
+    create_recyclable_price_node,
     create_vision_node,
     route_after_feedback,
 )
@@ -86,6 +87,9 @@ if TYPE_CHECKING:
 
     from chat_worker.application.ports.bulk_waste_client import BulkWasteClientPort
     from chat_worker.application.ports.cache import CachePort
+    from chat_worker.application.ports.recyclable_price_client import (
+        RecyclablePriceClientPort,
+    )
     from chat_worker.application.ports.character_client import CharacterClientPort
     from chat_worker.application.ports.events import ProgressNotifierPort
     from chat_worker.application.ports.input_requester import InputRequesterPort
@@ -142,6 +146,7 @@ def create_chat_graph(
     kakao_client: "KakaoLocalClientPort | None" = None,  # 카카오 장소 검색 (HTTP)
     web_search_client: "WebSearchPort | None" = None,
     bulk_waste_client: "BulkWasteClientPort | None" = None,  # 대형폐기물 정보 (행정안전부 API)
+    recyclable_price_client: "RecyclablePriceClientPort | None" = None,  # 재활용자원 시세 (한국환경공단)
     cache: "CachePort | None" = None,  # P2: Intent 캐싱용 (CachePort 추상화)
     input_requester: "InputRequesterPort | None" = None,  # Reserved for future use
     checkpointer: "BaseCheckpointSaver | None" = None,
@@ -163,6 +168,7 @@ def create_chat_graph(
         kakao_client: 카카오 로컬 클라이언트 (선택, 일반 장소 검색)
         web_search_client: 웹 검색 클라이언트 (선택, DuckDuckGo/Tavily/Fallback)
         bulk_waste_client: 대형폐기물 클라이언트 (선택, 행정안전부 API)
+        recyclable_price_client: 재활용자원 시세 클라이언트 (선택, 한국환경공단)
         input_requester: Reserved for future use (현재 미사용)
         checkpointer: LangGraph 체크포인터 (세션 유지용)
         fallback_orchestrator: Fallback 체인 오케스트레이터 (선택)
@@ -315,6 +321,21 @@ def create_chat_graph(
 
         logger.warning("Bulk waste subagent node using passthrough (no client)")
 
+    # Subagent 노드: Recyclable Price (재활용자원 시세 - 한국환경공단)
+    if recyclable_price_client is not None:
+        recyclable_price_node = create_recyclable_price_node(
+            price_client=recyclable_price_client,
+            event_publisher=event_publisher,
+        )
+        logger.info("Recyclable price subagent node created (KECO)")
+    else:
+        # Fallback: passthrough
+        async def recyclable_price_node(state: dict[str, Any]) -> dict[str, Any]:
+            logger.warning("Recyclable price client not configured, using passthrough")
+            return state
+
+        logger.warning("Recyclable price subagent node using passthrough (no client)")
+
     # General 노드: passthrough
     async def general_node(state: dict[str, Any]) -> dict[str, Any]:
         return state
@@ -324,6 +345,7 @@ def create_chat_graph(
     graph.add_node("location", location_node)  # 카카오맵 장소 검색
     graph.add_node("web_search", web_search_node)
     graph.add_node("bulk_waste", bulk_waste_node)  # 대형폐기물 정보
+    graph.add_node("recyclable_price", recyclable_price_node)  # 재활용자원 시세
     graph.add_node("general", general_node)
 
     # Summarization 노드 등록 (선택)
@@ -357,6 +379,7 @@ def create_chat_graph(
             "location": "location",  # 카카오맵 장소 검색
             "web_search": "web_search",
             "bulk_waste": "bulk_waste",  # 대형폐기물 정보
+            "recyclable_price": "recyclable_price",  # 재활용자원 시세
             "general": "general",
         },
     )
@@ -378,7 +401,7 @@ def create_chat_graph(
     else:
         graph.add_edge("waste_rag", final_target)
 
-    for node_name in ["character", "location", "web_search", "bulk_waste", "general"]:
+    for node_name in ["character", "location", "web_search", "bulk_waste", "recyclable_price", "general"]:
         graph.add_edge(node_name, final_target)
 
     # Summarization → Answer (활성화된 경우에만)

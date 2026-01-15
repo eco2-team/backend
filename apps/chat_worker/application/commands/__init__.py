@@ -14,6 +14,7 @@ Node(LangGraph 어댑터)에서 호출.
 - SearchWebCommand: 웹 검색
 - EvaluateFeedbackCommand: 피드백 평가
 - SearchBulkWasteCommand: 대형폐기물 정보 조회
+- SearchRecyclablePriceCommand: 재활용자원 시세 조회
 
 Clean Architecture:
 - Command(UseCase): 정책/흐름, Port 조립
@@ -92,6 +93,13 @@ from chat_worker.application.commands.search_bulk_waste_command import (
     SearchBulkWasteOutput,
 )
 
+# SearchRecyclablePrice
+from chat_worker.application.commands.search_recyclable_price_command import (
+    SearchRecyclablePriceCommand,
+    SearchRecyclablePriceInput,
+    SearchRecyclablePriceOutput,
+)
+
 __all__ = [
     # ProcessChat
     "ChatPipelinePort",
@@ -134,4 +142,8 @@ __all__ = [
     "SearchBulkWasteCommand",
     "SearchBulkWasteInput",
     "SearchBulkWasteOutput",
+    # SearchRecyclablePrice
+    "SearchRecyclablePriceCommand",
+    "SearchRecyclablePriceInput",
+    "SearchRecyclablePriceOutput",
 ]

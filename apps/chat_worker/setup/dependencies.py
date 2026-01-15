@@ -45,6 +45,9 @@ from chat_worker.application.ports.vision import VisionModelPort
 from chat_worker.application.ports.weather_client import WeatherClientPort
 from chat_worker.application.ports.web_search import WebSearchPort
 from chat_worker.application.ports.bulk_waste_client import BulkWasteClientPort
+from chat_worker.application.ports.recyclable_price_client import (
+    RecyclablePriceClientPort,
+)
 from chat_worker.infrastructure.assets.prompt_loader import get_prompt_loader
 from chat_worker.infrastructure.cache import RedisCacheAdapter
 from chat_worker.infrastructure.events import (
@@ -92,6 +95,7 @@ _kakao_local_client: KakaoLocalClientPort | None = None
 _web_search_client: WebSearchPort | None = None
 _weather_client: WeatherClientPort | None = None
 _bulk_waste_client: BulkWasteClientPort | None = None
+_recyclable_price_client: RecyclablePriceClientPort | None = None
 _interaction_state_store: InteractionStateStorePort | None = None
 _input_requester: InputRequesterPort | None = None
 _checkpointer = None  # BaseCheckpointSaver
@@ -447,6 +451,36 @@ def get_bulk_waste_client() -> BulkWasteClientPort | None:
 
 
 # ============================================================
+# Recyclable Price Client Factory (재활용자원 시세)
+# ============================================================
+
+
+def get_recyclable_price_client() -> RecyclablePriceClientPort:
+    """재활용자원 시세 클라이언트 싱글톤.
+
+    한국환경공단 재활용가능자원 가격조사 데이터 기반.
+    로컬 파일(YAML) 기반 구현 (API 없이 월 1회 갱신).
+
+    데이터 소스:
+    - https://www.data.go.kr/data/3076421/fileData.do
+    - 매월 10일경 갱신
+
+    참고:
+    - https://www.recycling-info.or.kr/sds/marketIndex.do
+    """
+    global _recyclable_price_client
+    if _recyclable_price_client is None:
+        from chat_worker.infrastructure.integrations.recyclable_price import (
+            LocalRecyclablePriceClient,
+        )
+
+        _recyclable_price_client = LocalRecyclablePriceClient()
+        logger.info("Local Recyclable Price client created")
+
+    return _recyclable_price_client
+
+
+# ============================================================
 # Interaction Factory (Human-in-the-Loop)
 # ============================================================
 
@@ -597,6 +631,7 @@ async def get_chat_graph(
     kakao_client = get_kakao_local_client()  # 카카오 장소 검색
     web_search_client = get_web_search_client()
     bulk_waste_client = get_bulk_waste_client()  # 대형폐기물 정보
+    recyclable_price_client = get_recyclable_price_client()  # 재활용자원 시세
     input_requester = await get_input_requester()
     checkpointer = await get_checkpointer()
 
@@ -611,6 +646,7 @@ async def get_chat_graph(
         kakao_client=kakao_client,  # 카카오 장소 검색 (place_search intent)
         web_search_client=web_search_client,
         bulk_waste_client=bulk_waste_client,  # 대형폐기물 정보 (행정안전부 API)
+        recyclable_price_client=recyclable_price_client,  # 재활용자원 시세 (한국환경공단)
         cache=cache,  # P2: Intent 캐싱 (CachePort)
         input_requester=input_requester,
         checkpointer=checkpointer,

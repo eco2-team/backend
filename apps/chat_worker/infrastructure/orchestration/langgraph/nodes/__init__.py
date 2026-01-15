@@ -13,6 +13,7 @@
 - character_node: 캐릭터 서브에이전트
 - location_node: 장소 검색 서브에이전트 (카카오맵)
 - bulk_waste_node: 대형폐기물 정보 조회 (행정안전부 API)
+- recyclable_price_node: 재활용자원 시세 조회 (한국환경공단)
 """
 
 from chat_worker.infrastructure.orchestration.langgraph.nodes.answer_node import (
@@ -20,6 +21,9 @@ from chat_worker.infrastructure.orchestration.langgraph.nodes.answer_node import
 )
 from chat_worker.infrastructure.orchestration.langgraph.nodes.bulk_waste_node import (
     create_bulk_waste_node,
+)
+from chat_worker.infrastructure.orchestration.langgraph.nodes.recyclable_price_node import (
+    create_recyclable_price_node,
 )
 from chat_worker.infrastructure.orchestration.langgraph.nodes.character_node import (
     create_character_subagent_node,
@@ -55,4 +59,5 @@ __all__ = [
     "create_location_subagent_node",
     "create_kakao_place_node",
     "create_bulk_waste_node",
+    "create_recyclable_price_node",
 ]

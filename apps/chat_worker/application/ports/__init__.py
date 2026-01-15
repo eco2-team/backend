@@ -36,6 +36,15 @@ from chat_worker.application.ports.bulk_waste_client import (
     WasteInfoSearchResponse,
 )
 
+# Integrations - Recyclable Price
+from chat_worker.application.ports.recyclable_price_client import (
+    RecyclableCategory,
+    RecyclablePriceClientPort,
+    RecyclablePriceDTO,
+    RecyclablePriceSearchResponse,
+    RecyclableRegion,
+)
+
 # Integrations - Character
 from chat_worker.application.ports.character_client import (
     CharacterClientPort,
@@ -113,6 +122,12 @@ __all__ = [
     "BulkWasteItemDTO",
     "WasteDisposalInfoDTO",
     "WasteInfoSearchResponse",
+    # Integrations - Recyclable Price
+    "RecyclableCategory",
+    "RecyclablePriceClientPort",
+    "RecyclablePriceDTO",
+    "RecyclablePriceSearchResponse",
+    "RecyclableRegion",
     # Integrations - Character/Location
     "CharacterClientPort",
     "CharacterDTO",

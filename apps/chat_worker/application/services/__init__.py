@@ -76,6 +76,11 @@ from chat_worker.application.services.bulk_waste_service import (
     BulkWasteService,
 )
 
+# Recyclable Price 서비스
+from chat_worker.application.services.recyclable_price_service import (
+    RecyclablePriceService,
+)
+
 __all__ = [
     # Intent (순수 로직)
     "IntentClassifierService",
@@ -104,4 +109,6 @@ __all__ = [
     "HumanInteractionService",
     # BulkWaste
     "BulkWasteService",
+    # RecyclablePrice
+    "RecyclablePriceService",
 ]
