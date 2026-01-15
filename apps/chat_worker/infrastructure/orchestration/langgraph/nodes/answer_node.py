@@ -93,6 +93,14 @@ def create_answer_node(
             waste_ctx = state.get("bulk_waste_context")
             waste_context_str = waste_ctx.get("context") if isinstance(waste_ctx, dict) else None
 
+            # weather_context에서 context 문자열 추출
+            weather_ctx = state.get("weather_context")
+            weather_context_str = weather_ctx.get("context") if isinstance(weather_ctx, dict) else None
+
+            # collection_point_context에서 context 문자열 추출
+            collection_ctx = state.get("collection_point_context")
+            collection_context_str = collection_ctx.get("context") if isinstance(collection_ctx, dict) else None
+
             input_dto = GenerateAnswerInput(
                 job_id=job_id,
                 message=state.get("message", ""),
@@ -106,6 +114,8 @@ def create_answer_node(
                 web_search_results=state.get("web_search_results"),
                 recyclable_price_context=price_context_str,
                 bulk_waste_context=waste_context_str,
+                weather_context=weather_context_str,
+                collection_point_context=collection_context_str,
             )
 
             # 2. Command 실행 (스트리밍)

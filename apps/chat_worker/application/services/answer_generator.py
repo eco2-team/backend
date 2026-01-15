@@ -53,6 +53,8 @@ class AnswerGeneratorService:
                 "has_web_search": context.web_search_results is not None,
                 "has_recyclable_price": context.recyclable_price_context is not None,
                 "has_bulk_waste": context.bulk_waste_context is not None,
+                "has_weather": context.weather_context is not None,
+                "has_collection_point": context.collection_point_context is not None,
                 "prompt_length": len(prompt),
             },
         )
@@ -68,6 +70,8 @@ class AnswerGeneratorService:
         web_search_results: dict[str, Any] | None = None,
         recyclable_price_context: str | None = None,
         bulk_waste_context: str | None = None,
+        weather_context: str | None = None,
+        collection_point_context: str | None = None,
         user_input: str = "",
     ) -> AnswerContext:
         """AnswerContext 팩토리 메서드.
@@ -80,6 +84,8 @@ class AnswerGeneratorService:
             web_search_results: 웹 검색 결과
             recyclable_price_context: 재활용자원 시세 컨텍스트 (문자열)
             bulk_waste_context: 대형폐기물 정보 컨텍스트 (문자열)
+            weather_context: 날씨 기반 분리배출 팁 (문자열)
+            collection_point_context: 수거함 위치 정보 (문자열)
             user_input: 사용자 입력
 
         Returns:
@@ -93,6 +99,8 @@ class AnswerGeneratorService:
             web_search_results=web_search_results,
             recyclable_price_context=recyclable_price_context,
             bulk_waste_context=bulk_waste_context,
+            weather_context=weather_context,
+            collection_point_context=collection_point_context,
             user_input=user_input,
         )
 

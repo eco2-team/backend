@@ -14,6 +14,9 @@
 - location_node: 장소 검색 서브에이전트 (카카오맵)
 - bulk_waste_node: 대형폐기물 정보 조회 (행정안전부 API)
 - recyclable_price_node: 재활용자원 시세 조회 (한국환경공단)
+- weather_node: 날씨 정보 조회 (기상청 API)
+- collection_point_node: 수거함 위치 검색 (한국환경공단 KECO API)
+- image_generation_node: 이미지 생성 (Responses API)
 """
 
 from chat_worker.infrastructure.orchestration.langgraph.nodes.answer_node import (
@@ -47,6 +50,15 @@ from chat_worker.infrastructure.orchestration.langgraph.nodes.rag_node import (
 from chat_worker.infrastructure.orchestration.langgraph.nodes.vision_node import (
     create_vision_node,
 )
+from chat_worker.infrastructure.orchestration.langgraph.nodes.image_generation_node import (
+    create_image_generation_node,
+)
+from chat_worker.infrastructure.orchestration.langgraph.nodes.weather_node import (
+    create_weather_node,
+)
+from chat_worker.infrastructure.orchestration.langgraph.nodes.collection_point_node import (
+    create_collection_point_node,
+)
 
 __all__ = [
     "create_intent_node",
@@ -60,4 +72,7 @@ __all__ = [
     "create_kakao_place_node",
     "create_bulk_waste_node",
     "create_recyclable_price_node",
+    "create_weather_node",
+    "create_collection_point_node",
+    "create_image_generation_node",
 ]

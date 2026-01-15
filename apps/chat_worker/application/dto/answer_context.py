@@ -28,6 +28,8 @@ class AnswerContext:
     web_search_results: str | None = None
     recyclable_price_context: str | None = None  # 재활용자원 시세 컨텍스트
     bulk_waste_context: str | None = None  # 대형폐기물 정보 컨텍스트
+    weather_context: str | None = None  # 날씨 기반 분리배출 팁
+    collection_point_context: str | None = None  # 수거함 위치 정보
     user_input: str = ""
 
     def to_prompt_context(self) -> str:
@@ -63,6 +65,12 @@ class AnswerContext:
         if self.bulk_waste_context:
             parts.append(f"## Bulk Waste Info\n{self.bulk_waste_context}")
 
+        if self.weather_context:
+            parts.append(f"## Weather Info\n{self.weather_context}")
+
+        if self.collection_point_context:
+            parts.append(f"## Collection Point Info\n{self.collection_point_context}")
+
         if self.user_input:
             parts.append(f"## User Question\n{self.user_input}")
 
@@ -79,6 +87,8 @@ class AnswerContext:
                 self.web_search_results,
                 self.recyclable_price_context,
                 self.bulk_waste_context,
+                self.weather_context,
+                self.collection_point_context,
             ]
         )
 

@@ -63,12 +63,15 @@ from chat_worker.infrastructure.orchestration.langgraph.nodes import (
     create_answer_node,
     create_bulk_waste_node,
     create_character_subagent_node,
+    create_collection_point_node,
     create_feedback_node,
+    create_image_generation_node,
     create_intent_node,
     create_location_subagent_node,
     create_rag_node,
     create_recyclable_price_node,
     create_vision_node,
+    create_weather_node,
     route_after_feedback,
 )
 from chat_worker.infrastructure.orchestration.langgraph.nodes.kakao_place_node import (
@@ -87,9 +90,14 @@ if TYPE_CHECKING:
 
     from chat_worker.application.ports.bulk_waste_client import BulkWasteClientPort
     from chat_worker.application.ports.cache import CachePort
+    from chat_worker.application.ports.collection_point_client import (
+        CollectionPointClientPort,
+    )
+    from chat_worker.application.ports.image_generator import ImageGeneratorPort
     from chat_worker.application.ports.recyclable_price_client import (
         RecyclablePriceClientPort,
     )
+    from chat_worker.application.ports.weather_client import WeatherClientPort
     from chat_worker.application.ports.character_client import CharacterClientPort
     from chat_worker.application.ports.events import ProgressNotifierPort
     from chat_worker.application.ports.input_requester import InputRequesterPort
@@ -147,6 +155,11 @@ def create_chat_graph(
     web_search_client: "WebSearchPort | None" = None,
     bulk_waste_client: "BulkWasteClientPort | None" = None,  # 대형폐기물 정보 (행정안전부 API)
     recyclable_price_client: "RecyclablePriceClientPort | None" = None,  # 재활용자원 시세 (한국환경공단)
+    weather_client: "WeatherClientPort | None" = None,  # 날씨 정보 (기상청 API)
+    collection_point_client: "CollectionPointClientPort | None" = None,  # 수거함 위치 (KECO API)
+    image_generator: "ImageGeneratorPort | None" = None,  # 이미지 생성 (Responses API)
+    image_default_size: str = "1024x1024",  # 이미지 기본 크기
+    image_default_quality: str = "medium",  # 이미지 기본 품질
     cache: "CachePort | None" = None,  # P2: Intent 캐싱용 (CachePort 추상화)
     input_requester: "InputRequesterPort | None" = None,  # Reserved for future use
     checkpointer: "BaseCheckpointSaver | None" = None,
@@ -169,6 +182,7 @@ def create_chat_graph(
         web_search_client: 웹 검색 클라이언트 (선택, DuckDuckGo/Tavily/Fallback)
         bulk_waste_client: 대형폐기물 클라이언트 (선택, 행정안전부 API)
         recyclable_price_client: 재활용자원 시세 클라이언트 (선택, 한국환경공단)
+        image_generator: 이미지 생성 클라이언트 (선택, Responses API)
         input_requester: Reserved for future use (현재 미사용)
         checkpointer: LangGraph 체크포인터 (세션 유지용)
         fallback_orchestrator: Fallback 체인 오케스트레이터 (선택)
@@ -336,6 +350,59 @@ def create_chat_graph(
 
         logger.warning("Recyclable price subagent node using passthrough (no client)")
 
+    # Subagent 노드: Weather (기상청 API) - 병렬 실행 가능
+    if weather_client is not None:
+        weather_node = create_weather_node(
+            weather_client=weather_client,
+            event_publisher=event_publisher,
+        )
+        logger.info("Weather subagent node created (KMA API)")
+    else:
+        # Fallback: passthrough (날씨는 보조 정보)
+        async def weather_node(state: dict[str, Any]) -> dict[str, Any]:
+            logger.debug("Weather client not configured, skipping")
+            return {**state, "weather_context": None}
+
+        logger.warning("Weather subagent node using passthrough (no client)")
+
+    # Subagent 노드: Collection Point (KECO API) - 수거함 위치 검색
+    if collection_point_client is not None:
+        collection_point_node = create_collection_point_node(
+            collection_point_client=collection_point_client,
+            event_publisher=event_publisher,
+        )
+        logger.info("Collection point subagent node created (KECO API)")
+    else:
+        # Fallback: passthrough
+        async def collection_point_node(state: dict[str, Any]) -> dict[str, Any]:
+            logger.warning("Collection point client not configured, using passthrough")
+            return state
+
+        logger.warning("Collection point subagent node using passthrough (no client)")
+
+    # Subagent 노드: Image Generation (Responses API)
+    if image_generator is not None:
+        image_generation_node = create_image_generation_node(
+            image_generator=image_generator,
+            event_publisher=event_publisher,
+            default_size=image_default_size,
+            default_quality=image_default_quality,
+        )
+        logger.info("Image generation subagent node created (Responses API)")
+    else:
+        # Fallback: passthrough
+        async def image_generation_node(state: dict[str, Any]) -> dict[str, Any]:
+            logger.warning("Image generator not configured, using passthrough")
+            return {
+                **state,
+                "image_generation_context": {
+                    "success": False,
+                    "error": "이미지 생성 기능이 비활성화되어 있습니다.",
+                },
+            }
+
+        logger.warning("Image generation subagent node using passthrough (no client)")
+
     # General 노드: passthrough
     async def general_node(state: dict[str, Any]) -> dict[str, Any]:
         return state
@@ -346,6 +413,9 @@ def create_chat_graph(
     graph.add_node("web_search", web_search_node)
     graph.add_node("bulk_waste", bulk_waste_node)  # 대형폐기물 정보
     graph.add_node("recyclable_price", recyclable_price_node)  # 재활용자원 시세
+    graph.add_node("weather", weather_node)  # 날씨 정보
+    graph.add_node("collection_point", collection_point_node)  # 수거함 위치
+    graph.add_node("image_generation", image_generation_node)  # 이미지 생성 (Responses API)
     graph.add_node("general", general_node)
 
     # Summarization 노드 등록 (선택)
@@ -380,6 +450,8 @@ def create_chat_graph(
             "web_search": "web_search",
             "bulk_waste": "bulk_waste",  # 대형폐기물 정보
             "recyclable_price": "recyclable_price",  # 재활용자원 시세
+            "collection_point": "collection_point",  # 수거함 위치
+            "image_generation": "image_generation",  # 이미지 생성 (Responses API)
             "general": "general",
         },
     )
@@ -401,7 +473,7 @@ def create_chat_graph(
     else:
         graph.add_edge("waste_rag", final_target)
 
-    for node_name in ["character", "location", "web_search", "bulk_waste", "recyclable_price", "general"]:
+    for node_name in ["character", "location", "web_search", "bulk_waste", "recyclable_price", "weather", "collection_point", "image_generation", "general"]:
         graph.add_edge(node_name, final_target)
 
     # Summarization → Answer (활성화된 경우에만)
