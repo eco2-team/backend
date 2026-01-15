@@ -178,15 +178,15 @@ class TestKecoCollectionPointClient:
     async def test_get_nearby_collection_points_not_implemented(
         self, client: KecoCollectionPointClient
     ):
-        """주변 검색 미구현 테스트."""
-        result = await client.get_nearby_collection_points(
-            lat=37.5665,
-            lon=126.9780,
-            radius_km=2.0,
-        )
+        """주변 검색 미구현 테스트 - NotImplementedError 발생."""
+        with pytest.raises(NotImplementedError) as exc_info:
+            await client.get_nearby_collection_points(
+                lat=37.5665,
+                lon=126.9780,
+                radius_km=2.0,
+            )
 
-        # 현재 미구현 - 빈 목록 반환
-        assert result == []
+        assert "coordinate-based search" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_parse_collection_types(
@@ -217,6 +217,8 @@ class TestKecoCollectionPointClient:
         with patch.object(client, "_get_client", return_value=mock_http_client):
             result = await client.search_collection_points()
 
+        # collection_types는 tuple 타입
+        assert isinstance(result.results[0].collection_types, tuple)
         assert len(result.results[0].collection_types) == 3
         assert "폐휴대폰" in result.results[0].collection_types
         assert "소형가전" in result.results[0].collection_types
@@ -229,11 +231,11 @@ class TestKecoCollectionPointClient:
             CollectionPointDTO,
         )
 
-        # 무료 수거함
+        # 무료 수거함 (collection_types는 tuple)
         dto_free = CollectionPointDTO(
             id=1,
             name="테스트",
-            collection_types=["폐휴대폰"],
+            collection_types=("폐휴대폰",),
             fee="무료",
         )
         assert dto_free.is_free is True
@@ -243,7 +245,7 @@ class TestKecoCollectionPointClient:
         dto_paid = CollectionPointDTO(
             id=2,
             name="테스트2",
-            collection_types=["대형가전"],
+            collection_types=("대형가전",),
             fee="1,000원",
         )
         assert dto_paid.is_free is False
@@ -293,3 +295,24 @@ class TestKecoCollectionPointClient:
             page_size=10,
         )
         assert response_no_next.has_next is False
+
+    def test_safe_int_parsing(self, client: KecoCollectionPointClient):
+        """_safe_int 안전한 정수 변환 테스트."""
+        # 정상 정수
+        assert client._safe_int(123) == 123
+        assert client._safe_int(0) == 0
+
+        # 문자열 정수
+        assert client._safe_int("456") == 456
+        assert client._safe_int("0") == 0
+
+        # None
+        assert client._safe_int(None) == 0
+        assert client._safe_int(None, default=99) == 99
+
+        # 잘못된 형식
+        assert client._safe_int("abc") == 0
+        assert client._safe_int("abc", default=-1) == -1
+        assert client._safe_int("12.34") == 0  # float 문자열
+        assert client._safe_int([1, 2, 3]) == 0  # list
+        assert client._safe_int({}) == 0  # dict

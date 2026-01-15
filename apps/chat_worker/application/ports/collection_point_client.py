@@ -19,29 +19,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
-
-
-class CollectionPointType(str, Enum):
-    """수거함 유형."""
-
-    E_WASTE = "e_waste"  # 폐전자제품
-    BATTERY = "battery"  # 폐건전지
-    FLUORESCENT = "fluorescent"  # 폐형광등
-    MEDICINE = "medicine"  # 폐의약품
-    CLOTHING = "clothing"  # 의류
-    OTHER = "other"  # 기타
-
-
-class PlaceCategory(str, Enum):
-    """장소 구분."""
-
-    APARTMENT = "apartment"  # 아파트
-    RESIDENTIAL = "residential"  # 주거지역
-    PUBLIC = "public"  # 공공기관
-    MART = "mart"  # 대형마트
-    CONVENIENCE = "convenience"  # 편의점
-    OTHER = "other"  # 기타
 
 
 @dataclass(frozen=True)
@@ -64,7 +41,7 @@ class CollectionPointDTO:
 
     id: int
     name: str
-    collection_types: list[str] = field(default_factory=list)
+    collection_types: tuple[str, ...] = ()
     collection_method: str | None = None
     address: str | None = None
     place_category: str | None = None
@@ -136,7 +113,7 @@ class CollectionPointClientPort(ABC):
             address_keyword: 주소 검색어 (예: "강남구", "용산")
             name_keyword: 상호명 검색어 (예: "이마트", "주민센터")
             page: 페이지 번호
-            page_size: 한 페이지 결과 수 (최대 100)
+            page_size: 한 페이지 결과 수 (최대 1000)
 
         Returns:
             CollectionPointSearchResponse
@@ -175,8 +152,6 @@ class CollectionPointClientPort(ABC):
 
 
 __all__ = [
-    "CollectionPointType",
-    "PlaceCategory",
     "CollectionPointDTO",
     "CollectionPointSearchResponse",
     "CollectionPointClientPort",

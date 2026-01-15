@@ -68,6 +68,26 @@ class KecoCollectionPointClient(CollectionPointClientPort):
             )
         return self._client
 
+    @staticmethod
+    def _safe_int(value: Any, default: int = 0) -> int:
+        """안전한 정수 변환.
+
+        API 응답의 다양한 타입 (int, str, None)을 안전하게 정수로 변환.
+
+        Args:
+            value: 변환할 값
+            default: 변환 실패 시 기본값
+
+        Returns:
+            정수 값 또는 기본값
+        """
+        if value is None:
+            return default
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return default
+
     def _parse_collection_point(self, item: dict[str, Any]) -> CollectionPointDTO:
         """API 응답 항목을 DTO로 변환.
 
@@ -77,17 +97,17 @@ class KecoCollectionPointClient(CollectionPointClientPort):
         Returns:
             CollectionPointDTO
         """
-        # 수거종류 파싱 (쉼표로 구분된 문자열)
+        # 수거종류 파싱 (쉼표로 구분된 문자열) → 불변 tuple로 변환
         collection_types_raw = item.get("수거종류", "")
-        collection_types = []
+        collection_types: tuple[str, ...] = ()
         if collection_types_raw:
             # "폐휴대폰, 소형가전" 형태
-            collection_types = [
+            collection_types = tuple(
                 t.strip() for t in collection_types_raw.split(",") if t.strip()
-            ]
+            )
 
         return CollectionPointDTO(
-            id=int(item.get("순번", 0)),
+            id=self._safe_int(item.get("순번")),
             name=item.get("상호명", ""),
             collection_types=collection_types,
             collection_method=item.get("수거방법"),
@@ -252,7 +272,6 @@ class KecoCollectionPointClient(CollectionPointClientPort):
         Note:
             한국환경공단 API는 좌표 검색을 지원하지 않습니다.
             이 메서드는 향후 Kakao Local API와 연동하여 구현 예정.
-            현재는 빈 목록을 반환합니다.
 
         Args:
             lat: 위도
@@ -260,19 +279,13 @@ class KecoCollectionPointClient(CollectionPointClientPort):
             radius_km: 검색 반경 (km)
             limit: 최대 결과 수
 
-        Returns:
-            빈 목록 (미구현)
+        Raises:
+            NotImplementedError: 좌표 기반 검색 미지원
         """
-        logger.warning(
-            "get_nearby_collection_points not implemented",
-            extra={
-                "lat": lat,
-                "lon": lon,
-                "radius_km": radius_km,
-                "note": "KECO API does not support coordinate-based search",
-            },
+        raise NotImplementedError(
+            "KECO API does not support coordinate-based search. "
+            "Use search_collection_points with address_keyword instead."
         )
-        return []
 
     async def close(self) -> None:
         """HTTP 클라이언트 종료."""
