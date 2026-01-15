@@ -36,49 +36,26 @@ from chat_worker.application.ports.recyclable_price_client import (
 
 logger = logging.getLogger(__name__)
 
-# 품목명 → 카테고리 매핑
-ITEM_CATEGORY_MAP: dict[str, RecyclableCategory] = {
-    # 폐지류
-    "신문지": RecyclableCategory.PAPER,
-    "골판지": RecyclableCategory.PAPER,
-    # 폐플라스틱류
-    "PE": RecyclableCategory.PLASTIC,
-    "PP": RecyclableCategory.PLASTIC,
-    "PS": RecyclableCategory.PLASTIC,
-    "PET": RecyclableCategory.PLASTIC,
-    "ABS": RecyclableCategory.PLASTIC,
-    "PVC": RecyclableCategory.PLASTIC,
-    "EPS": RecyclableCategory.PLASTIC,
-    "HDPE": RecyclableCategory.PLASTIC,
-    "LDPE": RecyclableCategory.PLASTIC,
-    # 폐유리병류
-    "유리병": RecyclableCategory.GLASS,
-    "백색유리": RecyclableCategory.GLASS,
-    "갈색유리": RecyclableCategory.GLASS,
-    "청녹색유리": RecyclableCategory.GLASS,
-    "컬렛": RecyclableCategory.GLASS,
-    # 폐금속류
-    "철스크랩": RecyclableCategory.METAL,
-    "철캔": RecyclableCategory.METAL,
-    "알루미늄캔": RecyclableCategory.METAL,
-    "알루미늄": RecyclableCategory.METAL,
-    "캔": RecyclableCategory.METAL,
-    # 폐타이어류
-    "고무분말": RecyclableCategory.TIRE,
-    "타이어": RecyclableCategory.TIRE,
+# Region ID → RecyclableRegion 매핑
+REGION_ID_MAP: dict[str, RecyclableRegion] = {
+    "nationwide": RecyclableRegion.NATIONAL,
+    "capital": RecyclableRegion.CAPITAL,
+    "gangwon": RecyclableRegion.GANGWON,
+    "chungbuk": RecyclableRegion.CHUNGBUK,
+    "chungnam": RecyclableRegion.CHUNGNAM,
+    "jeonbuk": RecyclableRegion.JEONBUK,
+    "jeonnam": RecyclableRegion.JEONNAM,
+    "gyeongbuk": RecyclableRegion.GYEONGBUK,
+    "gyeongnam": RecyclableRegion.GYEONGNAM,
 }
 
-# 검색어 → 품목 매핑 (동의어 처리)
-SEARCH_SYNONYMS: dict[str, list[str]] = {
-    "캔": ["철캔", "알루미늄캔"],
-    "페트": ["PET"],
-    "페트병": ["PET"],
-    "비닐": ["PE", "LDPE"],
-    "스티로폼": ["EPS"],
-    "박스": ["골판지"],
-    "종이": ["신문지", "골판지"],
-    "유리": ["백색유리", "갈색유리", "청녹색유리"],
-    "플라스틱": ["PE", "PP", "PS", "PET"],
+# Category ID → RecyclableCategory 매핑
+CATEGORY_ID_MAP: dict[str, RecyclableCategory] = {
+    "paper": RecyclableCategory.PAPER,
+    "plastic": RecyclableCategory.PLASTIC,
+    "glass": RecyclableCategory.GLASS,
+    "metal": RecyclableCategory.METAL,
+    "tire": RecyclableCategory.TIRE,
 }
 
 
@@ -91,6 +68,7 @@ class LocalRecyclablePriceClient(RecyclablePriceClientPort):
     - 로컬 파일 기반 (네트워크 불필요)
     - 동의어 검색 지원 (캔 → 철캔, 알루미늄캔)
     - 권역별 가격 조회
+    - context 생성 지원 (LLM 프롬프트용)
     - Lazy loading (첫 호출 시 파일 로드)
 
     Usage:
@@ -118,112 +96,158 @@ class LocalRecyclablePriceClient(RecyclablePriceClientPort):
         else:
             self._data_path = Path(data_path)
 
-        self._data: dict[str, Any] | None = None
-        self._prices: list[RecyclablePriceDTO] = []
+        self._raw_data: dict[str, Any] | None = None
+        self._items: list[dict[str, Any]] = []  # 원본 아이템 데이터
+        self._synonym_index: dict[str, list[str]] = {}  # 검색어 → item_id 목록
+        self._item_index: dict[str, dict[str, Any]] = {}  # item_id → 아이템 데이터
 
     def _load_data(self) -> None:
         """데이터 로드 (Lazy loading)."""
-        if self._data is not None:
+        if self._raw_data is not None:
             return
 
         if not self._data_path.exists():
             logger.warning(
-                "Recyclable price data not found: %s, using default data",
+                "Recyclable price data not found: %s",
                 self._data_path,
             )
-            self._data = self._get_default_data()
-        else:
-            with open(self._data_path, encoding="utf-8") as f:
-                self._data = yaml.safe_load(f)
-                logger.info("Recyclable price data loaded: %s", self._data_path)
+            self._raw_data = {}
+            return
 
-        # DTO 변환
-        self._prices = self._parse_prices(self._data)
+        with open(self._data_path, encoding="utf-8") as f:
+            self._raw_data = yaml.safe_load(f) or {}
+            logger.info("Recyclable price data loaded: %s", self._data_path)
 
-    def _get_default_data(self) -> dict[str, Any]:
-        """기본 데이터 (파일 없을 때 사용).
+        # 인덱스 빌드
+        self._build_indices()
 
-        2025년 1월 기준 예시 데이터 (전국 평균).
-        실제 운영 시 YAML 파일로 교체.
-        """
-        return {
-            "survey_date": "2025-01",
-            "source": "한국환경공단 재활용가능자원 가격조사",
-            "items": [
-                # 폐지류
-                {"code": "PAPER_001", "name": "신문지", "price": 120, "form": None},
-                {"code": "PAPER_002", "name": "골판지", "price": 100, "form": None},
-                # 폐금속류
-                {"code": "METAL_001", "name": "철캔", "price": 350, "form": "압축"},
-                {"code": "METAL_002", "name": "알루미늄캔", "price": 1800, "form": "압축"},
-                {"code": "METAL_003", "name": "철스크랩", "price": 280, "form": None},
-                # 폐플라스틱류
-                {"code": "PLASTIC_001", "name": "PET", "price": 450, "form": "압축"},
-                {"code": "PLASTIC_002", "name": "PET", "price": 680, "form": "플레이크"},
-                {"code": "PLASTIC_003", "name": "PE", "price": 380, "form": "압축"},
-                {"code": "PLASTIC_004", "name": "PP", "price": 420, "form": "압축"},
-                {"code": "PLASTIC_005", "name": "PS", "price": 350, "form": "압축"},
-                {"code": "PLASTIC_006", "name": "EPS", "price": 280, "form": "압축"},
-                # 폐유리병류
-                {"code": "GLASS_001", "name": "백색유리", "price": 45, "form": "컬렛"},
-                {"code": "GLASS_002", "name": "갈색유리", "price": 40, "form": "컬렛"},
-                {"code": "GLASS_003", "name": "청녹색유리", "price": 35, "form": "컬렛"},
-                # 폐타이어류
-                {"code": "TIRE_001", "name": "고무분말", "price": 150, "form": None},
-            ],
+    def _build_indices(self) -> None:
+        """검색 인덱스 빌드."""
+        if not self._raw_data:
+            return
+
+        # 카테고리 순회하며 아이템 수집
+        for category in self._raw_data.get("categories", []):
+            category_id = category.get("id", "")
+            category_name = category.get("name", "")
+
+            for item in category.get("items", []):
+                item_id = item.get("id", "")
+                item_name = item.get("name", "")
+                synonyms = item.get("synonyms", [])
+
+                # 아이템 데이터 저장 (카테고리 정보 포함)
+                item_data = {
+                    **item,
+                    "category_id": category_id,
+                    "category_name": category_name,
+                }
+                self._items.append(item_data)
+                self._item_index[item_id] = item_data
+
+                # 이름과 동의어를 인덱스에 추가
+                name_lower = item_name.lower()
+                if name_lower not in self._synonym_index:
+                    self._synonym_index[name_lower] = []
+                self._synonym_index[name_lower].append(item_id)
+
+                for syn in synonyms:
+                    syn_lower = syn.lower()
+                    if syn_lower not in self._synonym_index:
+                        self._synonym_index[syn_lower] = []
+                    if item_id not in self._synonym_index[syn_lower]:
+                        self._synonym_index[syn_lower].append(item_id)
+
+        # YAML의 search_synonyms도 인덱스에 추가
+        for keyword, item_ids in self._raw_data.get("search_synonyms", {}).items():
+            keyword_lower = keyword.lower()
+            if keyword_lower not in self._synonym_index:
+                self._synonym_index[keyword_lower] = []
+            for item_id in item_ids:
+                if item_id not in self._synonym_index[keyword_lower]:
+                    self._synonym_index[keyword_lower].append(item_id)
+
+        logger.info(
+            "Price indices built",
+            extra={
+                "items_count": len(self._items),
+                "synonyms_count": len(self._synonym_index),
+            },
+        )
+
+    def _get_region_key(self, region: RecyclableRegion | None) -> str:
+        """RecyclableRegion → YAML region key 변환."""
+        if region is None:
+            return "nationwide"
+
+        # RecyclableRegion.value → YAML key
+        region_map = {
+            "national": "nationwide",
+            "capital": "capital",
+            "gangwon": "gangwon",
+            "chungbuk": "chungbuk",
+            "chungnam": "chungnam",
+            "jeonbuk": "jeonbuk",
+            "jeonnam": "jeonnam",
+            "gyeongbuk": "gyeongbuk",
+            "gyeongnam": "gyeongnam",
         }
+        return region_map.get(region.value, "nationwide")
 
-    def _parse_prices(self, data: dict[str, Any]) -> list[RecyclablePriceDTO]:
-        """데이터를 DTO 목록으로 변환."""
-        prices = []
-        survey_date = data.get("survey_date")
+    def _item_to_dto(
+        self,
+        item: dict[str, Any],
+        region: RecyclableRegion | None = None,
+    ) -> RecyclablePriceDTO:
+        """아이템 데이터를 DTO로 변환."""
+        region_key = self._get_region_key(region)
+        prices = item.get("prices", {})
+        price = prices.get(region_key, prices.get("nationwide", 0))
 
-        for item in data.get("items", []):
-            name = item.get("name", "")
-            category = ITEM_CATEGORY_MAP.get(name, RecyclableCategory.PLASTIC)
+        category_id = item.get("category_id", "")
+        category = CATEGORY_ID_MAP.get(category_id, RecyclableCategory.PLASTIC)
 
-            prices.append(
-                RecyclablePriceDTO(
-                    item_code=item.get("code", ""),
-                    item_name=name,
-                    category=category,
-                    price_per_kg=item.get("price", 0),
-                    region=RecyclableRegion.NATIONAL,
-                    survey_date=survey_date,
-                    form=item.get("form"),
-                    note=item.get("note"),
-                )
-            )
+        survey_info = self._raw_data.get("survey_info", {}) if self._raw_data else {}
 
-        return prices
+        return RecyclablePriceDTO(
+            item_code=item.get("id", ""),
+            item_name=item.get("name", ""),
+            category=category,
+            price_per_kg=price,
+            region=region or RecyclableRegion.NATIONAL,
+            survey_date=survey_info.get("date"),
+            form=item.get("form"),
+            note=item.get("note"),
+        )
 
-    def _match_items(self, query: str) -> list[RecyclablePriceDTO]:
-        """검색어로 품목 매칭.
+    def _search_items(self, query: str) -> list[dict[str, Any]]:
+        """검색어로 아이템 검색.
 
-        동의어 처리 및 부분 매칭 지원.
+        동의어 인덱스를 사용한 빠른 검색.
         """
         self._load_data()
 
         query_lower = query.lower().strip()
-        matched = []
+        matched_items = []
+        seen_ids = set()
 
-        # 동의어 확장
-        search_terms = [query]
-        if query in SEARCH_SYNONYMS:
-            search_terms.extend(SEARCH_SYNONYMS[query])
+        # 1. 정확 매칭 (인덱스 사용)
+        if query_lower in self._synonym_index:
+            for item_id in self._synonym_index[query_lower]:
+                if item_id in self._item_index and item_id not in seen_ids:
+                    matched_items.append(self._item_index[item_id])
+                    seen_ids.add(item_id)
 
-        for price in self._prices:
-            for term in search_terms:
-                term_lower = term.lower()
-                name_lower = price.item_name.lower()
+        # 2. 부분 매칭 (인덱스 키 순회)
+        if not matched_items:
+            for key, item_ids in self._synonym_index.items():
+                if query_lower in key or key in query_lower:
+                    for item_id in item_ids:
+                        if item_id in self._item_index and item_id not in seen_ids:
+                            matched_items.append(self._item_index[item_id])
+                            seen_ids.add(item_id)
 
-                # 정확 매칭 또는 부분 매칭
-                if term_lower == name_lower or term_lower in name_lower:
-                    if price not in matched:
-                        matched.append(price)
-                    break
-
-        return matched
+        return matched_items
 
     async def search_price(
         self,
@@ -241,26 +265,26 @@ class LocalRecyclablePriceClient(RecyclablePriceClientPort):
         """
         self._load_data()
 
-        matched = self._match_items(item_name)
+        matched = self._search_items(item_name)
+        items = [self._item_to_dto(item, region) for item in matched]
 
-        # 권역 필터 (현재는 전국 데이터만 지원)
-        # TODO: 권역별 데이터 추가 시 필터링
+        survey_info = self._raw_data.get("survey_info", {}) if self._raw_data else {}
 
         logger.info(
             "Recyclable price search completed",
             extra={
                 "query": item_name,
                 "region": region.value if region else "national",
-                "count": len(matched),
+                "count": len(items),
             },
         )
 
         return RecyclablePriceSearchResponse(
-            items=matched,
+            items=items,
             query=item_name,
-            survey_date=self._data.get("survey_date") if self._data else None,
+            survey_date=survey_info.get("date"),
             region=region or RecyclableRegion.NATIONAL,
-            total_count=len(matched),
+            total_count=len(items),
         )
 
     async def get_category_prices(
@@ -279,23 +303,39 @@ class LocalRecyclablePriceClient(RecyclablePriceClientPort):
         """
         self._load_data()
 
-        matched = [p for p in self._prices if p.category == category]
+        # category.value → category_id 매핑
+        category_id_map = {
+            "paper": "paper",
+            "plastic": "plastic",
+            "glass": "glass",
+            "metal": "metal",
+            "tire": "tire",
+        }
+        target_category_id = category_id_map.get(category.value, "")
+
+        matched = [
+            item for item in self._items
+            if item.get("category_id") == target_category_id
+        ]
+        items = [self._item_to_dto(item, region) for item in matched]
+
+        survey_info = self._raw_data.get("survey_info", {}) if self._raw_data else {}
 
         logger.info(
             "Recyclable category prices fetched",
             extra={
                 "category": category.value,
                 "region": region.value if region else "national",
-                "count": len(matched),
+                "count": len(items),
             },
         )
 
         return RecyclablePriceSearchResponse(
-            items=matched,
+            items=items,
             query=category.value,
-            survey_date=self._data.get("survey_date") if self._data else None,
+            survey_date=survey_info.get("date"),
             region=region or RecyclableRegion.NATIONAL,
-            total_count=len(matched),
+            total_count=len(items),
         )
 
     async def get_all_prices(
@@ -312,20 +352,23 @@ class LocalRecyclablePriceClient(RecyclablePriceClientPort):
         """
         self._load_data()
 
+        items = [self._item_to_dto(item, region) for item in self._items]
+        survey_info = self._raw_data.get("survey_info", {}) if self._raw_data else {}
+
         logger.info(
             "All recyclable prices fetched",
             extra={
                 "region": region.value if region else "national",
-                "count": len(self._prices),
+                "count": len(items),
             },
         )
 
         return RecyclablePriceSearchResponse(
-            items=self._prices.copy(),
+            items=items,
             query="all",
-            survey_date=self._data.get("survey_date") if self._data else None,
+            survey_date=survey_info.get("date"),
             region=region or RecyclableRegion.NATIONAL,
-            total_count=len(self._prices),
+            total_count=len(items),
         )
 
     async def get_price_trend(
@@ -353,6 +396,77 @@ class LocalRecyclablePriceClient(RecyclablePriceClientPort):
             extra={"item_name": item_name},
         )
         return None
+
+    # ========== Context 생성 (프롬프트 주입용) ==========
+
+    def build_context(
+        self,
+        response: RecyclablePriceSearchResponse,
+        include_all_regions: bool = False,
+    ) -> str:
+        """검색 결과를 LLM context 문자열로 변환.
+
+        Args:
+            response: 검색 응답
+            include_all_regions: 모든 권역 가격 포함 여부
+
+        Returns:
+            context 문자열 (프롬프트에 주입)
+        """
+        if not response.items:
+            return ""
+
+        lines = [
+            f"## 재활용자원 시세 정보 (조사일: {response.survey_date or '미상'})",
+            f"검색어: {response.query}",
+            f"기준 권역: {REGION_NAMES.get(response.region, '전국')}",
+            "",
+        ]
+
+        for item in response.items:
+            form_str = f" ({item.form})" if item.form else ""
+            lines.append(f"- **{item.item_name}{form_str}**: {item.price_per_kg:,}원/kg")
+
+            # 모든 권역 가격 포함
+            if include_all_regions:
+                # 원본 아이템에서 모든 권역 가격 가져오기
+                if item.item_code in self._item_index:
+                    prices = self._item_index[item.item_code].get("prices", {})
+                    region_prices = []
+                    for region_id, price in prices.items():
+                        if region_id != "nationwide":
+                            region_name = self._get_region_name(region_id)
+                            region_prices.append(f"{region_name} {price:,}원")
+                    if region_prices:
+                        lines.append(f"  - 권역별: {', '.join(region_prices)}")
+
+        lines.append("")
+        lines.append("※ 출처: 한국환경공단 재활용가능자원 가격조사")
+        lines.append("※ 가격은 업체별로 상이할 수 있습니다.")
+
+        return "\n".join(lines)
+
+    def _get_region_name(self, region_id: str) -> str:
+        """region_id → 한글 권역명."""
+        names = {
+            "nationwide": "전국",
+            "capital": "수도권",
+            "gangwon": "강원",
+            "chungbuk": "충북",
+            "chungnam": "충남",
+            "jeonbuk": "전북",
+            "jeonnam": "전남",
+            "gyeongbuk": "경북",
+            "gyeongnam": "경남",
+        }
+        return names.get(region_id, region_id)
+
+    def get_context_id(self, item_code: str) -> str:
+        """아이템 코드로 context_id 생성.
+
+        context_id 형식: recyclable_price:{item_code}
+        """
+        return f"recyclable_price:{item_code}"
 
 
 __all__ = ["LocalRecyclablePriceClient"]

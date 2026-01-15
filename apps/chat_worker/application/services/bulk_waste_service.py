@@ -222,7 +222,64 @@ class BulkWasteService:
                 fee_items, sigungu or ""
             )
 
+        # context 문자열 생성 (LLM 프롬프트용)
+        context["context"] = BulkWasteService.build_context_string(
+            collection_info=collection_info,
+            fee_items=fee_items,
+            sigungu=sigungu,
+        )
+
         return context
+
+    @staticmethod
+    def build_context_string(
+        collection_info: "BulkWasteCollectionDTO | None" = None,
+        fee_items: list["BulkWasteItemDTO"] | None = None,
+        sigungu: str | None = None,
+    ) -> str:
+        """응답 컨텍스트를 LLM context 문자열로 변환.
+
+        Args:
+            collection_info: 수거 정보
+            fee_items: 수수료 정보 목록
+            sigungu: 시군구명
+
+        Returns:
+            context 문자열 (프롬프트에 주입)
+        """
+        if not collection_info and not fee_items:
+            return ""
+
+        lines = [
+            f"## 대형폐기물 정보 ({sigungu or '지역 미상'})",
+            "",
+        ]
+
+        if collection_info:
+            lines.append("### 수거 신청 방법")
+            if collection_info.application_url:
+                lines.append(f"- **온라인 신청**: {collection_info.application_url}")
+            if collection_info.application_phone:
+                lines.append(f"- **전화 신청**: {collection_info.application_phone}")
+            if collection_info.collection_method:
+                lines.append(f"- **수거 방법**: {collection_info.collection_method}")
+            if collection_info.fee_payment_method:
+                lines.append(f"- **수수료 납부**: {collection_info.fee_payment_method}")
+            lines.append("")
+
+        if fee_items:
+            lines.append("### 품목별 수수료")
+            for item in fee_items[:10]:  # 최대 10개
+                size_info = f" ({item.size_info})" if item.size_info else ""
+                lines.append(f"- **{item.item_name}{size_info}**: {item.fee_text}")
+            if len(fee_items) > 10:
+                lines.append(f"  외 {len(fee_items) - 10}개 품목...")
+            lines.append("")
+
+        lines.append("※ 출처: 행정안전부 생활쓰레기배출정보")
+        lines.append("※ 품목별 수수료는 지역마다 다를 수 있습니다.")
+
+        return "\n".join(lines)
 
 
 __all__ = ["BulkWasteService"]

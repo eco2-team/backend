@@ -26,6 +26,8 @@ class AnswerContext:
     character_context: dict[str, Any] | None = None
     location_context: dict[str, Any] | None = None
     web_search_results: str | None = None
+    recyclable_price_context: str | None = None  # 재활용자원 시세 컨텍스트
+    bulk_waste_context: str | None = None  # 대형폐기물 정보 컨텍스트
     user_input: str = ""
 
     def to_prompt_context(self) -> str:
@@ -55,6 +57,12 @@ class AnswerContext:
         if self.web_search_results:
             parts.append(f"## Web Search Results\n{self.web_search_results}")
 
+        if self.recyclable_price_context:
+            parts.append(f"## Recyclable Price Info\n{self.recyclable_price_context}")
+
+        if self.bulk_waste_context:
+            parts.append(f"## Bulk Waste Info\n{self.bulk_waste_context}")
+
         if self.user_input:
             parts.append(f"## User Question\n{self.user_input}")
 
@@ -69,6 +77,8 @@ class AnswerContext:
                 self.character_context,
                 self.location_context,
                 self.web_search_results,
+                self.recyclable_price_context,
+                self.bulk_waste_context,
             ]
         )
 

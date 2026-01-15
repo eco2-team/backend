@@ -51,6 +51,8 @@ class AnswerGeneratorService:
                 "has_character": context.character_context is not None,
                 "has_location": context.location_context is not None,
                 "has_web_search": context.web_search_results is not None,
+                "has_recyclable_price": context.recyclable_price_context is not None,
+                "has_bulk_waste": context.bulk_waste_context is not None,
                 "prompt_length": len(prompt),
             },
         )
@@ -64,6 +66,8 @@ class AnswerGeneratorService:
         character_context: dict[str, Any] | None = None,
         location_context: dict[str, Any] | None = None,
         web_search_results: dict[str, Any] | None = None,
+        recyclable_price_context: str | None = None,
+        bulk_waste_context: str | None = None,
         user_input: str = "",
     ) -> AnswerContext:
         """AnswerContext 팩토리 메서드.
@@ -74,6 +78,8 @@ class AnswerGeneratorService:
             character_context: 캐릭터 컨텍스트
             location_context: 위치 컨텍스트
             web_search_results: 웹 검색 결과
+            recyclable_price_context: 재활용자원 시세 컨텍스트 (문자열)
+            bulk_waste_context: 대형폐기물 정보 컨텍스트 (문자열)
             user_input: 사용자 입력
 
         Returns:
@@ -85,6 +91,8 @@ class AnswerGeneratorService:
             character_context=character_context,
             location_context=location_context,
             web_search_results=web_search_results,
+            recyclable_price_context=recyclable_price_context,
+            bulk_waste_context=bulk_waste_context,
             user_input=user_input,
         )
 

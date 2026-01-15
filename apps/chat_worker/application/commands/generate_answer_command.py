@@ -52,6 +52,8 @@ class GenerateAnswerInput:
     character_context: dict[str, Any] | None = None
     location_context: dict[str, Any] | None = None
     web_search_results: dict[str, Any] | None = None
+    recyclable_price_context: str | None = None  # 재활용자원 시세 (문자열)
+    bulk_waste_context: str | None = None  # 대형폐기물 정보 (문자열)
 
 
 @dataclass
@@ -127,6 +129,8 @@ class GenerateAnswerCommand:
             character_context=input_dto.character_context,
             location_context=input_dto.location_context,
             web_search_results=input_dto.web_search_results,
+            recyclable_price_context=input_dto.recyclable_price_context,
+            bulk_waste_context=input_dto.bulk_waste_context,
             user_input=input_dto.message,
         )
 

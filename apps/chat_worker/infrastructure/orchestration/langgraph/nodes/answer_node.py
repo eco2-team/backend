@@ -85,6 +85,14 @@ def create_answer_node(
 
         try:
             # 1. state → input DTO 변환
+            # recyclable_price_context에서 context 문자열 추출
+            price_ctx = state.get("recyclable_price_context")
+            price_context_str = price_ctx.get("context") if isinstance(price_ctx, dict) else None
+
+            # bulk_waste_context에서 context 문자열 추출
+            waste_ctx = state.get("bulk_waste_context")
+            waste_context_str = waste_ctx.get("context") if isinstance(waste_ctx, dict) else None
+
             input_dto = GenerateAnswerInput(
                 job_id=job_id,
                 message=state.get("message", ""),
@@ -96,6 +104,8 @@ def create_answer_node(
                 character_context=state.get("character_context"),
                 location_context=state.get("location_context"),
                 web_search_results=state.get("web_search_results"),
+                recyclable_price_context=price_context_str,
+                bulk_waste_context=waste_context_str,
             )
 
             # 2. Command 실행 (스트리밍)
