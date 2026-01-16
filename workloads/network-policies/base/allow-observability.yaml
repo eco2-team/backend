@@ -59,6 +59,7 @@ spec:
           - my
           - location
           - image
+          - info
           - event-router
           - sse-gateway
     ports:
