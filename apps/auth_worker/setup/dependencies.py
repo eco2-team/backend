@@ -17,11 +17,23 @@ main.py (Composition Root)
     └── Presentation 생성
           ├── BlacklistHandler (메시지 → Command)
           └── ConsumerAdapter (디스패칭 + ack/nack)
+
+분산 트레이싱 통합:
+- aio-pika Instrumentation으로 MQ 메시지 추적
+- Jaeger/Kiali에서 API → MQ → Worker 흐름 추적 가능
 """
 
 from __future__ import annotations
 
+import logging
+import os
+
 import redis.asyncio as aioredis
+
+_logger = logging.getLogger(__name__)
+
+# OpenTelemetry 활성화 여부
+OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
 
 from auth_worker.application.blacklist.commands.persist import (
     PersistBlacklistCommand,
@@ -57,11 +69,61 @@ class Container:
         self._handler: BlacklistHandler | None = None
         self._consumer_adapter: ConsumerAdapter | None = None
 
+    def _setup_aio_pika_tracing(self) -> None:
+        """aio-pika 분산 추적 설정."""
+        if not OTEL_ENABLED:
+            _logger.info("aio-pika tracing disabled (OTEL_ENABLED=false)")
+            return
+
+        try:
+            from opentelemetry import trace
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+                OTLPSpanExporter,
+            )
+            from opentelemetry.instrumentation.aio_pika import AioPikaInstrumentor
+            from opentelemetry.sdk.resources import Resource
+            from opentelemetry.sdk.trace import TracerProvider
+            from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+            # TracerProvider 설정
+            resource = Resource.create(
+                {
+                    "service.name": "auth-worker",
+                    "service.version": os.getenv("SERVICE_VERSION", "1.0.0"),
+                    "deployment.environment": self._settings.environment,
+                    "messaging.system": "rabbitmq",
+                }
+            )
+
+            provider = TracerProvider(resource=resource)
+            endpoint = os.getenv(
+                "OTEL_EXPORTER_OTLP_ENDPOINT",
+                "http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4318",
+            )
+            exporter = OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces")
+            provider.add_span_processor(BatchSpanProcessor(exporter))
+            trace.set_tracer_provider(provider)
+
+            # aio-pika Instrumentation
+            AioPikaInstrumentor().instrument()
+            _logger.info(
+                "aio-pika tracing enabled",
+                extra={"endpoint": endpoint, "service_name": "auth-worker"},
+            )
+
+        except ImportError as e:
+            _logger.warning(f"aio-pika tracing not available: {e}")
+        except Exception as e:
+            _logger.error(f"Failed to setup aio-pika tracing: {e}")
+
     async def init(self) -> None:
         """의존성 초기화."""
         from redis.asyncio.retry import Retry
         from redis.backoff import ExponentialBackoff
         from redis.exceptions import ConnectionError, TimeoutError
+
+        # 0. OpenTelemetry aio-pika 트레이싱 설정
+        self._setup_aio_pika_tracing()
 
         # 1. Infrastructure 생성 (재시도 로직 포함)
         retry = Retry(ExponentialBackoff(), retries=3)
