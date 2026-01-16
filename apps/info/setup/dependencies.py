@@ -12,12 +12,20 @@ from redis.asyncio import Redis
 
 from info.application.commands.fetch_news_command import FetchNewsCommand
 from info.application.ports.news_source import NewsSourcePort
+from info.application.ports.rate_limiter import RateLimitConfig
 from info.application.services.news_aggregator import NewsAggregatorService
 from info.infrastructure.cache.redis_news_cache import RedisNewsCache
+from info.infrastructure.cache.redis_rate_limiter import RedisRateLimiter
 from info.infrastructure.integrations.naver.naver_news_client import NaverNewsClient
 from info.infrastructure.integrations.newsdata.newsdata_client import NewsDataClient
 from info.infrastructure.integrations.og.og_image_extractor import OGImageExtractor
 from info.setup.config import get_settings
+
+# Rate Limit 설정 (일일 호출 제한)
+RATE_LIMIT_CONFIGS = {
+    "naver": RateLimitConfig(source="naver", daily_limit=25000),
+    "newsdata": RateLimitConfig(source="newsdata", daily_limit=200),
+}
 
 
 async def get_fetch_news_command() -> AsyncGenerator[FetchNewsCommand, None]:
@@ -35,6 +43,9 @@ async def get_fetch_news_command() -> AsyncGenerator[FetchNewsCommand, None]:
         try:
             # Cache
             cache = RedisNewsCache(redis=redis, ttl=settings.news_cache_ttl)
+
+            # Rate Limiter
+            rate_limiter = RedisRateLimiter(redis=redis, default_configs=RATE_LIMIT_CONFIGS)
 
             # Sources
             sources: list[NewsSourcePort] = []
@@ -73,6 +84,7 @@ async def get_fetch_news_command() -> AsyncGenerator[FetchNewsCommand, None]:
                 aggregator=aggregator,
                 cache_ttl=settings.news_cache_ttl,
                 og_extractor=og_extractor,
+                rate_limiter=rate_limiter,
             )
         finally:
             await redis.aclose()

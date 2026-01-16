@@ -20,6 +20,7 @@ from info.application.dto.news_response import (
 if TYPE_CHECKING:
     from info.application.ports.news_cache import NewsCachePort
     from info.application.ports.news_source import NewsSourcePort
+    from info.application.ports.rate_limiter import RateLimiterPort
     from info.application.services.news_aggregator import NewsAggregatorService
     from info.infrastructure.integrations.og.og_image_extractor import OGImageExtractor
 
@@ -44,6 +45,7 @@ class FetchNewsCommand:
         aggregator: NewsAggregatorService,
         cache_ttl: int = 3600,
         og_extractor: OGImageExtractor | None = None,
+        rate_limiter: RateLimiterPort | None = None,
     ):
         """초기화.
 
@@ -53,12 +55,14 @@ class FetchNewsCommand:
             aggregator: 뉴스 집계 서비스
             cache_ttl: 캐시 TTL (초)
             og_extractor: OG 이미지 추출기 (이미지 없는 기사 보강)
+            rate_limiter: Rate Limiter (소스별 호출 제한)
         """
         self._news_sources = news_sources
         self._news_cache = news_cache
         self._aggregator = aggregator
         self._cache_ttl = cache_ttl
         self._og_extractor = og_extractor
+        self._rate_limiter = rate_limiter
 
     async def execute(self, request: NewsListRequest) -> NewsListResponse:
         """Command 실행.
@@ -75,8 +79,24 @@ class FetchNewsCommand:
         is_fresh = await self._news_cache.is_fresh(category)
 
         if not is_fresh:
-            # 2. 캐시 미스 → 외부 API 호출 및 캐싱
-            await self._refresh_cache(category)
+            # 2. 캐시 미스 → 락 획득 시도 후 외부 API 호출 및 캐싱
+            # Cache Stampede 방지: 락 획득에 실패하면 다른 요청이 갱신 중
+            lock_acquired = await self._news_cache.acquire_refresh_lock(category)
+            if lock_acquired:
+                try:
+                    # 락 획득 후 다시 확인 (Double-check locking)
+                    is_fresh = await self._news_cache.is_fresh(category)
+                    if not is_fresh:
+                        await self._refresh_cache(category)
+                finally:
+                    await self._news_cache.release_refresh_lock(category)
+            else:
+                # 락 획득 실패 - 다른 요청이 갱신 중이므로 잠시 대기
+                logger.info(
+                    "Cache refresh in progress by another request",
+                    extra={"category": category},
+                )
+                await asyncio.sleep(0.5)  # 0.5초 대기 후 캐시 조회
 
         # 3. 캐시에서 페이지네이션 조회
         articles, next_cursor, has_more = await self._news_cache.get_articles(
@@ -119,13 +139,20 @@ class FetchNewsCommand:
         # 검색 쿼리 생성
         queries = self._aggregator.get_search_queries(category)
 
+        # Rate Limit 확인 후 사용 가능한 소스만 선택
+        available_sources = await self._filter_rate_limited_sources()
+
+        if not available_sources:
+            logger.warning("All news sources rate limited, skipping refresh")
+            return
+
         # 모든 소스에서 병렬로 뉴스 가져오기
         all_articles = []
 
         for query in queries:
             tasks = [
-                source.fetch_news(query=query, max_results=30)
-                for source in self._news_sources
+                self._fetch_with_rate_limit(source, query)
+                for source in available_sources
             ]
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -134,7 +161,8 @@ class FetchNewsCommand:
                 if isinstance(result, Exception):
                     logger.warning("News source failed: %s", result)
                     continue
-                all_articles.extend(result)
+                if result:  # None check for rate limited
+                    all_articles.extend(result)
 
         if not all_articles:
             logger.warning("No articles fetched from any source")
@@ -185,3 +213,54 @@ class FetchNewsCommand:
                 "without_images": len(prioritized_articles) - with_images,
             },
         )
+
+    async def _filter_rate_limited_sources(self) -> list[NewsSourcePort]:
+        """Rate Limit 확인 후 사용 가능한 소스만 반환.
+
+        Returns:
+            Rate Limit에 걸리지 않은 소스 목록
+        """
+        if not self._rate_limiter:
+            return self._news_sources
+
+        available = []
+        for source in self._news_sources:
+            status = await self._rate_limiter.get_status(source.source_name)
+            if status.is_allowed:
+                available.append(source)
+            else:
+                logger.warning(
+                    "News source rate limited",
+                    extra={
+                        "source": source.source_name,
+                        "remaining": status.remaining,
+                        "reset_at": status.reset_at,
+                    },
+                )
+
+        return available
+
+    async def _fetch_with_rate_limit(
+        self,
+        source: NewsSourcePort,
+        query: str,
+    ) -> list | None:
+        """Rate Limit을 적용하여 뉴스 fetch.
+
+        Args:
+            source: 뉴스 소스
+            query: 검색 쿼리
+
+        Returns:
+            뉴스 기사 목록 또는 None (rate limited)
+        """
+        if self._rate_limiter:
+            status = await self._rate_limiter.check_and_consume(source.source_name)
+            if not status.is_allowed:
+                logger.warning(
+                    "Rate limit hit during fetch",
+                    extra={"source": source.source_name},
+                )
+                return None
+
+        return await source.fetch_news(query=query, max_results=30)

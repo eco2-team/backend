@@ -91,6 +91,33 @@ class NewsCachePort(ABC):
         """
         pass
 
+    async def acquire_refresh_lock(
+        self,
+        category: str,
+        lock_ttl: int = 30,
+    ) -> bool:
+        """캐시 갱신 락 획득.
+
+        Cache Stampede 방지를 위한 분산 락.
+        동시에 여러 요청이 캐시를 갱신하는 것을 방지.
+
+        Args:
+            category: 카테고리
+            lock_ttl: 락 TTL (초), 기본 30초
+
+        Returns:
+            락 획득 성공 여부
+        """
+        return True  # 기본 구현은 항상 성공
+
+    async def release_refresh_lock(self, category: str) -> None:
+        """캐시 갱신 락 해제.
+
+        Args:
+            category: 카테고리
+        """
+        pass  # 기본 구현은 아무것도 안함
+
     async def close(self) -> None:
         """리소스 정리 (optional)."""
         pass

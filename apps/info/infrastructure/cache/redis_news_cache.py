@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Redis 키 프리픽스
 FEED_KEY_PREFIX = "news:feed:"
 ARTICLE_KEY_PREFIX = "news:article:"
+LOCK_KEY_PREFIX = "news:lock:"
 
 
 class RedisNewsCache(NewsCachePort):
@@ -47,6 +48,10 @@ class RedisNewsCache(NewsCachePort):
     def _article_key(self, article_id: str) -> str:
         """기사 키 생성."""
         return f"{ARTICLE_KEY_PREFIX}{article_id}"
+
+    def _lock_key(self, category: str) -> str:
+        """락 키 생성."""
+        return f"{LOCK_KEY_PREFIX}{category}"
 
     async def get_articles(
         self,
@@ -244,6 +249,50 @@ class RedisNewsCache(NewsCachePort):
         except (ValueError, KeyError) as e:
             logger.warning("Failed to deserialize article: %s", e)
             return None
+
+    async def acquire_refresh_lock(
+        self,
+        category: str,
+        lock_ttl: int = 30,
+    ) -> bool:
+        """캐시 갱신 락 획득 (SETNX).
+
+        Cache Stampede 방지를 위한 분산 락.
+        동시에 여러 요청이 캐시를 갱신하는 것을 방지.
+
+        Args:
+            category: 카테고리
+            lock_ttl: 락 TTL (초), 기본 30초
+
+        Returns:
+            락 획득 성공 여부
+        """
+        lock_key = self._lock_key(category)
+
+        # SETNX + EXPIRE를 원자적으로 수행
+        acquired = await self._redis.set(
+            lock_key,
+            "1",
+            nx=True,  # SET if Not eXists
+            ex=lock_ttl,  # Expire in seconds
+        )
+
+        if acquired:
+            logger.debug("Acquired refresh lock", extra={"category": category})
+        else:
+            logger.debug("Failed to acquire refresh lock", extra={"category": category})
+
+        return bool(acquired)
+
+    async def release_refresh_lock(self, category: str) -> None:
+        """캐시 갱신 락 해제.
+
+        Args:
+            category: 카테고리
+        """
+        lock_key = self._lock_key(category)
+        await self._redis.delete(lock_key)
+        logger.debug("Released refresh lock", extra={"category": category})
 
     async def close(self) -> None:
         """리소스 정리."""
