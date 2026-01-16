@@ -13,12 +13,17 @@ Circuit Breaker 상태 머신:
 Clean Architecture:
 - Port: application/ports/circuit_breaker.py (추상화)
 - Adapter: 이 파일 (구현체)
+
+Thread Safety:
+- CircuitBreaker: asyncio.Lock 사용 (async context)
+- CircuitBreakerRegistry: threading.Lock 사용 (sync get, async 호환)
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import time
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -204,6 +209,10 @@ class CircuitBreakerRegistry(CircuitBreakerRegistryPort):
 
     모든 노드의 Circuit Breaker를 중앙 관리.
 
+    Thread Safety:
+    - threading.Lock 사용으로 동시 접근 시 race condition 방지
+    - 싱글톤 생성과 get() 모두 lock으로 보호
+
     Example:
         >>> registry = CircuitBreakerRegistry()
         >>> cb = registry.get("waste_rag", threshold=5)
@@ -211,13 +220,17 @@ class CircuitBreakerRegistry(CircuitBreakerRegistryPort):
     """
 
     _instance: "CircuitBreakerRegistry | None" = None
-    _lock = asyncio.Lock()
+    _creation_lock = threading.Lock()
 
     def __new__(cls) -> "CircuitBreakerRegistry":
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._breakers = {}
-            cls._instance._registry_lock = asyncio.Lock()
+            with cls._creation_lock:
+                # Double-checked locking
+                if cls._instance is None:
+                    instance = super().__new__(cls)
+                    instance._breakers: dict[str, CircuitBreaker] = {}
+                    instance._registry_lock = threading.Lock()
+                    cls._instance = instance
         return cls._instance
 
     def get(
@@ -228,6 +241,8 @@ class CircuitBreakerRegistry(CircuitBreakerRegistryPort):
     ) -> CircuitBreaker:
         """Circuit Breaker 조회 또는 생성.
 
+        Thread-safe: _registry_lock으로 동시 접근 보호.
+
         Args:
             name: Circuit 이름
             threshold: 실패 임계값 (새로 생성 시만 적용)
@@ -236,13 +251,20 @@ class CircuitBreakerRegistry(CircuitBreakerRegistryPort):
         Returns:
             CircuitBreaker 인스턴스
         """
-        if name not in self._breakers:
-            self._breakers[name] = CircuitBreaker(
-                name=name,
-                threshold=threshold,
-                recovery_timeout=recovery_timeout,
-            )
-        return self._breakers[name]
+        # Fast path: 이미 존재하면 lock 없이 반환
+        if name in self._breakers:
+            return self._breakers[name]
+
+        # Slow path: 생성 시에만 lock
+        with self._registry_lock:
+            # Double-checked locking
+            if name not in self._breakers:
+                self._breakers[name] = CircuitBreaker(
+                    name=name,
+                    threshold=threshold,
+                    recovery_timeout=recovery_timeout,
+                )
+            return self._breakers[name]
 
     def get_from_policy(self, policy: "NodePolicy") -> CircuitBreaker:
         """NodePolicy로 Circuit Breaker 조회 또는 생성.
@@ -260,11 +282,22 @@ class CircuitBreakerRegistry(CircuitBreakerRegistryPort):
 
     def get_all_states(self) -> dict[str, CircuitState]:
         """모든 Circuit Breaker 상태 조회."""
-        return {name: cb.state for name, cb in self._breakers.items()}
+        with self._registry_lock:
+            return {name: cb.state for name, cb in self._breakers.items()}
 
     def reset_all(self) -> None:
         """모든 Circuit Breaker 리셋 (테스트용)."""
-        self._breakers.clear()
+        with self._registry_lock:
+            self._breakers.clear()
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """싱글톤 인스턴스 리셋 (테스트용).
+
+        Note: 테스트 간 격리를 위해 사용.
+        """
+        with cls._creation_lock:
+            cls._instance = None
 
 
 __all__ = [

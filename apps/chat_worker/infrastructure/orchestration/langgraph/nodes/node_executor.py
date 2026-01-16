@@ -141,7 +141,7 @@ class NodeExecutor:
                     "retry_after": cb.retry_after(),
                 },
             )
-            return self._handle_failure(
+            return await self._handle_failure(
                 state=state,
                 node_name=node_name,
                 policy=policy,
@@ -237,7 +237,7 @@ class NodeExecutor:
                 retry_count=retry_count,
             )
 
-        return self._handle_failure(
+        return await self._handle_failure(
             state=state,
             node_name=node_name,
             policy=policy,
@@ -245,7 +245,7 @@ class NodeExecutor:
             fallback_func=fallback_func,
         )
 
-    def _handle_failure(
+    async def _handle_failure(
         self,
         state: dict[str, Any],
         node_name: str,
@@ -286,14 +286,30 @@ class NodeExecutor:
                     "Executing fallback function (FAIL_FALLBACK)",
                     extra={"job_id": job_id, "node": node_name},
                 )
-                # fallback은 동기적으로 실행 (이미 실패했으므로 빠르게)
-                # Note: fallback_func는 실제로는 async이므로 await 필요
-                # 여기서는 상태만 반환하고, 실제 fallback은 호출자가 처리
-                result_state = {
-                    **state,
-                    f"{node_name}_fallback_triggered": True,
-                }
-                return self._append_node_result(result_state, result)
+                try:
+                    # fallback 함수 실제 실행
+                    fallback_state = await fallback_func(state)
+                    # fallback 성공 시 결과에 표시
+                    result_with_fallback = NodeResult(
+                        node_name=result.node_name,
+                        status="fallback_success",
+                        data=result.data,
+                        error_message=result.error_message,
+                        latency_ms=result.latency_ms,
+                        retry_count=result.retry_count,
+                    )
+                    return self._append_node_result(fallback_state, result_with_fallback)
+                except Exception as e:
+                    # fallback도 실패하면 FAIL_OPEN처럼 처리
+                    logger.warning(
+                        "Fallback function also failed",
+                        extra={
+                            "job_id": job_id,
+                            "node": node_name,
+                            "fallback_error": str(e),
+                        },
+                    )
+                    return self._append_node_result(state, result)
             else:
                 # fallback 없으면 FAIL_OPEN과 동일
                 logger.warning(
