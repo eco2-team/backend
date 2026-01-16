@@ -5,6 +5,10 @@
 taskiq>=0.11.0
 taskiq-aio-pika>=0.4.0
 
+# gRPC (Character, Location 서비스 연동)
+grpcio>=1.60.0
+grpcio-tools>=1.60.0
+
 # LLM Clients (chat 패키지 의존성)
 openai>=1.58.0
 anthropic>=0.40.0
