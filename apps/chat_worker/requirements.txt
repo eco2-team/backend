@@ -16,6 +16,7 @@ langgraph>=1.0.6
 langchain-core>=0.3.0
 langgraph-checkpoint-postgres>=2.0.0  # PostgreSQL 체크포인터
 langgraph-checkpoint-redis>=1.0.0  # Redis 체크포인터 (Fallback)
+langsmith[otel]>=0.3.0  # LangSmith + OpenTelemetry 통합 (Jaeger 연동)
 
 # Redis
 redis>=5.2.0

@@ -15,10 +15,16 @@ LangGraph 네이티브 Observability 플랫폼 통합.
    - LANGCHAIN_API_KEY=<your-api-key>
    - LANGCHAIN_PROJECT=eco2-chat-worker (선택)
 
-2. LangSmith 대시보드:
+2. OpenTelemetry 통합 (Jaeger로 내보내기):
+   - LANGSMITH_OTEL_ENABLED=true
+   - pip install "langsmith[otel]"
+   - LangGraph 트레이스가 OTEL 포맷으로 Jaeger에 전송됨
+   - End-to-End: FastAPI → RabbitMQ → LangGraph → LLM 전체 추적 가능
+
+3. LangSmith 대시보드:
    https://smith.langchain.com
 
-3. 피처별 필터링 (LangSmith UI):
+4. 피처별 필터링 (LangSmith UI):
    - Metadata: intent=waste, intent=character, ...
    - Tags: subagent:rag, subagent:character, ...
 
@@ -61,6 +67,11 @@ LANGSMITH_ENDPOINT: str = os.environ.get(
     "LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com"
 )
 
+# OpenTelemetry 통합 설정
+# LANGSMITH_OTEL_ENABLED=true 시 LangGraph 트레이스가 OTEL로 전송됨
+# Jaeger에서 전체 End-to-End 추적 가능 (FastAPI → MQ → LangGraph → LLM)
+LANGSMITH_OTEL_ENABLED: bool = os.environ.get("LANGSMITH_OTEL_ENABLED", "").lower() == "true"
+
 
 def is_langsmith_enabled() -> bool:
     """LangSmith 활성화 여부 확인.
@@ -77,6 +88,11 @@ def configure_langsmith() -> bool:
     환경변수 확인 후 설정 상태를 로깅합니다.
     LangSmith는 환경변수 기반으로 자동 활성화되므로
     별도의 초기화 코드는 필요 없습니다.
+
+    OTEL 통합 (LANGSMITH_OTEL_ENABLED=true):
+    - LangGraph 트레이스가 OpenTelemetry 포맷으로 전송됨
+    - Jaeger에서 전체 흐름 추적 가능
+    - 약간의 오버헤드 발생 (성능 중요 시 네이티브 모드 권장)
 
     Returns:
         True if LangSmith is enabled and configured
@@ -102,13 +118,24 @@ def configure_langsmith() -> bool:
         )
         return False
 
+    # OTEL 통합 설정 로깅
+    tracing_mode = "otel" if LANGSMITH_OTEL_ENABLED else "native"
+
     logger.info(
         "LangSmith tracing enabled",
         extra={
             "project": LANGSMITH_PROJECT,
             "endpoint": LANGSMITH_ENDPOINT,
+            "otel_enabled": LANGSMITH_OTEL_ENABLED,
+            "tracing_mode": tracing_mode,
         },
     )
+
+    if LANGSMITH_OTEL_ENABLED:
+        logger.info(
+            "LangSmith OTEL mode: LangGraph traces will be sent to Jaeger via OpenTelemetry"
+        )
+
     return True
 
 
@@ -358,6 +385,7 @@ def get_feature_info(intent: str) -> dict[str, Any]:
 
 __all__ = [
     "LANGSMITH_ENABLED",
+    "LANGSMITH_OTEL_ENABLED",
     "LANGSMITH_PROJECT",
     "configure_langsmith",
     "create_feature_metadata",
