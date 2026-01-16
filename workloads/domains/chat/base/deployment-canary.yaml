@@ -46,8 +46,10 @@ spec:
           value: b3,tracecontext,baggage
         - name: POSTGRES_HOST
           value: postgresql.postgres.svc.cluster.local
-        - name: REDIS_HOST
-          value: redis.redis.svc.cluster.local
+        - name: REDIS_STREAMS_HOST
+          value: rfr-streams-redis.redis.svc.cluster.local
+        - name: REDIS_PUBSUB_HOST
+          value: rfr-pubsub-redis.redis.svc.cluster.local
         - name: RELEASE_TYPE
           value: canary
         envFrom:
