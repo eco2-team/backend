@@ -27,6 +27,12 @@ Layer-first 구조:
 # Cache
 from chat_worker.application.ports.cache import CachePort
 
+# Circuit Breaker
+from chat_worker.application.ports.circuit_breaker import (
+    CircuitBreakerPort,
+    CircuitBreakerRegistryPort,
+)
+
 # Integrations - Bulk Waste
 from chat_worker.application.ports.bulk_waste_client import (
     BulkWasteClientPort,
@@ -123,6 +129,9 @@ __all__ = [
     "RetrieverPort",
     # Cache
     "CachePort",
+    # Circuit Breaker
+    "CircuitBreakerPort",
+    "CircuitBreakerRegistryPort",
     # Metrics
     "MetricsPort",
     # Web Search

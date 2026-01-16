@@ -8,6 +8,10 @@ Clean Architecture:
 - Command(UseCase): GetWeatherCommand - 정책/흐름
 - Service: WeatherService - 순수 비즈니스 로직
 
+Production Architecture:
+- NodeExecutor로 Policy 적용 (timeout, retry, circuit breaker)
+- weather 노드는 FAIL_OPEN (보조 정보, 없어도 답변 가능)
+
 사용 시나리오:
 1. 분리배출 답변에 날씨 기반 팁 추가
 2. 비/눈 예보 시 종이류 실내보관 권장
@@ -25,6 +29,9 @@ from typing import TYPE_CHECKING, Any
 from chat_worker.application.commands.get_weather_command import (
     GetWeatherCommand,
     GetWeatherInput,
+)
+from chat_worker.infrastructure.orchestration.langgraph.nodes.node_executor import (
+    NodeExecutor,
 )
 
 if TYPE_CHECKING:
@@ -56,8 +63,8 @@ def create_weather_node(
     # Command(UseCase) 인스턴스 생성 - Port 조립
     command = GetWeatherCommand(weather_client=weather_client)
 
-    async def weather_node(state: dict[str, Any]) -> dict[str, Any]:
-        """LangGraph 노드 (얇은 어댑터).
+    async def _weather_node_inner(state: dict[str, Any]) -> dict[str, Any]:
+        """실제 노드 로직 (NodeExecutor가 래핑).
 
         역할:
         1. state에서 값 추출 (LangGraph glue)
@@ -165,6 +172,24 @@ def create_weather_node(
             **state,
             "weather_context": output.weather_context,
         }
+
+    # NodeExecutor로 래핑 (Policy 적용: timeout, retry, circuit breaker)
+    executor = NodeExecutor.get_instance()
+
+    async def weather_node(state: dict[str, Any]) -> dict[str, Any]:
+        """LangGraph 노드 (Policy 적용됨).
+
+        NodeExecutor가 다음을 처리:
+        - Circuit Breaker 확인
+        - Timeout 적용 (5000ms)
+        - Retry (1회)
+        - FAIL_OPEN 처리 (실패해도 진행)
+        """
+        return await executor.execute(
+            node_name="weather",
+            node_func=_weather_node_inner,
+            state=state,
+        )
 
     return weather_node
 

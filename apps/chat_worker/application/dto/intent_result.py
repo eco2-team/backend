@@ -8,6 +8,10 @@ vs Domain VO (ChatIntent):
 
 실제로 ChatIntent를 그대로 반환해도 무방하나,
 명시적 분리를 위해 별도 클래스로 정의.
+
+확장 (Production Architecture):
+- rationale: 분류 판단 근거 (디버깅/면접용)
+- signals: 신뢰도 구성 신호 분해 (튜닝/투명성)
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from chat_worker.application.dto.intent_signals import IntentSignals
     from chat_worker.domain import ChatIntent, Intent, QueryComplexity
 
 
@@ -28,25 +33,43 @@ class IntentResult:
         complexity: 쿼리 복잡도 (Domain Enum)
         confidence: 분류 신뢰도 (0.0 ~ 1.0)
         raw_response: LLM 원본 응답 (디버깅용)
+        rationale: 분류 판단 근거 (예: "키워드 '버리다' + transition boost")
+        signals: 신뢰도 구성 신호 분해 (IntentSignals DTO)
     """
 
     intent: "Intent"
     complexity: "QueryComplexity"
     confidence: float
     raw_response: str | None = None
+    rationale: str | None = None
+    signals: "IntentSignals | None" = None
 
     @classmethod
     def from_chat_intent(
         cls,
         chat_intent: "ChatIntent",
         raw_response: str | None = None,
+        rationale: str | None = None,
+        signals: "IntentSignals | None" = None,
     ) -> "IntentResult":
-        """Domain VO에서 DTO 생성."""
+        """Domain VO에서 DTO 생성.
+
+        Args:
+            chat_intent: Domain Value Object
+            raw_response: LLM 원본 응답 (디버깅용)
+            rationale: 분류 판단 근거
+            signals: 신뢰도 구성 신호 분해
+
+        Returns:
+            IntentResult DTO
+        """
         return cls(
             intent=chat_intent.intent,
             complexity=chat_intent.complexity,
             confidence=chat_intent.confidence,
             raw_response=raw_response,
+            rationale=rationale,
+            signals=signals,
         )
 
     def is_waste_related(self) -> bool:
@@ -80,4 +103,6 @@ class IntentResult:
             "complexity": self.complexity.value,
             "confidence": self.confidence,
             "raw_response": self.raw_response,
+            "rationale": self.rationale,
+            "signals": self.signals.to_dict() if self.signals else None,
         }

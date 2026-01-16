@@ -40,6 +40,7 @@ class ClassifyIntentInput:
     job_id: str
     message: str
     conversation_history: list[dict[str, Any]] | None = None
+    previous_intents: list[str] | None = None  # Chain-of-Intent: 이전 intent 문자열 배열
 
 
 @dataclass
@@ -110,9 +111,10 @@ class ClassifyIntentCommand:
         """
         events: list[str] = []
         message = input_dto.message
+        # Chain-of-Intent: previous_intents는 intent 문자열 배열 (예: ["waste", "location"])
         context = (
-            {"previous_intents": input_dto.conversation_history}
-            if input_dto.conversation_history
+            {"previous_intents": input_dto.previous_intents}
+            if input_dto.previous_intents
             else None
         )
 

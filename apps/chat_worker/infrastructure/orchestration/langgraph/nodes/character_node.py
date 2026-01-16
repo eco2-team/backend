@@ -7,6 +7,10 @@ Clean Architecture:
 - Node(Adapter): 이 파일 - LangGraph glue code
 - Command(UseCase): GetCharacterCommand - 정책/흐름
 - Service: CategoryExtractorService, CharacterService - 순수 비즈니스 로직
+
+Production Architecture:
+- NodeExecutor로 Policy 적용 (timeout, retry, circuit breaker)
+- character 노드는 FAIL_OPEN (선택적 컨텍스트)
 """
 
 from __future__ import annotations
@@ -17,6 +21,9 @@ from typing import TYPE_CHECKING, Any
 from chat_worker.application.commands.get_character_command import (
     GetCharacterCommand,
     GetCharacterInput,
+)
+from chat_worker.infrastructure.orchestration.langgraph.nodes.node_executor import (
+    NodeExecutor,
 )
 
 if TYPE_CHECKING:
@@ -58,8 +65,8 @@ def create_character_subagent_node(
         prompt_loader=prompt_loader,
     )
 
-    async def character_subagent(state: dict[str, Any]) -> dict[str, Any]:
-        """LangGraph 노드 (얇은 어댑터).
+    async def _character_subagent_inner(state: dict[str, Any]) -> dict[str, Any]:
+        """실제 노드 로직 (NodeExecutor가 래핑).
 
         역할:
         1. state에서 값 추출 (LangGraph glue)
@@ -104,5 +111,23 @@ def create_character_subagent_node(
             **state,
             "character_context": output.character_context,
         }
+
+    # NodeExecutor로 래핑 (Policy 적용: timeout, retry, circuit breaker)
+    executor = NodeExecutor.get_instance()
+
+    async def character_subagent(state: dict[str, Any]) -> dict[str, Any]:
+        """LangGraph 노드 (Policy 적용됨).
+
+        NodeExecutor가 다음을 처리:
+        - Circuit Breaker 확인
+        - Timeout 적용 (3000ms)
+        - Retry (1회)
+        - FAIL_OPEN 처리 (실패해도 진행)
+        """
+        return await executor.execute(
+            node_name="character",
+            node_func=_character_subagent_inner,
+            state=state,
+        )
 
     return character_subagent

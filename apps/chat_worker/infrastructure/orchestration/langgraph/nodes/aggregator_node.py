@@ -1,4 +1,4 @@
-"""Aggregator Node - 병렬 실행 결과 수집.
+"""Aggregator Node - 병렬 실행 결과 수집 및 검증.
 
 Send API로 병렬 실행된 노드들의 결과를 수집하고
 answer_node로 전달할 최종 state를 준비합니다.
@@ -9,8 +9,13 @@ LangGraph의 Send API 특성:
 
 역할:
 1. 병렬 실행 결과 존재 여부 확인
-2. 누락된 컨텍스트 로깅 (디버깅용)
-3. answer_node를 위한 최종 state 정리
+2. 필수(Required) vs 선택(Optional) 컨텍스트 검증
+3. 필수 컨텍스트 누락 시 fallback 트리거
+4. answer_node를 위한 최종 state 정리
+
+Production Architecture:
+- NodePolicy에서 is_required 플래그로 필수/선택 결정
+- 필수 컨텍스트 실패 시 needs_fallback=True로 fallback 라우팅
 """
 
 from __future__ import annotations
@@ -22,6 +27,21 @@ if TYPE_CHECKING:
     from chat_worker.application.ports.events import ProgressNotifierPort
 
 logger = logging.getLogger(__name__)
+
+# Intent → 필수 컨텍스트 필드 매핑
+# 각 intent에서 활성화되는 노드 중 필수 노드만 포함
+INTENT_REQUIRED_CONTEXT_FIELDS: dict[str, frozenset[str]] = {
+    "waste": frozenset({"disposal_rules"}),  # waste_rag 필수
+    "bulk_waste": frozenset({"bulk_waste_context"}),  # bulk_waste 필수
+    "location": frozenset({"location_context"}),  # location 필수
+    "general": frozenset(),  # general은 LLM 직접 응답이라 별도 컨텍스트 불필요
+    # 선택 intent는 필수 컨텍스트 없음 (FAIL_OPEN)
+    "character": frozenset(),
+    "collection_point": frozenset(),
+    "web_search": frozenset(),
+    "image_generation": frozenset(),
+    "recyclable_price": frozenset(),
+}
 
 
 def create_aggregator_node(
@@ -37,20 +57,22 @@ def create_aggregator_node(
     """
 
     async def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
-        """병렬 실행 결과 수집 및 정리.
+        """병렬 실행 결과 수집, 검증 및 정리.
 
         LangGraph Send API가 병렬 실행 후 자동 병합한 state를 받아서:
         1. 어떤 컨텍스트가 수집되었는지 로깅
-        2. 누락된 필드 기본값 설정
-        3. answer_node를 위한 최종 state 반환
+        2. 필수 컨텍스트 누락 검증
+        3. 필수 누락 시 needs_fallback=True 설정
+        4. answer_node를 위한 최종 state 반환
 
         Args:
             state: 병렬 실행 후 병합된 상태
 
         Returns:
-            정리된 상태
+            정리된 상태 (+ needs_fallback, missing_required_contexts)
         """
         job_id = state.get("job_id", "")
+        intent = state.get("intent", "general")
 
         # Progress: 집계 시작
         await event_publisher.notify_stage(
@@ -75,8 +97,9 @@ def create_aggregator_node(
         }
 
         # 수집된 컨텍스트 확인
-        collected = []
-        missing = []
+        collected: list[str] = []
+        failed: list[str] = []
+        collected_fields: set[str] = set()
 
         for field, description in context_fields.items():
             value = state.get(field)
@@ -85,29 +108,48 @@ def create_aggregator_node(
                 if isinstance(value, dict):
                     if value.get("success", True):  # success 없으면 True로 간주
                         collected.append(description)
+                        collected_fields.add(field)
                     else:
-                        missing.append(f"{description} (실패)")
+                        failed.append(f"{description} (실패)")
                 else:
                     collected.append(description)
-            else:
-                # None인 것은 해당 노드가 실행되지 않았거나 결과 없음
-                pass  # 의도적으로 실행 안 된 것은 로깅 안 함
+                    collected_fields.add(field)
+            # None인 것은 해당 노드가 실행되지 않았거나 결과 없음
+
+        # 필수 컨텍스트 검증 (intent별)
+        required_fields = INTENT_REQUIRED_CONTEXT_FIELDS.get(intent, frozenset())
+        missing_required = required_fields - collected_fields
+        needs_fallback = len(missing_required) > 0
 
         logger.info(
             "Aggregator: contexts collected",
             extra={
                 "job_id": job_id,
+                "intent": intent,
                 "collected_count": len(collected),
                 "collected": collected,
+                "required_fields": list(required_fields),
+                "missing_required": list(missing_required),
+                "needs_fallback": needs_fallback,
             },
         )
 
-        if missing:
+        if failed:
             logger.warning(
                 "Aggregator: some contexts failed",
                 extra={
                     "job_id": job_id,
-                    "failed": missing,
+                    "failed": failed,
+                },
+            )
+
+        if needs_fallback:
+            logger.warning(
+                "Aggregator: required context missing, triggering fallback",
+                extra={
+                    "job_id": job_id,
+                    "intent": intent,
+                    "missing_required": list(missing_required),
                 },
             )
 
@@ -117,11 +159,18 @@ def create_aggregator_node(
             stage="aggregate",
             status="completed",
             progress=65,
-            result={"collected": collected},
+            result={
+                "collected": collected,
+                "needs_fallback": needs_fallback,
+            },
         )
 
-        # state 그대로 반환 (병합은 이미 LangGraph가 처리)
-        return state
+        # state 반환 (검증 결과 포함)
+        return {
+            **state,
+            "needs_fallback": needs_fallback,
+            "missing_required_contexts": list(missing_required),
+        }
 
     return aggregator_node
 

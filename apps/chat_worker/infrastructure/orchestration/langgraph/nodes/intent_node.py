@@ -87,10 +87,14 @@ def create_intent_node(
         )
 
         # 1. state → input DTO 변환
+        # Chain-of-Intent: 이전 intent 히스토리 추출 (예: ["waste", "location"])
+        intent_history: list[str] = state.get("intent_history", [])
+
         input_dto = ClassifyIntentInput(
             job_id=job_id,
             message=state["message"],
             conversation_history=state.get("conversation_history"),
+            previous_intents=intent_history if intent_history else None,
         )
 
         # 2. Command 실행 (정책/흐름은 Command에서)
@@ -124,6 +128,9 @@ def create_intent_node(
         # 3. output → state 변환
         decomposed_queries = output.decomposed_queries or [state["message"]]
 
+        # Chain-of-Intent: intent_history 누적 (이번 intent 추가)
+        updated_intent_history = intent_history + [output.intent]
+
         return {
             **state,
             "intent": output.intent,
@@ -133,6 +140,7 @@ def create_intent_node(
             "additional_intents": output.additional_intents,
             "decomposed_queries": decomposed_queries,
             "current_query": decomposed_queries[0] if decomposed_queries else state["message"],
+            "intent_history": updated_intent_history,  # Chain-of-Intent 히스토리
         }
 
     return intent_node

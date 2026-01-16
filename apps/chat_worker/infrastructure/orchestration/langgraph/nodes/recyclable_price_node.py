@@ -26,6 +26,9 @@ from chat_worker.application.commands.search_recyclable_price_command import (
     SearchRecyclablePriceCommand,
     SearchRecyclablePriceInput,
 )
+from chat_worker.infrastructure.orchestration.langgraph.nodes.node_executor import (
+    NodeExecutor,
+)
 
 if TYPE_CHECKING:
     from chat_worker.application.ports.events import ProgressNotifierPort
@@ -58,8 +61,8 @@ def create_recyclable_price_node(
     # Command(UseCase) 인스턴스 생성 - Port 조립
     command = SearchRecyclablePriceCommand(price_client=price_client)
 
-    async def recyclable_price_node(state: dict[str, Any]) -> dict[str, Any]:
-        """LangGraph 노드 (얇은 어댑터).
+    async def _recyclable_price_node_inner(state: dict[str, Any]) -> dict[str, Any]:
+        """실제 노드 로직 (NodeExecutor가 래핑).
 
         역할:
         1. state에서 값 추출 (LangGraph glue)
@@ -141,6 +144,24 @@ def create_recyclable_price_node(
             **state,
             "recyclable_price_context": output.price_context,
         }
+
+    # NodeExecutor로 래핑 (Policy 적용: timeout, retry, circuit breaker)
+    executor = NodeExecutor.get_instance()
+
+    async def recyclable_price_node(state: dict[str, Any]) -> dict[str, Any]:
+        """LangGraph 노드 (Policy 적용됨).
+
+        NodeExecutor가 다음을 처리:
+        - Circuit Breaker 확인
+        - Timeout 적용 (10000ms)
+        - Retry (2회)
+        - FAIL_FALLBACK 처리 (실패 시 대체 안내)
+        """
+        return await executor.execute(
+            node_name="recyclable_price",
+            node_func=_recyclable_price_node_inner,
+            state=state,
+        )
 
     return recyclable_price_node
 

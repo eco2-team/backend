@@ -23,6 +23,9 @@ from chat_worker.application.commands.generate_image_command import (
     GenerateImageCommand,
     GenerateImageInput,
 )
+from chat_worker.infrastructure.orchestration.langgraph.nodes.node_executor import (
+    NodeExecutor,
+)
 
 if TYPE_CHECKING:
     from chat_worker.application.ports.events import ProgressNotifierPort
@@ -57,8 +60,8 @@ def create_image_generation_node(
     # Command(UseCase) 인스턴스 생성 - Port 조립
     command = GenerateImageCommand(image_generator=image_generator)
 
-    async def image_generation_node(state: dict[str, Any]) -> dict[str, Any]:
-        """LangGraph 노드 (얇은 어댑터).
+    async def _image_generation_node_inner(state: dict[str, Any]) -> dict[str, Any]:
+        """실제 노드 로직 (NodeExecutor가 래핑).
 
         역할:
         1. state에서 값 추출 (LangGraph glue)
@@ -138,5 +141,23 @@ def create_image_generation_node(
                 "revised_prompt": output.revised_prompt,
             },
         }
+
+    # NodeExecutor로 래핑 (Policy 적용: timeout, retry, circuit breaker)
+    executor = NodeExecutor.get_instance()
+
+    async def image_generation_node(state: dict[str, Any]) -> dict[str, Any]:
+        """LangGraph 노드 (Policy 적용됨).
+
+        NodeExecutor가 다음을 처리:
+        - Circuit Breaker 확인
+        - Timeout 적용 (30000ms)
+        - Retry (1회)
+        - FAIL_OPEN 처리 (실패해도 진행)
+        """
+        return await executor.execute(
+            node_name="image_generation",
+            node_func=_image_generation_node_inner,
+            state=state,
+        )
 
     return image_generation_node

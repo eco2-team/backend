@@ -26,6 +26,9 @@ from chat_worker.application.commands.search_collection_point_command import (
     SearchCollectionPointCommand,
     SearchCollectionPointInput,
 )
+from chat_worker.infrastructure.orchestration.langgraph.nodes.node_executor import (
+    NodeExecutor,
+)
 
 if TYPE_CHECKING:
     from chat_worker.application.ports.collection_point_client import (
@@ -60,8 +63,8 @@ def create_collection_point_node(
         collection_point_client=collection_point_client
     )
 
-    async def collection_point_node(state: dict[str, Any]) -> dict[str, Any]:
-        """LangGraph 노드 (얇은 어댑터).
+    async def _collection_point_node_inner(state: dict[str, Any]) -> dict[str, Any]:
+        """실제 노드 로직 (NodeExecutor가 래핑).
 
         역할:
         1. state에서 값 추출 (LangGraph glue)
@@ -164,6 +167,24 @@ def create_collection_point_node(
             **state,
             "collection_point_context": output.collection_point_context,
         }
+
+    # NodeExecutor로 래핑 (Policy 적용: timeout, retry, circuit breaker)
+    executor = NodeExecutor.get_instance()
+
+    async def collection_point_node(state: dict[str, Any]) -> dict[str, Any]:
+        """LangGraph 노드 (Policy 적용됨).
+
+        NodeExecutor가 다음을 처리:
+        - Circuit Breaker 확인
+        - Timeout 적용 (10000ms)
+        - Retry (2회)
+        - FAIL_FALLBACK 처리 (실패 시 대체 안내)
+        """
+        return await executor.execute(
+            node_name="collection_point",
+            node_func=_collection_point_node_inner,
+            state=state,
+        )
 
     return collection_point_node
 

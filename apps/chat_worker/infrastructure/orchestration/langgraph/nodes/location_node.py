@@ -7,6 +7,10 @@ Clean Architecture:
 - Node(Adapter): 이 파일 - LangGraph glue code
 - Command(UseCase): GetLocationCommand - 정책/흐름
 - Service: LocationService - 순수 비즈니스 로직
+
+Production Architecture:
+- NodeExecutor로 Policy 적용 (timeout, retry, circuit breaker)
+- location 노드는 FAIL_FALLBACK (필수 컨텍스트, 실패 시 대체 안내)
 """
 
 from __future__ import annotations
@@ -17,6 +21,9 @@ from typing import TYPE_CHECKING, Any
 from chat_worker.application.commands.get_location_command import (
     GetLocationCommand,
     GetLocationInput,
+)
+from chat_worker.infrastructure.orchestration.langgraph.nodes.node_executor import (
+    NodeExecutor,
 )
 
 if TYPE_CHECKING:
@@ -48,8 +55,8 @@ def create_location_subagent_node(
     # Command(UseCase) 인스턴스 생성 - Port 조립
     command = GetLocationCommand(location_client=location_client)
 
-    async def location_subagent(state: dict[str, Any]) -> dict[str, Any]:
-        """LangGraph 노드 (얇은 어댑터).
+    async def _location_subagent_inner(state: dict[str, Any]) -> dict[str, Any]:
+        """실제 노드 로직 (NodeExecutor가 래핑).
 
         역할:
         1. state에서 값 추출 (LangGraph glue)
@@ -127,5 +134,23 @@ def create_location_subagent_node(
             **state,
             "location_context": output.location_context,
         }
+
+    # NodeExecutor로 래핑 (Policy 적용: timeout, retry, circuit breaker)
+    executor = NodeExecutor.get_instance()
+
+    async def location_subagent(state: dict[str, Any]) -> dict[str, Any]:
+        """LangGraph 노드 (Policy 적용됨).
+
+        NodeExecutor가 다음을 처리:
+        - Circuit Breaker 확인
+        - Timeout 적용 (3000ms)
+        - Retry (2회)
+        - FAIL_FALLBACK 처리 (실패 시 대체 안내)
+        """
+        return await executor.execute(
+            node_name="location",
+            node_func=_location_subagent_inner,
+            state=state,
+        )
 
     return location_subagent

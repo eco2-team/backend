@@ -26,6 +26,9 @@ from chat_worker.application.commands.search_bulk_waste_command import (
     SearchBulkWasteCommand,
     SearchBulkWasteInput,
 )
+from chat_worker.infrastructure.orchestration.langgraph.nodes.node_executor import (
+    NodeExecutor,
+)
 
 if TYPE_CHECKING:
     from chat_worker.application.ports.bulk_waste_client import BulkWasteClientPort
@@ -56,8 +59,8 @@ def create_bulk_waste_node(
     # Command(UseCase) 인스턴스 생성 - Port 조립
     command = SearchBulkWasteCommand(bulk_waste_client=bulk_waste_client)
 
-    async def bulk_waste_node(state: dict[str, Any]) -> dict[str, Any]:
-        """LangGraph 노드 (얇은 어댑터).
+    async def _bulk_waste_node_inner(state: dict[str, Any]) -> dict[str, Any]:
+        """실제 노드 로직 (NodeExecutor가 래핑).
 
         역할:
         1. state에서 값 추출 (LangGraph glue)
@@ -167,6 +170,24 @@ def create_bulk_waste_node(
             **state,
             "bulk_waste_context": output.bulk_waste_context,
         }
+
+    # NodeExecutor로 래핑 (Policy 적용: timeout, retry, circuit breaker)
+    executor = NodeExecutor.get_instance()
+
+    async def bulk_waste_node(state: dict[str, Any]) -> dict[str, Any]:
+        """LangGraph 노드 (Policy 적용됨).
+
+        NodeExecutor가 다음을 처리:
+        - Circuit Breaker 확인
+        - Timeout 적용 (10000ms)
+        - Retry (2회)
+        - FAIL_FALLBACK 처리 (실패 시 대체 안내)
+        """
+        return await executor.execute(
+            node_name="bulk_waste",
+            node_func=_bulk_waste_node_inner,
+            state=state,
+        )
 
     return bulk_waste_node
 
