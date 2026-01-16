@@ -100,11 +100,7 @@ class ChatRepositorySQLA(ChatRepositoryPort):
 
     async def delete_chat(self, chat_id: UUID) -> bool:
         """채팅 삭제 (soft delete)."""
-        stmt = (
-            update(Chat)
-            .where(conversations_table.c.id == chat_id)
-            .values(is_deleted=True)
-        )
+        stmt = update(Chat).where(conversations_table.c.id == chat_id).values(is_deleted=True)
         result = await self._session.execute(stmt)
         await self._session.flush()
         return result.rowcount > 0
@@ -192,8 +188,8 @@ class ChatRepositorySQLA(ChatRepositoryPort):
         ]
 
         # Bulk INSERT with ON CONFLICT DO NOTHING (idempotent)
-        stmt = pg_insert(messages_table).values(values).on_conflict_do_nothing(
-            index_elements=["id"]
+        stmt = (
+            pg_insert(messages_table).values(values).on_conflict_do_nothing(index_elements=["id"])
         )
 
         result = await self._session.execute(stmt)

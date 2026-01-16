@@ -57,9 +57,7 @@ class SaveMessagesCommand:
         """
         self._repository = repository
 
-    async def execute(
-        self, events: list[MessageSaveInput]
-    ) -> SaveMessagesResult:
+    async def execute(self, events: list[MessageSaveInput]) -> SaveMessagesResult:
         """메시지 배치 저장 실행.
 
         Args:

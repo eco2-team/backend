@@ -438,11 +438,13 @@ async def submit_user_input(
     """
     channel = f"chat:input:{job_id}"
 
-    message = json.dumps({
-        "type": payload.type,
-        "data": payload.data,
-        "timestamp": datetime.utcnow().isoformat(),
-    })
+    message = json.dumps(
+        {
+            "type": payload.type,
+            "data": payload.data,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    )
 
     await redis.publish(channel, message)
 

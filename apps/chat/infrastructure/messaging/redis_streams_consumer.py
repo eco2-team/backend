@@ -7,7 +7,6 @@ Consumer Group "chat-persistence"로 Event Router와 독립적으로 동작.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -142,9 +141,7 @@ class ChatPersistenceConsumer:
                         # done 이벤트만 처리 (persistence 데이터 포함)
                         if event.get("stage") != "done":
                             # done이 아닌 이벤트는 바로 ACK
-                            await self._redis.xack(
-                                stream_name, self.CONSUMER_GROUP, msg_id
-                            )
+                            await self._redis.xack(stream_name, self.CONSUMER_GROUP, msg_id)
                             continue
 
                         # persistence 데이터 확인
@@ -158,18 +155,14 @@ class ChatPersistenceConsumer:
                         persistence = result.get("persistence")
                         if not persistence:
                             # persistence 데이터 없으면 스킵
-                            await self._redis.xack(
-                                stream_name, self.CONSUMER_GROUP, msg_id
-                            )
+                            await self._redis.xack(stream_name, self.CONSUMER_GROUP, msg_id)
                             continue
 
                         # 콜백 실행
                         try:
                             success = await callback(persistence)
                             if success:
-                                await self._redis.xack(
-                                    stream_name, self.CONSUMER_GROUP, msg_id
-                                )
+                                await self._redis.xack(stream_name, self.CONSUMER_GROUP, msg_id)
                                 logger.debug(
                                     "Event processed and ACKed",
                                     extra={

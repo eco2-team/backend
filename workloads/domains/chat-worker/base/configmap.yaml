@@ -9,11 +9,13 @@ data:
   CHAT_WORKER_SERVICE_NAME: chat-worker
   CHAT_WORKER_ENVIRONMENT: base
   CHAT_WORKER_LOG_LEVEL: INFO
-  # RabbitMQ (Taskiq)
-  CHAT_WORKER_RABBITMQ_URL: amqp://guest:guest@rabbitmq.rabbitmq.svc.cluster.local:5672/
+  # RabbitMQ (Taskiq) - credentials overridden by secret
+  CHAT_WORKER_RABBITMQ_URL: amqp://guest:guest@eco2-rabbitmq.rabbitmq.svc.cluster.local:5672/eco2
   CHAT_WORKER_RABBITMQ_QUEUE: chat.process
-  # Redis (이벤트 스트림, 단기 캐시)
-  CHAT_WORKER_REDIS_URL: redis://redis-master.redis.svc.cluster.local:6379/0
+  # Redis (Streams - 이벤트 발행, event-router가 소비)
+  CHAT_WORKER_REDIS_STREAMS_URL: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
+  # Redis (Pub/Sub - SSE Gateway 브로드캐스트)
+  CHAT_WORKER_REDIS_PUBSUB_URL: redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0
   # PostgreSQL (체크포인팅, 멀티턴 대화 히스토리)
   CHAT_WORKER_POSTGRES_URL: postgresql+asyncpg://postgres:postgres@postgresql.postgres.svc.cluster.local:5432/eco2
   # LLM Provider
