@@ -78,7 +78,50 @@ LangSmith는 LangChain/LangGraph의 **네이티브 Observability 플랫폼**입�
 | **Error Tracking** | 노드별 에러율, 스택 트레이스 |
 | **Feedback Loop** | RAG 품질 평가, Fallback 체인 추적 |
 
-### 2.2 LangSmith 설정 모듈
+### 2.2 LangSmith OpenTelemetry 통합 (Jaeger 연동)
+
+> **참조**: [End-to-End OpenTelemetry with LangSmith](https://blog.langchain.com/end-to-end-opentelemetry-langsmith/)
+
+LangSmith는 OTEL 프로토콜을 지원하여 LangGraph 트레이스를 Jaeger로 전송할 수 있습니다.
+
+```bash
+# OTEL 모드 활성화
+export LANGCHAIN_TRACING_V2=true
+export LANGCHAIN_API_KEY=<your-api-key>
+export LANGSMITH_OTEL_ENABLED=true  # Jaeger로 전송
+
+# 패키지 필요
+pip install "langsmith[otel]"
+```
+
+**End-to-End Trace 구조** (Jaeger에서 확인):
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                           Jaeger Trace View                          │
+├─────────────────────────────────────────────────────────────────────┤
+│ chat-api (FastAPI)                                                   │
+│ └── POST /api/v1/chat                                                │
+│     └── chat-worker (aio-pika)                                       │
+│         └── process_chat                                             │
+│             └── LangGraph Pipeline (LangSmith OTEL)                  │
+│                 ├── intent_node                                      │
+│                 ├── waste_rag_node                                   │
+│                 │   └── OpenAI Embeddings                            │
+│                 ├── character_node (gRPC)                            │
+│                 └── answer_node                                      │
+│                     └── OpenAI Chat Completion (streaming)           │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**트레이싱 모드 비교**:
+
+| 모드 | 설정 | 장점 | 단점 |
+|------|------|------|------|
+| **Native** | `LANGSMITH_OTEL_ENABLED=false` | 낮은 오버헤드, LangSmith 최적화 | Jaeger 연동 불가 |
+| **OTEL** | `LANGSMITH_OTEL_ENABLED=true` | End-to-End 추적, Jaeger 통합 | 약간의 오버헤드 |
+
+### 2.3 LangSmith 설정 모듈
 
 ```python
 # infrastructure/telemetry/langsmith.py
