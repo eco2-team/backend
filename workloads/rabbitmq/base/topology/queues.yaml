@@ -411,3 +411,42 @@ spec:
   rabbitmqClusterReference:
     name: eco2-rabbitmq
     namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Info Worker Queue (뉴스 수집 - Celery Beat)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Queue
+metadata:
+  name: info-collect-news-queue
+  namespace: rabbitmq
+spec:
+  name: info.collect_news
+  type: classic
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  arguments:
+    x-dead-letter-exchange: dlx
+    x-dead-letter-routing-key: dlq.info.collect_news
+    x-message-ttl: 600000  # 10분 (Beat 주기 5분 고려)
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Queue
+metadata:
+  name: dlq-info-collect-news
+  namespace: rabbitmq
+spec:
+  name: dlq.info.collect_news
+  type: classic
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  arguments:
+    x-message-ttl: 604800000  # 7일 보관
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
