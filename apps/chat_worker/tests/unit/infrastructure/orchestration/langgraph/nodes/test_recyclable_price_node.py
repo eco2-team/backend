@@ -16,9 +16,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from chat_worker.application.commands.search_recyclable_price_command import (
-    SearchRecyclablePriceOutput,
-)
 from chat_worker.application.ports.recyclable_price_client import (
     RecyclableCategory,
     RecyclablePriceDTO,

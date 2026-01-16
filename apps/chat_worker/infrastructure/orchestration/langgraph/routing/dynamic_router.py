@@ -25,7 +25,7 @@ LangGraph의 Send API를 활용하여 런타임에 동적으로
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from langgraph.types import Send

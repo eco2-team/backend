@@ -26,7 +26,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from chat_worker.application.ports.image_generator import (
         ImageGeneratorPort,
-        ReferenceImage,
     )
 
 logger = logging.getLogger(__name__)

@@ -150,7 +150,7 @@ class KakaoLocalHttpClient(KakaoLocalClientPort):
                 },
             )
             raise
-        except httpx.TimeoutException as e:
+        except httpx.TimeoutException:
             logger.error(
                 "Kakao API timeout",
                 extra={"query": query, "timeout": self._timeout},
@@ -230,7 +230,7 @@ class KakaoLocalHttpClient(KakaoLocalClientPort):
                 },
             )
             raise
-        except httpx.TimeoutException as e:
+        except httpx.TimeoutException:
             logger.error(
                 "Kakao API timeout",
                 extra={"category": category_group_code, "timeout": self._timeout},

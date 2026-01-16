@@ -17,7 +17,7 @@ from chat_worker.application.commands.evaluate_feedback_command import (
 )
 from chat_worker.application.dto.feedback_result import FeedbackResult
 from chat_worker.application.dto.fallback_result import FallbackResult
-from chat_worker.domain.enums import FeedbackQuality, FallbackReason
+from chat_worker.domain.enums import FallbackReason
 
 
 @pytest.fixture

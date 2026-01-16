@@ -52,7 +52,7 @@ class AnswerContext:
                 role_label = "User" if role == "user" else "Assistant"
                 history_lines.append(f"- {role_label}: {content}")
             if history_lines:
-                parts.append(f"## Recent Conversation\n" + "\n".join(history_lines))
+                parts.append("## Recent Conversation\n" + "\n".join(history_lines))
 
         if self.classification:
             parts.append(

@@ -6,7 +6,6 @@ from chat_worker.domain.models.provider import (
     DEFAULT_IMAGE_MODELS,
     MODEL_REGISTRY,
     ModelCapabilities,
-    ModelConfig,
     Provider,
     get_image_capable_models,
     get_image_model,
