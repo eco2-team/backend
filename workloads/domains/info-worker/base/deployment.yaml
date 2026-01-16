@@ -49,21 +49,24 @@ spec:
             -c 100 \
             --prefetch-multiplier=1
         env:
-        # Celery Broker (RabbitMQ)
+        # Celery Broker (RabbitMQ) - INFO_WORKER_ prefix for Settings
         - name: CELERY_BROKER_URL
           valueFrom:
             secretKeyRef:
               name: info-worker-secret
-              key: CELERY_BROKER_URL
+              key: INFO_WORKER_CELERY_BROKER_URL
         # PostgreSQL (Source of Truth)
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
               name: info-worker-secret
-              key: DATABASE_URL
-        # Redis Cache
+              key: INFO_WORKER_DATABASE_URL
+        # Redis Cache (from Secret)
         - name: REDIS_URL
-          value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
+          valueFrom:
+            secretKeyRef:
+              name: info-worker-secret
+              key: INFO_WORKER_REDIS_URL
         # News Cache TTL (1시간)
         - name: NEWS_CACHE_TTL
           value: '3600'
