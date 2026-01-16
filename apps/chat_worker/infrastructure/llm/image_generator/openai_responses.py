@@ -161,6 +161,8 @@ class OpenAIResponsesImageGenerator(ImageGeneratorPort):
                 image_url=image_url,
                 description=description,
                 revised_prompt=revised_prompt,
+                provider="openai",
+                model=self._model,
             )
 
         except ImageGenerationError:
