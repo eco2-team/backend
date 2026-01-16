@@ -1,0 +1,25 @@
+# Info Worker Dependencies
+# apps/info_worker/requirements.txt
+
+# Celery + gevent
+celery>=5.3.0
+gevent>=23.9.0
+greenlet>=3.0.0
+
+# Pydantic
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# PostgreSQL
+asyncpg>=0.29.0
+
+# Redis
+redis>=5.0.0
+
+# HTTP Client (for news API calls)
+httpx>=0.26.0
+
+# OpenTelemetry (optional)
+opentelemetry-distro>=0.50b0
+opentelemetry-exporter-otlp>=1.29.0
+opentelemetry-instrumentation-celery>=0.50b0

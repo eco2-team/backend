@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: info-config
+data:
+  ENVIRONMENT: prod
+  INFO_DEBUG: 'false'
+  INFO_REDIS_URL: redis://prod-redis.redis.svc.cluster.local:6379/1
+  INFO_NEWS_CACHE_TTL: '3600'
+  INFO_NEWS_DEFAULT_LIMIT: '10'
+  INFO_NEWS_MAX_LIMIT: '50'
+  INFO_LOG_LEVEL: WARNING
+  INFO_ALLOWED_ORIGINS: '["https://growbin.app","https://www.growbin.app"]'

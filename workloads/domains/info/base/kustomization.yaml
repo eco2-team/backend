@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: info
+resources:
+- deployment.yaml
+- deployment-canary.yaml
+- service.yaml
+- configmap.yaml
+- destination-rule.yaml
+- hpa.yaml
+labels:
+- includeSelectors: true
+  pairs:
+    app.kubernetes.io/part-of: ecoeco-backend
+    domain: info
+    tier: business-logic

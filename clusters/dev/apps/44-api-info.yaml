@@ -1,0 +1,45 @@
+# ============================================================================
+# Info API Service (News Aggregation)
+# ============================================================================
+# Phase 3 API - Perplexity-style news feed service
+# Separate repo: backend-info (not part of main backend ApplicationSet)
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-api-info
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '44'
+    # ArgoCD Image Updater
+    argocd-image-updater.argoproj.io/image-list: stable=docker.io/mng990/eco2:info-api-dev-latest,canary=docker.io/mng990/eco2:info-api-dev-canary
+    argocd-image-updater.argoproj.io/stable.update-strategy: digest
+    argocd-image-updater.argoproj.io/canary.update-strategy: digest
+    argocd-image-updater.argoproj.io/write-back-method: argocd
+  labels:
+    tier: business-logic
+    domain: info
+    phase: '3'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dev
+  source:
+    repoURL: https://github.com/eco2-team/backend-info.git
+    targetRevision: develop
+    path: workloads/domains/info/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: info
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+  # KEDA/HPA가 관리하는 replicas 필드 무시
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas

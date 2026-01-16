@@ -1,0 +1,39 @@
+# ============================================================================
+# Info API Service (News Aggregation) - Production
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-api-info
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '44'
+    argocd-image-updater.argoproj.io/image-list: stable=docker.io/mng990/eco2:info-api-prod-latest
+    argocd-image-updater.argoproj.io/stable.update-strategy: digest
+    argocd-image-updater.argoproj.io/write-back-method: argocd
+  labels:
+    tier: business-logic
+    domain: info
+    phase: '3'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: prod
+  source:
+    repoURL: https://github.com/eco2-team/backend-info.git
+    targetRevision: main
+    path: workloads/domains/info/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: info
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas

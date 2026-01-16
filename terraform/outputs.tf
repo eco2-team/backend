@@ -153,6 +153,22 @@ output "api_chat_private_ip" {
   value       = module.api_chat.private_ip
 }
 
+# API-8: Info (News Aggregation)
+output "api_info_instance_id" {
+  description = "Info API Instance ID"
+  value       = module.api_info.instance_id
+}
+
+output "api_info_public_ip" {
+  description = "Info API Public IP"
+  value       = module.api_info.public_ip
+}
+
+output "api_info_private_ip" {
+  description = "Info API Private IP"
+  value       = module.api_info.private_ip
+}
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Worker Nodes Outputs (Phase 4: 2025-11-08 활성화)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -398,7 +414,7 @@ output "redis_pubsub_private_ip" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "ansible_inventory" {
-  description = "Ansible Inventory 내용 (20-Node Architecture)"
+  description = "Ansible Inventory 내용 (21-Node Architecture)"
   value = templatefile("${path.module}/templates/hosts.tpl", {
     master_public_ip            = aws_eip.master.public_ip
     master_private_ip           = module.master.private_ip
@@ -416,6 +432,8 @@ output "ansible_inventory" {
     api_image_private_ip        = module.api_image.private_ip
     api_chat_public_ip          = module.api_chat.public_ip
     api_chat_private_ip         = module.api_chat.private_ip
+    api_info_public_ip          = module.api_info.public_ip
+    api_info_private_ip         = module.api_info.private_ip
     worker_storage_public_ip    = module.worker_storage.public_ip
     worker_storage_private_ip   = module.worker_storage.private_ip
     worker_ai_public_ip         = module.worker_ai.public_ip
@@ -454,7 +472,7 @@ output "ansible_inventory" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "ssh_commands" {
-  description = "SSH 접속 명령어 (20-Node Architecture)"
+  description = "SSH 접속 명령어 (21-Node Architecture)"
   value = {
     master           = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${aws_eip.master.public_ip}"
     api_auth         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_auth.public_ip}"
@@ -464,6 +482,7 @@ output "ssh_commands" {
     api_location     = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_location.public_ip}"
     api_image        = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_image.public_ip}"
     api_chat         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_chat.public_ip}"
+    api_info         = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.api_info.public_ip}"
     worker_storage   = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_storage.public_ip}"
     worker_storage_2 = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_storage_2.public_ip}"
     worker_ai        = "ssh -i ~/.ssh/sesacthon.pem ubuntu@${module.worker_ai.public_ip}"
@@ -486,11 +505,11 @@ output "ssh_commands" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "cluster_info" {
-  description = "클러스터 정보 요약 (20-Node Architecture)"
+  description = "클러스터 정보 요약 (21-Node Architecture)"
   value = {
     vpc_id    = module.vpc.vpc_id
     master_ip = aws_eip.master.public_ip
-    phase     = "Phase 1-6 Complete - 20-Node HA Architecture"
+    phase     = "Phase 1-6 Complete - 21-Node HA Architecture"
     api_ips = [
       module.api_auth.public_ip,
       module.api_my.public_ip,
@@ -498,7 +517,8 @@ output "cluster_info" {
       module.api_character.public_ip,
       module.api_location.public_ip,
       module.api_image.public_ip,
-      module.api_chat.public_ip
+      module.api_chat.public_ip,
+      module.api_info.public_ip
     ]
     worker_ips = [
       module.worker_storage.public_ip,
@@ -521,11 +541,11 @@ output "cluster_info" {
       module.sse_gateway.public_ip,
       module.event_router.public_ip
     ]
-    # 20-Node Architecture (Phase 6: HA Event)
-    total_nodes        = 20  # Master + 7 APIs + 2 Workers + 8 Infra + 3 Gateway
-    total_vcpu         = 44  # +4 (event-router t3.small + redis-pubsub t3.small)
-    total_memory_gb    = 60  # +4 (2GB + 2GB)
-    estimated_cost_usd = 380 # +30 (t3.small × 2)
+    # 21-Node Architecture (Phase 6: HA Event + Info)
+    total_nodes        = 21  # Master + 8 APIs + 2 Workers + 8 Infra + 3 Gateway
+    total_vcpu         = 46  # +2 (api-info t3.small)
+    total_memory_gb    = 62  # +2 (2GB)
+    estimated_cost_usd = 395 # +15 (t3.small × 1)
   }
 }
 
@@ -534,7 +554,7 @@ output "cluster_info" {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 output "node_roles" {
-  description = "노드별 역할 (20-Node Architecture)"
+  description = "노드별 역할 (21-Node Architecture)"
   value = {
     master           = "Control Plane (t3.xlarge, 16GB) - Phase 0"
     api_auth         = "Authentication API (t3.small, 2GB) - Phase 1"
@@ -544,6 +564,7 @@ output "node_roles" {
     api_location     = "Location & Map API (t3.small, 2GB) - Phase 2"
     api_image        = "Image Delivery API (t3.small, 2GB) - Phase 3"
     api_chat         = "Chat LLM API (t3.medium, 4GB) - Phase 3"
+    api_info         = "News Aggregation API (t3.small, 2GB) - Phase 3"
     worker_storage   = "Storage Worker - I/O Bound (t3.medium, 4GB) - Phase 4"
     worker_storage_2 = "Storage Worker 2 - I/O Bound (t3.medium, 4GB) - Phase 4"
     worker_ai        = "AI Worker - Network Bound (t3.medium, 4GB) - Phase 4"

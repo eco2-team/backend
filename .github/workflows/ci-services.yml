@@ -13,6 +13,7 @@ on:
       - "apps/location/**"
       - "apps/scan/**"
       - "apps/images/**"
+      - "apps/info/**"
       # 레거시 서비스 (아직 마이그레이션 안 됨)
       - "domains/chat/**"
       - "domains/_shared/**"
@@ -24,6 +25,7 @@ on:
       - "workloads/domains/scan/**"
       - "workloads/domains/chat/**"
       - "workloads/domains/images/**"
+      - "workloads/domains/info/**"
       # Worker는 별도 파이프라인 → ci-workers.yml
       # ext-authz는 Go → ci-ext-authz.yml
       # sse-gateway, event-router는 → ci-sse-components.yml
@@ -39,6 +41,7 @@ on:
       - "apps/location/**"
       - "apps/scan/**"
       - "apps/images/**"
+      - "apps/info/**"
       # 레거시 서비스 (아직 마이그레이션 안 됨)
       - "domains/chat/**"
       - "domains/_shared/**"
@@ -50,6 +53,7 @@ on:
       - "workloads/domains/scan/**"
       - "workloads/domains/chat/**"
       - "workloads/domains/images/**"
+      - "workloads/domains/info/**"
       # Worker는 별도 파이프라인 → ci-workers.yml
       # ext-authz는 Go → ci-ext-authz.yml
       # sse-gateway, event-router는 → ci-sse-components.yml
@@ -195,6 +199,7 @@ jobs:
             apps/location/**
             apps/scan/**
             apps/images/**
+            apps/info/**
             domains/chat/**
             workloads/domains/auth/**
             workloads/domains/users/**
@@ -203,6 +208,7 @@ jobs:
             workloads/domains/scan/**
             workloads/domains/chat/**
             workloads/domains/images/**
+            workloads/domains/info/**
 
       - name: Prepare service matrix
         id: prepare
@@ -230,11 +236,11 @@ jobs:
               "location",  # apps/location
               "scan",      # apps/scan
               "images",    # apps/images (구 domains/image)
+              "info",      # apps/info (뉴스 정보 서비스)
               "chat",      # domains/chat (레거시)
           ]
-          
+
           alias_map = {
-              "info": "images",
               "image": "images",  # 레거시 alias
           }
 

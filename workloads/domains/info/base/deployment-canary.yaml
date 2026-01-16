@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: info-api-canary
+  namespace: info
+  labels:
+    app: info-api
+    version: canary
+    tier: business-logic
+    domain: info
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: info-api
+      version: canary
+  template:
+    metadata:
+      labels:
+        app: info-api
+        version: canary
+        tier: business-logic
+        domain: info
+    spec:
+      containers:
+      - name: info-api
+        image: docker.io/mng990/eco2:info-api-dev-canary
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: OTEL_SERVICE_NAME
+          value: info-api-canary
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
+        envFrom:
+        - configMapRef:
+            name: info-config
+        - secretRef:
+            name: info-secret
+        livenessProbe:
+          httpGet:
+            path: /api/v1/info/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/v1/info/health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: info
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: info
+        effect: NoSchedule

@@ -13,25 +13,28 @@ ansible_python_interpreter=/usr/bin/python3
 k8s-master ansible_host=13.209.44.249 private_ip=10.0.1.21 instance_type=t3.large
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# API Nodes (Phase 1&2: 5 nodes)
+# API Nodes (Phase 1&2: 7 nodes)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [api_nodes]
-k8s-api-auth ansible_host=43.201.247.7 private_ip=10.0.1.202 domain=auth instance_type=t3.micro phase=1
-k8s-api-my ansible_host=15.164.203.50 private_ip=10.0.2.167 domain=my instance_type=t3.micro phase=1
+k8s-api-auth ansible_host=13.125.233.135 private_ip=10.0.1.53 domain=auth instance_type=t3.micro phase=1
+k8s-api-my ansible_host=3.35.224.117 private_ip=10.0.2.56 domain=my instance_type=t3.micro phase=1
 k8s-api-scan ansible_host=3.34.46.199 private_ip=10.0.3.219 domain=scan instance_type=t3.small phase=2
-k8s-api-character ansible_host=3.38.100.28 private_ip=10.0.1.45 domain=character instance_type=t3.micro phase=2
-k8s-api-location ansible_host=43.203.191.192 private_ip=10.0.2.228 domain=location instance_type=t3.micro phase=2
-k8s-api-image ansible_host=3.34.3.181 private_ip=10.0.3.48 domain=image instance_type=t3.micro phase=3
-k8s-api-chat ansible_host=13.124.72.224 private_ip=10.0.1.11 domain=chat instance_type=t3.small phase=3
+k8s-api-character ansible_host=3.38.183.239 private_ip=10.0.1.244 domain=character instance_type=t3.micro phase=2
+k8s-api-location ansible_host=3.36.11.125 private_ip=10.0.2.236 domain=location instance_type=t3.micro phase=2
+k8s-api-image ansible_host=13.125.216.168 private_ip=10.0.3.183 domain=image instance_type=t3.micro phase=3
+k8s-api-chat ansible_host=15.165.17.5 private_ip=10.0.1.49 domain=chat instance_type=t3.small phase=3
+k8s-api-info ansible_host=54.116.52.84 private_ip=10.0.2.216 domain=info instance_type=t3.small phase=3
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Worker Nodes (Phase 4: 2025-11-08 활성화)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [workers]
-k8s-worker-storage ansible_host=54.180.96.86 private_ip=10.0.3.246 workload=worker-storage worker_type=io-bound domain=scan instance_type=t3.small phase=4
-k8s-worker-ai ansible_host=3.34.252.67 private_ip=10.0.1.106 workload=worker-ai worker_type=network-bound domain=scan,chat instance_type=t3.small phase=4
+k8s-worker-storage ansible_host=54.180.96.86 private_ip=10.0.3.246 workload=worker-storage worker_type=io-bound domain=scan instance_type=t3.medium phase=4
+k8s-worker-storage-2 ansible_host=15.164.238.99 private_ip=10.0.2.206 workload=worker-storage worker_type=io-bound domain=scan instance_type=t3.medium phase=4
+k8s-worker-ai ansible_host=43.202.44.131 private_ip=10.0.1.127 workload=worker-ai worker_type=network-bound domain=scan,chat instance_type=t3.medium phase=4
+k8s-worker-ai-2 ansible_host=3.38.177.31 private_ip=10.0.2.196 workload=worker-ai worker_type=network-bound domain=scan,chat instance_type=t3.medium phase=4
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Infrastructure Nodes
@@ -41,21 +44,39 @@ k8s-worker-ai ansible_host=3.34.252.67 private_ip=10.0.1.106 workload=worker-ai 
 [postgresql]
 k8s-postgresql ansible_host=43.203.170.2 private_ip=10.0.1.211 workload=database instance_type=t3.medium phase=1
 
-# Redis (Phase 1)
+# Redis (Phase 1) - 3-Node Cluster
 [redis]
-k8s-redis ansible_host=16.184.30.58 private_ip=10.0.2.235 workload=cache instance_type=t3.small phase=1
+k8s-redis-auth ansible_host=3.34.128.200 private_ip=10.0.2.43 workload=cache redis_cluster=auth instance_type=t3.medium phase=1
+k8s-redis-streams ansible_host=3.38.200.174 private_ip=10.0.2.215 workload=cache redis_cluster=streams instance_type=t3.small phase=1
+k8s-redis-cache ansible_host=15.165.200.60 private_ip=10.0.2.202 workload=cache redis_cluster=cache instance_type=t3.small phase=1
 
 # RabbitMQ (Phase 4: 2025-11-08 활성화)
 [rabbitmq]
-k8s-rabbitmq ansible_host=54.116.33.106 private_ip=10.0.2.220 workload=message-queue instance_type=t3.small phase=4
+k8s-rabbitmq ansible_host=16.184.47.28 private_ip=10.0.2.148 workload=message-queue instance_type=t3.small phase=4
 
 # Monitoring (Phase 4: 2025-11-08 활성화)
 [monitoring]
-k8s-monitoring ansible_host=15.164.238.60 private_ip=10.0.2.243 workload=monitoring instance_type=t3.medium phase=4
+k8s-monitoring ansible_host=16.184.16.167 private_ip=10.0.2.84 workload=monitoring instance_type=t3.large phase=4
+
+# Logging (Phase 4: 2025-12 ELK Stack)
+[logging]
+k8s-logging ansible_host=15.164.48.162 private_ip=10.0.3.59 workload=logging instance_type=t3.large phase=4
 
 # Ingress Gateway (Phase 5: Istio)
 [ingress_gateway]
-k8s-ingress-gateway ansible_host=FILL_ME private_ip=FILL_ME workload=gateway instance_type=t3.medium phase=5
+k8s-ingress-gateway ansible_host=43.202.59.72 private_ip=10.0.1.150 workload=gateway instance_type=t3.medium phase=5
+
+# SSE Gateway (Phase 5: Pub/Sub Subscriber + Client Fan-out)
+[sse_gateway]
+k8s-sse-gateway ansible_host=16.184.41.91 private_ip=10.0.2.195 workload=sse instance_type=t3.small phase=5
+
+# Event Router (Phase 6: Streams→Pub/Sub Bridge)
+[event_router]
+k8s-event-router ansible_host=3.39.195.102 private_ip=10.0.3.14 workload=event-router instance_type=t3.small phase=6
+
+# Redis Pub/Sub (Phase 6: Realtime Broadcast)
+[redis_pubsub]
+k8s-redis-pubsub ansible_host=43.201.54.31 private_ip=10.0.1.248 workload=cache redis_cluster=pubsub instance_type=t3.small phase=6
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Group Definitions
@@ -67,6 +88,10 @@ api_nodes
 workers
 postgresql
 redis
+redis_pubsub
 rabbitmq
 monitoring
+logging
 ingress_gateway
+sse_gateway
+event_router
