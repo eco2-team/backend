@@ -1,0 +1,32 @@
+# ============================================================================
+# Info API Routing (VirtualService + DestinationRule)
+# ============================================================================
+# Separate repo: backend-info
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-route-info
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '51'
+  labels:
+    tier: network
+    domain: info
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dev
+  source:
+    repoURL: https://github.com/eco2-team/backend-info.git
+    targetRevision: develop
+    path: workloads/routing/info/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: info
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
