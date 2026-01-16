@@ -35,7 +35,7 @@ class TestStreamEndpoint:
         from sse_gateway.core.broadcast_manager import SSEBroadcastManager
 
         # SSEBroadcastManager를 mock
-        async def mock_subscribe(job_id):
+        async def mock_subscribe(job_id, domain="scan", **kwargs):
             yield {"stage": "done", "status": "success"}
 
         mock_manager = AsyncMock()
@@ -62,7 +62,7 @@ class TestEventGenerator:
         from sse_gateway.api.v1.stream import event_generator
         from sse_gateway.core.broadcast_manager import SSEBroadcastManager
 
-        async def mock_subscribe(job_id):
+        async def mock_subscribe(job_id, domain="scan", **kwargs):
             yield {"type": "keepalive", "timestamp": "2025-01-01T00:00:00"}
             return
 
@@ -95,7 +95,7 @@ class TestEventGenerator:
         from sse_gateway.api.v1.stream import event_generator
         from sse_gateway.core.broadcast_manager import SSEBroadcastManager
 
-        async def mock_subscribe(job_id):
+        async def mock_subscribe(job_id, domain="scan", **kwargs):
             yield {"stage": "vision", "status": "success", "progress": 25}
             return
 
@@ -128,7 +128,7 @@ class TestEventGenerator:
         from sse_gateway.api.v1.stream import event_generator
         from sse_gateway.core.broadcast_manager import SSEBroadcastManager
 
-        async def mock_subscribe(job_id):
+        async def mock_subscribe(job_id, domain="scan", **kwargs):
             yield {"type": "error", "error": "timeout", "message": "Maximum wait time exceeded"}
             return
 
@@ -160,7 +160,7 @@ class TestEventGenerator:
         from sse_gateway.api.v1.stream import event_generator
         from sse_gateway.core.broadcast_manager import SSEBroadcastManager
 
-        async def mock_subscribe(job_id):
+        async def mock_subscribe(job_id, domain="scan", **kwargs):
             yield {"stage": "vision", "status": "failed", "error": "API error"}
             return
 
@@ -189,7 +189,7 @@ class TestEventGenerator:
         from sse_gateway.api.v1.stream import event_generator
         from sse_gateway.core.broadcast_manager import SSEBroadcastManager
 
-        async def mock_subscribe(job_id):
+        async def mock_subscribe(job_id, domain="scan", **kwargs):
             yield {"stage": "vision", "status": "success"}
             yield {"stage": "rule", "status": "success"}
             yield {"stage": "answer", "status": "success"}
