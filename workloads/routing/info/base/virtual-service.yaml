@@ -1,0 +1,34 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: info-vs
+  namespace: info
+spec:
+  hosts:
+  - api.growbin.app
+  gateways:
+  - istio-system/eco2-gateway
+  http:
+  # Canary routing (X-Canary: true header)
+  - match:
+    - headers:
+        x-canary:
+          exact: 'true'
+      uri:
+        prefix: /api/v1/info
+    route:
+    - destination:
+        host: info-api.info.svc.cluster.local
+        port:
+          number: 8000
+        subset: canary
+  # Default traffic → Stable
+  - match:
+    - uri:
+        prefix: /api/v1/info
+    route:
+    - destination:
+        host: info-api.info.svc.cluster.local
+        port:
+          number: 8000
+        subset: stable

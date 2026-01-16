@@ -22,6 +22,7 @@ on:
       - "workloads/domains/scan/**"
       - "workloads/domains/chat/**"
       - "workloads/domains/images/**"
+      - "workloads/domains/info/**"
       # Worker는 별도 파이프라인 → ci-workers.yml
       # ext-authz는 Go → ci-ext-authz.yml
       # sse-gateway, event-router는 → ci-sse-components.yml
@@ -46,6 +47,7 @@ on:
       - "workloads/domains/scan/**"
       - "workloads/domains/chat/**"
       - "workloads/domains/images/**"
+      - "workloads/domains/info/**"
       # Worker는 별도 파이프라인 → ci-workers.yml
       # ext-authz는 Go → ci-ext-authz.yml
       # sse-gateway, event-router는 → ci-sse-components.yml
@@ -199,6 +201,7 @@ jobs:
             workloads/domains/scan/**
             workloads/domains/chat/**
             workloads/domains/images/**
+            workloads/domains/info/**
 
       - name: Prepare service matrix
         id: prepare
@@ -226,9 +229,8 @@ jobs:
               "images",    # apps/images
               "chat",      # apps/chat
           ]
-          
+
           alias_map = {
-              "info": "images",
               "image": "images",  # 레거시 alias
           }
 

@@ -76,6 +76,7 @@ locals {
     "k8s-api-location"     = "--node-labels=role=api,domain=location,service=location,workload=api,tier=business-logic,phase=2 --register-with-taints=domain=location:NoSchedule"
     "k8s-api-image"        = "--node-labels=role=api,domain=image,service=image,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=image:NoSchedule"
     "k8s-api-chat"         = "--node-labels=role=api,domain=chat,service=chat,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=chat:NoSchedule"
+    "k8s-api-info"         = "--node-labels=role=api,domain=info,service=info,workload=api,tier=business-logic,phase=3 --register-with-taints=domain=info:NoSchedule"
     "k8s-worker-storage"   = "--node-labels=role=worker,domain=worker-storage,worker-type=storage,workload=worker-storage,tier=worker,phase=4 --register-with-taints=domain=worker-storage:NoSchedule"
     "k8s-worker-storage-2" = "--node-labels=role=worker,domain=worker-storage,worker-type=storage,workload=worker-storage,tier=worker,phase=4 --register-with-taints=domain=worker-storage:NoSchedule"
     "k8s-worker-ai"        = "--node-labels=role=worker,domain=worker-ai,worker-type=ai,workload=worker-ai,tier=worker,phase=4 --register-with-taints=domain=worker-ai:NoSchedule"
@@ -380,6 +381,34 @@ module "api_chat" {
     Role     = "worker"
     Workload = "api-chat"
     Domain   = "chat"
+    Phase    = "3"
+  }
+}
+
+# API-8: Info (News Aggregation Service)
+module "api_info" {
+  source = "./modules/ec2"
+
+  instance_name        = "k8s-api-info"
+  instance_type        = "t3.small" # 2GB (News API + Redis Cache)
+  ami_id               = data.aws_ami.ubuntu.id
+  subnet_id            = module.vpc.public_subnet_ids[1]
+  security_group_ids   = [module.security_groups.cluster_sg_id]
+  key_name             = aws_key_pair.k8s.key_name
+  iam_instance_profile = aws_iam_instance_profile.k8s.name
+
+  root_volume_size = 20
+  root_volume_type = "gp3"
+
+  user_data = templatefile("${path.module}/user-data/common.sh", {
+    hostname           = "k8s-api-info"
+    kubelet_extra_args = local.kubelet_profiles["k8s-api-info"]
+  })
+
+  tags = {
+    Role     = "worker"
+    Workload = "api-info"
+    Domain   = "info"
     Phase    = "3"
   }
 }

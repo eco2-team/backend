@@ -101,6 +101,17 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
+  name: info
+  labels:
+    istio-injection: enabled
+    app.kubernetes.io/part-of: ecoeco-backend
+    tier: business-logic
+    role: api
+    domain: info
+---
+apiVersion: v1
+kind: Namespace
+metadata:
   name: postgres
   labels:
     istio-injection: enabled
