@@ -204,7 +204,7 @@ class SSEBroadcastManager:
         """Redis 클라이언트 초기화 (역할별 분리)."""
         import redis.asyncio as aioredis
 
-        from config import get_settings
+        from sse_gateway.config import get_settings
 
         settings = get_settings()
         self._state_timeout_seconds = settings.state_timeout_seconds
