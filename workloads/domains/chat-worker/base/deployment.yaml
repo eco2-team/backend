@@ -69,3 +69,11 @@ spec:
           timeoutSeconds: 5
       imagePullSecrets:
       - name: dockerhub-secret
+      # worker-ai 노드에 배치 (AI/LLM 워크로드)
+      nodeSelector:
+        domain: worker-ai
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-ai
+        effect: NoSchedule

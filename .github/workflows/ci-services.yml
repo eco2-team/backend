@@ -13,9 +13,7 @@ on:
       - "apps/location/**"
       - "apps/scan/**"
       - "apps/images/**"
-      # 레거시 서비스 (아직 마이그레이션 안 됨)
-      - "domains/chat/**"
-      - "domains/_shared/**"
+      - "apps/chat/**"
       # Kubernetes manifests
       - "workloads/domains/auth/**"
       - "workloads/domains/users/**"
@@ -39,9 +37,7 @@ on:
       - "apps/location/**"
       - "apps/scan/**"
       - "apps/images/**"
-      # 레거시 서비스 (아직 마이그레이션 안 됨)
-      - "domains/chat/**"
-      - "domains/_shared/**"
+      - "apps/chat/**"
       # Kubernetes manifests
       - "workloads/domains/auth/**"
       - "workloads/domains/users/**"
@@ -195,7 +191,7 @@ jobs:
             apps/location/**
             apps/scan/**
             apps/images/**
-            domains/chat/**
+            apps/chat/**
             workloads/domains/auth/**
             workloads/domains/users/**
             workloads/domains/character/**
@@ -218,19 +214,17 @@ jobs:
           event_name = os.environ.get("EVENT_NAME", "")
           force_all = os.environ.get("FORCE_ALL", "false").lower() == "true"
           
-          # FastAPI API 서비스 목록
-          # - apps/: Clean Architecture (마이그레이션 완료)
-          # - domains/chat: 레거시 (마이그레이션 예정)
+          # FastAPI API 서비스 목록 (apps/ Clean Architecture)
           # ext-authz는 Go → ci-ext-authz.yml
           # sse-gateway, event-router → ci-sse-components.yml
           SERVICES = [
               "auth",      # apps/auth
-              "users",     # apps/users (구 domains/my)
+              "users",     # apps/users
               "character", # apps/character
               "location",  # apps/location
               "scan",      # apps/scan
-              "images",    # apps/images (구 domains/image)
-              "chat",      # domains/chat (레거시)
+              "images",    # apps/images
+              "chat",      # apps/chat
           ]
           
           alias_map = {
@@ -266,11 +260,6 @@ jobs:
                   parts = path.split("/")
                   # apps/<service>/ 경로 감지 (Clean Architecture)
                   if len(parts) >= 2 and parts[0] == "apps":
-                      svc = normalize(parts[1])
-                      if svc and svc in all_services and svc not in services:
-                          services.append(svc)
-                  # domains/<service>/ 경로 감지 (레거시: chat, image)
-                  elif len(parts) >= 2 and parts[0] == "domains":
                       svc = normalize(parts[1])
                       if svc and svc in all_services and svc not in services:
                           services.append(svc)
