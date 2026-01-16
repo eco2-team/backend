@@ -78,8 +78,7 @@ async def startup() -> None:
 
     # 멀티 도메인 스트림 설정: [(prefix, shard_count), ...]
     stream_configs = [
-        (prefix, settings.get_shard_count(prefix))
-        for prefix in settings.stream_prefixes
+        (prefix, settings.get_shard_count(prefix)) for prefix in settings.stream_prefixes
     ]
 
     logger.info(

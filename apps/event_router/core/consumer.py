@@ -175,9 +175,7 @@ class StreamConsumer:
 
                         # 이벤트 처리 (stream_name 전달하여 도메인별 state prefix 결정)
                         try:
-                            await self._processor.process_event(
-                                event, stream_name=stream_name
-                            )
+                            await self._processor.process_event(event, stream_name=stream_name)
                         except Exception as e:
                             logger.error(
                                 "process_event_error",

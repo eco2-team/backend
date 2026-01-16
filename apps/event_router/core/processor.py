@@ -240,9 +240,7 @@ class EventProcessor:
             span = span_context_manager.__enter__()
 
         try:
-            return await self._process_event_inner(
-                event, job_id, seq, stage, stream_name, span
-            )
+            return await self._process_event_inner(event, job_id, seq, stage, stream_name, span)
         finally:
             # span context 종료
             if span_context_manager:
