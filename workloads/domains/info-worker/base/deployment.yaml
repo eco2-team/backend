@@ -34,7 +34,8 @@ spec:
         securityContext:
           runAsUser: 0
       containers:
-      - name: info-worker
+      # Worker 컨테이너 (gevent pool)
+      - name: worker
         image: docker.io/mng990/eco2:info-worker-dev-latest
         imagePullPolicy: Always
         command: [/bin/sh, -c]
@@ -44,42 +45,34 @@ spec:
           exec celery -A info_worker.setup.celery:celery_app worker \
             --loglevel=info \
             -E \
-            -B \
             -P gevent \
             -Q info.collect_news \
             -c 100 \
             --prefetch-multiplier=1
         env:
-        # Celery Broker (RabbitMQ) - INFO_WORKER_ prefix for Settings
         - name: CELERY_BROKER_URL
           valueFrom:
             secretKeyRef:
               name: info-worker-secret
               key: INFO_WORKER_CELERY_BROKER_URL
-        # PostgreSQL (Source of Truth)
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
               name: info-worker-secret
               key: INFO_WORKER_DATABASE_URL
-        # Redis Cache (from Secret)
         - name: REDIS_URL
           valueFrom:
             secretKeyRef:
               name: info-worker-secret
               key: INFO_WORKER_REDIS_URL
-        # News Cache TTL (1시간)
         - name: NEWS_CACHE_TTL
           value: '3600'
-        # Cache Warm Limit (최근 200개 기사)
         - name: CACHE_WARM_LIMIT
           value: '200'
-        # Gevent Pool 설정
         - name: CELERY_WORKER_POOL
           value: gevent
         - name: CELERY_WORKER_PREFETCH_MULTIPLIER
           value: '1'
-        # OpenTelemetry
         - name: OTEL_SERVICE_NAME
           value: info-worker
         - name: OTEL_TRACES_EXPORTER
@@ -92,7 +85,6 @@ spec:
           value: none
         - name: OTEL_PROPAGATORS
           value: b3,tracecontext,baggage
-        # API Keys (from Secret)
         envFrom:
         - secretRef:
             name: info-worker-secret
@@ -145,9 +137,43 @@ spec:
           periodSeconds: 20
           timeoutSeconds: 20
           failureThreshold: 3
+      # Beat 스케줄러 사이드카 (standalone)
+      - name: beat
+        image: docker.io/mng990/eco2:info-worker-dev-latest
+        imagePullPolicy: Always
+        command:
+        - celery
+        - -A
+        - info_worker.setup.celery:celery_app
+        - beat
+        - --loglevel=info
+        env:
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              name: info-worker-secret
+              key: INFO_WORKER_CELERY_BROKER_URL
+        envFrom:
+        - secretRef:
+            name: info-worker-secret
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          exec:
+            command:
+            - pgrep
+            - -f
+            - celery.*beat
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          failureThreshold: 3
       imagePullSecrets:
       - name: dockerhub-secret
-      # info 노드에 배치
       nodeSelector:
         domain: info
       tolerations:
