@@ -76,6 +76,7 @@ SUBAGENT_NODES: frozenset[str] = frozenset(
         "waste_rag",
         "character",
         "location",
+        "kakao_place",
         "bulk_waste",
         "weather",
         "web_search",
@@ -143,6 +144,14 @@ NODE_MESSAGES: dict[str, dict[str, str]] = {
         "started": "이미지를 생성하고 있습니다...",
         "completed": "이미지 생성 완료",
     },
+    "general": {
+        "started": "응답을 생성하고 있습니다...",
+        "completed": "응답 생성 완료",
+    },
+    "kakao_place": {
+        "started": "주변 장소를 검색하고 있습니다...",
+        "completed": "주변 장소 검색 완료",
+    },
     "aggregator": {
         "started": "정보를 종합하고 있습니다...",
         "completed": "정보 종합 완료",
@@ -170,6 +179,20 @@ def get_node_message(node: str, status: str) -> str:
     """
     node_messages = NODE_MESSAGES.get(node, {})
     return node_messages.get(status, f"{node} {status}")
+
+
+def get_stage_for_node(node: str) -> str:
+    """노드명에서 Stage명 반환 (이벤트 발행용).
+
+    노드명 = Stage명 (1:1 매핑).
+
+    Args:
+        node: LangGraph 노드명
+
+    Returns:
+        이벤트 stage명 (노드명과 동일)
+    """
+    return node
 
 
 @dataclass
@@ -334,4 +357,5 @@ __all__ = [
     "NODE_TO_PHASE",
     "NODE_MESSAGES",
     "get_node_message",
+    "get_stage_for_node",
 ]

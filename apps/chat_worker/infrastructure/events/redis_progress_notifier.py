@@ -102,18 +102,18 @@ PUBLISHED_TTL = 7200  # 2시간
 # Token은 별도 namespace (1000+)로 분리하여 충돌 방지
 #
 # Pipeline Flow:
-# queued → intent → [vision?] → [subagents...] → aggregate → [feedback?] → answer → done
+# queued → intent → [vision?] → [subagents...] → aggregator → [feedback?] → answer → done
 #
 # Subagents (intent에 따라 선택적/병렬 실행):
-# - rag, character, location, kakao_place, bulk_waste, weather,
-#   recyclable_price, collection_point, web_search, image_generation
+# - waste_rag, character, location, kakao_place, bulk_waste, weather,
+#   recyclable_price, collection_point, web_search, image_generation, general
 STAGE_ORDER = {
     # Core Pipeline
     "queued": 0,
     "intent": 1,
     "vision": 2,  # 이미지 첨부 시
     # Subagents (intent에 따라 선택적/병렬 실행)
-    "rag": 3,  # waste intent
+    "waste_rag": 3,  # waste intent
     "character": 4,  # greeting 등
     "location": 5,  # location intent (gRPC)
     "kakao_place": 6,  # place_search intent
@@ -123,12 +123,13 @@ STAGE_ORDER = {
     "collection_point": 10,  # collection_point intent
     "web_search": 11,  # web_search intent
     "image_generation": 12,  # image intent
+    "general": 13,  # general intent (fallback)
     # Aggregation & Answer
-    "aggregate": 13,  # 서브에이전트 결과 병합
-    "feedback": 14,  # 품질 평가
-    "answer": 15,  # 최종 답변 생성
-    "done": 16,  # 완료
-    "needs_input": 17,  # Human-in-the-Loop
+    "aggregator": 14,  # 서브에이전트 결과 병합
+    "feedback": 15,  # 품질 평가
+    "answer": 16,  # 최종 답변 생성
+    "done": 17,  # 완료
+    "needs_input": 18,  # Human-in-the-Loop
 }
 
 # Token seq 시작값 (Stage seq와 충돌 방지)

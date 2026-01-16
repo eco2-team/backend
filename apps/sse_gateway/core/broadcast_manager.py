@@ -29,9 +29,6 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, AsyncGenerator, ClassVar
 
-# OpenTelemetry 활성화 여부
-OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
-
 from sse_gateway.metrics import (
     SSE_ACTIVE_JOBS,
     SSE_CONNECTIONS_ACTIVE,
@@ -51,6 +48,9 @@ from sse_gateway.metrics import (
 
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
+
+# OpenTelemetry 활성화 여부
+OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +204,7 @@ class SSEBroadcastManager:
         """Redis 클라이언트 초기화 (역할별 분리)."""
         import redis.asyncio as aioredis
 
-        from config import get_settings
+        from sse_gateway.config import get_settings
 
         settings = get_settings()
         self._state_timeout_seconds = settings.state_timeout_seconds
@@ -676,9 +676,7 @@ class SSEBroadcastManager:
             if span_context_manager:
                 span_context_manager.__exit__(None, None, None)
 
-    async def _get_state_snapshot(
-        self, job_id: str, domain: str = "scan"
-    ) -> dict[str, Any] | None:
+    async def _get_state_snapshot(self, job_id: str, domain: str = "scan") -> dict[str, Any] | None:
         """State KV에서 현재 상태 스냅샷 조회 (Streams Redis).
 
         재접속/늦은 연결 시 마지막 상태를 즉시 반환.
@@ -779,10 +777,7 @@ class SSEBroadcastManager:
         import hashlib
 
         shard_count = self._shard_counts.get(domain, 4)
-        shard = (
-            int.from_bytes(hashlib.md5(job_id.encode()).digest()[:8], "big")
-            % shard_count
-        )
+        shard = int.from_bytes(hashlib.md5(job_id.encode()).digest()[:8], "big") % shard_count
         stream_key = f"{domain}:events:{shard}"
 
         try:

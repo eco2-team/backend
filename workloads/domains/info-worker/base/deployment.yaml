@@ -44,6 +44,7 @@ spec:
           exec celery -A info_worker.setup.celery:celery_app worker \
             --loglevel=info \
             -E \
+            -B \
             -P gevent \
             -Q info.collect_news \
             -c 100 \
