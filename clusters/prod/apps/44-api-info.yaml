@@ -20,7 +20,7 @@ metadata:
 spec:
   project: prod
   source:
-    repoURL: https://github.com/eco2-team/backend-info.git
+    repoURL: https://github.com/eco2-team/backend.git
     targetRevision: main
     path: workloads/domains/info/prod
   destination:

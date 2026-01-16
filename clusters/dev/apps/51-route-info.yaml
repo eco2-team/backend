@@ -1,8 +1,6 @@
 # ============================================================================
 # Info API Routing (VirtualService + DestinationRule)
 # ============================================================================
-# Separate repo: backend-info
-# ============================================================================
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -18,7 +16,7 @@ metadata:
 spec:
   project: dev
   source:
-    repoURL: https://github.com/eco2-team/backend-info.git
+    repoURL: https://github.com/eco2-team/backend.git
     targetRevision: develop
     path: workloads/routing/info/dev
   destination:
