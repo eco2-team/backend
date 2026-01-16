@@ -38,6 +38,10 @@ spec:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: users
+        # info-worker (뉴스 수집)
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: info
         # KEDA (queue length monitoring for autoscaling)
     - namespaceSelector:
         matchLabels:
