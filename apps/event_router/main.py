@@ -248,7 +248,7 @@ async def ready() -> JSONResponse:
             {"status": "not_ready", "reason": "consumer_not_running"}, status_code=503
         )
 
-    if reclaimer_task is None or reclaimer_task.done():
+    if not reclaimer_tasks or any(t.done() for t in reclaimer_tasks):
         return JSONResponse(
             {"status": "not_ready", "reason": "reclaimer_not_running"}, status_code=503
         )
