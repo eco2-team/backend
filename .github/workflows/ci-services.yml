@@ -13,7 +13,10 @@ on:
       - "apps/location/**"
       - "apps/scan/**"
       - "apps/images/**"
-      - "apps/chat/**"
+      - "apps/info/**"
+      # 레거시 서비스 (아직 마이그레이션 안 됨)
+      - "domains/chat/**"
+      - "domains/_shared/**"
       # Kubernetes manifests
       - "workloads/domains/auth/**"
       - "workloads/domains/users/**"
@@ -38,7 +41,10 @@ on:
       - "apps/location/**"
       - "apps/scan/**"
       - "apps/images/**"
-      - "apps/chat/**"
+      - "apps/info/**"
+      # 레거시 서비스 (아직 마이그레이션 안 됨)
+      - "domains/chat/**"
+      - "domains/_shared/**"
       # Kubernetes manifests
       - "workloads/domains/auth/**"
       - "workloads/domains/users/**"
@@ -193,7 +199,8 @@ jobs:
             apps/location/**
             apps/scan/**
             apps/images/**
-            apps/chat/**
+            apps/info/**
+            domains/chat/**
             workloads/domains/auth/**
             workloads/domains/users/**
             workloads/domains/character/**
@@ -226,8 +233,9 @@ jobs:
               "character", # apps/character
               "location",  # apps/location
               "scan",      # apps/scan
-              "images",    # apps/images
-              "chat",      # apps/chat
+              "images",    # apps/images (구 domains/image)
+              "info",      # apps/info (뉴스 정보 서비스)
+              "chat",      # domains/chat (레거시)
           ]
 
           alias_map = {
