@@ -53,21 +53,22 @@ spec:
             name: chat-worker-config
         - secretRef:
             name: chat-worker-secret
+        # Liveness: 메인 프로세스(taskiq) 존재 확인
         livenessProbe:
           exec:
             command:
             - /bin/sh
             - -c
-            - pgrep -f 'taskiq worker' || exit 1
+            - cat /proc/1/cmdline | grep -q taskiq || exit 1
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 10
+        # Readiness: Istio sidecar ready 상태 확인
+        # Worker는 HTTP 트래픽을 받지 않지만, mesh 통신 준비 상태 확인
         readinessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - pgrep -f 'taskiq worker' || exit 1
+          httpGet:
+            path: /healthz/ready
+            port: 15021
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5

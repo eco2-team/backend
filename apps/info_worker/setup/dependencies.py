@@ -13,7 +13,6 @@ import logging
 from typing import TYPE_CHECKING
 
 import httpx
-import psycopg2
 from psycopg2.pool import ThreadedConnectionPool
 from redis import Redis
 
