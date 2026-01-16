@@ -330,3 +330,21 @@ spec:
   rabbitmqClusterReference:
     name: eco2-rabbitmq
     namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Info Worker DLQ Binding
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: dlq-info-collect-news-binding
+  namespace: rabbitmq
+spec:
+  source: dlx
+  destination: dlq.info.collect_news
+  destinationType: queue
+  routingKey: dlq.info.collect_news
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
