@@ -76,6 +76,7 @@ SUBAGENT_NODES: frozenset[str] = frozenset(
         "waste_rag",
         "character",
         "location",
+        "kakao_place",
         "bulk_waste",
         "weather",
         "web_search",

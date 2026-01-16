@@ -102,7 +102,7 @@ PUBLISHED_TTL = 7200  # 2시간
 # Token은 별도 namespace (1000+)로 분리하여 충돌 방지
 #
 # Pipeline Flow:
-# queued → intent → [vision?] → [subagents...] → aggregate → [feedback?] → answer → done
+# queued → intent → [vision?] → [subagents...] → aggregator → [feedback?] → answer → done
 #
 # Subagents (intent에 따라 선택적/병렬 실행):
 # - waste_rag, character, location, kakao_place, bulk_waste, weather,
