@@ -4,7 +4,10 @@
 - ProgressNotifier: SSE/UI 진행률 (사용자 피드백용)
 - DomainEventBus: 상태 변경 이벤트 (시스템 연동용)
 
-나중에 MQ 이벤트/감사 로그/메트릭과 섞여도 구분 가능.
+Note:
+    Event-First Architecture 적용으로 MessageSavePublisher 제거.
+    done 이벤트에 persistence 데이터를 포함하여
+    별도 Consumer Group(chat-persistence)이 PostgreSQL에 저장.
 """
 
 from .domain_event_bus import DomainEventBusPort

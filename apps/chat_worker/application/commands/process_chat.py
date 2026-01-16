@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
@@ -134,6 +135,10 @@ class ProcessChatCommand:
             progress_notifier: 진행 상황 알림 Port
             metrics: 메트릭 수집 Port (선택)
             provider: LLM 프로바이더
+
+        Note:
+            Event-First Architecture: 메시지 영속화는 done 이벤트에
+            persistence 데이터를 포함하여 DB Consumer가 처리.
         """
         self._pipeline = pipeline
         self._progress_notifier = progress_notifier
@@ -192,7 +197,12 @@ class ProcessChatCommand:
             if self._metrics:
                 self._metrics.track_intent(intent)
 
+            answer = result.get("answer", "")
+
             # 3. 작업 완료 이벤트 (running → completed)
+            # Event-First Architecture: done 이벤트에 persistence 데이터 포함
+            # DB Consumer가 이 이벤트를 소비하여 PostgreSQL에 저장
+            now = datetime.now(timezone.utc)
             await self._progress_notifier.notify_stage(
                 task_id=request.job_id,
                 stage="done",
@@ -200,7 +210,18 @@ class ProcessChatCommand:
                 progress=100,
                 result={
                     "intent": intent,
-                    "answer": result.get("answer"),
+                    "answer": answer,
+                    # Persistence data for DB Consumer
+                    "persistence": {
+                        "conversation_id": request.session_id,
+                        "user_id": request.user_id,
+                        "user_message": request.message,
+                        "user_message_created_at": now.isoformat(),
+                        "assistant_message": answer,
+                        "assistant_message_created_at": now.isoformat(),
+                        "intent": intent,
+                        "metadata": result.get("metadata"),
+                    },
                 },
             )
 
@@ -214,7 +235,7 @@ class ProcessChatCommand:
                 session_id=request.session_id,
                 status="completed",
                 intent=intent,
-                answer=result.get("answer"),
+                answer=answer,
             )
 
         except Exception as e:

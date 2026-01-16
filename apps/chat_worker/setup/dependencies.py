@@ -773,6 +773,11 @@ async def get_process_chat_command(
     Application Layer의 Command를 조립.
     Port와 Infrastructure를 연결.
 
+    Event-First Architecture:
+    - 메시지 영속화는 done 이벤트에 persistence 데이터 포함
+    - DB Consumer가 Redis Streams에서 소비하여 PostgreSQL 저장
+    - RabbitMQ 의존성 제거됨
+
     ```
     ProcessChatCommand
         │
@@ -783,6 +788,10 @@ async def get_process_chat_command(
         │       └── ProgressNotifierPort (Redis)
         │
         └── ProgressNotifierPort (Redis)
+                │
+                └── done 이벤트 (persistence 데이터 포함)
+                        │
+                        └── DB Consumer → PostgreSQL
     ```
     """
     settings = get_settings()
