@@ -1,6 +1,11 @@
 """Auth API Application Entry Point.
 
 Clean Architecture 기반 Auth 서비스입니다.
+
+분산 트레이싱 통합:
+- FastAPI 자동 계측 (HTTP 요청/응답)
+- HTTPX 자동 계측 (OAuth provider 호출)
+- Redis 자동 계측 (세션/블랙리스트)
 """
 
 import logging
@@ -13,8 +18,20 @@ from auth.presentation.http.controllers import root_router
 from auth.presentation.http.errors import register_exception_handlers
 from auth.setup.config import get_settings
 from auth.setup.logging import setup_logging
+from auth.setup.tracing import (
+    configure_tracing,
+    instrument_fastapi,
+    instrument_httpx,
+    instrument_redis,
+    shutdown_tracing,
+)
 
 logger = logging.getLogger(__name__)
+
+# OpenTelemetry 분산 트레이싱 설정
+configure_tracing()
+instrument_httpx()
+instrument_redis()
 
 
 @asynccontextmanager
@@ -36,6 +53,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down Auth API")
+    shutdown_tracing()
 
 
 def create_app() -> FastAPI:
@@ -75,6 +93,9 @@ def create_app() -> FastAPI:
 
     # 예외 핸들러 등록
     register_exception_handlers(app)
+
+    # OpenTelemetry FastAPI instrumentation
+    instrument_fastapi(app)
 
     # 라우터 등록
     app.include_router(root_router)

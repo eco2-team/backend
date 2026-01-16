@@ -26,6 +26,16 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("LOCATION_AUTH_DISABLED"),
     )
 
+    # gRPC Server (Chat Worker 연동용)
+    grpc_enabled: bool = Field(
+        True,
+        description="gRPC 서버 활성화 여부",
+    )
+    grpc_port: int = Field(
+        50051,
+        description="gRPC 서버 포트",
+    )
+
     # OpenTelemetry
     otel_enabled: bool = False
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"

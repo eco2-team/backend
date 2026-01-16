@@ -35,6 +35,10 @@ spec:
       - name: users-worker
         namespace: users
         phase: '3'
+      # Phase 4: Info 관련
+      - name: info-worker
+        namespace: info
+        phase: '4'
   template:
     metadata:
       name: prod-{{name}}

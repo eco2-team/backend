@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: chat
+
+resources:
+- deployment.yaml
+- configmap.yaml
+- keda-scaledobject.yaml
+# hpa.yaml 제거 - KEDA가 내부적으로 HPA 생성
+
+commonLabels:
+  app.kubernetes.io/name: chat-worker
+  app.kubernetes.io/component: worker
+  app.kubernetes.io/part-of: eco2

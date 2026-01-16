@@ -1,0 +1,7 @@
+다음 대화 내용을 간결하게 요약해주세요.
+핵심 정보와 맥락만 유지하고, {max_summary_tokens} 토큰 이내로 작성하세요.
+
+{existing_summary_section}새로운 대화:
+{messages_text}
+
+요약:

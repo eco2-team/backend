@@ -1,19 +1,38 @@
+# apps/scan_worker/requirements.txt
+# Scan Worker Dependencies
 
 # Celery + gevent
-# LLM
-# Prometheus
-# Pydantic
-# Redis
-# Scan Worker Dependencies
-# YAML (규정 로드)
-# apps/scan_worker/requirements.txt
 celery>=5.3.0
 gevent>=23.9.0
-google-genai>=1.0.0
 greenlet>=3.0.0
+
+# LLM
+google-genai>=1.0.0
 openai>=1.10.0
+
+# Observability (OpenTelemetry)
+# SDK 1.39+ 기준 (2025-12 릴리즈)
+opentelemetry-api>=1.28.0,<2.0.0
+opentelemetry-sdk>=1.28.0,<2.0.0
+opentelemetry-exporter-otlp-proto-http>=1.28.0,<2.0.0
+opentelemetry-instrumentation-celery>=0.49b0
+opentelemetry-instrumentation-redis>=0.49b0
+
+# LLM API Instrumentation
+# OpenAI: Chat Completions, Embeddings, Streaming 추적
+opentelemetry-instrumentation-openai-v2>=2.0b0
+# Gemini: generateContent, Streaming 추적
+opentelemetry-instrumentation-google-generativeai>=0.50.0
+
+# Prometheus
 prometheus-client>=0.19.0
-pydantic-settings>=2.1.0
+
+# Pydantic
 pydantic>=2.5.0
-pyyaml>=6.0.0
+pydantic-settings>=2.1.0
+
+# Redis
 redis>=5.0.0
+
+# YAML (규정 로드)
+pyyaml>=6.0.0

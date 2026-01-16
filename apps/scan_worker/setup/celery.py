@@ -141,6 +141,20 @@ def _setup_celery_tracing() -> None:
         except ImportError:
             logger.warning("OpenAI instrumentor not available")
 
+        # Gemini (Google Generative AI) Instrumentation
+        try:
+            from opentelemetry.instrumentation.google_generativeai import (
+                GoogleGenerativeAiInstrumentor,
+            )
+
+            GoogleGenerativeAiInstrumentor().instrument()
+            logger.info("Gemini tracing enabled")
+        except ImportError:
+            logger.warning(
+                "Gemini instrumentor not available. "
+                "Install: pip install opentelemetry-instrumentation-google-generativeai"
+            )
+
     except ImportError as e:
         logger.warning(f"Celery/Redis tracing not available: {e}")
     except Exception as e:

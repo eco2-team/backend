@@ -4,6 +4,22 @@ metadata:
   name: chat-config
   namespace: chat
 data:
-  LOG_LEVEL: INFO
-  ENVIRONMENT: base
-  OPENAI_CHAT_MODEL: gpt-5.1
+  # Service
+  CHAT_SERVICE_NAME: chat-api
+  CHAT_ENVIRONMENT: base
+  CHAT_LOG_LEVEL: INFO
+  CHAT_DEBUG: 'false'
+  # Database (PostgreSQL + asyncpg)
+  CHAT_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgresql.postgres.svc.cluster.local:5432/eco2
+  CHAT_DATABASE_ECHO: 'false'
+  # Redis (Streams - 이벤트 발행)
+  CHAT_REDIS_URL: redis://redis-master.redis.svc.cluster.local:6379/0
+  # Redis (Pub/Sub - SSE Gateway 구독)
+  CHAT_REDIS_PUBSUB_URL: redis://redis-master.redis.svc.cluster.local:6379/1
+  # RabbitMQ (Taskiq)
+  CHAT_RABBITMQ_URL: amqp://guest:guest@rabbitmq.rabbitmq.svc.cluster.local:5672/
+  # Shard 설정 (chat-worker, event_router와 동일)
+  CHAT_SHARD_COUNT: '4'
+  # LLM
+  CHAT_DEFAULT_PROVIDER: openai
+  CHAT_DEFAULT_MODEL: gpt-5.2-turbo

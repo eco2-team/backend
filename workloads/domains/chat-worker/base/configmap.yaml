@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chat-worker-config
+  labels:
+    app: chat-worker
+data:
+  # Service
+  CHAT_WORKER_SERVICE_NAME: chat-worker
+  CHAT_WORKER_ENVIRONMENT: base
+  CHAT_WORKER_LOG_LEVEL: INFO
+  # RabbitMQ (Taskiq)
+  CHAT_WORKER_RABBITMQ_URL: amqp://guest:guest@rabbitmq.rabbitmq.svc.cluster.local:5672/
+  CHAT_WORKER_RABBITMQ_QUEUE: chat.process
+  # Redis (이벤트 스트림, 단기 캐시)
+  CHAT_WORKER_REDIS_URL: redis://redis-master.redis.svc.cluster.local:6379/0
+  # PostgreSQL (체크포인팅, 멀티턴 대화 히스토리)
+  CHAT_WORKER_POSTGRES_URL: postgresql+asyncpg://postgres:postgres@postgresql.postgres.svc.cluster.local:5432/eco2
+  # LLM Provider
+  CHAT_WORKER_DEFAULT_PROVIDER: openai
+  CHAT_WORKER_OPENAI_DEFAULT_MODEL: gpt-5.2
+  # Image Generation (Responses API)
+  CHAT_WORKER_ENABLE_IMAGE_GENERATION: 'false'
+  CHAT_WORKER_IMAGE_GENERATION_MODEL: gpt-5.2
+  CHAT_WORKER_IMAGE_GENERATION_DEFAULT_SIZE: 1024x1024
+  CHAT_WORKER_IMAGE_GENERATION_DEFAULT_QUALITY: medium
+  # Worker 설정
+  CHAT_WORKER_CONCURRENCY: '10'
+  CHAT_WORKER_TASK_TIMEOUT: '120'
+  CHAT_WORKER_MAX_RETRIES: '2'
+  # Shard 설정 (event_router와 동일)
+  CHAT_SHARD_COUNT: '4'
+  # gRPC Clients (Subagent)
+  CHAT_WORKER_CHARACTER_GRPC_HOST: character-grpc.character.svc.cluster.local
+  CHAT_WORKER_CHARACTER_GRPC_PORT: '50051'
+  CHAT_WORKER_LOCATION_GRPC_HOST: location-grpc.location.svc.cluster.local
+  CHAT_WORKER_LOCATION_GRPC_PORT: '50051'
+  # External API Timeouts
+  CHAT_WORKER_KAKAO_API_TIMEOUT: '10.0'
+  CHAT_WORKER_KMA_API_TIMEOUT: '10.0'
+  CHAT_WORKER_MOIS_WASTE_API_TIMEOUT: '15.0'
+  CHAT_WORKER_KECO_API_TIMEOUT: '15.0'

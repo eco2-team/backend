@@ -297,3 +297,36 @@ spec:
   rabbitmqClusterReference:
     name: eco2-rabbitmq
     namespace: rabbitmq
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Chat Process Bindings (Taskiq)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: chat-process-binding
+  namespace: rabbitmq
+spec:
+  source: chat_tasks
+  destination: chat.process
+  destinationType: queue
+  routingKey: chat.process
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: dlq-chat-process-binding
+  namespace: rabbitmq
+spec:
+  source: dlx
+  destination: dlq.chat.process
+  destinationType: queue
+  routingKey: dlq.chat.process
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq

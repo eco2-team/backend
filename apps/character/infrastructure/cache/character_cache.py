@@ -179,6 +179,24 @@ class CharacterLocalCache:
         with self._data_lock:
             return list(self._characters.values())
 
+    def get_by_match_label(self, match_label: str) -> CachedCharacter | None:
+        """매칭 라벨로 캐릭터 조회.
+
+        Chat Worker의 gRPC 호출에서 사용됩니다.
+        폐기물 중분류(예: "플라스틱")로 캐릭터를 찾습니다.
+
+        Args:
+            match_label: 폐기물 중분류
+
+        Returns:
+            매칭된 캐릭터 또는 None
+        """
+        with self._data_lock:
+            for char in self._characters.values():
+                if char.match_label == match_label:
+                    return char
+        return None
+
     def count(self) -> int:
         """캐시된 캐릭터 수."""
         return len(self._characters)

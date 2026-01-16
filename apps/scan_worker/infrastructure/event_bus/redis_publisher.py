@@ -1,7 +1,16 @@
 """Redis Event Publisher - EventPublisherPort 구현체.
 
-domains/_shared/events/redis_streams.py 로직 이전.
 Redis Streams 기반 멱등성 이벤트 발행.
+
+Event Router + SSE Gateway 아키텍처:
+- scan_worker → Redis Streams (scan:events:{shard})
+- Event Router → Streams 소비 → Pub/Sub 발행
+- SSE Gateway → Pub/Sub 구독 → 클라이언트 전달
+
+분산 트레이싱 통합:
+- XADD 시 trace context 포함 (trace_id, span_id, traceparent)
+- Event Router가 trace context를 Pub/Sub에 전파
+- Jaeger/Kiali에서 전체 파이프라인 시각화 가능
 """
 
 from __future__ import annotations
@@ -17,6 +26,9 @@ import redis
 from scan_worker.application.classify.ports.event_publisher import EventPublisherPort
 
 logger = logging.getLogger(__name__)
+
+# OpenTelemetry 활성화 여부
+OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -46,6 +58,7 @@ DEFAULT_SHARD_COUNT = int(os.environ.get("SSE_SHARD_COUNT", "4"))
 # 멱등성 Lua Script
 # ─────────────────────────────────────────────────────────────────
 
+# NOTE: trace_id, span_id, traceparent 포함하여 분산 트레이싱 지원
 IDEMPOTENT_XADD_SCRIPT = """
 local publish_key = KEYS[1]  -- published:{job_id}:{stage}:{seq}
 local stream_key = KEYS[2]   -- scan:events:{shard}
@@ -57,6 +70,7 @@ if redis.call('EXISTS', publish_key) == 1 then
 end
 
 -- XADD 실행 (MAXLEN ~ 로 효율적 trim)
+-- ARGV[10]: trace_id, ARGV[11]: span_id, ARGV[12]: traceparent
 local msg_id = redis.call('XADD', stream_key, 'MAXLEN', '~', ARGV[1],
     '*',
     'job_id', ARGV[2],
@@ -65,7 +79,10 @@ local msg_id = redis.call('XADD', stream_key, 'MAXLEN', '~', ARGV[1],
     'seq', ARGV[5],
     'ts', ARGV[6],
     'progress', ARGV[7],
-    'result', ARGV[8]
+    'result', ARGV[8],
+    'trace_id', ARGV[10],
+    'span_id', ARGV[11],
+    'traceparent', ARGV[12]
 )
 
 -- 발행 마킹 (TTL: 2시간)
@@ -90,6 +107,38 @@ def _get_stream_key(job_id: str, shard_count: int | None = None) -> str:
     """Sharded Stream key 생성."""
     shard = _get_shard_for_job(job_id, shard_count)
     return f"{STREAM_PREFIX}:{shard}"
+
+
+def _get_current_trace_context() -> tuple[str, str, str]:
+    """현재 OpenTelemetry span에서 trace context 추출.
+
+    Returns:
+        (trace_id, span_id, traceparent) 튜플. OTEL 비활성화 시 빈 문자열.
+    """
+    if not OTEL_ENABLED:
+        return "", "", ""
+
+    try:
+        from opentelemetry import trace
+        from opentelemetry.trace import format_trace_id, format_span_id
+
+        current_span = trace.get_current_span()
+        span_context = current_span.get_span_context()
+
+        if not span_context.is_valid:
+            return "", "", ""
+
+        trace_id = format_trace_id(span_context.trace_id)
+        span_id = format_span_id(span_context.span_id)
+        trace_flags = f"{span_context.trace_flags:02x}"
+        traceparent = f"00-{trace_id}-{span_id}-{trace_flags}"
+
+        return trace_id, span_id, traceparent
+    except ImportError:
+        return "", "", ""
+    except Exception as e:
+        logger.debug(f"Failed to extract trace context: {e}")
+        return "", "", ""
 
 
 class RedisEventPublisher(EventPublisherPort):
@@ -168,6 +217,9 @@ class RedisEventPublisher(EventPublisherPort):
         progress_str = str(progress) if progress is not None else ""
         result_str = json.dumps(result, ensure_ascii=False) if result else ""
 
+        # Trace context 추출
+        trace_id, span_id, traceparent = _get_current_trace_context()
+
         # Lua Script 실행
         script = client.register_script(IDEMPOTENT_XADD_SCRIPT)
         result_tuple = script(
@@ -182,6 +234,9 @@ class RedisEventPublisher(EventPublisherPort):
                 progress_str,  # ARGV[7]
                 result_str,  # ARGV[8]
                 str(PUBLISHED_TTL),  # ARGV[9]
+                trace_id,  # ARGV[10]
+                span_id,  # ARGV[11]
+                traceparent,  # ARGV[12]
             ],
         )
 

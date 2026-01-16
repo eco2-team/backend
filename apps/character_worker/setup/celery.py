@@ -3,9 +3,14 @@
 ⚠️ domains 의존성 제거 - apps 내부에서 라우팅 정의
 ⚠️ 큐 생성은 Topology CR에 위임 (task_create_missing_queues=False)
    task_queues는 이름만 정의 (arguments 없음 → 기존 큐 그대로 사용)
+
+분산 트레이싱 통합:
+- Celery Instrumentation으로 Task 실행 추적
+- Jaeger/Kiali에서 API → MQ → Worker 흐름 추적 가능
 """
 
 import logging
+import os
 
 from celery import Celery
 from celery.signals import worker_process_init, worker_ready
@@ -144,6 +149,54 @@ def init_worker_process(**kwargs):
     _init_character_cache()
 
 
+def _setup_celery_tracing() -> None:
+    """Celery 태스크 분산 추적 설정."""
+    otel_enabled = os.getenv("OTEL_ENABLED", "true").lower() == "true"
+    if not otel_enabled:
+        logger.info("Celery tracing disabled (OTEL_ENABLED=false)")
+        return
+
+    try:
+        from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            OTLPSpanExporter,
+        )
+        from opentelemetry.instrumentation.celery import CeleryInstrumentor
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        # TracerProvider 설정
+        resource = Resource.create(
+            {
+                "service.name": "character-worker",
+                "service.version": os.getenv("SERVICE_VERSION", "1.0.0"),
+                "deployment.environment": os.getenv("ENVIRONMENT", "dev"),
+            }
+        )
+
+        provider = TracerProvider(resource=resource)
+        endpoint = os.getenv(
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+            "http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4318",
+        )
+        exporter = OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces")
+        provider.add_span_processor(BatchSpanProcessor(exporter))
+        trace.set_tracer_provider(provider)
+
+        # Celery Instrumentation
+        CeleryInstrumentor().instrument()
+        logger.info(
+            "Celery tracing enabled",
+            extra={"endpoint": endpoint, "service_name": "character-worker"},
+        )
+
+    except ImportError as e:
+        logger.warning(f"Celery tracing not available: {e}")
+    except Exception as e:
+        logger.error(f"Failed to setup Celery tracing: {e}")
+
+
 @worker_ready.connect
 def init_worker_ready(**kwargs):
     """Worker 준비 완료 시 초기화 (모든 pool 타입).
@@ -153,5 +206,10 @@ def init_worker_ready(**kwargs):
     실패해도 task 실행 시 lazy loading으로 재시도합니다.
     """
     logger.info("Initializing character worker (worker_ready)")
+
+    # 1. OpenTelemetry Celery 트레이싱 설정
+    _setup_celery_tracing()
+
+    # 2. 캐릭터 캐시 초기화
     if not _init_character_cache():
         logger.info("Cache will be loaded on first task execution (lazy loading)")

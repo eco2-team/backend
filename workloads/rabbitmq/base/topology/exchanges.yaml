@@ -108,6 +108,23 @@ spec:
     name: eco2-rabbitmq
     namespace: rabbitmq
 ---
-# 7. Celery Default Exchange - 삭제됨
+# 7. Chat Tasks Exchange (Direct)
+# Taskiq용 Exchange - chat.process 큐로 라우팅
+apiVersion: rabbitmq.com/v1beta1
+kind: Exchange
+metadata:
+  name: chat-tasks
+  namespace: rabbitmq
+spec:
+  name: chat_tasks
+  type: direct
+  durable: true
+  autoDelete: false
+  vhost: eco2
+  rabbitmqClusterReference:
+    name: eco2-rabbitmq
+    namespace: rabbitmq
+---
+# 8. Celery Default Exchange - 삭제됨
 # Celery는 AMQP Default Exchange ("") 사용
 # Named Exchange로 마이그레이션 완료 시 이 주석도 삭제

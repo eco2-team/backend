@@ -1,0 +1,1 @@
+"""Recyclable Price Integration Tests."""

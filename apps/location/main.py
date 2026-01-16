@@ -1,4 +1,10 @@
-"""Location API - FastAPI application entry point."""
+"""Location API - FastAPI application entry point.
+
+분산 트레이싱 통합:
+- FastAPI 자동 계측 (HTTP 요청/응답)
+- HTTPX 자동 계측 (카카오맵 API 호출)
+- Redis 자동 계측 (캐시)
+"""
 
 from __future__ import annotations
 
@@ -9,6 +15,13 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from location.infrastructure.observability import (
+    instrument_fastapi,
+    instrument_httpx,
+    instrument_redis,
+    setup_tracing,
+    shutdown_tracing,
+)
 from location.presentation.http.controllers import health_router, location_router
 from location.setup.config import get_settings
 
@@ -23,13 +36,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # OpenTelemetry 설정
     if settings.otel_enabled:
-        from location.infrastructure.observability import setup_tracing
-
         setup_tracing(settings.service_name)
+        instrument_httpx()
+        instrument_redis()
 
     yield
 
     logger.info(f"Shutting down {settings.service_name}")
+    shutdown_tracing()
 
 
 def create_app() -> FastAPI:
@@ -58,6 +72,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # OpenTelemetry FastAPI instrumentation
+    if settings.otel_enabled:
+        instrument_fastapi(app)
 
     # 라우터 등록
     app.include_router(health_router)

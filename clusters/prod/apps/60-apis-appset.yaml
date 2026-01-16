@@ -25,6 +25,8 @@ spec:
         phase: '3'
       - name: chat
         phase: '3'
+      - name: info
+        phase: '4'
   template:
     metadata:
       name: prod-api-{{name}}

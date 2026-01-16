@@ -3,6 +3,7 @@
 환경 변수:
 - REDIS_STREAMS_URL: Redis Streams + State KV (내구성 저장소)
 - REDIS_PUBSUB_URL: Redis Pub/Sub (실시간 구독)
+- SSE_SHARD_COUNT: Shard 수 (default: 4, scan_worker와 일치 필요)
 - OTEL_EXPORTER_OTLP_ENDPOINT: OTEL Collector 엔드포인트
 - LOG_LEVEL: 로그 레벨 (default: INFO)
 
@@ -53,6 +54,23 @@ class Settings(BaseSettings):
     state_timeout_seconds: int = (
         5  # State 재조회 타임아웃 (무소식 시) - 짧게 설정하여 누락 이벤트 빠른 복구
     )
+
+    # Shard 설정 (scan_worker, event_router와 일치 필요)
+    shard_count: int = 4  # SSE_SHARD_COUNT 환경변수로 오버라이드 가능 (scan 기본)
+    chat_shard_count: int = 4  # CHAT_SHARD_COUNT 환경변수로 오버라이드 가능
+
+    def get_shard_count(self, domain: str) -> int:
+        """도메인별 shard 수 반환.
+
+        Args:
+            domain: 서비스 도메인 (scan, chat)
+
+        Returns:
+            해당 도메인의 shard 수
+        """
+        if domain == "chat":
+            return self.chat_shard_count
+        return self.shard_count
 
     # 로깅
     log_level: str = "INFO"

@@ -42,10 +42,6 @@ spec:
           value: none
         - name: OTEL_PROPAGATORS
           value: b3,tracecontext,baggage
-        - name: POSTGRES_HOST
-          value: postgresql.postgres.svc.cluster.local
-        - name: REDIS_HOST
-          value: redis.redis.svc.cluster.local
         envFrom:
         - configMapRef:
             name: chat-config

@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-worker
+  labels:
+    app: chat-worker
+    tier: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chat-worker
+  template:
+    metadata:
+      labels:
+        app: chat-worker
+        tier: worker
+    spec:
+      serviceAccountName: default
+      containers:
+      - name: chat-worker
+        image: mng990/eco2:chat-worker-latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 250m
+          limits:
+            memory: 1Gi
+            cpu: 500m
+        env:
+        # OpenTelemetry (분산 추적)
+        - name: OTEL_SERVICE_NAME
+          value: chat-worker
+        - name: OTEL_ENABLED
+          value: 'true'
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
+        envFrom:
+        - configMapRef:
+            name: chat-worker-config
+        - secretRef:
+            name: chat-worker-secret
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pgrep -f 'taskiq worker' || exit 1
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pgrep -f 'taskiq worker' || exit 1
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+      imagePullSecrets:
+      - name: dockerhub-secret
+      # worker-ai 노드에 배치 (AI/LLM 워크로드)
+      nodeSelector:
+        domain: worker-ai
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-ai
+        effect: NoSchedule

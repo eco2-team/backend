@@ -1,8 +1,15 @@
-"""Submit Classification Command - 분류 작업 제출."""
+"""Submit Classification Command - 분류 작업 제출.
+
+분산 트레이싱 통합:
+- API 요청의 trace context를 Celery headers로 전파
+- Worker가 headers에서 trace context를 복원하여 child span 생성
+- Jaeger/Kiali에서 API → Worker 흐름 추적 가능
+"""
 
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -15,6 +22,12 @@ if TYPE_CHECKING:
     from celery import Celery
 
 logger = logging.getLogger(__name__)
+
+# OpenTelemetry 활성화 여부
+OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
+
+# Celery headers에서 사용하는 trace context 키
+TRACEPARENT_HEADER = "traceparent"
 
 # Idempotency key TTL (1시간)
 IDEMPOTENCY_TTL = 3600
@@ -67,6 +80,41 @@ class SubmitClassificationCommand:
         self._idempotency_cache = idempotency_cache
         self._celery_app = celery_app
         self._idempotency_ttl = idempotency_ttl
+
+    def _get_trace_headers(self) -> dict[str, str]:
+        """현재 trace context를 Celery headers로 추출.
+
+        OpenTelemetry의 현재 span에서 trace context를 추출하여
+        Celery task에 전파할 headers 딕셔너리를 반환.
+
+        Worker의 BaseTask.before_start()에서 이 headers를 읽어
+        trace context를 복원하고 child span을 생성.
+
+        Returns:
+            trace context headers (빈 딕셔너리 if OTEL 비활성화)
+        """
+        if not OTEL_ENABLED:
+            return {}
+
+        try:
+            from opentelemetry import trace
+            from opentelemetry.trace import format_trace_id, format_span_id
+
+            current_span = trace.get_current_span()
+            span_context = current_span.get_span_context()
+
+            if span_context.is_valid:
+                trace_id = format_trace_id(span_context.trace_id)
+                span_id = format_span_id(span_context.span_id)
+                trace_flags = f"{span_context.trace_flags:02x}"
+                traceparent = f"00-{trace_id}-{span_id}-{trace_flags}"
+                return {TRACEPARENT_HEADER: traceparent}
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.debug(f"Failed to get trace context: {e}")
+
+        return {}
 
     async def execute(
         self,
@@ -130,7 +178,10 @@ class SubmitClassificationCommand:
             self._celery_app.signature("scan.answer", options={"routing_key": "scan.answer"}),
             self._celery_app.signature("scan.reward", options={"routing_key": "scan.reward"}),
         )
-        pipeline.apply_async(task_id=job_id)
+
+        # Trace context를 Celery headers로 전파
+        celery_headers = self._get_trace_headers()
+        pipeline.apply_async(task_id=job_id, headers=celery_headers)
 
         logger.info(
             "scan_submitted",

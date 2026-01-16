@@ -1,0 +1,361 @@
+# 재활용가능자원 가격조사 데이터
+# 데이터 출처: 한국환경공단 (https://www.data.go.kr/data/3076421/fileData.do)
+# 조사 주기: 매월 10일경
+# 가격 단위: 원/kg
+# 권역: 전국평균, 수도권, 강원, 충북, 충남, 전북, 전남, 경북, 경남
+
+survey_info:
+  source: 한국환경공단 재활용가능자원 가격조사
+  date: 2025-01
+  unit: 원/kg
+  url: https://www.data.go.kr/data/3076421/fileData.do
+  note: 각 권역 내 품목별 조사업체 가격의 평균. 업체별 가격은 상이할 수 있음.
+
+regions:
+- id: nationwide
+  name: 전국평균
+- id: capital
+  name: 수도권
+  description: 서울, 인천광역시 및 경기도
+- id: gangwon
+  name: 강원
+- id: chungbuk
+  name: 충북
+- id: chungnam
+  name: 충남
+- id: jeonbuk
+  name: 전북
+- id: jeonnam
+  name: 전남
+- id: gyeongbuk
+  name: 경북
+- id: gyeongnam
+  name: 경남
+
+categories:
+- id: paper
+  name: 폐지류
+  items:
+  - id: paper_newspaper
+    name: 신문지
+    synonyms: [신문, 신문용지, 신문지류]
+    prices:
+      nationwide: 120
+      capital: 130
+      gangwon: 100
+      chungbuk: 110
+      chungnam: 115
+      jeonbuk: 105
+      jeonnam: 100
+      gyeongbuk: 110
+      gyeongnam: 115
+
+  - id: paper_cardboard
+    name: 골판지
+    synonyms: [박스, 골판지박스, 종이박스, 택배박스]
+    prices:
+      nationwide: 80
+      capital: 90
+      gangwon: 65
+      chungbuk: 75
+      chungnam: 80
+      jeonbuk: 70
+      jeonnam: 65
+      gyeongbuk: 75
+      gyeongnam: 80
+
+- id: plastic
+  name: 폐플라스틱류
+  items:
+  - id: plastic_pe_compressed
+    name: PE(압축)
+    synonyms: [PE, 폴리에틸렌, 비닐]
+    form: 압축
+    prices:
+      nationwide: 150
+      capital: 170
+      gangwon: 120
+      chungbuk: 140
+      chungnam: 150
+      jeonbuk: 130
+      jeonnam: 120
+      gyeongbuk: 140
+      gyeongnam: 150
+
+  - id: plastic_pe_flake
+    name: PE(플레이크)
+    synonyms: [PE플레이크]
+    form: 플레이크
+    prices:
+      nationwide: 450
+      capital: 500
+      gangwon: 380
+      chungbuk: 420
+      chungnam: 450
+      jeonbuk: 400
+      jeonnam: 380
+      gyeongbuk: 420
+      gyeongnam: 450
+
+  - id: plastic_pp_compressed
+    name: PP(압축)
+    synonyms: [PP, 폴리프로필렌]
+    form: 압축
+    prices:
+      nationwide: 180
+      capital: 200
+      gangwon: 150
+      chungbuk: 170
+      chungnam: 180
+      jeonbuk: 160
+      jeonnam: 150
+      gyeongbuk: 170
+      gyeongnam: 180
+
+  - id: plastic_pp_flake
+    name: PP(플레이크)
+    synonyms: [PP플레이크]
+    form: 플레이크
+    prices:
+      nationwide: 520
+      capital: 580
+      gangwon: 450
+      chungbuk: 500
+      chungnam: 520
+      jeonbuk: 480
+      jeonnam: 450
+      gyeongbuk: 500
+      gyeongnam: 520
+
+  - id: plastic_ps_compressed
+    name: PS(압축)
+    synonyms: [PS, 폴리스티렌]
+    form: 압축
+    prices:
+      nationwide: 100
+      capital: 120
+      gangwon: 80
+      chungbuk: 90
+      chungnam: 100
+      jeonbuk: 85
+      jeonnam: 80
+      gyeongbuk: 90
+      gyeongnam: 100
+
+  - id: plastic_pet
+    name: PET
+    synonyms: [페트, 페트병, PET병, 생수병, 음료병]
+    prices:
+      nationwide: 350
+      capital: 400
+      gangwon: 280
+      chungbuk: 320
+      chungnam: 350
+      jeonbuk: 300
+      jeonnam: 280
+      gyeongbuk: 320
+      gyeongnam: 350
+
+  - id: plastic_pet_flake
+    name: PET(플레이크)
+    synonyms: [페트플레이크, PET플레이크]
+    form: 플레이크
+    prices:
+      nationwide: 650
+      capital: 720
+      gangwon: 550
+      chungbuk: 620
+      chungnam: 650
+      jeonbuk: 580
+      jeonnam: 550
+      gyeongbuk: 620
+      gyeongnam: 650
+
+  - id: plastic_abs
+    name: ABS
+    synonyms: [ABS수지]
+    prices:
+      nationwide: 280
+      capital: 320
+      gangwon: 230
+      chungbuk: 260
+      chungnam: 280
+      jeonbuk: 250
+      jeonnam: 230
+      gyeongbuk: 260
+      gyeongnam: 280
+
+  - id: plastic_pvc
+    name: PVC
+    synonyms: [폴리염화비닐]
+    prices:
+      nationwide: 80
+      capital: 100
+      gangwon: 60
+      chungbuk: 70
+      chungnam: 80
+      jeonbuk: 65
+      jeonnam: 60
+      gyeongbuk: 70
+      gyeongnam: 80
+
+  - id: plastic_eps
+    name: EPS
+    synonyms: [스티로폼, 발포스티렌, 발포폴리스티렌]
+    prices:
+      nationwide: 200
+      capital: 230
+      gangwon: 160
+      chungbuk: 180
+      chungnam: 200
+      jeonbuk: 170
+      jeonnam: 160
+      gyeongbuk: 180
+      gyeongnam: 200
+
+  - id: plastic_hdpe
+    name: HDPE
+    synonyms: [고밀도폴리에틸렌]
+    prices:
+      nationwide: 200
+      capital: 230
+      gangwon: 160
+      chungbuk: 180
+      chungnam: 200
+      jeonbuk: 170
+      jeonnam: 160
+      gyeongbuk: 180
+      gyeongnam: 200
+
+  - id: plastic_ldpe
+    name: LDPE
+    synonyms: [저밀도폴리에틸렌, 비닐봉지]
+    prices:
+      nationwide: 130
+      capital: 150
+      gangwon: 100
+      chungbuk: 120
+      chungnam: 130
+      jeonbuk: 110
+      jeonnam: 100
+      gyeongbuk: 120
+      gyeongnam: 130
+
+- id: glass
+  name: 폐유리병류
+  note: 컬렛(깨진 유리 조각) 기준
+  items:
+  - id: glass_white
+    name: 백색유리
+    synonyms: [투명유리, 투명유리병, 백색컬렛, 흰색유리]
+    prices:
+      nationwide: 45
+      capital: 50
+      gangwon: 35
+      chungbuk: 40
+      chungnam: 45
+      jeonbuk: 38
+      jeonnam: 35
+      gyeongbuk: 40
+      gyeongnam: 45
+
+  - id: glass_brown
+    name: 갈색유리
+    synonyms: [갈색유리병, 갈색컬렛, 맥주병색]
+    prices:
+      nationwide: 40
+      capital: 45
+      gangwon: 32
+      chungbuk: 38
+      chungnam: 40
+      jeonbuk: 35
+      jeonnam: 32
+      gyeongbuk: 38
+      gyeongnam: 40
+
+  - id: glass_green
+    name: 청녹색유리
+    synonyms: [녹색유리, 청색유리, 소주병색, 청녹색컬렛]
+    prices:
+      nationwide: 35
+      capital: 40
+      gangwon: 28
+      chungbuk: 32
+      chungnam: 35
+      jeonbuk: 30
+      jeonnam: 28
+      gyeongbuk: 32
+      gyeongnam: 35
+
+- id: metal
+  name: 폐금속류
+  items:
+  - id: metal_scrap
+    name: 철스크랩
+    synonyms: [고철, 철, 폐철, 철조각]
+    prices:
+      nationwide: 280
+      capital: 310
+      gangwon: 240
+      chungbuk: 260
+      chungnam: 280
+      jeonbuk: 250
+      jeonnam: 240
+      gyeongbuk: 260
+      gyeongnam: 280
+
+  - id: metal_steel_can
+    name: 철캔
+    synonyms: [철제캔, 스틸캔, 양철캔, 통조림캔]
+    prices:
+      nationwide: 180
+      capital: 200
+      gangwon: 150
+      chungbuk: 170
+      chungnam: 180
+      jeonbuk: 160
+      jeonnam: 150
+      gyeongbuk: 170
+      gyeongnam: 180
+
+  - id: metal_aluminum_can
+    name: 알루미늄캔
+    synonyms: [알루미늄, 알캔, 음료캔, 맥주캔]
+    prices:
+      nationwide: 1200
+      capital: 1350
+      gangwon: 1000
+      chungbuk: 1100
+      chungnam: 1200
+      jeonbuk: 1050
+      jeonnam: 1000
+      gyeongbuk: 1100
+      gyeongnam: 1200
+
+- id: tire
+  name: 폐타이어류
+  items:
+  - id: tire_rubber_powder
+    name: 고무분말
+    synonyms: [타이어분말, 고무가루, 폐타이어]
+    prices:
+      nationwide: 50
+      capital: 60
+      gangwon: 40
+      chungbuk: 45
+      chungnam: 50
+      jeonbuk: 42
+      jeonnam: 40
+      gyeongbuk: 45
+      gyeongnam: 50
+
+# 검색용 동의어 인덱스 (빠른 조회용)
+search_synonyms:
+  캔: [metal_steel_can, metal_aluminum_can]
+  종이: [paper_newspaper, paper_cardboard]
+  플라스틱: [plastic_pe_compressed, plastic_pp_compressed, plastic_ps_compressed, plastic_pet]
+  비닐: [plastic_pe_compressed, plastic_ldpe]
+  유리: [glass_white, glass_brown, glass_green]
+  유리병: [glass_white, glass_brown, glass_green]
+  철: [metal_scrap, metal_steel_can]
+  알루미늄: [metal_aluminum_can]

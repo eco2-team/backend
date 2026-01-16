@@ -1,4 +1,10 @@
-"""Character Service Main Entry Point."""
+"""Character Service Main Entry Point.
+
+분산 트레이싱 통합:
+- FastAPI 자동 계측 (HTTP 요청/응답)
+- HTTPX 자동 계측 (외부 API 호출)
+- Redis 자동 계측 (캐시)
+"""
 
 import logging
 from contextlib import asynccontextmanager
@@ -7,6 +13,13 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from character.infrastructure.observability import (
+    instrument_fastapi,
+    instrument_httpx,
+    instrument_redis,
+    setup_tracing,
+    shutdown_tracing,
+)
 from character.presentation.http.controllers import catalog, health, reward
 from character.setup.config import get_settings
 from character.setup.database import close_redis
@@ -77,9 +90,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # OpenTelemetry 설정
     if settings.otel_enabled:
-        from character.infrastructure.observability import setup_tracing
-
         setup_tracing(settings.service_name)
+        instrument_httpx()
+        instrument_redis()
 
     # 로컬 캐시 워밍업
     await warmup_local_cache()
@@ -95,6 +108,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Cleanup
     logger.info("Shutting down Character API service")
+    shutdown_tracing()
 
     # MQ Consumer 중지
     from character.infrastructure.cache import stop_cache_consumer
@@ -121,6 +135,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # OpenTelemetry FastAPI instrumentation
+    if settings.otel_enabled:
+        instrument_fastapi(app)
 
     # Routers
     app.include_router(health.router)
