@@ -4,7 +4,9 @@ metadata:
   name: chat-worker
   labels:
     app: chat-worker
+    version: v1
     tier: worker
+    domain: chat
 spec:
   replicas: 2
   selector:
@@ -14,7 +16,9 @@ spec:
     metadata:
       labels:
         app: chat-worker
+        version: v1
         tier: worker
+        domain: chat
     spec:
       serviceAccountName: default
       containers:
