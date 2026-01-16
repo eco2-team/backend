@@ -90,8 +90,11 @@ class NewsAggregatorService:
         """
         # 1. NewsData 카테고리 매핑 시도
         if article.category:
-            # NewsData는 카테고리를 리스트로 줄 수 있음 (첫번째 사용)
-            newsdata_cat = article.category.split(",")[0].strip().lower()
+            # NewsData는 카테고리를 리스트로 반환함
+            if isinstance(article.category, list):
+                newsdata_cat = article.category[0].strip().lower() if article.category else ""
+            else:
+                newsdata_cat = article.category.split(",")[0].strip().lower()
             if newsdata_cat in NewsAggregatorService.NEWSDATA_CATEGORY_MAP:
                 return NewsAggregatorService.NEWSDATA_CATEGORY_MAP[newsdata_cat]
 
