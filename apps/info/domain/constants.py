@@ -54,5 +54,8 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
 # 유효한 카테고리 목록
 VALID_CATEGORIES = ["all", "environment", "energy", "ai"]
 
+# 뉴스 카테고리 (all 제외)
+CATEGORIES = frozenset({"environment", "energy", "ai"})
+
 # 유효한 뉴스 소스 목록
 VALID_SOURCES = ["all", "naver", "newsdata"]

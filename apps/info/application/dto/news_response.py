@@ -54,6 +54,7 @@ class NewsMeta:
 
     total_cached: int
     cache_expires_in: int  # 초
+    source: str = "redis"  # "redis" or "postgres"
 
 
 @dataclass

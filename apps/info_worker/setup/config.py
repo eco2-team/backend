@@ -1,24 +1,26 @@
-"""Info Service Configuration."""
+"""Info Worker Configuration."""
 
 from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Info Service 설정."""
+    """Info Worker 설정."""
 
     # Environment
     environment: str = "local"
     debug: bool = False
 
-    # CORS (production: 명시적 origins 필수)
-    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    # Celery
+    celery_broker_url: str = "amqp://guest:guest@localhost:5672/"
+    celery_result_backend: str | None = None
 
-    # PostgreSQL (Fallback용)
-    database_url: str | None = None
+    # PostgreSQL
+    database_url: str = "postgresql://postgres:postgres@localhost:5432/eco2"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -34,16 +36,18 @@ class Settings(BaseSettings):
 
     # 캐시 설정
     news_cache_ttl: int = 3600  # 1시간
+    news_article_ttl: int = 86400  # 24시간
+    cache_warm_limit: int = 200  # 캐시 워밍 시 최대 기사 수
 
-    # 페이지네이션
-    news_default_limit: int = 10
-    news_max_limit: int = 50
+    # 수집 스케줄 (초)
+    collect_interval_naver: int = 300  # 5분
+    collect_interval_newsdata: int = 1800  # 30분
 
     # Logging
     log_level: str = "INFO"
 
     class Config:
-        env_prefix = "INFO_"
+        env_prefix = "INFO_WORKER_"
         env_file = ".env"
         extra = "ignore"
 
