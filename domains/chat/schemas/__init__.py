@@ -1,1 +1,0 @@
-"""chat app/schemas package"""
