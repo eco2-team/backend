@@ -39,6 +39,10 @@ spec:
       - name: info-worker
         namespace: info
         phase: '4'
+      # Phase 4: Chat 관련 (LangGraph Worker)
+      - name: chat-worker
+        namespace: chat
+        phase: '4'
   template:
     metadata:
       name: prod-{{name}}
