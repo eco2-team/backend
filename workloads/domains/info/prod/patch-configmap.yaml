@@ -5,7 +5,8 @@ metadata:
 data:
   ENVIRONMENT: prod
   INFO_DEBUG: 'false'
-  INFO_REDIS_URL: redis://prod-redis.redis.svc.cluster.local:6379/1
+  # TODO: prod Redis pod DNS 확인 필요
+  INFO_REDIS_URL: redis://rfr-cache-redis-0.rfr-cache-redis.redis.svc.cluster.local:6379/1
   INFO_NEWS_CACHE_TTL: '3600'
   INFO_NEWS_DEFAULT_LIMIT: '10'
   INFO_NEWS_MAX_LIMIT: '50'
