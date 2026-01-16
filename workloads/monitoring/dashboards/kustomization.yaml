@@ -14,7 +14,6 @@ resources:
 - domain-ext-authz.yaml
 - domain-scan-api.yaml
 - domain-character.yaml
-- domain-my.yaml
 # SSE Pipeline Dashboard
 - scan-sse-pipeline.yaml
 # Event Bus Layer Dashboard
