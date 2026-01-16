@@ -14,9 +14,7 @@ on:
       - "apps/scan/**"
       - "apps/images/**"
       - "apps/info/**"
-      # 레거시 서비스 (아직 마이그레이션 안 됨)
-      - "domains/chat/**"
-      - "domains/_shared/**"
+      - "apps/chat/**"
       # Kubernetes manifests
       - "workloads/domains/auth/**"
       - "workloads/domains/users/**"
@@ -42,9 +40,7 @@ on:
       - "apps/scan/**"
       - "apps/images/**"
       - "apps/info/**"
-      # 레거시 서비스 (아직 마이그레이션 안 됨)
-      - "domains/chat/**"
-      - "domains/_shared/**"
+      - "apps/chat/**"
       # Kubernetes manifests
       - "workloads/domains/auth/**"
       - "workloads/domains/users/**"
@@ -200,7 +196,7 @@ jobs:
             apps/scan/**
             apps/images/**
             apps/info/**
-            domains/chat/**
+            apps/chat/**
             workloads/domains/auth/**
             workloads/domains/users/**
             workloads/domains/character/**
@@ -233,9 +229,9 @@ jobs:
               "character", # apps/character
               "location",  # apps/location
               "scan",      # apps/scan
-              "images",    # apps/images (구 domains/image)
-              "info",      # apps/info (뉴스 정보 서비스)
-              "chat",      # domains/chat (레거시)
+              "images",    # apps/images
+              "info",      # apps/info
+              "chat",      # apps/chat
           ]
 
           alias_map = {
@@ -333,17 +329,9 @@ jobs:
         id: source
         run: |
           SERVICE="${{ matrix.service }}"
-          if [ -d "apps/${SERVICE}" ]; then
-            echo "path=apps/${SERVICE}" >> "$GITHUB_OUTPUT"
-            # apps/ 서비스: apps 디렉토리가 PYTHONPATH (from images.*, from scan.* 등)
-            echo "pythonpath=${{ github.workspace }}/apps" >> "$GITHUB_OUTPUT"
-            echo "is_legacy=false" >> "$GITHUB_OUTPUT"
-          else
-            # 레거시 서비스 (chat) - 테스트 skip
-            echo "path=domains/${SERVICE}" >> "$GITHUB_OUTPUT"
-            echo "pythonpath=${{ github.workspace }}/domains/${SERVICE}" >> "$GITHUB_OUTPUT"
-            echo "is_legacy=true" >> "$GITHUB_OUTPUT"
-          fi
+          echo "path=apps/${SERVICE}" >> "$GITHUB_OUTPUT"
+          # apps/ 서비스: apps 디렉토리가 PYTHONPATH (from images.*, from scan.* 등)
+          echo "pythonpath=${{ github.workspace }}/apps" >> "$GITHUB_OUTPUT"
 
       - name: Install tooling
         run: |
@@ -358,7 +346,6 @@ jobs:
         run: ruff check ${{ steps.source.outputs.path }}
 
       - name: Pytest
-        if: steps.source.outputs.is_legacy != 'true'
         working-directory: ${{ steps.source.outputs.path }}
         env:
           PYTHONPATH: ${{ steps.source.outputs.pythonpath }}
@@ -446,12 +433,7 @@ jobs:
         id: dockerfile
         run: |
           SERVICE="${{ matrix.service }}"
-          # Clean Architecture 리팩토링된 서비스는 apps/ 경로 사용
-          if [ -f "apps/${SERVICE}/Dockerfile" ]; then
-            echo "path=apps/${SERVICE}/Dockerfile" >> "$GITHUB_OUTPUT"
-          else
-            echo "path=domains/${SERVICE}/Dockerfile" >> "$GITHUB_OUTPUT"
-          fi
+          echo "path=apps/${SERVICE}/Dockerfile" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v5
