@@ -5,6 +5,11 @@ Event Router + Pub/Sub 아키텍처:
 2. SSE-Gateway는 job_id별 채널 구독
 3. 어느 Pod에 연결되든 동일 이벤트 수신
 
+분산 트레이싱 통합:
+- Pub/Sub 메시지에서 trace context 추출 (trace_id, span_id, traceparent)
+- linked span 생성하여 Event Router와 연결
+- Jaeger/Kiali에서 Worker → Event Router → SSE Gateway 흐름 추적 가능
+
 이점:
 - Pod 수와 무관하게 자유로운 수평확장
 - Consistent Hash 불필요
@@ -18,10 +23,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, AsyncGenerator, ClassVar
+
+# OpenTelemetry 활성화 여부
+OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
 
 from sse_gateway.metrics import (
     SSE_ACTIVE_JOBS,
@@ -54,6 +63,10 @@ DEFAULT_STATE_PREFIX = "scan:state:"
 
 # Pub/Sub 채널 접두사 (모든 도메인 공통)
 PUBSUB_CHANNEL_PREFIX = "sse:events:"
+
+# Token v2: Token Stream + Token State (복구 가능한 토큰 스트리밍)
+TOKEN_STREAM_PREFIX = "chat:tokens"  # job별 전용 Token Stream
+TOKEN_STATE_PREFIX = "chat:token_state"  # 주기적 누적 텍스트 스냅샷
 
 
 def get_state_prefix(domain: str | None = None) -> str:
@@ -498,6 +511,11 @@ class SSEBroadcastManager:
         Redis Pub/Sub 채널을 구독하고 이벤트를 해당 job_id의
         모든 SubscriberQueue에 분배.
 
+        분산 트레이싱:
+        - event에서 trace context 추출 (trace_id, span_id, traceparent)
+        - linked span 생성하여 Event Router span과 연결
+        - 전체 파이프라인 시각화 지원
+
         Args:
             job_id: 구독할 job ID
             subscribed_event: 구독 완료 시그널 (옵션)
@@ -541,27 +559,11 @@ class SSEBroadcastManager:
 
                 # 메트릭: Pub/Sub 메시지 수신
                 stage = event.get("stage", "unknown")
+                seq = event.get("seq", 0)
                 SSE_PUBSUB_MESSAGES_RECEIVED.labels(stage=stage).inc()
 
-                # 해당 job_id의 모든 구독자에게 분배
-                subscribers = self._subscribers.get(job_id, set())
-                distributed_count = 0
-                for subscriber in subscribers:
-                    success = await subscriber.put_event(event)
-                    if success:
-                        distributed_count += 1
-                    else:
-                        SSE_QUEUE_DROPPED.labels(stage=stage).inc()
-
-                if subscribers:
-                    logger.debug(
-                        "pubsub_event_distributed",
-                        extra={
-                            "job_id": job_id,
-                            "stage": event.get("stage"),
-                            "queue_count": len(subscribers),
-                        },
-                    )
+                # Trace context 추출 및 linked span 생성
+                await self._process_event_with_tracing(job_id, event, stage, seq)
 
         except asyncio.CancelledError:
             logger.debug("pubsub_listener_cancelled", extra={"job_id": job_id})
@@ -574,6 +576,105 @@ class SSEBroadcastManager:
             await pubsub.unsubscribe(channel)
             await pubsub.close()
             logger.debug("pubsub_unsubscribed", extra={"job_id": job_id})
+
+    async def _process_event_with_tracing(
+        self,
+        job_id: str,
+        event: dict[str, Any],
+        stage: str,
+        seq: int,
+    ) -> None:
+        """이벤트 처리 (trace context 포함).
+
+        Event Router에서 전달된 trace context를 추출하여
+        linked span을 생성하고 이벤트를 구독자에게 분배.
+
+        Args:
+            job_id: 작업 ID
+            event: 이벤트 딕셔너리
+            stage: 이벤트 단계
+            seq: 이벤트 시퀀스
+        """
+        span_context_manager = None
+
+        if OTEL_ENABLED:
+            try:
+                from opentelemetry import trace
+                from opentelemetry.trace import SpanContext, TraceFlags, Link
+
+                # 이벤트에서 traceparent 추출 및 파싱
+                traceparent = event.get("traceparent", "")
+                link = None
+
+                if traceparent:
+                    # W3C TraceContext: 00-{trace_id}-{span_id}-{trace_flags}
+                    parts = traceparent.split("-")
+                    if len(parts) == 4:
+                        trace_id_int = int(parts[1], 16)
+                        span_id_int = int(parts[2], 16)
+                        trace_flags = int(parts[3], 16)
+
+                        parent_ctx = SpanContext(
+                            trace_id=trace_id_int,
+                            span_id=span_id_int,
+                            is_remote=True,
+                            trace_flags=TraceFlags(trace_flags),
+                        )
+                        link = Link(parent_ctx)
+
+                # linked span 생성 (Event Router span과 연결)
+                tracer = trace.get_tracer(__name__)
+                links = [link] if link else []
+                span_context_manager = tracer.start_as_current_span(
+                    f"sse_gateway.distribute.{stage}",
+                    links=links,
+                    attributes={
+                        "job.id": job_id,
+                        "event.stage": stage,
+                        "event.seq": seq,
+                    },
+                )
+            except ImportError:
+                pass
+            except Exception as e:
+                logger.debug(f"Failed to create linked span: {e}")
+
+        # span context 진입
+        span = None
+        if span_context_manager:
+            span = span_context_manager.__enter__()
+
+        try:
+            # 해당 job_id의 모든 구독자에게 분배
+            subscribers = self._subscribers.get(job_id, set())
+            distributed_count = 0
+            for subscriber in subscribers:
+                success = await subscriber.put_event(event)
+                if success:
+                    distributed_count += 1
+                else:
+                    SSE_QUEUE_DROPPED.labels(stage=stage).inc()
+
+            if span:
+                span.set_attribute("sse.subscriber_count", len(subscribers))
+                span.set_attribute("sse.distributed_count", distributed_count)
+
+            if subscribers:
+                logger.debug(
+                    "pubsub_event_distributed",
+                    extra={
+                        "job_id": job_id,
+                        "stage": stage,
+                        "seq": seq,
+                        "queue_count": len(subscribers),
+                        "distributed_count": distributed_count,
+                        "trace_id": event.get("trace_id") or None,
+                    },
+                )
+        finally:
+            # span context 종료
+            if span_context_manager:
+                span_context_manager.__exit__(None, None, None)
 
     async def _get_state_snapshot(
         self, job_id: str, domain: str = "scan"
@@ -749,3 +850,141 @@ class SSEBroadcastManager:
     def total_subscriber_count(self) -> int:
         """총 구독자 수."""
         return self._total_subscriber_count()
+
+    # =========================================================
+    # Token v2: 복구 가능한 토큰 스트리밍
+    # =========================================================
+
+    async def get_token_state(self, job_id: str) -> dict[str, Any] | None:
+        """Token State 조회 (누적 텍스트 복구용).
+
+        Token v2: Worker가 주기적으로 저장하는 누적 텍스트 스냅샷.
+        재연결 시 전체 텍스트를 즉시 복구할 수 있음.
+
+        Args:
+            job_id: 작업 ID
+
+        Returns:
+            Token State 또는 None
+            - last_seq: 마지막 토큰 seq
+            - accumulated: 누적 텍스트
+            - accumulated_len: 누적 텍스트 길이
+            - completed: 완료 여부 (옵션)
+            - updated_at: 마지막 업데이트 시간
+        """
+        if not self._streams_client:
+            return None
+
+        try:
+            key = f"{TOKEN_STATE_PREFIX}:{job_id}"
+            data = await self._streams_client.get(key)
+            if data:
+                return json.loads(data)
+        except Exception as e:
+            logger.warning(
+                "token_state_error",
+                extra={"job_id": job_id, "error": str(e)},
+            )
+
+        return None
+
+    async def catch_up_tokens(
+        self,
+        job_id: str,
+        from_seq: int = 0,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Token Stream에서 누락된 토큰 복구.
+
+        Token v2: Worker가 저장하는 job별 전용 Token Stream.
+        재연결 시 마지막 seq 이후의 토큰을 catch-up.
+
+        Args:
+            job_id: 작업 ID
+            from_seq: 마지막으로 받은 seq (이 이후부터 복구)
+
+        Yields:
+            Token 이벤트
+            - stage: "token"
+            - status: "streaming"
+            - seq: 토큰 seq
+            - content: 토큰 내용 (delta)
+            - node: 발생 노드 (answer, summarize 등)
+        """
+        if not self._streams_client:
+            return
+
+        token_stream_key = f"{TOKEN_STREAM_PREFIX}:{job_id}"
+
+        try:
+            # Token Stream에서 모든 토큰 읽기
+            messages = await self._streams_client.xrange(
+                token_stream_key,
+                min="-",
+                max="+",
+                count=10000,  # 최대 10000개 (평균 응답 500토큰 대비 충분)
+            )
+
+            caught_up_count = 0
+            for msg_id, data in messages:
+                seq = int(data.get("seq", "0"))
+                if seq > from_seq:
+                    caught_up_count += 1
+                    yield {
+                        "stage": "token",
+                        "status": "streaming",
+                        "seq": seq,
+                        "content": data.get("delta", ""),
+                        "node": data.get("node", ""),
+                    }
+
+            if caught_up_count > 0:
+                logger.info(
+                    "token_catch_up_completed",
+                    extra={
+                        "job_id": job_id,
+                        "from_seq": from_seq,
+                        "caught_up_count": caught_up_count,
+                    },
+                )
+
+        except Exception as e:
+            logger.warning(
+                "token_catch_up_error",
+                extra={"job_id": job_id, "error": str(e)},
+            )
+
+    async def get_token_recovery_event(
+        self,
+        job_id: str,
+    ) -> dict[str, Any] | None:
+        """Token 복구 이벤트 생성.
+
+        Token v2: 새 연결 시 Token State에서 누적 텍스트를 조회하여
+        전체 텍스트를 즉시 전달할 수 있는 복구 이벤트 생성.
+
+        Args:
+            job_id: 작업 ID
+
+        Returns:
+            복구 이벤트 또는 None
+            - stage: "token_recovery"
+            - status: "snapshot"
+            - accumulated: 누적 텍스트
+            - last_seq: 마지막 토큰 seq
+            - completed: 완료 여부
+        """
+        token_state = await self.get_token_state(job_id)
+        if not token_state:
+            return None
+
+        accumulated = token_state.get("accumulated")
+        if not accumulated:
+            return None
+
+        return {
+            "stage": "token_recovery",
+            "status": "snapshot",
+            "accumulated": accumulated,
+            "last_seq": token_state.get("last_seq", 0),
+            "completed": token_state.get("completed", False),
+        }

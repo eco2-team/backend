@@ -8,6 +8,12 @@ Redis 역할 분리:
 - scan:events → scan:state
 - chat:events → chat:state
 
+분산 트레이싱 통합:
+- Redis Streams 메시지에서 trace context 추출 (trace_id, span_id, traceparent)
+- linked span 생성하여 Worker와 연결
+- Pub/Sub 메시지에 trace context 포함하여 SSE Gateway로 전파
+- Jaeger/Kiali에서 Worker → Event Router → SSE Gateway 흐름 추적 가능
+
 Lua Script는 Streams Redis에서만 실행 (State + 발행 마킹)
 Pub/Sub는 별도 Redis로 PUBLISH
 
@@ -16,8 +22,10 @@ Pub/Sub는 별도 Redis로 PUBLISH
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import os
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -37,6 +45,9 @@ from event_router.metrics import (
 )
 
 logger = logging.getLogger(__name__)
+
+# OpenTelemetry 활성화 여부
+OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
 
 # ─────────────────────────────────────────────────────────────────
 # State 갱신 Lua Script (Streams Redis에서 실행)
@@ -148,7 +159,12 @@ class EventProcessor:
 
         1. Streams Redis에서 State 갱신 (Lua Script)
            - Token 이벤트는 State 갱신하지 않음 (스트리밍 데이터)
-        2. State 갱신 성공 시 Pub/Sub Redis로 발행
+        2. State 갱신 성공 시 Pub/Sub Redis로 발행 (trace context 포함)
+
+        분산 트레이싱:
+        - event에서 trace context 추출 (trace_id, span_id, traceparent)
+        - linked span 생성하여 Worker span과 연결
+        - Pub/Sub 메시지에 trace context 포함
 
         Args:
             event: Redis Streams 이벤트
@@ -173,6 +189,76 @@ class EventProcessor:
 
         stage = event.get("stage", "unknown")
 
+        # Trace context 추출 및 linked span 생성
+        span_context_manager = None
+
+        if OTEL_ENABLED:
+            try:
+                from opentelemetry import trace
+                from opentelemetry.trace import SpanContext, TraceFlags, Link
+
+                # 이벤트에서 traceparent 추출 및 파싱
+                traceparent = event.get("traceparent", "")
+                link = None
+
+                if traceparent:
+                    # W3C TraceContext: 00-{trace_id}-{span_id}-{trace_flags}
+                    parts = traceparent.split("-")
+                    if len(parts) == 4:
+                        trace_id = int(parts[1], 16)
+                        span_id = int(parts[2], 16)
+                        trace_flags = int(parts[3], 16)
+
+                        parent_ctx = SpanContext(
+                            trace_id=trace_id,
+                            span_id=span_id,
+                            is_remote=True,
+                            trace_flags=TraceFlags(trace_flags),
+                        )
+                        link = Link(parent_ctx)
+
+                # linked span 생성 (Worker span과 연결)
+                tracer = trace.get_tracer(__name__)
+                links = [link] if link else []
+                span_context_manager = tracer.start_as_current_span(
+                    f"event_router.process.{stage}",
+                    links=links,
+                    attributes={
+                        "job.id": job_id,
+                        "event.stage": stage,
+                        "event.seq": seq,
+                    },
+                )
+            except ImportError:
+                pass
+            except Exception as e:
+                logger.debug(f"Failed to create linked span: {e}")
+
+        # span context 진입
+        span = None
+        if span_context_manager:
+            span = span_context_manager.__enter__()
+
+        try:
+            return await self._process_event_inner(
+                event, job_id, seq, stage, stream_name, span
+            )
+        finally:
+            # span context 종료
+            if span_context_manager:
+                span_context_manager.__exit__(None, None, None)
+
+    async def _process_event_inner(
+        self,
+        event: dict[str, Any],
+        job_id: str,
+        seq: int,
+        stage: str,
+        stream_name: str | None,
+        span: Any,
+    ) -> bool:
+        """이벤트 처리 내부 로직."""
+
         # Token 이벤트는 State 갱신 없이 Pub/Sub만 발행
         # Token은 순간적인 스트리밍 데이터이므로 State에 저장할 필요 없음
         is_token_event = stage == "token"
@@ -191,32 +277,48 @@ class EventProcessor:
         # Token 이벤트: State 갱신 없이 Pub/Sub만 발행
         # Token은 순간적인 스트리밍 데이터이므로 State에 저장하면 안됨
         # (done 이벤트보다 높은 seq로 인해 최종 상태가 덮어씌워지는 문제 방지)
+        #
+        # Token v2: Worker에서 Token Stream + State를 저장하므로
+        # 여기서는 Pub/Sub 발행만 담당 (재시도 로직 추가)
         if is_token_event:
             start_time = time.perf_counter()
-            try:
-                await self._pubsub_redis.publish(channel, event_data)
-                EVENT_ROUTER_PUBSUB_PUBLISHED.labels(stage=stage).inc()
-                EVENT_ROUTER_PUBSUB_PUBLISH_LATENCY.observe(time.perf_counter() - start_time)
-                logger.debug(
-                    "token_event_published",
-                    extra={
-                        "job_id": job_id,
-                        "seq": seq,
-                        "channel": channel,
-                    },
-                )
-            except Exception as e:
-                EVENT_ROUTER_PUBSUB_PUBLISH_ERRORS.inc()
-                logger.warning(
-                    "token_pubsub_publish_failed",
-                    extra={
-                        "job_id": job_id,
-                        "seq": seq,
-                        "channel": channel,
-                        "error": str(e),
-                    },
-                )
-                return False
+
+            # 재시도 로직 (최대 3회)
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    await self._pubsub_redis.publish(channel, event_data)
+                    EVENT_ROUTER_PUBSUB_PUBLISHED.labels(stage=stage).inc()
+                    EVENT_ROUTER_PUBSUB_PUBLISH_LATENCY.observe(time.perf_counter() - start_time)
+                    logger.debug(
+                        "token_event_published",
+                        extra={
+                            "job_id": job_id,
+                            "seq": seq,
+                            "channel": channel,
+                            "attempt": attempt + 1,
+                        },
+                    )
+                    break  # 성공 시 루프 종료
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        # 마지막 시도도 실패
+                        EVENT_ROUTER_PUBSUB_PUBLISH_ERRORS.inc()
+                        logger.warning(
+                            "token_pubsub_publish_failed",
+                            extra={
+                                "job_id": job_id,
+                                "seq": seq,
+                                "channel": channel,
+                                "error": str(e),
+                                "attempts": max_retries,
+                            },
+                        )
+                        # Token v2: 실패해도 Worker의 Token Stream에 저장되어 있음
+                        # SSE Gateway의 catch-up으로 복구 가능
+                        return False
+                    # 재시도 대기 (exponential backoff)
+                    await asyncio.sleep(0.1 * (attempt + 1))
 
             EVENT_ROUTER_EVENTS_PROCESSED.labels(stage=stage).inc()
             return True
@@ -246,6 +348,11 @@ class EventProcessor:
                 await self._pubsub_redis.publish(channel, event_data)
                 EVENT_ROUTER_PUBSUB_PUBLISHED.labels(stage=stage).inc()
                 EVENT_ROUTER_PUBSUB_PUBLISH_LATENCY.observe(time.perf_counter() - publish_start)
+
+                if span:
+                    span.set_attribute("pubsub.channel", channel)
+                    span.set_attribute("pubsub.published", True)
+
                 logger.debug(
                     "event_processed",
                     extra={
@@ -253,12 +360,17 @@ class EventProcessor:
                         "stage": stage,
                         "seq": seq,
                         "channel": channel,
+                        "trace_id": event.get("trace_id") or None,
                     },
                 )
             except Exception as e:
                 EVENT_ROUTER_PUBSUB_PUBLISH_ERRORS.inc()
                 # Pub/Sub 실패해도 State는 이미 갱신됨
                 # SSE 클라이언트는 State polling으로 복구 가능
+                if span:
+                    span.set_attribute("pubsub.published", False)
+                    span.set_attribute("pubsub.error", str(e))
+
                 logger.warning(
                     "pubsub_publish_failed",
                     extra={
@@ -273,6 +385,10 @@ class EventProcessor:
             return True
         else:
             EVENT_ROUTER_EVENTS_SKIPPED.labels(reason="duplicate_or_out_of_order").inc()
+            if span:
+                span.set_attribute("event.skipped", True)
+                span.set_attribute("event.skip_reason", "duplicate_or_out_of_order")
+
             logger.debug(
                 "event_skipped",
                 extra={
