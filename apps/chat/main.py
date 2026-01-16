@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from chat.infrastructure.persistence_postgres.mappings import start_mappers
 from chat.presentation.http.controllers import chat_router
 from chat.setup.config import get_settings
 from chat.setup.dependencies import get_container
@@ -28,6 +29,7 @@ async def lifespan(app: FastAPI):
     """앱 라이프사이클 관리.
 
     Startup:
+      - ORM Mapper 초기화
       - Container 초기화
       - Redis 연결 확인
 
@@ -38,7 +40,10 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     container = get_container()
 
-    # Startup
+    # Startup - ORM Mapper 초기화
+    start_mappers()
+    logger.info("ORM mappers initialized")
+
     logger.info(
         "Environment: %s, Provider: %s",
         settings.environment,

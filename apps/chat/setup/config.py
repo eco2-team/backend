@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["*"]
 
+    # Database
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/eco2"
+    database_echo: bool = False
+
     # Logging
     log_level: str = "INFO"
 

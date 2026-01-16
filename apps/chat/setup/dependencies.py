@@ -3,6 +3,7 @@
 API의 책임:
 - 작업 제출 (Taskiq)
 - SSE 스트리밍 (Redis Pub/Sub 구독)
+- 채팅/메시지 CRUD (PostgreSQL)
 
 이벤트 발행은 Worker에서 수행
 """
@@ -10,14 +11,18 @@ API의 책임:
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, AsyncGenerator
 
 from fastapi import Depends
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from chat.application.chat.commands import SubmitChatCommand
 from chat.application.chat.ports import JobSubmitterPort
+from chat.application.chat.ports.chat_repository import ChatRepositoryPort
 from chat.infrastructure.messaging import TaskiqJobSubmitter
+from chat.infrastructure.persistence_postgres import async_session_factory
+from chat.infrastructure.persistence_postgres.adapters import ChatRepositorySQLA
 from chat.setup.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -63,6 +68,34 @@ async def get_submit_command() -> SubmitChatCommand:
 
 # Type aliases for FastAPI Depends
 SubmitCommandDep = Annotated[SubmitChatCommand, Depends(get_submit_command)]
+
+
+# ============================================================
+# Database Session & Repository
+# ============================================================
+
+
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """DB 세션 팩토리 (요청별 세션)."""
+    async with async_session_factory() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+
+
+async def get_chat_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> ChatRepositoryPort:
+    """ChatRepository 팩토리."""
+    return ChatRepositorySQLA(session)
+
+
+# Type aliases
+DbSessionDep = Annotated[AsyncSession, Depends(get_db_session)]
+ChatRepositoryDep = Annotated[ChatRepositoryPort, Depends(get_chat_repository)]
 
 
 # ============================================================
