@@ -12,6 +12,7 @@ on:
       - "apps/scan_worker/**"
       - "apps/character_worker/**"
       - "apps/info_worker/**"
+      - "apps/chat_worker/**"
       # Worker Kubernetes manifests
       - "workloads/domains/scan-worker/**"
       - "workloads/domains/character-worker/**"
@@ -19,6 +20,7 @@ on:
       - "workloads/domains/auth-worker/**"
       - "workloads/domains/users-worker/**"
       - "workloads/domains/info-worker/**"
+      - "workloads/domains/chat-worker/**"
   pull_request:
     branches:
       - main
@@ -37,6 +39,7 @@ on:
       - "workloads/domains/auth-worker/**"
       - "workloads/domains/users-worker/**"
       - "workloads/domains/info-worker/**"
+      - "workloads/domains/chat-worker/**"
   workflow_dispatch:
     inputs:
       force_all:
@@ -107,12 +110,14 @@ jobs:
             apps/scan_worker/**
             apps/character_worker/**
             apps/info_worker/**
+            apps/chat_worker/**
             workloads/domains/scan-worker/**
             workloads/domains/character-worker/**
             workloads/domains/character-match-worker/**
             workloads/domains/auth-worker/**
             workloads/domains/users-worker/**
             workloads/domains/info-worker/**
+            workloads/domains/chat-worker/**
 
       - name: Prepare worker matrix
         id: prepare
@@ -128,7 +133,7 @@ jobs:
 
           # Worker 목록 (apps/ Clean Architecture)
           # workloads/domains 매핑: auth_worker → auth-worker
-          WORKERS = ["auth_worker", "users_worker", "scan_worker", "character_worker", "info_worker"]
+          WORKERS = ["auth_worker", "users_worker", "scan_worker", "character_worker", "info_worker", "chat_worker"]
 
           raw_targets = [
               w.strip()
@@ -196,7 +201,7 @@ jobs:
       - name: Validate all worker manifests
         run: |
           echo "🔍 Validating all worker manifests..."
-          for worker in auth-worker users-worker character-worker scan-worker info-worker; do
+          for worker in auth-worker users-worker character-worker scan-worker info-worker chat-worker; do
             if [ -d "workloads/domains/${worker}/dev" ]; then
               echo "  - ${worker}/dev"
               kustomize build "workloads/domains/${worker}/dev" > /dev/null || exit 1
