@@ -63,18 +63,20 @@ class TaskiqJobSubmitter(JobSubmitterPort):
             broker_message = BrokerMessage(
                 task_id=job_id,
                 task_name="chat.process",
-                message=json.dumps({
-                    "args": [],
-                    "kwargs": {
-                        "job_id": job_id,
-                        "session_id": session_id,
-                        "message": message,
-                        "user_id": user_id,
-                        "image_url": image_url,
-                        "user_location": user_location,
-                        "model": model,
-                    },
-                }).encode(),
+                message=json.dumps(
+                    {
+                        "args": [],
+                        "kwargs": {
+                            "job_id": job_id,
+                            "session_id": session_id,
+                            "message": message,
+                            "user_id": user_id,
+                            "image_url": image_url,
+                            "user_location": user_location,
+                            "model": model,
+                        },
+                    }
+                ).encode(),
                 labels={},
             )
             await broker.kick(broker_message)
