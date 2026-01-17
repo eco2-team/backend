@@ -7,4 +7,4 @@ data:
   ENVIRONMENT: dev
   DEBUG: 'true'
   # Database - dev-postgresql service with correct password
-  CHAT_DATABASE_URL: postgresql+asyncpg://postgres:y%3DbGxCrC%2Bcg4lQ8j0PqMS%29O3bbZMM%2ByG@dev-postgresql.postgres.svc.cluster.local:5432/eco2
+  CHAT_DATABASE_URL: postgresql+asyncpg://postgres:y%3DbGxCrC%2Bcg4lQ8j0PqMS%29O3bbZMM%2ByG@dev-postgresql.postgres.svc.cluster.local:5432/ecoeco

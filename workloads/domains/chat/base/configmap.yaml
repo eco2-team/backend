@@ -10,7 +10,7 @@ data:
   CHAT_LOG_LEVEL: INFO
   CHAT_DEBUG: 'false'
   # Database (PostgreSQL + asyncpg)
-  CHAT_DATABASE_URL: postgresql+asyncpg://postgres:postgres@dev-postgresql.postgres.svc.cluster.local:5432/eco2
+  CHAT_DATABASE_URL: postgresql+asyncpg://postgres:postgres@dev-postgresql.postgres.svc.cluster.local:5432/ecoeco
   CHAT_DATABASE_ECHO: 'false'
   # Redis (Streams - 이벤트 발행)
   CHAT_REDIS_URL: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
