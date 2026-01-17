@@ -36,8 +36,11 @@ async def get_pg_pool() -> asyncpg.Pool | None:
         return None
 
     if _pg_pool is None:
+        # asyncpg는 postgresql:// 또는 postgres:// 만 지원
+        # SQLAlchemy 스타일 postgresql+asyncpg:// 변환
+        dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
         _pg_pool = await asyncpg.create_pool(
-            settings.database_url,
+            dsn,
             min_size=2,
             max_size=10,
         )
