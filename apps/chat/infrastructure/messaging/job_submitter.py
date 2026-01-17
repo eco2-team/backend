@@ -58,25 +58,29 @@ class TaskiqJobSubmitter(JobSubmitterPort):
         broker = await self._get_broker()
 
         try:
-            # TaskIQ BrokerMessage 형식으로 메시지 구성
-            # TaskIQ는 {"args": [...], "kwargs": {...}} 형식을 기대함
+            # TaskIQ TaskiqMessage 형식으로 메시지 구성
+            # Worker의 broker.formatter.loads()가 기대하는 전체 형식:
+            # {"task_id": ..., "task_name": ..., "labels": {}, "args": [], "kwargs": {...}}
+            taskiq_message = {
+                "task_id": job_id,
+                "task_name": "chat.process",
+                "labels": {},
+                "args": [],
+                "kwargs": {
+                    "job_id": job_id,
+                    "session_id": session_id,
+                    "message": message,
+                    "user_id": user_id,
+                    "image_url": image_url,
+                    "user_location": user_location,
+                    "model": model,
+                },
+            }
+
             broker_message = BrokerMessage(
                 task_id=job_id,
                 task_name="chat.process",
-                message=json.dumps(
-                    {
-                        "args": [],
-                        "kwargs": {
-                            "job_id": job_id,
-                            "session_id": session_id,
-                            "message": message,
-                            "user_id": user_id,
-                            "image_url": image_url,
-                            "user_location": user_location,
-                            "model": model,
-                        },
-                    }
-                ).encode(),
+                message=json.dumps(taskiq_message).encode(),
                 labels={},
             )
             await broker.kick(broker_message)
