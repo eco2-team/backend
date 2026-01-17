@@ -6,8 +6,11 @@ import asyncio
 import logging
 import sys
 
-from chat_worker.setup.broker import shutdown, startup
+from chat_worker.setup.broker import broker, shutdown, startup
 from chat_worker.presentation.amqp import health_check, process_chat  # noqa: F401
+
+# Taskiq CLI가 이 모듈에서 broker를 찾음
+__all__ = ["broker"]
 
 logging.basicConfig(
     level=logging.INFO,
