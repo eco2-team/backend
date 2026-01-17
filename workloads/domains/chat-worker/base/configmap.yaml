@@ -9,8 +9,8 @@ data:
   CHAT_WORKER_SERVICE_NAME: chat-worker
   CHAT_WORKER_ENVIRONMENT: base
   CHAT_WORKER_LOG_LEVEL: INFO
-  # RabbitMQ (Taskiq)
-  CHAT_WORKER_RABBITMQ_URL: amqp://eco2worker:eco2worker123%21@eco2-rabbitmq.rabbitmq.svc.cluster.local:5672/eco2
+  # RabbitMQ (Taskiq) - credentials overridden by secret
+  CHAT_WORKER_RABBITMQ_URL: amqp://guest:guest@eco2-rabbitmq.rabbitmq.svc.cluster.local:5672/eco2
   CHAT_WORKER_RABBITMQ_QUEUE: chat.process
   # Redis (Streams - 이벤트 발행, event-router가 소비)
   CHAT_WORKER_REDIS_STREAMS_URL: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0

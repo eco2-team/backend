@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import os
 
+from aio_pika import ExchangeType
 from taskiq_aio_pika import AioPikaBroker
 
 from chat_worker.setup.config import get_settings
@@ -38,6 +39,8 @@ broker = AioPikaBroker(
     url=settings.rabbitmq_url,
     declare_exchange=not _is_production,  # 운영 환경에서는 기존 사용
     exchange_name="chat_tasks",
+    exchange_type=ExchangeType.DIRECT,
+    routing_key="chat.process",
     queue_name=settings.rabbitmq_queue,  # chat.process
 )
 

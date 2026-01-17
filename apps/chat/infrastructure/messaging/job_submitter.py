@@ -5,8 +5,11 @@ RabbitMQ를 통해 chat_worker에 작업 제출.
 
 from __future__ import annotations
 
+import json
 import logging
 
+from aio_pika import ExchangeType
+from taskiq.message import BrokerMessage
 from taskiq_aio_pika import AioPikaBroker
 
 from chat.application.chat.ports.job_submitter import JobSubmitterPort
@@ -34,6 +37,8 @@ class TaskiqJobSubmitter(JobSubmitterPort):
                 url=self._settings.rabbitmq_url,
                 declare_exchange=True,
                 exchange_name="chat_tasks",
+                exchange_type=ExchangeType.DIRECT,
+                routing_key="chat.process",
             )
             await self._broker.startup()
             logger.info("TaskiqJobSubmitter broker started")
@@ -53,19 +58,28 @@ class TaskiqJobSubmitter(JobSubmitterPort):
         broker = await self._get_broker()
 
         try:
-            await broker.kick(
+            # TaskIQ BrokerMessage 형식으로 메시지 구성
+            # TaskIQ는 {"args": [...], "kwargs": {...}} 형식을 기대함
+            broker_message = BrokerMessage(
+                task_id=job_id,
                 task_name="chat.process",
-                args=[],
-                kwargs={
-                    "job_id": job_id,
-                    "session_id": session_id,
-                    "message": message,
-                    "user_id": user_id,
-                    "image_url": image_url,
-                    "user_location": user_location,
-                    "model": model,
-                },
+                message=json.dumps(
+                    {
+                        "args": [],
+                        "kwargs": {
+                            "job_id": job_id,
+                            "session_id": session_id,
+                            "message": message,
+                            "user_id": user_id,
+                            "image_url": image_url,
+                            "user_location": user_location,
+                            "model": model,
+                        },
+                    }
+                ).encode(),
+                labels={},
             )
+            await broker.kick(broker_message)
 
             logger.info(
                 "Job submitted",
@@ -81,6 +95,7 @@ class TaskiqJobSubmitter(JobSubmitterPort):
             logger.error(
                 "Job submission failed",
                 extra={"job_id": job_id, "error": str(e)},
+                exc_info=True,
             )
             return False
 

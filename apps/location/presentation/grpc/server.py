@@ -23,7 +23,7 @@ from location.setup.config import get_settings
 from location.setup.dependencies import get_nearby_centers_query
 
 if TYPE_CHECKING:
-    from location.application.nearby import GetNearbyCentersQuery
+    pass
 
 logger = logging.getLogger(__name__)
 
