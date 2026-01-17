@@ -224,9 +224,7 @@ class TestSaveMessagesCommand:
         mock_repository: AsyncMock,
     ) -> None:
         """bulk_create 실패 시 에러 반환."""
-        mock_repository.bulk_create_messages = AsyncMock(
-            side_effect=Exception("Database error")
-        )
+        mock_repository.bulk_create_messages = AsyncMock(side_effect=Exception("Database error"))
         command = SaveMessagesCommand(repository=mock_repository)
 
         events = [self._create_input()]

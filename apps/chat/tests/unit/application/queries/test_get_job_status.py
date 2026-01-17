@@ -84,11 +84,13 @@ class TestGetJobStatusQuery:
         mock_redis: AsyncMock,
     ) -> None:
         """queued 상태 매핑."""
-        state_data = json.dumps({
-            "stage": "queued",
-            "status": "pending",
-            "progress": 0,
-        })
+        state_data = json.dumps(
+            {
+                "stage": "queued",
+                "status": "pending",
+                "progress": 0,
+            }
+        )
         mock_redis.get = AsyncMock(return_value=state_data)
 
         response = await query.execute("job-123")
@@ -104,11 +106,13 @@ class TestGetJobStatusQuery:
         mock_redis: AsyncMock,
     ) -> None:
         """running 상태 매핑 (rag stage)."""
-        state_data = json.dumps({
-            "stage": "rag",
-            "status": "processing",
-            "progress": 30,
-        })
+        state_data = json.dumps(
+            {
+                "stage": "rag",
+                "status": "processing",
+                "progress": 30,
+            }
+        )
         mock_redis.get = AsyncMock(return_value=state_data)
 
         response = await query.execute("job-123")
@@ -124,12 +128,14 @@ class TestGetJobStatusQuery:
         mock_redis: AsyncMock,
     ) -> None:
         """completed 상태 매핑."""
-        state_data = json.dumps({
-            "stage": "done",
-            "status": "completed",
-            "progress": 100,
-            "result": {"answer": "This is the answer"},
-        })
+        state_data = json.dumps(
+            {
+                "stage": "done",
+                "status": "completed",
+                "progress": 100,
+                "result": {"answer": "This is the answer"},
+            }
+        )
         mock_redis.get = AsyncMock(return_value=state_data)
 
         response = await query.execute("job-123")
@@ -146,12 +152,14 @@ class TestGetJobStatusQuery:
         mock_redis: AsyncMock,
     ) -> None:
         """failed 상태 매핑."""
-        state_data = json.dumps({
-            "stage": "done",
-            "status": "failed",
-            "progress": 50,
-            "error": "LLM API error",
-        })
+        state_data = json.dumps(
+            {
+                "stage": "done",
+                "status": "failed",
+                "progress": 50,
+                "error": "LLM API error",
+            }
+        )
         mock_redis.get = AsyncMock(return_value=state_data)
 
         response = await query.execute("job-123")
@@ -167,11 +175,13 @@ class TestGetJobStatusQuery:
         mock_redis: AsyncMock,
     ) -> None:
         """bytes로 반환된 데이터 처리."""
-        state_data = json.dumps({
-            "stage": "intent",
-            "status": "processing",
-            "progress": 10,
-        }).encode("utf-8")
+        state_data = json.dumps(
+            {
+                "stage": "intent",
+                "status": "processing",
+                "progress": 10,
+            }
+        ).encode("utf-8")
         mock_redis.get = AsyncMock(return_value=state_data)
 
         response = await query.execute("job-123")
@@ -215,11 +225,13 @@ class TestGetJobStatusQuery:
         mock_redis: AsyncMock,
     ) -> None:
         """progress가 문자열인 경우."""
-        state_data = json.dumps({
-            "stage": "rag",
-            "status": "processing",
-            "progress": "45",
-        })
+        state_data = json.dumps(
+            {
+                "stage": "rag",
+                "status": "processing",
+                "progress": "45",
+            }
+        )
         mock_redis.get = AsyncMock(return_value=state_data)
 
         response = await query.execute("job-123")
@@ -233,11 +245,13 @@ class TestGetJobStatusQuery:
         mock_redis: AsyncMock,
     ) -> None:
         """progress가 유효하지 않은 경우."""
-        state_data = json.dumps({
-            "stage": "rag",
-            "status": "processing",
-            "progress": "invalid",
-        })
+        state_data = json.dumps(
+            {
+                "stage": "rag",
+                "status": "processing",
+                "progress": "invalid",
+            }
+        )
         mock_redis.get = AsyncMock(return_value=state_data)
 
         response = await query.execute("job-123")
@@ -251,11 +265,13 @@ class TestGetJobStatusQuery:
         mock_redis: AsyncMock,
     ) -> None:
         """progress가 None인 경우."""
-        state_data = json.dumps({
-            "stage": "rag",
-            "status": "processing",
-            "progress": None,
-        })
+        state_data = json.dumps(
+            {
+                "stage": "rag",
+                "status": "processing",
+                "progress": None,
+            }
+        )
         mock_redis.get = AsyncMock(return_value=state_data)
 
         response = await query.execute("job-123")
@@ -289,11 +305,13 @@ class TestGetJobStatusQuery:
         stages = ["intent", "vision", "rag", "answer", "subagent"]
 
         for stage in stages:
-            state_data = json.dumps({
-                "stage": stage,
-                "status": "processing",
-                "progress": 50,
-            })
+            state_data = json.dumps(
+                {
+                    "stage": stage,
+                    "status": "processing",
+                    "progress": 50,
+                }
+            )
             mock_redis.get = AsyncMock(return_value=state_data)
 
             response = await query.execute("job-123")
