@@ -128,10 +128,7 @@ async def get_progress_notifier() -> ProgressNotifierPort:
     global _progress_notifier
     if _progress_notifier is None:
         redis = await get_redis()
-        _progress_notifier = RedisProgressNotifier(
-            redis=redis,
-            stream_prefix="chat:events",
-        )
+        _progress_notifier = RedisProgressNotifier(redis=redis)
     return _progress_notifier
 
 
