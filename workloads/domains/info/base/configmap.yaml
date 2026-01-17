@@ -22,4 +22,4 @@ data:
   INFO_LOG_LEVEL: INFO
 
   # CORS
-  INFO_ALLOWED_ORIGINS: '["https://growbin.app","https://www.growbin.app"]'
+  INFO_ALLOWED_ORIGINS: '["https://growbin.app","https://www.growbin.app","https://frontend.dev.growbin.app","https://api.dev.growbin.app"]'

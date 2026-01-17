@@ -366,6 +366,7 @@ class NaverNewsClientSync:
             return parsedate_to_datetime(date_str)
         except Exception:
             from datetime import timezone
+
             return datetime.now(timezone.utc)
 
     def _extract_source_name(self, url: str) -> str:
