@@ -23,42 +23,57 @@
 │           │                                                                  │
 │  ─────────┼──────────────────────────────────────────────────────────────── │
 │           │                                                                  │
-│  VirtualService Routing                                                      │
-│  ┌────────▼────────┐    ┌──────────────────┐                               │
-│  │    chat-vs      │    │  sse-gateway-vs  │                               │
-│  │ /api/v1/chat/*  │    │ /api/v1/sse/*    │                               │
-│  └────────┬────────┘    └────────┬─────────┘                               │
-│           │                      │                                          │
-│  ─────────┼──────────────────────┼──────────────────────────────────────── │
-│           │                      │                                          │
-│  Services │                      │                                          │
-│  ┌────────▼────────┐    ┌────────▼─────────┐                               │
-│  │    chat-api     │    │   sse-gateway    │                               │
-│  │  (namespace:    │    │  (namespace:     │                               │
-│  │   chat)         │    │   sse-consumer)  │                               │
-│  └────────┬────────┘    └────────▲─────────┘                               │
-│           │                      │                                          │
-│  ─────────┼──────────────────────┼──────────────────────────────────────── │
-│           │                      │                                          │
-│  Message Queue                   │ Pub/Sub                                  │
-│  ┌────────▼────────┐    ┌────────┴─────────┐                               │
-│  │    RabbitMQ     │    │  Redis Pub/Sub   │                               │
-│  │  chat_tasks_q   │    │  sse:events:*    │                               │
-│  │  (DIRECT)       │    │                  │                               │
-│  └────────┬────────┘    └────────▲─────────┘                               │
-│           │                      │                                          │
-│  ─────────┼──────────────────────┼──────────────────────────────────────── │
-│           │                      │                                          │
-│  Worker   │                      │                                          │
-│  ┌────────▼────────┐    ┌────────┴─────────┐                               │
-│  │  chat-worker    │───▶│   event-router   │                               │
-│  │  (LangGraph)    │    │  (Lua Script)    │                               │
-│  │                 │    │                  │                               │
-│  │  TaskIQ +       │    │  Redis Streams   │                               │
-│  │  astream_events │    │  → Pub/Sub       │                               │
-│  └─────────────────┘    └──────────────────┘                               │
+│  VirtualService Routing (chat-vs)                                           │
+│  ┌────────▼────────────────────────────────────────────────────┐           │
+│  │  1. [regex] /api/v1/chat/[^/]+/events → sse-gateway (SSE)  │           │
+│  │  2. [prefix] /api/v1/chat → chat-api (REST)                 │           │
+│  └────────┬───────────────────────────────────┬────────────────┘           │
+│           │                                   │                             │
+│  ─────────┼───────────────────────────────────┼──────────────────────────── │
+│           │                                   │                             │
+│  Services │                                   │                             │
+│  ┌────────▼────────┐                 ┌────────▼─────────┐                  │
+│  │    chat-api     │                 │   sse-gateway    │                  │
+│  │  (ns: chat)     │                 │ (ns: sse-consumer)│                  │
+│  └────────┬────────┘                 └────────▲─────────┘                  │
+│           │                                   │ SUBSCRIBE                   │
+│  ─────────┼───────────────────────────────────┼──────────────────────────── │
+│           │                                   │                             │
+│  Message Queue                        Redis Pub/Sub (rfr-pubsub-redis)     │
+│  ┌────────▼────────┐                 ┌────────┴─────────┐                  │
+│  │    RabbitMQ     │                 │  sse:events:*    │                  │
+│  │  chat.process   │                 │  (ns: redis)     │                  │
+│  │ (ns: rabbitmq)  │                 └────────▲─────────┘                  │
+│  └────────┬────────┘                          │ PUBLISH                    │
+│           │                                   │                             │
+│  ─────────┼───────────────────────────────────┼──────────────────────────── │
+│           │                                   │                             │
+│  Worker   │                          ┌────────┴─────────┐                  │
+│  ┌────────▼────────┐                 │   event-router   │                  │
+│  │  chat-worker    │                 │ (ns: event-router)│                  │
+│  │  (LangGraph)    │                 └────────▲─────────┘                  │
+│  │  (ns: chat)     │                          │ XREADGROUP                 │
+│  └────────┬────────┘                          │                             │
+│           │                                   │                             │
+│  ─────────┼───────────────────────────────────┼──────────────────────────── │
+│           │                                   │                             │
+│           │ XADD                      Redis Streams (rfr-streams-redis)    │
+│           │                          ┌────────┴─────────┐                  │
+│           └─────────────────────────▶│ chat:events:{0-3}│                  │
+│                                      │  (ns: redis)     │                  │
+│                                      └──────────────────┘                  │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
+
+Redis Instances (namespace: redis)
+┌──────────────────────┬──────────────────────┐
+│  rfr-streams-redis   │   rfr-pubsub-redis   │
+│  (Redis Streams)     │   (Redis Pub/Sub)    │
+│                      │                      │
+│  chat:events:{0-3}   │   sse:events:{job}   │
+│  chat:tokens:{job}   │                      │
+│  chat:published:*    │                      │
+└──────────────────────┴──────────────────────┘
 ```
 
 ## LangGraph Pipeline
@@ -206,10 +221,18 @@ eco2-rabbitmq.rabbitmq.svc.cluster.local:5672
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `CHAT_WORKER_RABBITMQ_URL` | RabbitMQ 연결 | `amqp://...` |
-| `CHAT_WORKER_REDIS_URL` | Redis Pub/Sub 연결 | `redis://rfr-pubsub-redis-0...` |
+| `CHAT_WORKER_REDIS_URL` | Redis (캐시, 기타) | `redis://rfr-pubsub-redis-0...` |
+| `CHAT_WORKER_REDIS_STREAMS_URL` | Redis Streams (이벤트 발행) | `redis://rfr-streams-redis...` |
 | `CHAT_WORKER_OPENAI_API_KEY` | OpenAI API 키 | `sk-...` |
 | `CHAT_WORKER_GOOGLE_API_KEY` | Google API 키 | - |
 | `CHAT_WORKER_DEFAULT_PROVIDER` | LLM Provider | `openai` / `google` |
+
+### Environment Variables (event-router)
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `REDIS_STREAMS_URL` | Redis Streams (이벤트 소비) | `redis://rfr-streams-redis...` |
+| `REDIS_PUBSUB_URL` | Redis Pub/Sub (SSE 브로드캐스트) | `redis://rfr-pubsub-redis...` |
 
 ### ExternalSecret Reference
 
