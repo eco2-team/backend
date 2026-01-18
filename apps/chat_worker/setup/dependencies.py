@@ -605,12 +605,8 @@ async def get_input_requester() -> InputRequesterPort:
     """
     global _input_requester
     if _input_requester is None:
-        progress_notifier = await get_progress_notifier()
-        state_store = await get_interaction_state_store()
-        _input_requester = RedisInputRequester(
-            progress_notifier=progress_notifier,
-            state_store=state_store,
-        )
+        redis = await get_redis()
+        _input_requester = RedisInputRequester(redis=redis)
         logger.info("RedisInputRequester created (Human-in-the-Loop enabled)")
     return _input_requester
 
