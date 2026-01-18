@@ -240,9 +240,7 @@ class ChatState(TypedDict, total=False):
     location_context: Annotated[dict[str, Any] | None, priority_preemptive_reducer]
     """location 노드 출력. gRPC 위치 정보."""
 
-    collection_point_context: Annotated[
-        dict[str, Any] | None, priority_preemptive_reducer
-    ]
+    collection_point_context: Annotated[dict[str, Any] | None, priority_preemptive_reducer]
     """collection_point 노드 출력. KECO 수거함 위치."""
 
     character_context: Annotated[dict[str, Any] | None, priority_preemptive_reducer]
@@ -254,14 +252,10 @@ class ChatState(TypedDict, total=False):
     web_search_results: Annotated[dict[str, Any] | None, priority_preemptive_reducer]
     """web_search 노드 출력. 웹 검색 결과."""
 
-    recyclable_price_context: Annotated[
-        dict[str, Any] | None, priority_preemptive_reducer
-    ]
+    recyclable_price_context: Annotated[dict[str, Any] | None, priority_preemptive_reducer]
     """recyclable_price 노드 출력. 재활용 시세 정보."""
 
-    image_generation_context: Annotated[
-        dict[str, Any] | None, priority_preemptive_reducer
-    ]
+    image_generation_context: Annotated[dict[str, Any] | None, priority_preemptive_reducer]
     """image_generation 노드 출력. 이미지 생성 결과."""
 
     general_context: Annotated[dict[str, Any] | None, priority_preemptive_reducer]

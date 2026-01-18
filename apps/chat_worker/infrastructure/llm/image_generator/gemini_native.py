@@ -1,15 +1,18 @@
-"""Gemini Native Image Generator.
+"""Gemini Native Image Generator (Nano Banana).
 
 Gemini의 네이티브 이미지 생성 기능을 사용한 이미지 생성.
 
-지원 모델:
-- gemini-3-pro-image-preview: 전문가급 품질, 참조 이미지 최대 14개
+지원 모델 (Nano Banana):
+- gemini-3-pro-image-preview: 전문가급 품질, 참조 이미지 최대 14개, image_size 지원
 - gemini-2.5-flash-image: 빠른 생성, 참조 이미지 최대 3개
 
 특징:
-- 참조 이미지 기반 스타일 일관성 (캐릭터 최대 5개)
+- 참조 이미지 기반 스타일 일관성 (캐릭터 참조)
 - 멀티턴 대화 지원 (이전 생성 결과 참조 가능)
 - TEXT + IMAGE 혼합 응답
+- SynthID 워터마크 자동 포함
+
+API 문서: https://ai.google.dev/gemini-api/docs/image-generation
 """
 
 from __future__ import annotations
@@ -19,11 +22,7 @@ import logging
 import os
 
 from google import genai
-from google.genai.types import (
-    Content,
-    GenerateContentConfig,
-    Part,
-)
+from google.genai import types
 
 from chat_worker.application.ports.image_generator import (
     ImageGenerationError,
@@ -46,6 +45,13 @@ SIZE_TO_ASPECT_RATIO = {
     "1024x1792": "9:16",
     "1792x1024": "16:9",
     "512x512": "1:1",
+}
+
+# Quality → Image Size 매핑 (Pro 모델만 지원)
+QUALITY_TO_IMAGE_SIZE = {
+    "low": None,  # 기본값 사용
+    "medium": "1K",
+    "high": "2K",
 }
 
 
@@ -118,8 +124,8 @@ class GeminiNativeImageGenerator(ImageGeneratorPort):
 
         Args:
             prompt: 생성할 이미지 설명
-            size: 이미지 크기
-            quality: 품질 (Gemini는 자동 조절)
+            size: 이미지 크기 (aspect_ratio로 변환)
+            quality: 품질 (Pro 모델: 1K/2K, Flash: 무시)
 
         Returns:
             ImageGenerationResult: 생성 결과
@@ -127,6 +133,7 @@ class GeminiNativeImageGenerator(ImageGeneratorPort):
         return await self._generate_internal(
             prompt=prompt,
             size=size,
+            quality=quality,
             reference_images=None,
         )
 
@@ -144,8 +151,8 @@ class GeminiNativeImageGenerator(ImageGeneratorPort):
         Args:
             prompt: 생성할 이미지 설명
             reference_images: 참조 이미지 목록
-            size: 이미지 크기
-            quality: 품질
+            size: 이미지 크기 (aspect_ratio로 변환)
+            quality: 품질 (Pro 모델: 1K/2K, Flash: 무시)
 
         Returns:
             ImageGenerationResult: 생성 결과
@@ -162,6 +169,7 @@ class GeminiNativeImageGenerator(ImageGeneratorPort):
         return await self._generate_internal(
             prompt=prompt,
             size=size,
+            quality=quality,
             reference_images=reference_images,
         )
 
@@ -169,55 +177,69 @@ class GeminiNativeImageGenerator(ImageGeneratorPort):
         self,
         prompt: str,
         size: str,
+        quality: str,
         reference_images: list[ReferenceImage] | None,
     ) -> ImageGenerationResult:
         """내부 이미지 생성 로직.
 
         Args:
             prompt: 생성 프롬프트
-            size: 이미지 크기
+            size: 이미지 크기 (aspect_ratio로 변환)
+            quality: 품질 (Pro 모델에서 image_size로 변환)
             reference_images: 참조 이미지 (선택)
 
         Returns:
             ImageGenerationResult
         """
         aspect_ratio = SIZE_TO_ASPECT_RATIO.get(size, "1:1")
+        # Pro 모델만 image_size 지원
+        image_size = QUALITY_TO_IMAGE_SIZE.get(quality) if "pro" in self._model.lower() else None
 
         logger.info(
-            "Generating image (model=%s, aspect_ratio=%s, references=%d)",
+            "Generating image (model=%s, aspect_ratio=%s, image_size=%s, references=%d)",
             self._model,
             aspect_ratio,
+            image_size,
             len(reference_images) if reference_images else 0,
         )
 
         try:
             # 콘텐츠 구성
-            parts: list[Part] = []
+            parts: list[types.Part] = []
 
             # 참조 이미지 추가
             if reference_images:
                 parts.append(
-                    Part.from_text(
+                    types.Part.from_text(
                         "다음 참조 이미지의 캐릭터 스타일을 유지하면서 이미지를 생성해주세요:"
                     )
                 )
                 for ref in reference_images:
                     parts.append(
-                        Part.from_bytes(
+                        types.Part.from_bytes(
                             data=ref.image_bytes,
                             mime_type=ref.mime_type,
                         )
                     )
-                parts.append(Part.from_text(f"\n요청: {prompt}"))
+                parts.append(types.Part.from_text(f"\n요청: {prompt}"))
             else:
-                parts.append(Part.from_text(prompt))
+                parts.append(types.Part.from_text(prompt))
 
-            # Gemini API 호출
+            # ImageConfig 구성 (aspect_ratio + image_size)
+            image_config = types.ImageConfig(aspect_ratio=aspect_ratio)
+            if image_size:
+                image_config = types.ImageConfig(
+                    aspect_ratio=aspect_ratio,
+                    image_size=image_size,
+                )
+
+            # Gemini API 호출 (Nano Banana)
             response = await self._client.aio.models.generate_content(
                 model=self._model,
-                contents=Content(parts=parts),
-                config=GenerateContentConfig(
+                contents=types.Content(parts=parts),
+                config=types.GenerateContentConfig(
                     response_modalities=["TEXT", "IMAGE"],
+                    image_config=image_config,
                 ),
             )
 

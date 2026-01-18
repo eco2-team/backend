@@ -241,36 +241,39 @@ def create_vision_client(
 
 
 # ============================================================
-# Image Generator Factory (Responses API)
+# Image Generator Factory (Provider 통일)
 # ============================================================
 
 
 def get_image_generator() -> ImageGeneratorPort | None:
     """이미지 생성 클라이언트 싱글톤.
 
-    OpenAI Responses API의 네이티브 image_generation tool 사용.
+    default_provider 설정에 따라 적합한 이미지 생성기 선택.
     enable_image_generation=True일 때만 활성화 (비용 발생).
 
-    아키텍처 의사결정:
-    - Chat Completions API: 기존 파이프라인 유지 (multi-intent 라우팅)
-    - Responses API: 이미지 생성 서브에이전트에서만 사용
-    - 같은 OpenAI API 키로 두 API 혼용 가능
-
-    비용 (gpt-image-1.5, 1024x1024 기준):
-    - low: ~$0.02
-    - medium: ~$0.07
-    - high: ~$0.19
-    + Responses API 토큰 비용 추가
+    Provider별 이미지 생성:
+    - openai: OpenAI Responses API (gpt-image-1.5)
+    - google: Gemini Native Image Generation (gemini-3-pro-image-preview)
 
     환경변수:
     - CHAT_WORKER_ENABLE_IMAGE_GENERATION: True로 설정 시 활성화
-    - CHAT_WORKER_IMAGE_GENERATION_MODEL: Responses API 모델 (기본: gpt-4o)
+    - CHAT_WORKER_DEFAULT_PROVIDER: 이미지 생성 Provider 결정
     """
     global _image_generator
     if _image_generator is None:
         settings = get_settings()
 
-        if settings.enable_image_generation and settings.openai_api_key:
+        if not settings.enable_image_generation:
+            logger.info("Image generation disabled (enable_image_generation=False)")
+            return None
+
+        provider = settings.default_provider
+
+        if provider == "openai":
+            if not settings.openai_api_key:
+                logger.warning("Image generation disabled (no OpenAI API key)")
+                return None
+
             from chat_worker.infrastructure.llm.image_generator import (
                 OpenAIResponsesImageGenerator,
             )
@@ -282,14 +285,27 @@ def get_image_generator() -> ImageGeneratorPort | None:
                 default_quality=settings.image_generation_default_quality,
             )
             logger.info(
-                "OpenAI Image Generator created (Responses API, model=%s)",
+                "OpenAI Image Generator created (model=%s)",
                 settings.image_generation_model,
             )
+
+        elif provider == "google":
+            if not settings.google_api_key:
+                logger.warning("Image generation disabled (no Google API key)")
+                return None
+
+            from chat_worker.infrastructure.llm.image_generator import (
+                GeminiNativeImageGenerator,
+            )
+
+            _image_generator = GeminiNativeImageGenerator(
+                model="gemini-3-pro-image-preview",
+                api_key=settings.google_api_key,
+            )
+            logger.info("Gemini Image Generator created (model=gemini-3-pro-image-preview)")
+
         else:
-            if not settings.enable_image_generation:
-                logger.info("Image generation disabled (enable_image_generation=False)")
-            elif not settings.openai_api_key:
-                logger.warning("Image generation disabled (no OpenAI API key)")
+            logger.warning("Unknown provider for image generation: %s", provider)
             return None
 
     return _image_generator
