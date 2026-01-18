@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-consumer
+  namespace: chat
+  labels:
+    app: chat-consumer
+    version: v1
+    tier: worker
+    domain: chat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chat-consumer
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: chat-consumer
+        version: v1
+        tier: worker
+        domain: chat
+    spec:
+      containers:
+      - name: chat-consumer
+        image: docker.io/mng990/eco2:chat-api-dev-latest
+        imagePullPolicy: Always
+        # Override command: consumer entry point
+        command: [python, -m, chat.consumer]
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+        env:
+        # OpenTelemetry
+        - name: OTEL_SERVICE_NAME
+          value: chat-consumer
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        - name: OTEL_PROPAGATORS
+          value: b3,tracecontext,baggage
+        envFrom:
+        - configMapRef:
+            name: chat-config
+        - secretRef:
+            name: chat-secret
+        # Liveness: consumer process 확인
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pgrep -f "chat.consumer" || exit 1
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        # Readiness: Istio sidecar 상태 확인
+        readinessProbe:
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+      imagePullSecrets:
+      - name: dockerhub-secret
+      nodeSelector:
+        domain: chat
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: chat
+        effect: NoSchedule

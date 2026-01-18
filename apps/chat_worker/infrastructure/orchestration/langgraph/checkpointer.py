@@ -216,16 +216,31 @@ async def create_cached_postgres_checkpointer(
     L2: PostgreSQL (영구)
 
     Args:
-        conn_string: PostgreSQL 연결 문자열
+        conn_string: PostgreSQL 연결 문자열 (postgresql+asyncpg://...)
         redis: Redis 클라이언트
         cache_ttl: 캐시 TTL 초 (기본 24시간)
 
     Returns:
         CachedPostgresSaver 인스턴스
+
+    Note:
+        AsyncPostgresSaver.from_conn_string()은 async context manager를 반환하므로
+        직접 connection pool을 생성하여 lifecycle을 관리합니다.
     """
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    from psycopg_pool import AsyncConnectionPool
 
-    postgres_saver = await AsyncPostgresSaver.from_conn_string(conn_string)
+    # SQLAlchemy URL → psycopg URL 변환
+    # postgresql+asyncpg://user:pass@host:port/db → postgresql://user:pass@host:port/db
+    psycopg_conn_string = conn_string.replace("postgresql+asyncpg://", "postgresql://")
+
+    # Connection pool 직접 생성 (lifecycle 관리)
+    pool = AsyncConnectionPool(conninfo=psycopg_conn_string, open=False)
+    await pool.open()
+
+    # AsyncPostgresSaver에 pool 직접 전달
+    postgres_saver = AsyncPostgresSaver(pool)
+    await postgres_saver.setup()  # 체크포인트 테이블 생성
 
     logger.info(
         "CachedPostgresSaver created (PostgreSQL + Redis cache)",
@@ -248,14 +263,23 @@ async def create_postgres_checkpointer(
     Redis 없는 환경에서 폴백으로 사용.
 
     Args:
-        conn_string: PostgreSQL 연결 문자열
+        conn_string: PostgreSQL 연결 문자열 (postgresql+asyncpg://...)
 
     Returns:
         AsyncPostgresSaver 인스턴스
     """
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    from psycopg_pool import AsyncConnectionPool
 
-    checkpointer = await AsyncPostgresSaver.from_conn_string(conn_string)
+    # SQLAlchemy URL → psycopg URL 변환
+    psycopg_conn_string = conn_string.replace("postgresql+asyncpg://", "postgresql://")
+
+    # Connection pool 직접 생성
+    pool = AsyncConnectionPool(conninfo=psycopg_conn_string, open=False)
+    await pool.open()
+
+    checkpointer = AsyncPostgresSaver(pool)
+    await checkpointer.setup()
 
     logger.info(
         "PostgreSQL checkpointer created (no cache)",
