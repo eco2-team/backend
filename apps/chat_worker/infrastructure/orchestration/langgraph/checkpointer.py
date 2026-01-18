@@ -279,7 +279,8 @@ async def _ensure_tables_exist(conn) -> None:
     """
     # LangGraph checkpoint-postgres의 스키마 참조
     # https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint-postgres
-    await conn.execute("""
+    await conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS checkpoints (
             thread_id TEXT NOT NULL,
             checkpoint_ns TEXT NOT NULL DEFAULT '',
@@ -290,9 +291,11 @@ async def _ensure_tables_exist(conn) -> None:
             metadata JSONB NOT NULL DEFAULT '{}',
             PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id)
         )
-    """)
+    """
+    )
 
-    await conn.execute("""
+    await conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS checkpoint_blobs (
             thread_id TEXT NOT NULL,
             checkpoint_ns TEXT NOT NULL DEFAULT '',
@@ -302,9 +305,11 @@ async def _ensure_tables_exist(conn) -> None:
             blob BYTEA,
             PRIMARY KEY (thread_id, checkpoint_ns, channel, version)
         )
-    """)
+    """
+    )
 
-    await conn.execute("""
+    await conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS checkpoint_writes (
             thread_id TEXT NOT NULL,
             checkpoint_ns TEXT NOT NULL DEFAULT '',
@@ -316,23 +321,30 @@ async def _ensure_tables_exist(conn) -> None:
             blob BYTEA NOT NULL,
             PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
         )
-    """)
+    """
+    )
 
     # 인덱스 생성 (CONCURRENTLY 없이, IF NOT EXISTS 사용)
-    await conn.execute("""
+    await conn.execute(
+        """
         CREATE INDEX IF NOT EXISTS checkpoints_thread_id_idx
         ON checkpoints (thread_id)
-    """)
+    """
+    )
 
-    await conn.execute("""
+    await conn.execute(
+        """
         CREATE INDEX IF NOT EXISTS checkpoint_blobs_thread_id_idx
         ON checkpoint_blobs (thread_id)
-    """)
+    """
+    )
 
-    await conn.execute("""
+    await conn.execute(
+        """
         CREATE INDEX IF NOT EXISTS checkpoint_writes_thread_id_idx
         ON checkpoint_writes (thread_id)
-    """)
+    """
+    )
 
     logger.info("LangGraph checkpoint tables ensured")
 
