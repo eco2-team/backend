@@ -79,15 +79,21 @@ async def get_news(
             detail=f"Invalid source. Must be one of: {VALID_SOURCES}",
         )
 
-    # cursor 변환
+    # cursor 변환 (두 가지 형식 지원)
+    # 1. 순수 숫자: Redis 캐시에서 온 cursor (예: "1768584028000")
+    # 2. timestamp_id: Postgres fallback에서 온 cursor (예: "1768584028000_abc123")
     cursor_int = None
     if cursor:
         try:
-            cursor_int = int(cursor)
+            # Postgres 형식 (timestamp_id)인 경우 timestamp만 추출
+            if "_" in cursor:
+                cursor_int = int(cursor.rsplit("_", 1)[0])
+            else:
+                cursor_int = int(cursor)
         except ValueError:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid cursor format. Must be a numeric timestamp.",
+                detail="Invalid cursor format. Must be a numeric timestamp or timestamp_id.",
             )
 
     # Command 실행
