@@ -182,9 +182,7 @@ def calculate_effective_priority(
 
     if deadline_ratio > AGING_THRESHOLD_RATIO:
         # 부스트 계산: 80%~100% 구간에서 0~20 부스트
-        boost_ratio = (deadline_ratio - AGING_THRESHOLD_RATIO) / (
-            1 - AGING_THRESHOLD_RATIO
-        )
+        boost_ratio = (deadline_ratio - AGING_THRESHOLD_RATIO) / (1 - AGING_THRESHOLD_RATIO)
         aging_boost = min(AGING_MAX_BOOST, int(boost_ratio * AGING_MAX_BOOST))
         priority -= aging_boost
 
