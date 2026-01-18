@@ -12,11 +12,9 @@ from __future__ import annotations
 
 import time
 
-import pytest
 
 from chat_worker.infrastructure.orchestration.langgraph.priority import (
     AGING_MAX_BOOST,
-    AGING_THRESHOLD_RATIO,
     DEFAULT_DEADLINE_MS,
     FALLBACK_PRIORITY_PENALTY,
     NODE_DEADLINE_MS,
