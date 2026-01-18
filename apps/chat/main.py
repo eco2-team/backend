@@ -22,6 +22,7 @@ from chat.setup.config import get_settings
 from chat.setup.dependencies import get_container
 from chat.setup.tracing import (
     configure_tracing,
+    instrument_aio_pika,
     instrument_fastapi,
     instrument_httpx,
     instrument_redis,
@@ -39,6 +40,7 @@ logger = logging.getLogger(__name__)
 configure_tracing()
 instrument_httpx()
 instrument_redis()
+instrument_aio_pika()  # RabbitMQ 메시지에 trace context 전파
 
 
 @asynccontextmanager

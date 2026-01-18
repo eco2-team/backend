@@ -1,12 +1,17 @@
 """Taskiq Job Submitter - JobSubmitterPort 구현체.
 
 RabbitMQ를 통해 chat_worker에 작업 제출.
+
+분산 트레이싱:
+- W3C TraceContext를 메시지 labels에 주입
+- Worker에서 trace context 추출하여 연결
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 
 from aio_pika import ExchangeType
 from taskiq.message import BrokerMessage
@@ -16,6 +21,41 @@ from chat.application.chat.ports.job_submitter import JobSubmitterPort
 from chat.setup.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# OpenTelemetry 활성화 여부
+OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
+
+
+def _get_trace_context() -> dict[str, str]:
+    """현재 span의 trace context를 W3C 포맷으로 추출.
+
+    Returns:
+        traceparent, tracestate 헤더를 포함한 딕셔너리
+    """
+    if not OTEL_ENABLED:
+        return {}
+
+    try:
+        from opentelemetry.trace.propagation.tracecontext import (
+            TraceContextTextMapPropagator,
+        )
+
+        carrier: dict[str, str] = {}
+        propagator = TraceContextTextMapPropagator()
+        propagator.inject(carrier)
+
+        if carrier:
+            logger.debug(
+                "Trace context extracted",
+                extra={"traceparent": carrier.get("traceparent")},
+            )
+        return carrier
+
+    except ImportError:
+        return {}
+    except Exception as e:
+        logger.warning(f"Failed to extract trace context: {e}")
+        return {}
 
 
 class TaskiqJobSubmitter(JobSubmitterPort):
@@ -54,17 +94,25 @@ class TaskiqJobSubmitter(JobSubmitterPort):
         user_location: dict[str, float] | None = None,
         model: str | None = None,
     ) -> bool:
-        """작업을 큐에 제출."""
+        """작업을 큐에 제출.
+
+        분산 트레이싱:
+        - W3C TraceContext를 labels에 포함하여 전파
+        - Worker에서 traceparent 추출하여 연결
+        """
         broker = await self._get_broker()
 
         try:
+            # W3C TraceContext 추출 (traceparent, tracestate)
+            trace_context = _get_trace_context()
+
             # TaskIQ TaskiqMessage 형식으로 메시지 구성
             # Worker의 broker.formatter.loads()가 기대하는 전체 형식:
             # {"task_id": ..., "task_name": ..., "labels": {}, "args": [], "kwargs": {...}}
             taskiq_message = {
                 "task_id": job_id,
                 "task_name": "chat.process",
-                "labels": {},
+                "labels": trace_context,  # W3C trace context 포함
                 "args": [],
                 "kwargs": {
                     "job_id": job_id,
@@ -81,7 +129,7 @@ class TaskiqJobSubmitter(JobSubmitterPort):
                 task_id=job_id,
                 task_name="chat.process",
                 message=json.dumps(taskiq_message).encode(),
-                labels={},
+                labels=trace_context,  # BrokerMessage에도 trace context 포함
             )
             await broker.kick(broker_message)
 
@@ -91,6 +139,7 @@ class TaskiqJobSubmitter(JobSubmitterPort):
                     "job_id": job_id,
                     "session_id": session_id,
                     "user_id": user_id,
+                    "traceparent": trace_context.get("traceparent"),
                 },
             )
             return True

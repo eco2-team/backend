@@ -164,6 +164,30 @@ def instrument_redis() -> None:
         logger.error(f"Failed to instrument Redis: {e}")
 
 
+def instrument_aio_pika() -> None:
+    """aio-pika 자동 계측 (RabbitMQ 메시지 추적).
+
+    TaskiqJobSubmitter가 RabbitMQ에 메시지를 보낼 때
+    trace context가 자동으로 전파되도록 합니다.
+    """
+    if not OTEL_ENABLED:
+        return
+
+    try:
+        from opentelemetry.instrumentation.aio_pika import AioPikaInstrumentor
+
+        AioPikaInstrumentor().instrument()
+        logger.info("aio-pika instrumentation enabled (MQ messages will be traced)")
+
+    except ImportError:
+        logger.warning(
+            "AioPikaInstrumentor not available. "
+            "Install: pip install opentelemetry-instrumentation-aio-pika"
+        )
+    except Exception as e:
+        logger.error(f"Failed to instrument aio-pika: {e}")
+
+
 def shutdown_tracing() -> None:
     """트레이싱 종료."""
     global _tracer_provider

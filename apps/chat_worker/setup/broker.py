@@ -151,6 +151,24 @@ def _setup_gemini_tracing() -> None:
         logger.error(f"Failed to setup Gemini tracing: {e}")
 
 
+def _setup_langsmith_otel() -> None:
+    """LangSmith OpenTelemetry 통합 설정.
+
+    LangGraph 파이프라인 추적을 Jaeger로 내보냅니다.
+    """
+    if not OTEL_ENABLED:
+        logger.info("LangSmith OTEL disabled (OTEL_ENABLED=false)")
+        return
+
+    try:
+        from chat_worker.setup.langsmith import configure_langsmith_otel
+
+        configure_langsmith_otel()
+
+    except Exception as e:
+        logger.warning(f"LangSmith OTEL setup skipped: {e}")
+
+
 async def startup():
     """브로커 시작."""
     # 1. OpenTelemetry aio-pika 트레이싱 설정 (MQ 메시지)
@@ -160,7 +178,17 @@ async def startup():
     _setup_openai_tracing()
     _setup_gemini_tracing()
 
-    # 3. 브로커 시작
+    # 3. LangSmith OTEL 통합 (LangGraph 추적 → Jaeger)
+    _setup_langsmith_otel()
+
+    # 4. Trace context 전파 미들웨어 등록
+    if OTEL_ENABLED:
+        from chat_worker.setup.tracing_middleware import TracingMiddleware
+
+        broker.add_middlewares(TracingMiddleware())
+        logger.info("Tracing middleware registered (trace context propagation enabled)")
+
+    # 5. 브로커 시작
     await broker.startup()
     logger.info("Taskiq broker started")
 

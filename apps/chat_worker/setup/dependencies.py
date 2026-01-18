@@ -816,6 +816,10 @@ async def get_process_chat_command(
     - DB Consumer가 Redis Streams에서 소비하여 PostgreSQL 저장
     - RabbitMQ 의존성 제거됨
 
+    Telemetry (LangSmith OTEL):
+    - LangGraph run config 생성 (run_name, tags, metadata)
+    - OTEL 내보내기 활성화 시 Jaeger에서 추적 가능
+
     ```
     ProcessChatCommand
         │
@@ -825,11 +829,13 @@ async def get_process_chat_command(
         │       ├── RetrieverPort (LocalJSON)
         │       └── ProgressNotifierPort (Redis)
         │
-        └── ProgressNotifierPort (Redis)
-                │
-                └── done 이벤트 (persistence 데이터 포함)
-                        │
-                        └── DB Consumer → PostgreSQL
+        ├── ProgressNotifierPort (Redis)
+        │       │
+        │       └── done 이벤트 (persistence 데이터 포함)
+        │               │
+        │               └── DB Consumer → PostgreSQL
+        │
+        └── TelemetryConfigPort (LangSmith OTEL)
     ```
     """
     settings = get_settings()
@@ -839,10 +845,20 @@ async def get_process_chat_command(
     progress_notifier = await get_progress_notifier()
     metrics = get_metrics()  # MetricsPort
 
+    # LangSmith OTEL Telemetry (optional)
+    telemetry = None
+    try:
+        from chat_worker.setup.langsmith import TelemetryConfig
+
+        telemetry = TelemetryConfig()
+    except ImportError:
+        pass
+
     return ProcessChatCommand(
         pipeline=pipeline,
         progress_notifier=progress_notifier,
         metrics=metrics,
+        telemetry=telemetry,
         provider=actual_provider,
     )
 
