@@ -73,7 +73,7 @@ def create_feedback_node(
         Returns:
             업데이트된 상태
         """
-        job_id = state["job_id"]
+        job_id = state.get("job_id", "")
         intent = state.get("intent", "general")
 
         # waste intent가 아니면 스킵 (라우팅 로직)

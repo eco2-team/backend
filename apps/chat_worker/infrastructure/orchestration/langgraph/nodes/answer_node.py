@@ -79,7 +79,7 @@ def create_answer_node(
         Returns:
             업데이트된 상태
         """
-        job_id = state["job_id"]
+        job_id = state.get("job_id", "")
 
         try:
             # 1. state → input DTO 변환

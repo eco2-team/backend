@@ -65,7 +65,7 @@ def create_rag_node(
         Returns:
             업데이트된 상태
         """
-        job_id = state["job_id"]
+        job_id = state.get("job_id", "")
 
         # Progress: 시작 (UX)
         await event_publisher.notify_stage(

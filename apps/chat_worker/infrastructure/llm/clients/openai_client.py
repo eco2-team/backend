@@ -90,7 +90,7 @@ class OpenAILLMClient(LLMClientPort):
             "messages": messages,
         }
         if max_tokens is not None:
-            kwargs["max_tokens"] = max_tokens
+            kwargs["max_completion_tokens"] = max_tokens
         if temperature is not None:
             kwargs["temperature"] = temperature
 
@@ -167,7 +167,7 @@ class OpenAILLMClient(LLMClientPort):
             },
         }
         if max_tokens is not None:
-            kwargs["max_tokens"] = max_tokens
+            kwargs["max_completion_tokens"] = max_tokens
         if temperature is not None:
             kwargs["temperature"] = temperature
 
