@@ -37,9 +37,10 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, AsyncIterator, Sequence
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
+
 if TYPE_CHECKING:
     from langgraph.checkpoint.base import (
-        BaseCheckpointSaver,
         Checkpoint,
         CheckpointMetadata,
         CheckpointTuple,
@@ -51,9 +52,6 @@ logger = logging.getLogger(__name__)
 # 캐시 키 프리픽스
 CACHE_KEY_PREFIX = "chat:checkpoint:cache"
 DEFAULT_CACHE_TTL = 86400  # 24시간
-
-
-from langgraph.checkpoint.base import BaseCheckpointSaver
 
 
 class CachedPostgresSaver(BaseCheckpointSaver):
