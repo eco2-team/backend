@@ -114,7 +114,7 @@ class TracingMiddleware(TaskiqMiddleware):
 
         try:
             from opentelemetry import context as otel_context
-            from opentelemetry.trace import SpanKind, Status, StatusCode
+            from opentelemetry.trace import SpanKind
 
             # Parent context가 있으면 attach, 없으면 새 trace 시작
             token = None
