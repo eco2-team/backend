@@ -53,7 +53,10 @@ CACHE_KEY_PREFIX = "chat:checkpoint:cache"
 DEFAULT_CACHE_TTL = 86400  # 24시간
 
 
-class CachedPostgresSaver:
+from langgraph.checkpoint.base import BaseCheckpointSaver
+
+
+class CachedPostgresSaver(BaseCheckpointSaver):
     """Cache-Aside 패턴 Checkpointer.
 
     L1: Redis (빠름, TTL 24시간)
@@ -280,15 +283,15 @@ async def create_redis_checkpointer(
     Returns:
         RedisSaver 인스턴스
     """
-    from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+    # AsyncRedisSaver.from_conn_string()은 async context manager를 반환
+    # 싱글톤 패턴과 호환되지 않으므로 MemorySaver로 대체
+    # TODO: Redis checkpointer를 제대로 지원하려면 lifecycle 관리 필요
+    from langgraph.checkpoint.memory import MemorySaver
 
-    checkpointer = AsyncRedisSaver.from_conn_string(
-        redis_url,
-        ttl=ttl,
-    )
+    checkpointer = MemorySaver()
 
     logger.info(
-        "Redis checkpointer created (fallback)",
+        "InMemory checkpointer created (Redis fallback disabled)",
         extra={"redis_url": redis_url[:20] + "...", "ttl": ttl},
     )
 
