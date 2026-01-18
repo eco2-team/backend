@@ -119,8 +119,7 @@ def configure_langsmith_otel() -> bool:
 
     except ImportError as e:
         logger.warning(
-            f"LangSmith not available: {e}. "
-            "Install: pip install 'langsmith[otel]>=0.4.25'"
+            f"LangSmith not available: {e}. " "Install: pip install 'langsmith[otel]>=0.4.25'"
         )
         return False
     except Exception as e:
