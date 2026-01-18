@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 from taskiq import TaskiqMiddleware, TaskiqMessage, TaskiqResult
 
 if TYPE_CHECKING:
-    pass
+    from opentelemetry.trace import Span
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +34,18 @@ class TracingMiddleware(TaskiqMiddleware):
 
     메시지 labels에서 W3C TraceContext 추출하여
     분산 트레이싱을 연결합니다.
+
+    Span 생성:
+    - pre_execute: parent context로 "taskiq.process" span 시작
+    - post_execute: span 종료 및 상태 기록
     """
 
     def __init__(self):
         """초기화."""
         self._tracer = None
+        # task_id → (context_token, span) 매핑
+        # 동시 실행되는 태스크들을 안전하게 관리
+        self._active_spans: dict[str, tuple[object, "Span"]] = {}
 
     def _get_tracer(self):
         """Tracer lazy 초기화."""
@@ -46,7 +53,10 @@ class TracingMiddleware(TaskiqMiddleware):
             try:
                 from opentelemetry import trace
 
-                self._tracer = trace.get_tracer("chat-worker.taskiq")
+                self._tracer = trace.get_tracer(
+                    "chat-worker.taskiq",
+                    schema_url="https://opentelemetry.io/schemas/1.21.0",
+                )
             except ImportError:
                 pass
         return self._tracer
@@ -86,40 +96,62 @@ class TracingMiddleware(TaskiqMiddleware):
             return None
 
     async def pre_execute(self, message: TaskiqMessage) -> TaskiqMessage:
-        """태스크 실행 전 trace context 설정.
+        """태스크 실행 전 trace context 설정 및 span 시작.
 
-        메시지 labels에서 traceparent 추출하여
-        OpenTelemetry context에 설정합니다.
+        메시지 labels에서 traceparent 추출하여:
+        1. OpenTelemetry context 설정 (parent span 연결)
+        2. "taskiq.process" span 시작 (Jaeger에 표시)
         """
         if not OTEL_ENABLED:
             return message
 
+        tracer = self._get_tracer()
+        if tracer is None:
+            return message
+
         labels = message.labels or {}
-        ctx = self._extract_context(labels)
+        parent_ctx = self._extract_context(labels)
 
-        if ctx is not None:
-            try:
-                from opentelemetry import context as otel_context
+        try:
+            from opentelemetry import context as otel_context
+            from opentelemetry.trace import SpanKind, Status, StatusCode
 
-                # 추출된 context를 현재 context로 설정
-                token = otel_context.attach(ctx)
-                # token을 labels에 저장 (post_execute에서 detach용)
-                message.labels["_otel_token"] = str(id(token))
-                # 실제 token 객체를 인스턴스 변수에 저장
-                if not hasattr(self, "_tokens"):
-                    self._tokens = {}
-                self._tokens[message.task_id] = token
+            # Parent context가 있으면 attach, 없으면 새 trace 시작
+            token = None
+            if parent_ctx is not None:
+                token = otel_context.attach(parent_ctx)
 
-                logger.debug(
-                    "Trace context attached",
-                    extra={
-                        "task_id": message.task_id,
-                        "task_name": message.task_name,
-                        "traceparent": labels.get("traceparent"),
-                    },
-                )
-            except Exception as e:
-                logger.warning(f"Failed to attach trace context: {e}")
+            # Span 시작 (Jaeger에 표시됨)
+            span = tracer.start_span(
+                name=f"taskiq.{message.task_name}",
+                kind=SpanKind.CONSUMER,
+                attributes={
+                    "messaging.system": "rabbitmq",
+                    "messaging.operation": "process",
+                    "messaging.destination": "chat.process",
+                    "taskiq.task_id": message.task_id,
+                    "taskiq.task_name": message.task_name,
+                },
+            )
+
+            # Span을 현재 context로 설정
+            span_ctx = otel_context.set_value("current_span", span)
+            span_token = otel_context.attach(span_ctx)
+
+            # 정리를 위해 저장 (token, span, span_token)
+            self._active_spans[message.task_id] = (token, span, span_token)
+
+            logger.debug(
+                "Trace span started",
+                extra={
+                    "task_id": message.task_id,
+                    "task_name": message.task_name,
+                    "traceparent": labels.get("traceparent"),
+                },
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to start trace span: {e}")
 
         return message
 
@@ -128,23 +160,71 @@ class TracingMiddleware(TaskiqMiddleware):
         message: TaskiqMessage,
         result: TaskiqResult[Any],
     ) -> None:
-        """태스크 실행 후 context 정리.
+        """태스크 실행 후 span 종료 및 context 정리.
 
-        pre_execute에서 attach한 context를 detach합니다.
+        실행 결과에 따라 span 상태 설정:
+        - 성공: Status.OK
+        - 실패: Status.ERROR + 에러 정보 기록
         """
         if not OTEL_ENABLED:
             return
 
-        if hasattr(self, "_tokens") and message.task_id in self._tokens:
-            try:
-                from opentelemetry import context as otel_context
+        if message.task_id not in self._active_spans:
+            return
 
-                token = self._tokens.pop(message.task_id)
+        try:
+            from opentelemetry import context as otel_context
+            from opentelemetry.trace import Status, StatusCode
+
+            token, span, span_token = self._active_spans.pop(message.task_id)
+
+            # 실행 결과에 따른 span 상태 설정
+            if result.is_err:
+                span.set_status(Status(StatusCode.ERROR, str(result.error)))
+                span.set_attribute("error.type", type(result.error).__name__)
+                span.record_exception(result.error)
+            else:
+                span.set_status(Status(StatusCode.OK))
+
+            # Span 종료
+            span.end()
+
+            # Context 정리 (역순으로 detach)
+            otel_context.detach(span_token)
+            if token is not None:
                 otel_context.detach(token)
 
-                logger.debug(
-                    "Trace context detached",
-                    extra={"task_id": message.task_id},
-                )
-            except Exception as e:
-                logger.warning(f"Failed to detach trace context: {e}")
+            logger.debug(
+                "Trace span ended",
+                extra={
+                    "task_id": message.task_id,
+                    "is_error": result.is_err,
+                },
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to end trace span: {e}")
+
+    async def on_error(
+        self,
+        message: TaskiqMessage,
+        result: TaskiqResult[Any],
+        exception: BaseException,
+    ) -> None:
+        """태스크 에러 발생 시 span에 예외 기록.
+
+        post_execute보다 먼저 호출되어 예외 정보를 span에 기록합니다.
+        """
+        if not OTEL_ENABLED:
+            return
+
+        if message.task_id not in self._active_spans:
+            return
+
+        try:
+            _, span, _ = self._active_spans[message.task_id]
+            span.record_exception(exception)
+            span.set_attribute("error.message", str(exception))
+
+        except Exception as e:
+            logger.warning(f"Failed to record exception in span: {e}")

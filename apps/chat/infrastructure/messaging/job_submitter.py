@@ -36,7 +36,6 @@ def _get_trace_context() -> dict[str, str]:
         return {}
 
     try:
-        from opentelemetry import trace
         from opentelemetry.trace.propagation.tracecontext import (
             TraceContextTextMapPropagator,
         )
