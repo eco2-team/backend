@@ -126,6 +126,83 @@ curl -sN --max-time 60 \
 # 3개 노드 병렬 실행!
 ```
 
+## Redis Streams Event Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Redis Streams Event Pipeline                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  [1] chat-worker                                                             │
+│       │                                                                      │
+│       │ XADD chat:events:{shard} (Redis Streams)                            │
+│       ▼                                                                      │
+│  [2] rfr-streams-redis (Redis Sentinel)                                     │
+│       │                                                                      │
+│       │ XREADGROUP (Consumer Group)                                         │
+│       ▼                                                                      │
+│  [3] event-router                                                            │
+│       │                                                                      │
+│       │ PUBLISH sse:events:{job_id} (Redis Pub/Sub)                         │
+│       ▼                                                                      │
+│  [4] rfr-pubsub-redis (Redis Sentinel)                                      │
+│       │                                                                      │
+│       │ SUBSCRIBE (SSE Gateway)                                              │
+│       ▼                                                                      │
+│  [5] sse-gateway → SSE Stream → Client                                      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Redis Instances
+
+| Instance | Namespace | Purpose | Protocol |
+|----------|-----------|---------|----------|
+| `rfr-streams-redis` | redis | Event Streams (XADD/XREADGROUP) | Redis Streams |
+| `rfr-pubsub-redis` | redis | SSE Broadcast (PUBLISH/SUBSCRIBE) | Redis Pub/Sub |
+
+### Hop-by-Hop Address Reference
+
+| Hop | Component | Kube DNS | Pod DNS (Master) | Protocol | Port |
+|-----|-----------|----------|------------------|----------|------|
+| 1→2 | chat-worker → Redis Streams | `rfr-streams-redis.redis.svc.cluster.local` | `rfr-streams-redis-0.rfr-streams-redis.redis.svc.cluster.local` | XADD | 6379 |
+| 2→3 | Redis Streams → event-router | (Consumer Group) | - | XREADGROUP | 6379 |
+| 3→4 | event-router → Redis Pub/Sub | `rfr-pubsub-redis.redis.svc.cluster.local` | `rfr-pubsub-redis-0.rfr-pubsub-redis.redis.svc.cluster.local` | PUBLISH | 6379 |
+| 4→5 | Redis Pub/Sub → sse-gateway | (Subscriber) | - | SUBSCRIBE | 6379 |
+
+### Stream Keys & Patterns
+
+| Key Pattern | Example | Purpose |
+|-------------|---------|---------|
+| `chat:events:{shard}` | `chat:events:0` ~ `chat:events:3` | Sharded event streams (4 shards) |
+| `chat:published:{job_id}:{stage}:{seq}` | `chat:published:abc123:intent:10` | Idempotency marker (TTL 2h) |
+| `chat:tokens:{job_id}` | `chat:tokens:abc123` | Token stream for recovery |
+| `chat:token_state:{job_id}` | `chat:token_state:abc123` | Accumulated text snapshot |
+| `sse:events:{job_id}` | `sse:events:abc123` | Pub/Sub channel for SSE |
+
+### Environment Variables
+
+| Component | Variable | Value (Dev) |
+|-----------|----------|-------------|
+| chat-worker | `CHAT_WORKER_REDIS_STREAMS_URL` | `redis://rfr-streams-redis.redis.svc.cluster.local:6379/0` |
+| chat-worker | `CHAT_WORKER_REDIS_URL` | `redis://rfr-pubsub-redis-0.rfr-pubsub-redis.redis.svc.cluster.local:6379/0` |
+| event-router | `REDIS_STREAMS_URL` | `redis://rfr-streams-redis.redis.svc.cluster.local:6379/0` |
+| event-router | `REDIS_PUBSUB_URL` | `redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0` |
+
+### Debug Commands (Redis)
+
+```bash
+# Redis Streams 확인 (rfr-streams-redis)
+kubectl exec -n redis rfr-streams-redis-0 -- redis-cli XLEN chat:events:0
+kubectl exec -n redis rfr-streams-redis-0 -- redis-cli XRANGE chat:events:0 - + COUNT 5
+
+# Pub/Sub 모니터링 (rfr-pubsub-redis)
+kubectl exec -n redis rfr-pubsub-redis-0 -- redis-cli PSUBSCRIBE "sse:events:*"
+
+# Consumer Group 상태 확인
+kubectl exec -n redis rfr-streams-redis-0 -- redis-cli XINFO GROUPS chat:events:0
+```
+
 ## Troubleshooting
 
 ### Issue 1: SSE 요청이 404
@@ -196,6 +273,34 @@ enable_dynamic_routing=False
 
 # 근본: StateGraph(ChatState) + Reducer
 ```
+
+### Issue 6: SSE 이벤트 수신 불가 (Redis 불일치)
+
+**증상**: SSE 연결 성공, keepalive만 수신, 실제 이벤트 없음
+
+**원인**: chat-worker와 event-router가 다른 Redis를 바라봄
+
+```
+chat-worker → rfr-pubsub-redis (잘못됨)
+event-router → rfr-streams-redis (올바름)
+```
+
+**진단**:
+```bash
+# chat-worker Redis 확인
+kubectl exec -n chat deploy/chat-worker -c chat-worker -- env | grep REDIS
+
+# event-router Redis 확인
+kubectl exec -n event-router deploy/event-router -- env | grep REDIS
+
+# Redis Streams 데이터 확인 (rfr-streams-redis에 데이터가 없으면 문제)
+kubectl exec -n redis rfr-streams-redis-0 -- redis-cli XLEN chat:events:0
+```
+
+**해결**:
+- `config.py`에 `redis_streams_url` 설정 추가
+- `dependencies.py`에서 RedisProgressNotifier가 `get_redis_streams()` 사용
+- ConfigMap에 `CHAT_WORKER_REDIS_STREAMS_URL` 설정 확인
 
 ## Debug Commands
 
