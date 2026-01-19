@@ -92,9 +92,10 @@ class AnswerContext:
 
         if self.image_generation_context:
             img_ctx = self.image_generation_context
-            if img_ctx.get("data", {}).get("image_url"):
-                image_url = img_ctx["data"]["image_url"]
-                description = img_ctx["data"].get("description", "")
+            # create_context는 data를 직접 펼쳐서 저장 (data 키 없음)
+            if img_ctx.get("image_url"):
+                image_url = img_ctx["image_url"]
+                description = img_ctx.get("description", "")
                 parts.append(
                     f"## Generated Image\n"
                     f"이미지가 성공적으로 생성되었습니다.\n"
