@@ -492,18 +492,70 @@ class IntentClassifierService:
 
     # ===== Multi-Intent 관련 (순수 로직) =====
 
+    def _extract_json_from_response(self, response: str) -> str:
+        """LLM 응답에서 JSON 부분만 추출.
+
+        Markdown 코드 블록(```json ... ``` 또는 ``` ... ```)을 제거하고
+        순수 JSON만 반환.
+
+        Args:
+            response: LLM 응답 문자열
+
+        Returns:
+            추출된 JSON 문자열
+        """
+        text = response.strip()
+
+        # 1. ```json ... ``` 또는 ``` ... ``` 형태의 코드 블록 처리
+        if text.startswith("```"):
+            # 첫 번째 줄(```json 또는 ```) 제거
+            lines = text.split("\n", 1)
+            if len(lines) > 1:
+                text = lines[1]
+            else:
+                # 한 줄짜리인 경우 ``` 제거
+                text = text[3:]
+
+            # 마지막 ``` 제거
+            if text.rstrip().endswith("```"):
+                text = text.rstrip()[:-3]
+
+            text = text.strip()
+
+        # 2. JSON 객체 추출 (중괄호로 시작/끝나는 부분)
+        # 응답에 추가 텍스트가 있을 경우를 대비
+        start_idx = text.find("{")
+        end_idx = text.rfind("}")
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            text = text[start_idx : end_idx + 1]
+
+        return text
+
     def parse_multi_detect_response(self, llm_response: str) -> MultiIntentDetection:
         """Multi-Intent 감지 LLM 응답 파싱."""
         try:
-            data = json.loads(llm_response)
-            return MultiIntentDetection(
+            # markdown 코드 블록 제거 후 파싱
+            cleaned_response = self._extract_json_from_response(llm_response)
+            data = json.loads(cleaned_response)
+            result = MultiIntentDetection(
                 is_multi=data.get("is_multi", False),
                 reason=data.get("reason", ""),
                 detected_categories=data.get("detected_categories", []),
                 confidence=data.get("confidence", 0.8),
             )
-        except json.JSONDecodeError:
-            logger.warning(f"Failed to parse multi-intent response: {llm_response}")
+            if result.is_multi:
+                logger.info(
+                    "Multi-intent detected: categories=%s, confidence=%.2f",
+                    result.detected_categories,
+                    result.confidence,
+                )
+            return result
+        except json.JSONDecodeError as e:
+            logger.warning(
+                "Failed to parse multi-intent response: %s (error: %s)",
+                llm_response[:200],
+                str(e),
+            )
             return MultiIntentDetection(
                 is_multi=False,
                 reason="parsing_error",
@@ -514,14 +566,20 @@ class IntentClassifierService:
     def parse_decompose_response(self, llm_response: str, original: str) -> DecomposedQuery:
         """Query Decomposition LLM 응답 파싱."""
         try:
-            data = json.loads(llm_response)
+            # markdown 코드 블록 제거 후 파싱
+            cleaned_response = self._extract_json_from_response(llm_response)
+            data = json.loads(cleaned_response)
             return DecomposedQuery(
                 is_compound=data.get("is_compound", False),
                 queries=data.get("queries", [original]),
                 original=original,
             )
-        except json.JSONDecodeError:
-            logger.warning(f"Failed to parse decompose response: {llm_response}")
+        except json.JSONDecodeError as e:
+            logger.warning(
+                "Failed to parse decompose response: %s (error: %s)",
+                llm_response[:200],
+                str(e),
+            )
             return DecomposedQuery(
                 is_compound=False,
                 queries=[original],
