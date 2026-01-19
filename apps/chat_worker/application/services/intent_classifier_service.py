@@ -35,6 +35,25 @@ logger = logging.getLogger(__name__)
 # ===== Structured Output 스키마 (Pydantic) =====
 
 
+class IntentClassificationSchema(BaseModel):
+    """Intent 분류 결과 스키마 (Structured Output용).
+
+    Model-Centric 접근: 키워드 의존 없이 모델의 의미론적 판단에 의존.
+    """
+
+    intent: str = Field(
+        description="분류된 의도. 반드시 다음 중 하나: waste, character, location, bulk_waste, recyclable_price, collection_point, image_generation, general"
+    )
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="모델의 판단 신뢰도 (0.0~1.0). 확실하면 0.9 이상, 애매하면 0.5~0.7",
+    )
+    reasoning: str = Field(
+        description="이 의도로 분류한 이유를 한 문장으로 설명",
+    )
+
+
 class MultiIntentDetectionSchema(BaseModel):
     """Multi-Intent 감지 결과 스키마 (Structured Output용)."""
 
@@ -238,6 +257,73 @@ class IntentClassifierService:
 
     # ===== LLM 응답 파싱 (순수 로직) =====
 
+    def parse_structured_intent_response(
+        self,
+        structured_result: IntentClassificationSchema,
+        message: str,
+        context: dict | None = None,
+    ) -> IntentClassificationResult:
+        """Structured Output 결과를 파싱하여 Intent 분류 결과 생성.
+
+        Model-Centric 접근: 키워드 의존 없이 모델 판단 신뢰.
+        Chain-of-Intent 전이 부스트만 적용.
+
+        Args:
+            structured_result: LLM Structured Output 결과
+            message: 원본 메시지
+            context: 대화 맥락
+
+        Returns:
+            IntentClassificationResult
+        """
+        intent = Intent.from_string(structured_result.intent)
+        llm_confidence = structured_result.confidence
+
+        logger.debug(
+            "Model reasoning for intent=%s: %s",
+            intent.value,
+            structured_result.reasoning,
+        )
+
+        # Chain-of-Intent 전이 부스트만 적용 (키워드 부스트 제거)
+        transition_boost = 0.0
+        if context:
+            previous_intents = context.get("previous_intents", [])
+            last_confidence = context.get("last_confidence")
+            transition_boost = self._adjust_confidence_by_transition(
+                intent, previous_intents, last_confidence
+            )
+
+        # IntentSignals 생성 (키워드 부스트 = 0, 길이 페널티 = 0)
+        signals = IntentSignals(
+            llm_confidence=llm_confidence,
+            keyword_boost=0.0,  # Model-Centric: 키워드 부스트 제거
+            transition_boost=transition_boost,
+            length_penalty=0.0,  # Model-Centric: 길이 페널티 제거
+        )
+
+        final_confidence = signals.final_confidence
+
+        # 신뢰도 기반 Fallback (임계값 낮춤 - 모델 신뢰)
+        if final_confidence < CONFIDENCE_THRESHOLD:
+            logger.warning(
+                "Low confidence (%.2f) for intent=%s, reasoning: %s",
+                final_confidence,
+                intent.value,
+                structured_result.reasoning,
+            )
+            # Model-Centric: fallback하지 않고 모델 판단 유지
+            # 단, 로깅으로 낮은 신뢰도 기록
+
+        is_complex = self.is_complex_query(message)
+
+        return IntentClassificationResult(
+            intent=intent,
+            confidence=final_confidence,
+            is_complex=is_complex,
+            signals=signals,
+        )
+
     def parse_intent_response(
         self,
         llm_response: str,
@@ -246,7 +332,7 @@ class IntentClassifierService:
     ) -> IntentClassificationResult:
         """LLM 응답을 파싱하여 Intent 분류 결과 생성.
 
-        ADR P2: IntentSignals로 신호별 기여도 분리 저장.
+        레거시 호환용. 새 코드는 parse_structured_intent_response 사용 권장.
 
         Args:
             llm_response: LLM 응답
@@ -641,6 +727,7 @@ class IntentClassifierService:
 __all__ = [
     "IntentClassifierService",
     "IntentClassificationResult",
+    "IntentClassificationSchema",
     "MultiIntentDetection",
     "DecomposedQuery",
     "MultiIntentResult",

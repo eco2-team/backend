@@ -100,10 +100,11 @@ class GeminiLLMClient(LLMClientPort):
             full_prompt += f"## Context\n{context_str}\n\n"
         full_prompt += f"## Question\n{prompt}"
 
-        async for chunk in self._client.aio.models.generate_content_stream(
+        response = await self._client.aio.models.generate_content_stream(
             model=self._model,
             contents=full_prompt,
-        ):
+        )
+        async for chunk in response:
             if chunk.text:
                 yield chunk.text
 

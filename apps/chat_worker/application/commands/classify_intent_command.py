@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from chat_worker.application.services.intent_classifier_service import (
     INTENT_CACHE_TTL,
+    IntentClassificationSchema,
     IntentClassifierService,
 )
 from chat_worker.domain import ChatIntent
@@ -125,7 +126,10 @@ class ClassifyIntentCommand:
         context: dict | None,
         events: list[str],
     ) -> ClassifyIntentOutput:
-        """단일 Intent 분류 실행."""
+        """단일 Intent 분류 실행.
+
+        Model-Centric 접근: Structured Output으로 모델 판단 신뢰.
+        """
         # 1. 캐시 조회 (Command에서 Port 호출)
         if self._enable_cache and context is None:
             cache_key = self._service.generate_cache_key(message)
@@ -151,17 +155,18 @@ class ClassifyIntentCommand:
         # 2. 프롬프트 구성 (Service - 순수 로직)
         prompt = self._service.build_prompt_with_context(message, context)
 
-        # 3. LLM 호출 (Command에서 Port 호출)
+        # 3. LLM Structured Output 호출 (Model-Centric)
         try:
-            llm_response = await self._llm.generate(
+            structured_result = await self._llm.generate_structured(
                 prompt=prompt,
+                response_schema=IntentClassificationSchema,
                 system_prompt=self._service.get_intent_system_prompt(),
-                max_tokens=20,
-                temperature=0.1,
+                max_tokens=150,  # reasoning 포함하므로 토큰 증가
+                temperature=0.2,  # 약간의 유연성 허용
             )
-            events.append("llm_called")
+            events.append("llm_structured_called")
         except Exception as e:
-            logger.error(f"LLM call failed: {e}")
+            logger.error(f"LLM structured call failed: {e}")
             events.append("llm_error")
             return ClassifyIntentOutput(
                 intent="general",
@@ -170,8 +175,8 @@ class ClassifyIntentCommand:
                 events=events,
             )
 
-        # 4. 응답 파싱 (Service - 순수 로직)
-        result = self._service.parse_intent_response(llm_response, message, context)
+        # 4. Structured 응답 파싱 (Service - Model-Centric)
+        result = self._service.parse_structured_intent_response(structured_result, message, context)
         events.append("intent_classified")
 
         # 5. 캐시 저장 (Command에서 Port 호출)
@@ -195,10 +200,11 @@ class ClassifyIntentCommand:
         has_multi_intent = self._service.has_multi_intent(message)
 
         logger.info(
-            "Single intent classification completed",
+            "Single intent classification completed (Model-Centric)",
             extra={
                 "intent": result.intent.value,
                 "confidence": result.confidence,
+                "reasoning": structured_result.reasoning,
             },
         )
 
