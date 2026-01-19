@@ -40,44 +40,40 @@ class CDNCharacterAssetLoader(CharacterAssetPort):
         timeout: HTTP 요청 타임아웃
     """
 
-    # 지원되는 캐릭터 코드 목록
-    # S3에 업로드된 이미지와 동기화 필요
+    # 지원되는 캐릭터 코드 목록 (DB 13종과 동기화)
+    # CDN: https://images.dev.growbin.app/character/{code}.png
     AVAILABLE_CODES: ClassVar[list[str]] = [
-        "battery",
-        "clothes",
-        "foodwaste",
-        "glass",
-        "lighting",
-        "metal",
-        "monitor",
-        "paper",
-        "paper_products",
-        "pet",
-        "plastic",
-        "sofa",
-        "styrofoam",
-        "tissue",
-        "vinyl",
+        "eco",  # 이코 (대표 캐릭터)
+        "battery",  # 배리
+        "clothes",  # 코튼
+        "glass",  # 글래시
+        "lighting",  # 라이티
+        "metal",  # 메탈리
+        "monitor",  # 일렉
+        "paper",  # 페이피
+        "paper_products",  # 팩토리
+        "pet",  # 페티
+        "plastic",  # 플리
+        "styrofoam",  # 폼이
+        "vinyl",  # 비니
     ]
 
-    # 캐릭터 코드 → 폐기물 카테고리 매핑
-    # CharacterService의 waste_category와 연결
+    # 캐릭터 코드 → 캐릭터 이름/폐기물 카테고리 매핑
+    # 사용자 메시지에서 캐릭터 감지에 사용
     CODE_TO_CATEGORY: ClassVar[dict[str, list[str]]] = {
-        "battery": ["배터리", "건전지", "폐건전지"],
-        "clothes": ["의류", "옷", "헌옷"],
-        "foodwaste": ["음식물", "음식물쓰레기", "음쓰"],
-        "glass": ["유리", "유리병", "빈병"],
-        "lighting": ["조명", "형광등", "폐형광등", "전구"],
-        "metal": ["금속", "캔", "철", "고철", "알루미늄"],
-        "monitor": ["모니터", "전자제품", "가전", "폐가전"],
-        "paper": ["종이", "신문지", "책"],
-        "paper_products": ["종이팩", "우유팩", "종이컵"],
-        "pet": ["페트", "페트병", "PET"],
-        "plastic": ["플라스틱", "PP", "PE", "플라"],
-        "sofa": ["소파", "대형폐기물", "가구", "침대", "매트리스"],
-        "styrofoam": ["스티로폼", "완충재", "발포"],
-        "tissue": ["휴지", "화장지", "종이타월"],
-        "vinyl": ["비닐", "봉투", "비닐봉지", "랩"],
+        "eco": ["이코", "에코", "eco"],
+        "battery": ["배리", "배터리", "건전지", "폐건전지"],
+        "clothes": ["코튼", "의류", "옷", "헌옷"],
+        "glass": ["글래시", "유리", "유리병", "빈병"],
+        "lighting": ["라이티", "조명", "형광등", "폐형광등", "전구"],
+        "metal": ["메탈리", "금속", "캔", "철", "고철", "알루미늄"],
+        "monitor": ["일렉", "모니터", "전자제품", "가전", "폐가전"],
+        "paper": ["페이피", "종이", "신문지", "책"],
+        "paper_products": ["팩토리", "종이팩", "우유팩", "종이컵"],
+        "pet": ["페티", "페트", "페트병", "PET"],
+        "plastic": ["플리", "플라스틱", "PP", "PE", "플라"],
+        "styrofoam": ["폼이", "스티로폼", "완충재", "발포"],
+        "vinyl": ["비니", "비닐", "봉투", "비닐봉지", "랩"],
     }
 
     def __init__(
@@ -194,6 +190,30 @@ class CDNCharacterAssetLoader(CharacterAssetPort):
         if code not in self.AVAILABLE_CODES:
             return None
         return self._build_url(code)
+
+    async def get_asset_url_only(self, character_code: str) -> CharacterAsset | None:
+        """캐릭터 코드로 CharacterAsset 조회 (URL만, bytes 로드 없음).
+
+        Gemini 이미지 생성에서 lazy fetch를 위해 URL만 전달할 때 사용합니다.
+        bytes는 실제 API 호출 시점에 fetch됩니다.
+
+        Args:
+            character_code: 캐릭터 코드
+
+        Returns:
+            CharacterAsset (image_url만 포함, image_bytes=None) 또는 None
+        """
+        code = character_code.lower()
+        if code not in self.AVAILABLE_CODES:
+            logger.debug("Unknown character code: %s", code)
+            return None
+
+        url = self._build_url(code)
+        return CharacterAsset(
+            code=code,
+            image_url=url,
+            image_bytes=None,  # lazy fetch - Gemini generator에서 필요 시 로드
+        )
 
     async def list_available_codes(self) -> list[str]:
         """사용 가능한 모든 캐릭터 코드 목록."""

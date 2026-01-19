@@ -24,16 +24,25 @@ class ReferenceImage:
     """참조 이미지 DTO.
 
     Gemini 이미지 생성 시 스타일/캐릭터 참조용.
+    URL 또는 bytes 중 하나만 제공하면 됩니다.
+    URL만 제공 시 Gemini 호출 시점에 lazy fetch합니다.
 
     Attributes:
-        image_bytes: 이미지 바이트 데이터
+        image_url: CDN 이미지 URL (권장 - state가 가벼움)
+        image_bytes: 이미지 바이트 데이터 (선택)
         mime_type: MIME 타입 (기본 image/png)
         description: 참조 이미지 설명 (선택)
     """
 
-    image_bytes: bytes
+    image_url: str | None = None
+    image_bytes: bytes | None = None
     mime_type: str = "image/png"
     description: str | None = None
+
+    def __post_init__(self) -> None:
+        """URL 또는 bytes 중 하나는 필수."""
+        if not self.image_url and not self.image_bytes:
+            raise ValueError("Either image_url or image_bytes must be provided")
 
 
 @dataclass(frozen=True)

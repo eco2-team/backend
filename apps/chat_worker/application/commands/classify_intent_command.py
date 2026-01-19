@@ -25,6 +25,9 @@ from chat_worker.application.services.intent_classifier_service import (
     IntentClassifierService,
 )
 from chat_worker.domain import ChatIntent
+from chat_worker.infrastructure.assets.character_name_detector import (
+    get_character_name_detector,
+)
 
 if TYPE_CHECKING:
     from chat_worker.application.ports.cache import CachePort
@@ -45,6 +48,16 @@ class ClassifyIntentInput:
 
 
 @dataclass
+class DetectedCharacterDTO:
+    """감지된 캐릭터 정보 DTO."""
+
+    code: str  # DB 코드 (char-petty)
+    name: str  # 공식 이름 (페티)
+    cdn_code: str  # CDN 코드 (pet)
+    image_url: str  # CDN 이미지 URL
+
+
+@dataclass
 class ClassifyIntentOutput:
     """Command 출력 DTO."""
 
@@ -55,6 +68,8 @@ class ClassifyIntentOutput:
     additional_intents: list[str] = field(default_factory=list)
     decomposed_queries: list[str] = field(default_factory=list)
     events: list[str] = field(default_factory=list)
+    # 캐릭터 이름 감지 결과 (이미지 생성 시 참조 이미지로 사용)
+    detected_character: DetectedCharacterDTO | None = None
 
 
 class ClassifyIntentCommand:
@@ -99,6 +114,35 @@ class ClassifyIntentCommand:
             multi_detect_prompt=prompt_loader.load("classification", "multi_intent_detect"),
         )
 
+    def _detect_character(self, message: str) -> DetectedCharacterDTO | None:
+        """메시지에서 캐릭터 이름을 감지합니다.
+
+        Args:
+            message: 사용자 메시지
+
+        Returns:
+            DetectedCharacterDTO 또는 None
+        """
+        detector = get_character_name_detector()
+        detected = detector.detect(message)
+
+        if detected:
+            logger.info(
+                "Character detected in message",
+                extra={
+                    "character_code": detected.code,
+                    "character_name": detected.name,
+                    "matched_alias": detected.matched_alias,
+                },
+            )
+            return DetectedCharacterDTO(
+                code=detected.code,
+                name=detected.name,
+                cdn_code=detected.cdn_code,
+                image_url=detector.get_cdn_url(detected.cdn_code),
+            )
+        return None
+
     async def execute(self, input_dto: ClassifyIntentInput) -> ClassifyIntentOutput:
         """Command 실행.
 
@@ -115,10 +159,19 @@ class ClassifyIntentCommand:
             {"previous_intents": input_dto.previous_intents} if input_dto.previous_intents else None
         )
 
+        # 캐릭터 이름 감지 (이미지 생성 시 참조 이미지로 사용)
+        detected_character = self._detect_character(message)
+        if detected_character:
+            events.append("character_detected")
+
         if self._enable_multi_intent:
-            return await self._execute_multi_intent(input_dto, events)
+            output = await self._execute_multi_intent(input_dto, events)
         else:
-            return await self._execute_single_intent(message, context, events)
+            output = await self._execute_single_intent(message, context, events)
+
+        # 캐릭터 감지 결과 추가
+        output.detected_character = detected_character
+        return output
 
     async def _execute_single_intent(
         self,

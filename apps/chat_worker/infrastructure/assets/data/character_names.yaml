@@ -1,0 +1,90 @@
+# 캐릭터 이름 매핑 파일
+# 사용자 메시지에서 캐릭터 이름/별칭 감지에 사용
+#
+# 구조:
+#   - code: DB의 캐릭터 코드 (char-xxx)
+#     name: 캐릭터 공식 이름
+#     aliases: 사용자가 부를 수 있는 별칭들
+#     match_label: 폐기물 분류 매칭 라벨
+#     cdn_code: CDN 에셋 코드 (images.dev.growbin.app/character/{cdn_code}.png)
+
+characters:
+  # 대표 캐릭터 (에이전트 페르소나)
+- code: char-eco
+  name: 이코
+  aliases: [이코, 에코, eco]
+  match_label: 대표 캐릭터
+  cdn_code: eco
+
+  # 재활용 캐릭터 12종
+- code: char-petty
+  name: 페티
+  aliases: [페티, 페트, petty, pet]
+  match_label: 무색페트병
+  cdn_code: pet
+
+- code: char-metally
+  name: 메탈리
+  aliases: [메탈리, 메탈, 캔, metally, metal]
+  match_label: 금속류
+  cdn_code: metal
+
+- code: char-paepy
+  name: 페이피
+  aliases: [페이피, 종이, paepy, paper]
+  match_label: 종이
+  cdn_code: paper
+
+- code: char-plea
+  name: 플리
+  aliases: [플리, 플라스틱, plea, plastic]
+  match_label: 플라스틱류
+  cdn_code: plastic
+
+- code: char-bini
+  name: 비니
+  aliases: [비니, 비닐, bini, vinyl]
+  match_label: 비닐류
+  cdn_code: vinyl
+
+- code: char-foamy
+  name: 폼이
+  aliases: [폼이, 스티로폼, 폼, foamy, styrofoam]
+  match_label: 발포합성수지
+  cdn_code: styrofoam
+
+- code: char-glassy
+  name: 글래시
+  aliases: [글래시, 유리, 유리병, glassy, glass]
+  match_label: 유리병
+  cdn_code: glass
+
+- code: char-factory
+  name: 팩토리
+  aliases: [팩토리, 종이팩, 팩, factory]
+  match_label: 종이팩
+  cdn_code: paper_products
+
+- code: char-battery
+  name: 배리
+  aliases: [배리, 배터리, 건전지, battery]
+  match_label: 전지
+  cdn_code: battery
+
+- code: char-lighty
+  name: 라이티
+  aliases: [라이티, 형광등, 전구, lighty, lighting]
+  match_label: 조명제품
+  cdn_code: lighting
+
+- code: char-cotton
+  name: 코튼
+  aliases: [코튼, 의류, 옷, cotton, clothes]
+  match_label: 의류및원단
+  cdn_code: clothes
+
+- code: char-eb7429f0523f
+  name: 일렉
+  aliases: [일렉, 전자제품, 가전, 폐가전, elec, electronic]
+  match_label: 전기전자제품
+  cdn_code: monitor

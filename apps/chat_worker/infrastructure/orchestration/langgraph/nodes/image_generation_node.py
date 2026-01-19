@@ -100,18 +100,34 @@ def create_image_generation_node(
         )
 
         # 1. state → input DTO 변환 (state에서 override 가능)
-        # 캐릭터 참조 이미지가 있으면 추출 (병렬 라우팅으로 character → image_generation)
-        character_context = state.get("character_context") or {}
-        character_asset = character_context.get("asset") if character_context else None
-        reference_bytes = character_asset.get("image_bytes") if character_asset else None
+        # 캐릭터 참조 이미지 우선순위:
+        # 1. detected_character (intent_node에서 직접 감지 - 가장 빠름)
+        # 2. character_context.asset (character 노드에서 전달 - gRPC 호출 필요)
+        reference_url = None
+        character_code = None
 
-        if reference_bytes:
+        # 먼저 detected_character 확인 (intent_node에서 바로 감지된 것)
+        detected_character = state.get("detected_character")
+        if detected_character:
+            reference_url = detected_character.get("image_url")
+            character_code = detected_character.get("cdn_code")
+
+        # detected_character가 없으면 character_context 확인
+        if not reference_url:
+            character_context = state.get("character_context") or {}
+            character_asset = character_context.get("asset") if character_context else None
+            if character_asset:
+                reference_url = character_asset.get("image_url")
+                character_code = character_asset.get("code")
+
+        if reference_url:
             logger.info(
-                "Using character reference image for generation",
+                "Using character reference image URL for generation",
                 extra={
                     "job_id": job_id,
-                    "character_code": character_asset.get("code") if character_asset else None,
-                    "reference_size": len(reference_bytes),
+                    "character_code": character_code,
+                    "reference_url": reference_url,
+                    "source": "detected_character" if detected_character else "character_context",
                 },
             )
 
@@ -120,7 +136,7 @@ def create_image_generation_node(
             prompt=query,
             size=state.get("image_size") or default_size,
             quality=state.get("image_quality") or default_quality,
-            reference_image_bytes=reference_bytes,
+            reference_image_url=reference_url,
         )
 
         # 2. Command 실행 (정책/흐름은 Command에서)
@@ -233,8 +249,8 @@ def create_image_generation_node(
                     "image_url": final_image_url,
                     "description": output.description,
                     "revised_prompt": output.revised_prompt,
-                    "used_reference": reference_bytes is not None,
-                    "character_code": character_asset.get("code") if character_asset else None,
+                    "used_reference": reference_url is not None,
+                    "character_code": character_code,
                     # 이미지 메타데이터
                     "width": output.width,
                     "height": output.height,

@@ -43,7 +43,7 @@ class GenerateImageInput:
     prompt: str
     size: str = "1024x1024"
     quality: str = "medium"
-    reference_image_bytes: bytes | None = None  # 캐릭터 참조 이미지
+    reference_image_url: str | None = None  # 캐릭터 참조 이미지 CDN URL (lazy fetch)
     reference_image_mime: str = "image/png"  # 참조 이미지 MIME 타입
 
 
@@ -133,7 +133,7 @@ class GenerateImageCommand:
         events.append("prompt_validated")
 
         # 2. 이미지 생성 API 호출
-        has_reference = input_dto.reference_image_bytes is not None
+        has_reference = input_dto.reference_image_url is not None
 
         try:
             logger.info(
@@ -144,15 +144,17 @@ class GenerateImageCommand:
                     "size": input_dto.size,
                     "quality": input_dto.quality,
                     "has_reference": has_reference,
+                    "reference_url": input_dto.reference_image_url,
                 },
             )
 
             if has_reference and self._image_generator.supports_reference_images:
                 # 참조 이미지가 있고 지원되면 generate_with_reference 사용
+                # URL만 전달 - Gemini generator에서 lazy fetch
                 from chat_worker.application.ports.image_generator import ReferenceImage
 
                 reference = ReferenceImage(
-                    image_bytes=input_dto.reference_image_bytes,  # type: ignore
+                    image_url=input_dto.reference_image_url,
                     mime_type=input_dto.reference_image_mime,
                 )
                 result = await self._image_generator.generate_with_reference(

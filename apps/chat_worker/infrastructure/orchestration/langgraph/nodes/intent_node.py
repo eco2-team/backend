@@ -107,6 +107,9 @@ def create_intent_node(
                 "intent": output.intent,
                 "confidence": output.confidence,
                 "has_multi_intent": output.has_multi_intent,
+                "detected_character": (
+                    output.detected_character.code if output.detected_character else None
+                ),
             },
         )
 
@@ -132,6 +135,16 @@ def create_intent_node(
         # Chain-of-Intent: intent_history 누적 (이번 intent 추가)
         updated_intent_history = intent_history + [output.intent]
 
+        # 캐릭터 감지 결과 → state (character 노드에서 asset 로드용)
+        detected_character = None
+        if output.detected_character:
+            detected_character = {
+                "code": output.detected_character.code,
+                "name": output.detected_character.name,
+                "cdn_code": output.detected_character.cdn_code,
+                "image_url": output.detected_character.image_url,
+            }
+
         return {
             "intent": output.intent,
             "is_complex": output.is_complex,
@@ -141,6 +154,7 @@ def create_intent_node(
             "decomposed_queries": decomposed_queries,
             "current_query": decomposed_queries[0] if decomposed_queries else state["message"],
             "intent_history": updated_intent_history,  # Chain-of-Intent 히스토리
+            "detected_character": detected_character,  # 캐릭터 이름 감지 결과
         }
 
     return intent_node

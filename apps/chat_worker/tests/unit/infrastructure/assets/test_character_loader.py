@@ -52,7 +52,8 @@ class TestCDNCharacterAssetLoader:
         assert "battery" in codes
         assert "pet" in codes
         assert "plastic" in codes
-        assert len(codes) == 15
+        assert "eco" in codes
+        assert len(codes) == 13  # DB 13종과 동기화
 
 
 class TestGetAsset:
@@ -189,7 +190,8 @@ class TestListAvailableCodes:
         codes = await loader.list_available_codes()
         assert "battery" in codes
         assert "pet" in codes
-        assert len(codes) == 15
+        assert "eco" in codes
+        assert len(codes) == 13  # DB 13종과 동기화
 
 
 class TestGetCodeForCategory:
@@ -205,8 +207,8 @@ class TestGetCodeForCategory:
     def test_partial_match(self):
         """부분 매칭."""
         loader = CDNCharacterAssetLoader()
-        assert loader.get_code_for_category("음식물쓰레기 처리") == "foodwaste"
-        assert loader.get_code_for_category("대형폐기물 신고") == "sofa"
+        assert loader.get_code_for_category("건전지 버리기") == "battery"
+        assert loader.get_code_for_category("유리병 분리배출") == "glass"
 
     def test_case_insensitive(self):
         """대소문자 무시."""

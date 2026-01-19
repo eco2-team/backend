@@ -11,6 +11,7 @@ Gemini의 네이티브 이미지 생성 기능을 사용한 이미지 생성.
 - 멀티턴 대화 지원 (이전 생성 결과 참조 가능)
 - TEXT + IMAGE 혼합 응답
 - SynthID 워터마크 자동 포함
+- URL 기반 참조 이미지 지원 (lazy fetch)
 
 API 문서: https://ai.google.dev/gemini-api/docs/image-generation
 """
@@ -22,6 +23,7 @@ import io
 import logging
 import os
 
+import httpx
 from google import genai
 from google.genai import types
 from PIL import Image
@@ -105,6 +107,57 @@ class GeminiNativeImageGenerator(ImageGeneratorPort):
             )
         self._client = genai.Client(api_key=self._api_key)
         self._max_reference = MODEL_REFERENCE_LIMITS.get(model, 3)
+        self._http_client: httpx.AsyncClient | None = None
+
+    async def _get_http_client(self) -> httpx.AsyncClient:
+        """HTTP 클라이언트 가져오기 (lazy initialization)."""
+        if self._http_client is None:
+            self._http_client = httpx.AsyncClient(timeout=30.0)
+        return self._http_client
+
+    async def _fetch_image_bytes(self, url: str) -> bytes:
+        """URL에서 이미지 바이트를 가져옵니다.
+
+        Args:
+            url: 이미지 URL (CDN URL)
+
+        Returns:
+            이미지 바이트 데이터
+
+        Raises:
+            ImageGenerationError: 이미지 다운로드 실패 시
+        """
+        try:
+            client = await self._get_http_client()
+            response = await client.get(url)
+            response.raise_for_status()
+            logger.debug("Fetched image from URL: %s (%d bytes)", url, len(response.content))
+            return response.content
+        except httpx.HTTPError as e:
+            logger.error("Failed to fetch image from URL %s: %s", url, e)
+            raise ImageGenerationError(f"Failed to fetch reference image: {e}") from e
+
+    async def _resolve_reference_bytes(self, ref: ReferenceImage) -> bytes:
+        """ReferenceImage에서 바이트 데이터를 얻습니다 (URL이면 fetch).
+
+        Args:
+            ref: 참조 이미지 (URL 또는 bytes)
+
+        Returns:
+            이미지 바이트 데이터
+        """
+        if ref.image_bytes:
+            return ref.image_bytes
+        if ref.image_url:
+            return await self._fetch_image_bytes(ref.image_url)
+        raise ImageGenerationError("ReferenceImage has neither URL nor bytes")
+
+    async def close(self) -> None:
+        """리소스 정리 (HTTP 클라이언트 종료)."""
+        if self._http_client is not None:
+            await self._http_client.aclose()
+            self._http_client = None
+            logger.debug("HTTP client closed")
 
     @property
     def supports_reference_images(self) -> bool:
@@ -217,9 +270,11 @@ class GeminiNativeImageGenerator(ImageGeneratorPort):
                     )
                 )
                 for ref in reference_images:
+                    # URL이면 lazy fetch, bytes면 그대로 사용
+                    image_data = await self._resolve_reference_bytes(ref)
                     parts.append(
                         types.Part.from_bytes(
-                            data=ref.image_bytes,
+                            data=image_data,
                             mime_type=ref.mime_type,
                         )
                     )
