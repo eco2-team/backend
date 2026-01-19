@@ -157,7 +157,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-jaeger-egress
-  namespace: image
+  namespace: images
 spec:
   podSelector: {}
   policyTypes:

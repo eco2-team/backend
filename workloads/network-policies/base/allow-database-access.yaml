@@ -111,7 +111,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-postgres
-  namespace: image
+  namespace: images
 spec:
   podSelector: {}
   policyTypes:
@@ -129,7 +129,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-redis
-  namespace: image
+  namespace: images
 spec:
   podSelector: {}
   policyTypes:
