@@ -316,7 +316,7 @@ ChatGPT 스타일의 "Thinking UI"에서 사용합니다.
 | Stage | Status | 안내 메시지 (한글) | result 활용 |
 |-------|--------|-------------------|-------------|
 | **queued** | started | "잠깐만요, 확인해볼게요" | - |
-| **intent** | started | "음, 뭘 물어보신 건지..." | - |
+| **intent** | started | "어떤 건지 파악해볼게요" | - |
 | **intent** | completed | "아, {INTENT_LABEL} 궁금하시군요!" | `result.intent` → INTENT_LABELS 매핑 |
 | **router** | completed | "필요한 정보 찾아볼게요" | - |
 | **rag** | started | "관련 규정 뒤져보는 중..." | - |
@@ -370,7 +370,7 @@ function getStageMessage(stage: string, status: string, result?: any): string | 
   const messages: Record<string, Record<string, string | ((r: any) => string)>> = {
     queued: { started: '잠깐만요, 확인해볼게요' },
     intent: {
-      started: '음, 뭘 물어보신 건지...',
+      started: '어떤 건지 파악해볼게요',
       completed: (r) => `아, ${INTENT_LABELS[r?.intent] || '이거'} 궁금하시군요!`,
     },
     router: { completed: '필요한 정보 찾아볼게요' },
@@ -414,7 +414,7 @@ eventSource.addEventListener('intent', (event) => {
      ↓
 "잠깐만요, 확인해볼게요"       ← queued.started
      ↓
-"음, 뭘 물어보신 건지..."      ← intent.started
+"어떤 건지 파악해볼게요"       ← intent.started
      ↓
 "아, 분리배출 방법 궁금하시군요!" ← intent.completed (result.intent 활용)
      ↓
