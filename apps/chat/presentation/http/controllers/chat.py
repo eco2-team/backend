@@ -286,11 +286,13 @@ async def get_chat(
     user: CurrentUser,
     repo: ChatRepositoryDep,
     limit: int = Query(default=50, ge=1, le=200, description="메시지 조회 개수"),
-    before: str | None = Query(default=None, description="이 시간 이전 메시지"),
+    cursor: str | None = Query(default=None, description="페이징 커서 (ISO 8601 타임스탬프)"),
 ) -> ChatDetailResponse:
     """채팅 상세 정보와 메시지 목록을 조회합니다.
 
-    사용자가 사이드바에서 채팅을 선택했을 때 호출됩니다.
+    페이징:
+    - cursor: 이전 응답의 next_cursor 값
+    - next_cursor를 다음 요청의 cursor로 전달
     """
     # 채팅 존재 확인 및 권한 검증
     chat = await repo.get_chat_by_id(chat_id)
@@ -304,7 +306,7 @@ async def get_chat(
     messages, has_more = await repo.get_messages_by_chat(
         chat_id=chat_id,
         limit=limit,
-        before=before,
+        before=cursor,
     )
 
     # 다음 페이지 커서 계산 (마지막 메시지의 created_at을 커서로 사용)
