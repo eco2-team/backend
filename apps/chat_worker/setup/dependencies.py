@@ -43,6 +43,7 @@ from chat_worker.application.ports.location_client import LocationClientPort
 from chat_worker.application.ports.metrics import MetricsPort
 from chat_worker.application.ports.vision import VisionModelPort
 from chat_worker.application.ports.image_generator import ImageGeneratorPort
+from chat_worker.application.ports.image_storage import ImageStoragePort
 from chat_worker.application.ports.weather_client import WeatherClientPort
 from chat_worker.application.ports.web_search import WebSearchPort
 from chat_worker.application.ports.bulk_waste_client import BulkWasteClientPort
@@ -116,6 +117,8 @@ _checkpointer = None  # BaseCheckpointSaver
 _cache: CachePort | None = None
 _metrics: MetricsPort | None = None
 _image_generator: ImageGeneratorPort | None = None
+_image_storage: ImageStoragePort | None = None
+_image_storage_checked: bool = False  # 캐싱 상태 플래그
 
 
 async def get_redis() -> Redis:
@@ -351,6 +354,48 @@ def get_image_generator() -> ImageGeneratorPort | None:
         logger.info("Gemini Image Generator created (model=gemini-3-pro-image-preview)")
 
     return _image_generator
+
+
+def get_image_storage() -> ImageStoragePort | None:
+    """이미지 저장소 클라이언트 싱글톤.
+
+    생성된 이미지를 gRPC로 Images API에 업로드.
+    Images API가 S3에 저장 후 CDN URL 반환.
+
+    이미지 생성이 활성화된 경우에만 생성됨.
+
+    환경변수:
+    - CHAT_WORKER_ENABLE_IMAGE_GENERATION: True로 설정 시 활성화
+    - CHAT_WORKER_IMAGES_GRPC_HOST: Images API gRPC 호스트 (기본 images-api)
+    - CHAT_WORKER_IMAGES_GRPC_PORT: Images API gRPC 포트 (기본 50052)
+    """
+    global _image_storage, _image_storage_checked
+
+    # 이미 확인 완료된 경우 캐시된 값 반환
+    if _image_storage_checked:
+        return _image_storage
+
+    settings = get_settings()
+
+    if not settings.enable_image_generation:
+        logger.info("Image storage disabled (enable_image_generation=False)")
+        _image_storage_checked = True
+        return None
+
+    from chat_worker.infrastructure.integrations.image import ImageStorageClient
+
+    _image_storage = ImageStorageClient(
+        host=settings.images_grpc_host,
+        port=settings.images_grpc_port,
+    )
+    _image_storage_checked = True
+    logger.info(
+        "Image Storage gRPC client created: %s:%d",
+        settings.images_grpc_host,
+        settings.images_grpc_port,
+    )
+
+    return _image_storage
 
 
 # ============================================================
@@ -780,6 +825,7 @@ async def get_chat_graph(
     weather_client = get_weather_client()  # 날씨 정보 (기상청 API)
     collection_point_client = get_collection_point_client()  # 수거함 위치 (KECO API)
     image_generator = get_image_generator()  # 이미지 생성 (Responses API)
+    image_storage = get_image_storage()  # 이미지 업로드 (gRPC)
     input_requester = await get_input_requester()
     checkpointer = await get_checkpointer()
 
@@ -798,6 +844,7 @@ async def get_chat_graph(
         weather_client=weather_client,  # 날씨 정보 (기상청 API)
         collection_point_client=collection_point_client,  # 수거함 위치 (KECO API)
         image_generator=image_generator,  # 이미지 생성 (Responses API)
+        image_storage=image_storage,  # 이미지 업로드 (gRPC → S3)
         image_default_size=settings.image_generation_default_size,
         image_default_quality=settings.image_generation_default_quality,
         cache=cache,  # P2: Intent 캐싱 (CachePort)
@@ -910,7 +957,7 @@ async def get_process_chat_command(
 async def cleanup():
     """리소스 정리."""
     global _redis, _redis_streams, _character_client, _location_client, _kakao_local_client, _weather_client, _bulk_waste_client, _collection_point_client, _checkpointer
-    global _progress_notifier, _domain_event_bus, _interaction_state_store, _input_requester, _image_generator
+    global _progress_notifier, _domain_event_bus, _interaction_state_store, _input_requester, _image_generator, _image_storage
 
     # 체크포인터 종료
     if _checkpointer and hasattr(_checkpointer, "close"):
@@ -957,6 +1004,14 @@ async def cleanup():
     if _image_generator is not None:
         _image_generator = None
         logger.info("Image generator cleared")
+
+    # Image Storage gRPC 클라이언트 종료
+    global _image_storage_checked
+    if _image_storage and hasattr(_image_storage, "close"):
+        await _image_storage.close()
+        _image_storage = None
+        logger.info("Image Storage gRPC client closed")
+    _image_storage_checked = False
 
     # Redis 종료
     if _redis:

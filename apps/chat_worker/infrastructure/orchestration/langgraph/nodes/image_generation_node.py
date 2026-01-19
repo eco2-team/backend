@@ -7,15 +7,18 @@ Clean Architecture:
 - Node(Adapter): 이 파일 - LangGraph glue code
 - Command(UseCase): GenerateImageCommand - 정책/흐름
 - Port: ImageGeneratorPort - Responses API 호출
+- Port: ImageStoragePort - 이미지 업로드 (gRPC)
 
 아키텍처 의사결정:
 - 기존 Chat Completions 파이프라인 유지
 - 이미지 생성 서브에이전트에서만 Responses API 사용
 - multi-intent 라우팅 구조 그대로 활용
+- 생성된 이미지는 gRPC로 S3에 업로드 후 CDN URL 사용
 """
 
 from __future__ import annotations
 
+import base64
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -34,6 +37,7 @@ from chat_worker.infrastructure.orchestration.langgraph.nodes.node_executor impo
 if TYPE_CHECKING:
     from chat_worker.application.ports.events import ProgressNotifierPort
     from chat_worker.application.ports.image_generator import ImageGeneratorPort
+    from chat_worker.application.ports.image_storage import ImageStoragePort
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +45,7 @@ logger = logging.getLogger(__name__)
 def create_image_generation_node(
     image_generator: "ImageGeneratorPort",
     event_publisher: "ProgressNotifierPort",
+    image_storage: "ImageStoragePort | None" = None,
     default_size: str = "1024x1024",
     default_quality: str = "medium",
 ):
@@ -51,10 +56,12 @@ def create_image_generation_node(
     - Command(UseCase) 호출
     - output → state 변환
     - progress notify (UX)
+    - 생성된 이미지 업로드 (gRPC)
 
     Args:
         image_generator: 이미지 생성 클라이언트 (Responses API)
         event_publisher: 이벤트 발행자 (SSE)
+        image_storage: 이미지 저장소 클라이언트 (gRPC, optional)
         default_size: 기본 이미지 크기 (Config에서 주입)
         default_quality: 기본 이미지 품질 (Config에서 주입)
 
@@ -136,24 +143,102 @@ def create_image_generation_node(
                 ),
             }
 
+        # 4. 이미지 업로드 (gRPC) - base64 data URL → CDN URL
+        final_image_url = output.image_url
+        if image_storage and output.image_url:
+            try:
+                # base64 data URL 파싱: data:image/png;base64,<base64_data>
+                if output.image_url.startswith("data:") and "," in output.image_url:
+                    # header와 data 분리
+                    header, b64_data = output.image_url.split(",", 1)
+
+                    # content_type 추출 검증
+                    header_parts = header.split(":")
+                    if len(header_parts) < 2:
+                        raise ValueError(f"Invalid data URL header: {header}")
+
+                    mime_parts = header_parts[1].split(";")
+                    content_type = mime_parts[0]  # split은 항상 최소 1개 요소 반환
+
+                    # base64 디코딩
+                    image_bytes = base64.b64decode(b64_data)
+
+                    logger.info(
+                        "Uploading generated image via gRPC",
+                        extra={
+                            "job_id": job_id,
+                            "content_type": content_type,
+                            "size_bytes": len(image_bytes),
+                        },
+                    )
+
+                    # gRPC로 업로드 (메타데이터 포함)
+                    upload_metadata = {
+                        "job_id": job_id,
+                        "description": output.description or "",
+                        "has_synthid": str(output.has_synthid).lower(),
+                    }
+                    if output.width:
+                        upload_metadata["width"] = str(output.width)
+                    if output.height:
+                        upload_metadata["height"] = str(output.height)
+
+                    upload_result = await image_storage.upload_bytes(
+                        image_data=image_bytes,
+                        content_type=content_type,
+                        channel="generated",
+                        uploader_id="chat_worker",
+                        metadata=upload_metadata,
+                    )
+
+                    if upload_result.success and upload_result.cdn_url:
+                        final_image_url = upload_result.cdn_url
+                        logger.info(
+                            "Image uploaded successfully",
+                            extra={
+                                "job_id": job_id,
+                                "cdn_url": final_image_url,
+                            },
+                        )
+                    else:
+                        logger.warning(
+                            "Image upload failed, using base64 fallback",
+                            extra={
+                                "job_id": job_id,
+                                "error": upload_result.error,
+                            },
+                        )
+            except Exception as e:
+                logger.warning(
+                    "Image upload error, using base64 fallback",
+                    extra={
+                        "job_id": job_id,
+                        "error": str(e),
+                    },
+                )
+
         # Progress: 완료 (UX)
         await event_publisher.notify_stage(
             task_id=job_id,
             stage="image_generation",
             status="completed",
             progress=80,
-            result={"image_url": output.image_url},
+            result={"image_url": final_image_url},
             message="이미지 생성 완료",
         )
 
         return {
             "image_generation_context": create_context(
                 data={
-                    "image_url": output.image_url,
+                    "image_url": final_image_url,
                     "description": output.description,
                     "revised_prompt": output.revised_prompt,
                     "used_reference": reference_bytes is not None,
                     "character_code": character_asset.get("code") if character_asset else None,
+                    # 이미지 메타데이터
+                    "width": output.width,
+                    "height": output.height,
+                    "has_synthid": output.has_synthid,
                 },
                 producer="image_generation",
                 job_id=job_id,

@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -19,6 +21,9 @@ from images.core.tracing import (
     shutdown_tracing,
 )
 from images.metrics import register_metrics
+from images.presentation.grpc.server import serve as serve_grpc
+
+logger = logging.getLogger(__name__)
 
 # 구조화된 로깅 설정 (ECS JSON 포맷)
 configure_logging()
@@ -37,7 +42,27 @@ instrument_httpx()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # gRPC 서버를 백그라운드에서 시작
+    grpc_task = asyncio.create_task(serve_grpc())
+
+    # 시작 직후 짧은 대기로 초기화 에러 확인
+    await asyncio.sleep(0.1)
+    if grpc_task.done():
+        exc = grpc_task.exception()
+        if exc:
+            logger.error("gRPC server failed to start", exc_info=exc)
+            raise exc
+
+    logger.info("gRPC server started in background")
+
     yield
+
+    # gRPC 서버 종료
+    grpc_task.cancel()
+    try:
+        await grpc_task
+    except asyncio.CancelledError:
+        logger.info("gRPC server stopped")
     shutdown_tracing()
 
 

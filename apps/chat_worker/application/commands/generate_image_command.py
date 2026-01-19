@@ -57,6 +57,10 @@ class GenerateImageOutput:
     revised_prompt: str | None = None
     error_message: str | None = None
     events: list[str] = field(default_factory=list)
+    # 이미지 메타데이터
+    width: int | None = None
+    height: int | None = None
+    has_synthid: bool = False
 
 
 class GenerateImageCommand:
@@ -183,6 +187,9 @@ class GenerateImageCommand:
                 description=result.description,
                 revised_prompt=result.revised_prompt,
                 events=events,
+                width=result.width,
+                height=result.height,
+                has_synthid=result.has_synthid,
             )
 
         except Exception as e:

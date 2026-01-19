@@ -127,6 +127,7 @@ if TYPE_CHECKING:
         CollectionPointClientPort,
     )
     from chat_worker.application.ports.image_generator import ImageGeneratorPort
+    from chat_worker.application.ports.image_storage import ImageStoragePort
     from chat_worker.application.ports.recyclable_price_client import (
         RecyclablePriceClientPort,
     )
@@ -196,6 +197,7 @@ def create_chat_graph(
     weather_client: "WeatherClientPort | None" = None,  # 날씨 정보 (기상청 API)
     collection_point_client: "CollectionPointClientPort | None" = None,  # 수거함 위치 (KECO API)
     image_generator: "ImageGeneratorPort | None" = None,  # 이미지 생성 (Responses API)
+    image_storage: "ImageStoragePort | None" = None,  # 이미지 업로드 (gRPC)
     image_default_size: str = "1024x1024",  # 이미지 기본 크기
     image_default_quality: str = "medium",  # 이미지 기본 품질
     cache: "CachePort | None" = None,  # P2: Intent 캐싱용 (CachePort 추상화)
@@ -450,10 +452,14 @@ def create_chat_graph(
         image_generation_node = create_image_generation_node(
             image_generator=image_generator,
             event_publisher=event_publisher,
+            image_storage=image_storage,  # gRPC 업로드 (선택)
             default_size=image_default_size,
             default_quality=image_default_quality,
         )
-        logger.info("Image generation subagent node created (Gemini Native)")
+        logger.info(
+            "Image generation subagent node created (Gemini Native, storage=%s)",
+            "gRPC" if image_storage else "base64",
+        )
     else:
         # Fallback: passthrough
         async def image_generation_node(state: dict[str, Any]) -> dict[str, Any]:

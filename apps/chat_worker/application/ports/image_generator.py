@@ -47,6 +47,9 @@ class ImageGenerationResult:
         revised_prompt: 모델이 수정한 프롬프트 (디버깅용)
         provider: 사용된 Provider (openai, gemini)
         model: 사용된 모델명
+        width: 이미지 너비 (픽셀)
+        height: 이미지 높이 (픽셀)
+        has_synthid: SynthID 워터마크 포함 여부 (Gemini)
     """
 
     image_url: str
@@ -55,6 +58,9 @@ class ImageGenerationResult:
     revised_prompt: str | None = None
     provider: str | None = None
     model: str | None = None
+    width: int | None = None
+    height: int | None = None
+    has_synthid: bool = False
 
 
 class ImageGeneratorPort(ABC):

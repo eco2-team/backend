@@ -51,6 +51,15 @@ class Settings(BaseSettings):
     )
     allowed_targets: tuple[Literal["chat", "scan", "my"], ...] = ("chat", "scan", "my")
 
+    # gRPC server settings
+    grpc_port: int = Field(
+        50052,
+        ge=1024,
+        le=65535,
+        description="gRPC server port for internal image upload",
+        validation_alias=AliasChoices("IMAGE_GRPC_PORT"),
+    )
+
     # Redis connection settings
     redis_health_check_interval: int = Field(
         30,
