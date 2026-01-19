@@ -315,50 +315,50 @@ ChatGPT 스타일의 "Thinking UI"에서 사용합니다.
 
 | Stage | Status | 안내 메시지 (한글) | result 활용 |
 |-------|--------|-------------------|-------------|
-| **queued** | started | "질문을 받았어요" | - |
-| **intent** | started | "질문을 분석하고 있어요" | - |
-| **intent** | completed | "{INTENT_LABEL}(으)로 판단했어요" | `result.intent` → INTENT_LABELS 매핑 |
-| **router** | completed | "정보를 찾고 있어요" | - |
-| **rag** | started | "관련 규정을 찾고 있어요" | - |
-| **rag** | completed | "규정 {count}건을 찾았어요" | `result.count` |
-| **vision** | started | "이미지를 분석하고 있어요" | - |
-| **vision** | completed | "{major_category}(으)로 분석했어요" | `result.major_category` |
-| **bulk_waste** | started | "대형폐기물 정보를 찾고 있어요" | - |
-| **bulk_waste** | completed | "대형폐기물 정보를 찾았어요" | `result.has_fees` |
-| **collection_point** | started | "수거함 위치를 찾고 있어요" | - |
-| **collection_point** | completed | "수거함 {count}곳을 찾았어요" | `result.count` |
-| **kakao_place** | started | "장소를 검색하고 있어요" | - |
-| **kakao_place** | completed | "장소 {count}곳을 찾았어요" | `result.count` |
-| **recyclable_price** | started | "재활용 시세를 확인하고 있어요" | - |
-| **recyclable_price** | completed | "시세 정보를 찾았어요" | `result.found` |
-| **web_search** | started | "웹에서 검색하고 있어요" | - |
-| **web_search** | completed | "검색 결과 {count}건을 찾았어요" | `result.count` |
-| **weather** | started | "날씨 정보를 확인하고 있어요" | - |
-| **weather** | completed | "날씨 정보를 가져왔어요" | `result.temperature` |
-| **location** | started | "위치를 확인하고 있어요" | - |
-| **location** | completed | "위치를 확인했어요" | `result.found` |
-| **image_generation** | started | "이미지를 생성하고 있어요" | - |
-| **image_generation** | completed | "이미지를 생성했어요" | `result.image_url` |
-| **aggregate** | completed | "정보를 취합하고 있어요" | `result.collected` |
+| **queued** | started | "잠깐만요, 확인해볼게요" | - |
+| **intent** | started | "음, 뭘 물어보신 건지..." | - |
+| **intent** | completed | "아, {INTENT_LABEL} 궁금하시군요!" | `result.intent` → INTENT_LABELS 매핑 |
+| **router** | completed | "필요한 정보 찾아볼게요" | - |
+| **rag** | started | "관련 규정 뒤져보는 중..." | - |
+| **rag** | completed | "오, 규정 {count}건 찾았어요!" | `result.count` |
+| **vision** | started | "사진 보는 중..." | - |
+| **vision** | completed | "이건 {major_category} 같네요!" | `result.major_category` |
+| **bulk_waste** | started | "대형폐기물 정보 찾는 중..." | - |
+| **bulk_waste** | completed | "대형폐기물 정보 찾았어요!" | `result.has_fees` |
+| **collection_point** | started | "근처 수거함 찾는 중..." | - |
+| **collection_point** | completed | "수거함 {count}곳 찾았어요!" | `result.count` |
+| **kakao_place** | started | "장소 검색 중..." | - |
+| **kakao_place** | completed | "장소 {count}곳 찾았어요!" | `result.count` |
+| **recyclable_price** | started | "시세 확인하는 중..." | - |
+| **recyclable_price** | completed | "시세 정보 찾았어요!" | `result.found` |
+| **web_search** | started | "웹에서 찾아보는 중..." | - |
+| **web_search** | completed | "검색 결과 {count}건!" | `result.count` |
+| **weather** | started | "날씨 확인 중..." | - |
+| **weather** | completed | "날씨 확인했어요!" | `result.temperature` |
+| **location** | started | "위치 확인 중..." | - |
+| **location** | completed | "위치 확인 완료!" | `result.found` |
+| **image_generation** | started | "이미지 그리는 중..." | - |
+| **image_generation** | completed | "이미지 완성!" | `result.image_url` |
+| **aggregate** | completed | "정보 정리하는 중..." | `result.collected` |
 | **feedback** | completed | (표시 안 함) | - |
-| **answer** | started | "답변을 작성하고 있어요" | - |
+| **answer** | started | "정리해서 알려드릴게요" | - |
 | **answer** | completed | (토큰 스트리밍으로 대체) | - |
 | **done** | completed | (완료 - UI 숨김) | `result.answer` |
-| **error** | - | "문제가 발생했어요. 다시 시도해주세요" | `result.error` |
+| **error** | - | "앗, 문제가 생겼어요. 다시 해볼까요?" | `result.error` |
 
 ### Intent 라벨 매핑
 
 ```typescript
 const INTENT_LABELS: Record<string, string> = {
-  waste: '분리배출 안내',
-  character: '캐릭터 정보',
-  location: '위치 검색',
-  bulk_waste: '대형폐기물 안내',
-  recyclable_price: '시세 조회',
+  waste: '분리배출 방법',
+  character: '캐릭터',
+  location: '장소',
+  bulk_waste: '대형폐기물',
+  recyclable_price: '재활용 시세',
   collection_point: '수거함 위치',
-  web_search: '웹 검색',
-  image_generation: '이미지 생성',
-  general: '일반 대화',
+  web_search: '검색',
+  image_generation: '이미지',
+  general: '이것저것',
 };
 ```
 
@@ -368,26 +368,26 @@ const INTENT_LABELS: Record<string, string> = {
 // Stage 이벤트 핸들러
 function getStageMessage(stage: string, status: string, result?: any): string | null {
   const messages: Record<string, Record<string, string | ((r: any) => string)>> = {
-    queued: { started: '질문을 받았어요' },
+    queued: { started: '잠깐만요, 확인해볼게요' },
     intent: {
-      started: '질문을 분석하고 있어요',
-      completed: (r) => `${INTENT_LABELS[r?.intent] || '질문'}(으)로 판단했어요`,
+      started: '음, 뭘 물어보신 건지...',
+      completed: (r) => `아, ${INTENT_LABELS[r?.intent] || '이거'} 궁금하시군요!`,
     },
-    router: { completed: '정보를 찾고 있어요' },
+    router: { completed: '필요한 정보 찾아볼게요' },
     rag: {
-      started: '관련 규정을 찾고 있어요',
-      completed: (r) => r?.count ? `규정 ${r.count}건을 찾았어요` : '규정을 찾았어요',
+      started: '관련 규정 뒤져보는 중...',
+      completed: (r) => r?.count ? `오, 규정 ${r.count}건 찾았어요!` : '규정 찾았어요!',
     },
     vision: {
-      started: '이미지를 분석하고 있어요',
-      completed: (r) => r?.major_category ? `${r.major_category}(으)로 분석했어요` : '분석 완료',
+      started: '사진 보는 중...',
+      completed: (r) => r?.major_category ? `이건 ${r.major_category} 같네요!` : '분석 완료!',
     },
     collection_point: {
-      started: '수거함 위치를 찾고 있어요',
-      completed: (r) => r?.count ? `수거함 ${r.count}곳을 찾았어요` : '수거함을 찾았어요',
+      started: '근처 수거함 찾는 중...',
+      completed: (r) => r?.count ? `수거함 ${r.count}곳 찾았어요!` : '수거함 찾았어요!',
     },
-    answer: { started: '답변을 작성하고 있어요' },
-    error: { '*': '문제가 발생했어요. 다시 시도해주세요' },
+    answer: { started: '정리해서 알려드릴게요' },
+    error: { '*': '앗, 문제가 생겼어요. 다시 해볼까요?' },
   };
 
   const stageMessages = messages[stage];
@@ -412,21 +412,21 @@ eventSource.addEventListener('intent', (event) => {
 ```
 [사용자 메시지 전송]
      ↓
-"질문을 받았어요"          ← queued.started
+"잠깐만요, 확인해볼게요"       ← queued.started
      ↓
-"질문을 분석하고 있어요"    ← intent.started
+"음, 뭘 물어보신 건지..."      ← intent.started
      ↓
-"분리배출 안내로 판단했어요" ← intent.completed (result.intent 활용)
+"아, 분리배출 방법 궁금하시군요!" ← intent.completed (result.intent 활용)
      ↓
-"관련 규정을 찾고 있어요"   ← rag.started
+"관련 규정 뒤져보는 중..."      ← rag.started
      ↓
-"규정 3건을 찾았어요"      ← rag.completed (result.count 활용)
+"오, 규정 3건 찾았어요!"       ← rag.completed (result.count 활용)
      ↓
-"답변을 작성하고 있어요"    ← answer.started
+"정리해서 알려드릴게요"        ← answer.started
      ↓
-[토큰 스트리밍 시작]       ← token events (실시간 타이핑)
+[토큰 스트리밍 시작]          ← token events (실시간 타이핑)
      ↓
-[답변 완료]               ← done.completed
+[답변 완료]                  ← done.completed
 ```
 
 ---
