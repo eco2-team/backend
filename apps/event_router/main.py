@@ -101,9 +101,11 @@ async def startup() -> None:
     )
 
     # Redis Pub/Sub 연결 (PUBLISH only - 실시간 전달용)
+    # NOTE: sse-gateway와 동일하게 decode_responses=True 설정 필수
+    #       (불일치 시 한글 유니코드 인코딩 오류 발생)
     redis_pubsub_client = aioredis.from_url(
         settings.redis_pubsub_url,
-        decode_responses=False,
+        decode_responses=True,
         socket_timeout=60.0,
         socket_connect_timeout=5.0,
         retry_on_timeout=True,
