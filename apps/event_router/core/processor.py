@@ -340,47 +340,70 @@ class EventProcessor:
             EVENT_ROUTER_STATE_UPDATES.labels(stage=stage).inc()
             EVENT_ROUTER_PUBLISHED_MARKERS.inc()
 
-            # Step 2: Pub/Sub 발행 (별도 Redis)
+            # Step 2: Pub/Sub 발행 (별도 Redis) - 재시도 로직 추가
             publish_start = time.perf_counter()
-            try:
-                await self._pubsub_redis.publish(channel, event_data)
-                EVENT_ROUTER_PUBSUB_PUBLISHED.labels(stage=stage).inc()
-                EVENT_ROUTER_PUBSUB_PUBLISH_LATENCY.observe(time.perf_counter() - publish_start)
+            max_retries = 3
+            publish_success = False
 
-                if span:
-                    span.set_attribute("pubsub.channel", channel)
-                    span.set_attribute("pubsub.published", True)
+            for attempt in range(max_retries):
+                try:
+                    await self._pubsub_redis.publish(channel, event_data)
+                    EVENT_ROUTER_PUBSUB_PUBLISHED.labels(stage=stage).inc()
+                    EVENT_ROUTER_PUBSUB_PUBLISH_LATENCY.observe(time.perf_counter() - publish_start)
+                    publish_success = True
 
-                logger.debug(
-                    "event_processed",
-                    extra={
-                        "job_id": job_id,
-                        "stage": stage,
-                        "seq": seq,
-                        "channel": channel,
-                        "trace_id": event.get("trace_id") or None,
-                    },
-                )
-            except Exception as e:
-                EVENT_ROUTER_PUBSUB_PUBLISH_ERRORS.inc()
-                # Pub/Sub 실패해도 State는 이미 갱신됨
-                # SSE 클라이언트는 State polling으로 복구 가능
-                if span:
-                    span.set_attribute("pubsub.published", False)
-                    span.set_attribute("pubsub.error", str(e))
+                    if span:
+                        span.set_attribute("pubsub.channel", channel)
+                        span.set_attribute("pubsub.published", True)
 
-                logger.warning(
-                    "pubsub_publish_failed",
-                    extra={
-                        "job_id": job_id,
-                        "seq": seq,
-                        "channel": channel,
-                        "error": str(e),
-                    },
-                )
+                    # INFO 레벨로 변경하여 이벤트 처리 추적 가능
+                    logger.info(
+                        "event_processed",
+                        extra={
+                            "job_id": job_id,
+                            "stage": stage,
+                            "seq": seq,
+                            "channel": channel,
+                            "attempt": attempt + 1,
+                        },
+                    )
+                    break  # 성공 시 루프 종료
+
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        # 마지막 시도도 실패
+                        EVENT_ROUTER_PUBSUB_PUBLISH_ERRORS.inc()
+                        if span:
+                            span.set_attribute("pubsub.published", False)
+                            span.set_attribute("pubsub.error", str(e))
+
+                        logger.error(
+                            "pubsub_publish_failed",
+                            extra={
+                                "job_id": job_id,
+                                "stage": stage,
+                                "seq": seq,
+                                "channel": channel,
+                                "error": str(e),
+                                "attempts": max_retries,
+                            },
+                        )
+                    else:
+                        logger.warning(
+                            "pubsub_publish_retry",
+                            extra={
+                                "job_id": job_id,
+                                "stage": stage,
+                                "seq": seq,
+                                "attempt": attempt + 1,
+                                "error": str(e),
+                            },
+                        )
+                        # 재시도 대기 (exponential backoff)
+                        await asyncio.sleep(0.1 * (attempt + 1))
 
             EVENT_ROUTER_EVENTS_PROCESSED.labels(stage=stage).inc()
-            return True
+            return publish_success
         else:
             EVENT_ROUTER_EVENTS_SKIPPED.labels(reason="duplicate_or_out_of_order").inc()
             if span:
