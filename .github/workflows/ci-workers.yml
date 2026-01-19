@@ -32,6 +32,7 @@ on:
       - "apps/scan_worker/**"
       - "apps/character_worker/**"
       - "apps/info_worker/**"
+      - "apps/chat_worker/**"
       # Worker Kubernetes manifests
       - "workloads/domains/scan-worker/**"
       - "workloads/domains/character-worker/**"

@@ -54,9 +54,6 @@ CACHE_KEY_PREFIX = "chat:checkpoint:cache"
 DEFAULT_CACHE_TTL = 86400  # 24시간
 
 
-from langgraph.checkpoint.base import BaseCheckpointSaver
-
-
 class CachedPostgresSaver(BaseCheckpointSaver):
     """Cache-Aside 패턴 Checkpointer.
 
@@ -230,8 +227,6 @@ async def create_cached_postgres_checkpointer(
         setup()은 CREATE INDEX CONCURRENTLY를 실행하므로
         autocommit 모드 connection이 필요함.
     """
-    from psycopg_pool import AsyncConnectionPool
-
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
     from psycopg_pool import AsyncConnectionPool
 
@@ -366,8 +361,6 @@ async def create_postgres_checkpointer(
     Returns:
         AsyncPostgresSaver 인스턴스
     """
-    from psycopg_pool import AsyncConnectionPool
-
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
     from psycopg_pool import AsyncConnectionPool
 
