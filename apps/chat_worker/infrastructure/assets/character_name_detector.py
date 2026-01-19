@@ -49,8 +49,8 @@ class CharacterNameDetector:
     사용자 메시지에서 캐릭터 이름/별칭을 찾아 해당 캐릭터 정보를 반환합니다.
     """
 
-    # 기본 캐릭터 (이코)는 감지 대상에서 제외 (항상 페르소나로 사용)
-    EXCLUDED_CODES: ClassVar[set[str]] = {"char-eco"}
+    # 제외할 캐릭터 코드 (현재 없음 - 모든 캐릭터 감지)
+    EXCLUDED_CODES: ClassVar[set[str]] = set()
 
     def __init__(self, yaml_path: str | Path | None = None):
         """초기화.
