@@ -46,6 +46,13 @@ async def event_generator(
             async for token_event in manager.catch_up_tokens(job_id, last_token_seq):
                 if await request.is_disconnected():
                     break
+                logger.info(
+                    "sse_token_sent",
+                    extra={
+                        "job_id": job_id,
+                        "seq": token_event.get("seq"),
+                    },
+                )
                 yield {
                     "event": "token",
                     "data": json.dumps(token_event),
@@ -54,6 +61,13 @@ async def event_generator(
             # 새 연결: Token State에서 누적 텍스트 복구
             recovery_event = await manager.get_token_recovery_event(job_id)
             if recovery_event:
+                logger.info(
+                    "sse_token_recovery_sent",
+                    extra={
+                        "job_id": job_id,
+                        "last_seq": recovery_event.get("last_seq"),
+                    },
+                )
                 yield {
                     "event": "token_recovery",
                     "data": json.dumps(recovery_event),
@@ -80,6 +94,13 @@ async def event_generator(
 
         # error
         if event_type == "error" or event.get("status") == "failed":
+            logger.warning(
+                "sse_error_sent",
+                extra={
+                    "job_id": job_id,
+                    "event": event,
+                },
+            )
             yield {
                 "event": "error",
                 "data": json.dumps(event),
@@ -88,6 +109,14 @@ async def event_generator(
 
         # stage 이벤트 (queued, vision, rule, answer, reward, done)
         stage = event.get("stage", "unknown")
+        logger.info(
+            "sse_event_sent",
+            extra={
+                "job_id": job_id,
+                "event_type": stage,
+                "seq": event.get("seq"),
+            },
+        )
         yield {
             "event": stage,
             "data": json.dumps(event),

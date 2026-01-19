@@ -562,6 +562,16 @@ class SSEBroadcastManager:
                 seq = event.get("seq", 0)
                 SSE_PUBSUB_MESSAGES_RECEIVED.labels(stage=stage).inc()
 
+                logger.info(
+                    "pubsub_message_received",
+                    extra={
+                        "job_id": job_id,
+                        "stage": stage,
+                        "seq": seq,
+                        "channel": channel,
+                    },
+                )
+
                 # Trace context 추출 및 linked span 생성
                 await self._process_event_with_tracing(job_id, event, stage, seq)
 
@@ -660,7 +670,7 @@ class SSEBroadcastManager:
                 span.set_attribute("sse.distributed_count", distributed_count)
 
             if subscribers:
-                logger.debug(
+                logger.info(
                     "pubsub_event_distributed",
                     extra={
                         "job_id": job_id,

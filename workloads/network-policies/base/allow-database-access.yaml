@@ -310,3 +310,27 @@ spec:
     ports:
     - protocol: TCP
       port: 6379
+---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSE Consumer - Redis Pub/Sub 구독
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SSE Gateway는 Redis Pub/Sub 채널을 구독하여
+# 클라이언트에게 실시간 이벤트를 스트리밍합니다.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis
+  namespace: sse-consumer
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: redis
+    ports:
+    - protocol: TCP
+      port: 6379
