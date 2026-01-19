@@ -58,7 +58,7 @@ spec:
           - scan
           - my
           - location
-          - image
+          - images
           - info
           - event-router
           - sse-gateway
