@@ -87,6 +87,9 @@ from chat_worker.infrastructure.orchestration.langgraph import create_chat_graph
 from chat_worker.infrastructure.retrieval import TagBasedRetriever
 from chat_worker.setup.config import get_settings
 
+# Domain Layer
+from chat_worker.domain.models.provider import get_model_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -843,13 +846,18 @@ async def get_chat_graph(
 
 
 async def get_process_chat_command(
-    provider: Literal["openai", "google"] = "openai",
+    provider: Literal["openai", "google"] | None = None,
     model: str | None = None,
 ) -> ProcessChatCommand:
     """ProcessChatCommand 생성 (CQRS - Command).
 
     Application Layer의 Command를 조립.
     Port와 Infrastructure를 연결.
+
+    Provider 자동 추론:
+    - model 파라미터에서 provider를 자동 추론
+    - "gemini-*" → google, "gpt-*" → openai
+    - MODEL_REGISTRY에 등록된 모델이면 해당 provider 사용
 
     Event-First Architecture:
     - 메시지 영속화는 done 이벤트에 persistence 데이터 포함
@@ -879,7 +887,24 @@ async def get_process_chat_command(
     ```
     """
     settings = get_settings()
-    actual_provider = provider or settings.default_provider
+
+    # model에서 provider 자동 추론
+    if provider is None and model:
+        model_config = get_model_config(model)
+        if model_config:
+            actual_provider = model_config.provider.value
+            logger.info(f"Provider auto-inferred from model: {model} → {actual_provider}")
+        elif model.startswith("gemini"):
+            actual_provider = "google"
+            logger.info(f"Provider inferred from model prefix: {model} → google")
+        elif model.startswith("gpt"):
+            actual_provider = "openai"
+            logger.info(f"Provider inferred from model prefix: {model} → openai")
+        else:
+            actual_provider = settings.default_provider
+            logger.warning(f"Unknown model {model}, using default provider: {actual_provider}")
+    else:
+        actual_provider = provider or settings.default_provider
 
     pipeline = await get_chat_graph(actual_provider, model)
     progress_notifier = await get_progress_notifier()

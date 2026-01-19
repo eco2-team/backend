@@ -101,13 +101,13 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
         max_output_tokens=128000,
     ),
     # -------------------------------------------------------------------------
-    # Google: Gemini 3.0 Preview 세트
+    # Google: Gemini 3 세트
     # -------------------------------------------------------------------------
-    "google/gemini-3.0-preview": ModelConfig(
-        id="google/gemini-3.0-preview",
+    "google/gemini-3-pro-preview": ModelConfig(
+        id="google/gemini-3-pro-preview",
         provider=Provider.GOOGLE,
-        model_name="gemini-3.0-preview",
-        display_name="Gemini 3.0 Preview",
+        model_name="gemini-3-pro-preview",
+        display_name="Gemini 3 Pro Preview",
         image_model="gemini-3-pro-image-preview",
         capabilities=ModelCapabilities(
             supports_tools=True,
@@ -116,8 +116,24 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
             max_reference_images=14,  # 캐릭터 5개 포함
             supports_audio=True,
         ),
-        context_window=2000000,
-        max_output_tokens=65536,
+        context_window=1000000,
+        max_output_tokens=64000,
+    ),
+    "google/gemini-3-flash-preview": ModelConfig(
+        id="google/gemini-3-flash-preview",
+        provider=Provider.GOOGLE,
+        model_name="gemini-3-flash-preview",
+        display_name="Gemini 3 Flash Preview",
+        image_model="gemini-3-pro-image-preview",
+        capabilities=ModelCapabilities(
+            supports_tools=True,
+            supports_vision=True,
+            supports_image_generation=True,
+            max_reference_images=14,
+            supports_audio=True,
+        ),
+        context_window=1000000,
+        max_output_tokens=64000,
     ),
 }
 
