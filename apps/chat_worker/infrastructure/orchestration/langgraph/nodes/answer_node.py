@@ -8,14 +8,14 @@ Clean Architecture:
 - Command(UseCase): GenerateAnswerCommand - 정책/흐름
 - Service: AnswerGeneratorService - 순수 비즈니스 로직
 
-LangGraph stream_mode="messages" 지원:
-- answer_node에서 LangChain LLM을 직접 호출하여 AIMessageChunk yield
-- LangGraph가 토큰 스트림을 캡처하여 stream_mode="messages"로 전달
+토큰 스트리밍 아키텍처:
+- answer_node에서 모든 토큰을 직접 발행 (notify_token_v2)
+- ProcessChatCommand는 answer 노드의 토큰을 건너뜀 (중복 방지)
+- 웹 검색/LangChain 경로 모두 동일한 발행 메커니즘 사용
 
 GENERAL Intent + Native Web Search:
 - GENERAL intent에서는 OpenAI Responses API의 네이티브 web_search tool 사용
 - generate_with_tools()로 스트리밍 생성 → notify_token_v2()로 직접 토큰 발행
-- LangGraph의 stream_mode="messages"는 LangChain만 캡처하므로 직접 발행 필요
 """
 
 from __future__ import annotations
@@ -81,13 +81,14 @@ def create_answer_node(
 
         역할:
         1. state에서 값 추출 (LangGraph glue)
-        2. LangChain LLM 직접 호출 (stream_mode="messages" 지원)
+        2. LLM 호출 및 토큰 직접 발행 (notify_token_v2)
         3. output → state 변환
 
         Note:
-            LangGraph stream_mode="messages" 지원:
-            - answer_node에서 langchain_llm.astream() 직접 호출
-            - LangGraph가 AIMessageChunk를 캡처하여 토큰 이벤트로 전달
+            토큰 스트리밍 아키텍처:
+            - answer_node에서 토큰을 직접 발행 (notify_token_v2)
+            - ProcessChatCommand는 answer 노드의 토큰을 건너뜀 (중복 방지)
+            - 웹 검색/LangChain 경로 모두 동일한 발행 메커니즘 사용
 
         Args:
             state: 현재 LangGraph 상태
@@ -205,7 +206,8 @@ def create_answer_node(
                 # 토큰 스트림 완료 처리
                 await event_publisher.finalize_token_stream(job_id)
             else:
-                # 기존 LangChain 방식 (LangGraph stream_mode="messages" 캡처)
+                # LangChain 방식 (answer_node에서 직접 토큰 발행)
+                # LangGraph stream_mode="messages" 캡처 대신 직접 발행하여 중복 방지
                 langchain_llm = llm.get_langchain_llm()
 
                 # LangChain 메시지 구성
@@ -214,11 +216,22 @@ def create_answer_node(
                     langchain_messages.append(SystemMessage(content=prepared.system_prompt))
                 langchain_messages.append(HumanMessage(content=prepared.prompt))
 
-                # 직접 astream() 호출 → LangGraph stream_mode="messages"가 캡처
+                # 직접 astream() 호출 및 토큰 발행
                 async for chunk in langchain_llm.astream(langchain_messages):
                     content = chunk.content
                     if content:
                         answer_parts.append(content)
+                        # 직접 토큰 발행 (ProcessChatCommand와 중복 방지)
+                        if event_publisher is not None:
+                            await event_publisher.notify_token_v2(
+                                task_id=job_id,
+                                content=content,
+                                node="answer",
+                            )
+
+                # 토큰 스트림 완료 처리
+                if event_publisher is not None:
+                    await event_publisher.finalize_token_stream(job_id)
 
             answer = "".join(answer_parts)
 

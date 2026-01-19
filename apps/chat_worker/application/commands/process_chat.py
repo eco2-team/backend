@@ -444,6 +444,7 @@ class ProcessChatCommand:
         """messages 모드 청크 처리.
 
         LLM 토큰을 notify_token_v2로 전달.
+        answer 노드는 자체적으로 토큰을 발행하므로 건너뜁니다.
 
         Args:
             data: (AIMessageChunk, metadata) 튜플
@@ -452,13 +453,17 @@ class ProcessChatCommand:
         try:
             chunk, metadata = data
 
+            # 노드 정보 추출
+            node = metadata.get("langgraph_node", "answer")
+
+            # answer 노드는 자체적으로 토큰을 발행하므로 건너뜀 (중복 방지)
+            if node == "answer":
+                return
+
             # AIMessageChunk에서 content 추출
             content = getattr(chunk, "content", None)
             if not content:
                 return
-
-            # 노드 정보 추출
-            node = metadata.get("langgraph_node", "answer")
 
             await self._progress_notifier.notify_token_v2(
                 task_id=job_id,
