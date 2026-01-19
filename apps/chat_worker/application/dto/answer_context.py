@@ -94,14 +94,17 @@ class AnswerContext:
             img_ctx = self.image_generation_context
             # create_context는 data를 직접 펼쳐서 저장 (data 키 없음)
             if img_ctx.get("image_url"):
-                image_url = img_ctx["image_url"]
+                # Note: base64 data URL은 프롬프트에 포함하면 토큰 폭발 발생
+                # 클라이언트는 SSE 이벤트에서 직접 이미지 URL을 받음
+                # LLM에게는 이미지 생성 성공 메타 정보만 전달
                 description = img_ctx.get("description", "")
                 parts.append(
                     f"## Generated Image\n"
                     f"이미지가 성공적으로 생성되었습니다.\n"
-                    f"- Image URL: {image_url}\n"
                     f"- Description: {description}\n\n"
-                    f"사용자에게 이미지가 생성되었음을 알려주고, 위 URL을 마크다운 이미지 형식으로 보여주세요."
+                    f"사용자에게 이미지가 생성되었음을 안내하고, "
+                    f"이미지는 이미 화면에 표시되었다고 알려주세요. "
+                    f"이미지 URL을 텍스트로 출력하지 마세요."
                 )
             elif img_ctx.get("error"):
                 parts.append(
