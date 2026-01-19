@@ -288,7 +288,7 @@ class EventProcessor:
                     await self._pubsub_redis.publish(channel, event_data)
                     EVENT_ROUTER_PUBSUB_PUBLISHED.labels(stage=stage).inc()
                     EVENT_ROUTER_PUBSUB_PUBLISH_LATENCY.observe(time.perf_counter() - start_time)
-                    logger.debug(
+                    logger.info(
                         "token_event_published",
                         extra={
                             "job_id": job_id,
