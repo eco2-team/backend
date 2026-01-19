@@ -1,3 +1,32 @@
+---
+# Egress: chat-worker → images-api gRPC
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-chat-to-images-grpc
+  namespace: chat
+  labels:
+    app.kubernetes.io/component: network-policy
+    app.kubernetes.io/part-of: eco2
+spec:
+  podSelector:
+    matchLabels:
+      app: chat-worker
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: images
+      podSelector:
+        matchLabels:
+          app: images-api
+    ports:
+    - protocol: TCP
+      port: 50052
+---
+# Ingress: images-api ← chat-worker gRPC
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -14,7 +43,6 @@ spec:
   - Ingress
   ingress:
   - from:
-    # chat namespace의 chat-worker에서 gRPC 접근 허용
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: chat
