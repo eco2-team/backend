@@ -306,9 +306,135 @@ eventSource.addEventListener('error', (event) => {
 
 ---
 
+## Stage별 프론트엔드 UI 메시지 가이드
+
+각 stage 이벤트에 대응하는 프론트엔드 안내 메시지입니다.
+ChatGPT 스타일의 "Thinking UI"에서 사용합니다.
+
+### Stage → 안내 메시지 매핑
+
+| Stage | Status | 안내 메시지 (한글) | result 활용 |
+|-------|--------|-------------------|-------------|
+| **queued** | started | "질문을 받았어요" | - |
+| **intent** | started | "질문을 분석하고 있어요" | - |
+| **intent** | completed | "{INTENT_LABEL}(으)로 판단했어요" | `result.intent` → INTENT_LABELS 매핑 |
+| **router** | completed | "정보를 찾고 있어요" | - |
+| **rag** | started | "관련 규정을 찾고 있어요" | - |
+| **rag** | completed | "규정 {count}건을 찾았어요" | `result.count` |
+| **vision** | started | "이미지를 분석하고 있어요" | - |
+| **vision** | completed | "{major_category}(으)로 분석했어요" | `result.major_category` |
+| **bulk_waste** | started | "대형폐기물 정보를 찾고 있어요" | - |
+| **bulk_waste** | completed | "대형폐기물 정보를 찾았어요" | `result.has_fees` |
+| **collection_point** | started | "수거함 위치를 찾고 있어요" | - |
+| **collection_point** | completed | "수거함 {count}곳을 찾았어요" | `result.count` |
+| **kakao_place** | started | "장소를 검색하고 있어요" | - |
+| **kakao_place** | completed | "장소 {count}곳을 찾았어요" | `result.count` |
+| **recyclable_price** | started | "재활용 시세를 확인하고 있어요" | - |
+| **recyclable_price** | completed | "시세 정보를 찾았어요" | `result.found` |
+| **web_search** | started | "웹에서 검색하고 있어요" | - |
+| **web_search** | completed | "검색 결과 {count}건을 찾았어요" | `result.count` |
+| **weather** | started | "날씨 정보를 확인하고 있어요" | - |
+| **weather** | completed | "날씨 정보를 가져왔어요" | `result.temperature` |
+| **location** | started | "위치를 확인하고 있어요" | - |
+| **location** | completed | "위치를 확인했어요" | `result.found` |
+| **image_generation** | started | "이미지를 생성하고 있어요" | - |
+| **image_generation** | completed | "이미지를 생성했어요" | `result.image_url` |
+| **aggregate** | completed | "정보를 취합하고 있어요" | `result.collected` |
+| **feedback** | completed | (표시 안 함) | - |
+| **answer** | started | "답변을 작성하고 있어요" | - |
+| **answer** | completed | (토큰 스트리밍으로 대체) | - |
+| **done** | completed | (완료 - UI 숨김) | `result.answer` |
+| **error** | - | "문제가 발생했어요. 다시 시도해주세요" | `result.error` |
+
+### Intent 라벨 매핑
+
+```typescript
+const INTENT_LABELS: Record<string, string> = {
+  waste: '분리배출 안내',
+  character: '캐릭터 정보',
+  location: '위치 검색',
+  bulk_waste: '대형폐기물 안내',
+  recyclable_price: '시세 조회',
+  collection_point: '수거함 위치',
+  web_search: '웹 검색',
+  image_generation: '이미지 생성',
+  general: '일반 대화',
+};
+```
+
+### 프론트엔드 구현 예시
+
+```typescript
+// Stage 이벤트 핸들러
+function getStageMessage(stage: string, status: string, result?: any): string | null {
+  const messages: Record<string, Record<string, string | ((r: any) => string)>> = {
+    queued: { started: '질문을 받았어요' },
+    intent: {
+      started: '질문을 분석하고 있어요',
+      completed: (r) => `${INTENT_LABELS[r?.intent] || '질문'}(으)로 판단했어요`,
+    },
+    router: { completed: '정보를 찾고 있어요' },
+    rag: {
+      started: '관련 규정을 찾고 있어요',
+      completed: (r) => r?.count ? `규정 ${r.count}건을 찾았어요` : '규정을 찾았어요',
+    },
+    vision: {
+      started: '이미지를 분석하고 있어요',
+      completed: (r) => r?.major_category ? `${r.major_category}(으)로 분석했어요` : '분석 완료',
+    },
+    collection_point: {
+      started: '수거함 위치를 찾고 있어요',
+      completed: (r) => r?.count ? `수거함 ${r.count}곳을 찾았어요` : '수거함을 찾았어요',
+    },
+    answer: { started: '답변을 작성하고 있어요' },
+    error: { '*': '문제가 발생했어요. 다시 시도해주세요' },
+  };
+
+  const stageMessages = messages[stage];
+  if (!stageMessages) return null;
+
+  const msgOrFn = stageMessages[status] || stageMessages['*'];
+  if (!msgOrFn) return null;
+
+  return typeof msgOrFn === 'function' ? msgOrFn(result) : msgOrFn;
+}
+
+// 사용 예시
+eventSource.addEventListener('intent', (event) => {
+  const data = JSON.parse(event.data);
+  const message = getStageMessage(data.stage, data.status, data.result);
+  if (message) setThinkingMessage(message);
+});
+```
+
+### Thinking UI 상태 흐름
+
+```
+[사용자 메시지 전송]
+     ↓
+"질문을 받았어요"          ← queued.started
+     ↓
+"질문을 분석하고 있어요"    ← intent.started
+     ↓
+"분리배출 안내로 판단했어요" ← intent.completed (result.intent 활용)
+     ↓
+"관련 규정을 찾고 있어요"   ← rag.started
+     ↓
+"규정 3건을 찾았어요"      ← rag.completed (result.count 활용)
+     ↓
+"답변을 작성하고 있어요"    ← answer.started
+     ↓
+[토큰 스트리밍 시작]       ← token events (실시간 타이핑)
+     ↓
+[답변 완료]               ← done.completed
+```
+
+---
+
 ## Notes
 
 1. **UTF-8 Encoding**: 토큰 content는 UTF-8로 인코딩됨 (`\uXXXX` escape)
 2. **Token Recovery**: 늦게 연결해도 `accumulated`로 전체 내용 복구 가능
 3. **Seq 연속성**: token seq가 건너뛰면 네트워크 손실 감지 가능
 4. **done 이벤트**: 항상 마지막에 전체 결과 포함 (fallback용)
+5. **token 필터링**: `node="answer"` 토큰만 사용자에게 표시 (intent 노드 토큰 무시)
