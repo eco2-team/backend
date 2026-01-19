@@ -9,6 +9,9 @@ from chat_worker.application.commands.classify_intent_command import (
     ClassifyIntentInput,
     ClassifyIntentOutput,
 )
+from chat_worker.application.services.intent_classifier_service import (
+    IntentClassificationSchema,
+)
 
 
 class TestClassifyIntentInput:
@@ -86,7 +89,13 @@ class TestClassifyIntentCommand:
     def mock_llm(self) -> AsyncMock:
         """LLM 클라이언트 Mock."""
         llm = AsyncMock()
-        llm.generate = AsyncMock(return_value="waste")
+        llm.generate_structured = AsyncMock(
+            return_value=IntentClassificationSchema(
+                intent="waste",
+                confidence=0.9,
+                reasoning="분리배출 방법 문의",
+            )
+        )
         return llm
 
     @pytest.fixture
@@ -126,7 +135,13 @@ class TestClassifyIntentCommand:
         mock_llm: AsyncMock,
     ) -> None:
         """단순 의도 분류."""
-        mock_llm.generate = AsyncMock(return_value="waste")
+        mock_llm.generate_structured = AsyncMock(
+            return_value=IntentClassificationSchema(
+                intent="waste",
+                confidence=0.9,
+                reasoning="분리배출 방법 문의",
+            )
+        )
 
         input_dto = ClassifyIntentInput(
             job_id="job-123",
@@ -137,7 +152,7 @@ class TestClassifyIntentCommand:
 
         assert result.intent == "waste"
         assert result.confidence > 0
-        assert "llm_called" in result.events
+        assert "llm_structured_called" in result.events
 
     @pytest.mark.anyio
     async def test_execute_cache_hit(
@@ -165,7 +180,7 @@ class TestClassifyIntentCommand:
         assert result.intent == "character"
         assert result.confidence == 0.95
         assert "cache_hit" in result.events
-        mock_llm.generate.assert_not_called()
+        mock_llm.generate_structured.assert_not_called()
 
     @pytest.mark.anyio
     async def test_execute_llm_error_fallback(
@@ -174,7 +189,7 @@ class TestClassifyIntentCommand:
         mock_llm: AsyncMock,
     ) -> None:
         """LLM 에러 시 general fallback."""
-        mock_llm.generate = AsyncMock(side_effect=Exception("LLM Error"))
+        mock_llm.generate_structured = AsyncMock(side_effect=Exception("LLM Error"))
 
         input_dto = ClassifyIntentInput(
             job_id="job-123",
@@ -196,7 +211,13 @@ class TestClassifyIntentCommand:
     ) -> None:
         """캐시 에러 시에도 계속 진행."""
         mock_cache.get = AsyncMock(side_effect=Exception("Redis Error"))
-        mock_llm.generate = AsyncMock(return_value="location")
+        mock_llm.generate_structured = AsyncMock(
+            return_value=IntentClassificationSchema(
+                intent="location",
+                confidence=0.88,
+                reasoning="재활용센터 위치 검색",
+            )
+        )
 
         input_dto = ClassifyIntentInput(
             job_id="job-123",
@@ -207,7 +228,7 @@ class TestClassifyIntentCommand:
 
         assert result.intent == "location"
         assert "cache_error" in result.events
-        mock_llm.generate.assert_called_once()
+        mock_llm.generate_structured.assert_called_once()
 
     @pytest.mark.anyio
     async def test_execute_with_previous_intents(
@@ -216,7 +237,13 @@ class TestClassifyIntentCommand:
         mock_prompt_loader: MagicMock,
     ) -> None:
         """이전 의도 기반 분류 (Chain-of-Intent)."""
-        mock_llm.generate = AsyncMock(return_value="character")
+        mock_llm.generate_structured = AsyncMock(
+            return_value=IntentClassificationSchema(
+                intent="character",
+                confidence=0.85,
+                reasoning="캐릭터 정보 요청",
+            )
+        )
 
         command = ClassifyIntentCommand(
             llm=mock_llm,
@@ -245,7 +272,13 @@ class TestClassifyIntentCommand:
         mock_llm: AsyncMock,
     ) -> None:
         """분류 결과 캐시에 저장."""
-        mock_llm.generate = AsyncMock(return_value="bulk_waste")
+        mock_llm.generate_structured = AsyncMock(
+            return_value=IntentClassificationSchema(
+                intent="bulk_waste",
+                confidence=0.92,
+                reasoning="대형폐기물 처리 문의",
+            )
+        )
 
         input_dto = ClassifyIntentInput(
             job_id="job-123",
@@ -296,7 +329,13 @@ class TestClassifyIntentCommandMultiIntent:
         mock_llm: AsyncMock,
     ) -> None:
         """단순 메시지는 Multi-Intent 우회."""
-        mock_llm.generate = AsyncMock(return_value="waste")
+        mock_llm.generate_structured = AsyncMock(
+            return_value=IntentClassificationSchema(
+                intent="waste",
+                confidence=0.85,
+                reasoning="폐기물 관련 질문",
+            )
+        )
 
         input_dto = ClassifyIntentInput(
             job_id="job-123",
