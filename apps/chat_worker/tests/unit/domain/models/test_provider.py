@@ -91,14 +91,14 @@ class TestModelConfig:
 
     def test_google_model_config(self):
         """Google 모델 설정 확인."""
-        config = MODEL_REGISTRY["google/gemini-3.0-preview"]
-        assert config.id == "google/gemini-3.0-preview"
+        config = MODEL_REGISTRY["google/gemini-3-pro-preview"]
+        assert config.id == "google/gemini-3-pro-preview"
         assert config.provider == Provider.GOOGLE
-        assert config.model_name == "gemini-3.0-preview"
-        assert config.display_name == "Gemini 3.0 Preview"
+        assert config.model_name == "gemini-3-pro-preview"
+        assert config.display_name == "Gemini 3 Pro Preview"
         assert config.image_model == "gemini-3-pro-image-preview"
-        assert config.context_window == 2000000
-        assert config.max_output_tokens == 65536
+        assert config.context_window == 1000000
+        assert config.max_output_tokens == 64000
 
     def test_openai_capabilities(self):
         """OpenAI 모델 기능 확인."""
@@ -112,7 +112,7 @@ class TestModelConfig:
 
     def test_google_capabilities(self):
         """Google 모델 기능 확인."""
-        config = MODEL_REGISTRY["google/gemini-3.0-preview"]
+        config = MODEL_REGISTRY["google/gemini-3-pro-preview"]
         caps = config.capabilities
         assert caps.supports_tools is True
         assert caps.supports_vision is True
@@ -138,7 +138,7 @@ class TestGetModelConfig:
 
     def test_get_google_by_model_name(self):
         """Google 모델명으로 조회."""
-        config = get_model_config("gemini-3.0-preview")
+        config = get_model_config("gemini-3-pro-preview")
         assert config is not None
         assert config.provider == Provider.GOOGLE
 
