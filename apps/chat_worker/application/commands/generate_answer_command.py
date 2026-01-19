@@ -77,6 +77,21 @@ class GenerateAnswerOutput:
     events: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class PreparedPrompt:
+    """프롬프트 준비 결과.
+
+    LangGraph stream_mode="messages" 지원을 위해
+    answer_node에서 직접 LLM 호출할 때 사용.
+    """
+
+    prompt: str
+    system_prompt: str
+    cache_key: str
+    is_cacheable: bool
+    cached_answer: str | None = None
+
+
 class GenerateAnswerCommand:
     """답변 생성 Command (UseCase).
 

@@ -27,6 +27,31 @@ class MockPipeline:
         }
         self.ainvoke = AsyncMock(return_value=self._result)
 
+    async def astream(
+        self,
+        state: dict[str, Any],
+        config: dict[str, Any] | None = None,
+        stream_mode: str | list[str] | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[tuple[str, Any]]:
+        """Mock astream for stream_mode based streaming.
+
+        stream_mode=["messages", "updates"] 시:
+        - "messages": (AIMessageChunk, metadata) 튜플
+        - "updates": {node_name: state_update} 딕셔너리
+        """
+        answer = self._result.get("answer", "")
+
+        # Intent node update
+        yield ("updates", {"intent": {"intent": self._result.get("intent", "unknown")}})
+
+        # Answer node - token streaming
+        for char in answer[:5]:  # Simulate first 5 chars as tokens
+            yield ("messages", (MockChunk(char), {"langgraph_node": "answer"}))
+
+        # Answer node update (completed)
+        yield ("updates", {"answer": {"answer": answer}})
+
     async def astream_events(
         self,
         state: dict[str, Any],
@@ -34,7 +59,7 @@ class MockPipeline:
         version: str = "v2",
         **kwargs: Any,
     ) -> AsyncIterator[dict[str, Any]]:
-        """Mock astream_events for native streaming."""
+        """Mock astream_events for legacy native streaming."""
         # Simulate intent node start/end
         yield {
             "event": "on_chain_start",

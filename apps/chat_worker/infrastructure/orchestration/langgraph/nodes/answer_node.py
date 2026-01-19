@@ -8,15 +8,17 @@ Clean Architecture:
 - Command(UseCase): GenerateAnswerCommand - 정책/흐름
 - Service: AnswerGeneratorService - 순수 비즈니스 로직
 
-네이티브 스트리밍:
-- Progress/Token 이벤트는 ProcessChatCommand에서 astream_events로 처리
-- Node는 순수 비즈니스 로직만 담당
+LangGraph stream_mode="messages" 지원:
+- answer_node에서 LangChain LLM을 직접 호출하여 AIMessageChunk yield
+- LangGraph가 토큰 스트림을 캡처하여 stream_mode="messages"로 전달
 """
 
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
+
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from chat_worker.application.commands.generate_answer_command import (
     GenerateAnswerCommand,
@@ -66,13 +68,13 @@ def create_answer_node(
 
         역할:
         1. state에서 값 추출 (LangGraph glue)
-        2. Command 호출 (정책/흐름 위임)
+        2. LangChain LLM 직접 호출 (stream_mode="messages" 지원)
         3. output → state 변환
 
         Note:
-            네이티브 스트리밍: Progress/Token은 ProcessChatCommand가 처리
-            - on_chain_start/end → notify_stage
-            - on_llm_stream → notify_token_v2
+            LangGraph stream_mode="messages" 지원:
+            - answer_node에서 langchain_llm.astream() 직접 호출
+            - LangGraph가 AIMessageChunk를 캡처하여 토큰 이벤트로 전달
 
         Args:
             state: 현재 LangGraph 상태
@@ -141,25 +143,51 @@ def create_answer_node(
                 conversation_summary=conversation_summary,
             )
 
-            # 2. Command 실행 (토큰 수집)
-            # 네이티브 스트리밍: on_llm_stream이 토큰을 ProcessChatCommand에 전달
-            # Node는 최종 answer만 수집
+            # 2. 프롬프트 준비 (Command에서 컨텍스트 빌드만 수행)
+            prepared = await command.prepare(input_dto)
+
+            # 3. 캐시 히트 시 캐시된 답변 반환
+            if prepared.cached_answer:
+                logger.info(
+                    "Answer from cache",
+                    extra={"job_id": job_id, "length": len(prepared.cached_answer)},
+                )
+                cleanup_sequence(job_id)
+                return {"answer": prepared.cached_answer}
+
+            # 4. LangChain LLM 직접 호출 (stream_mode="messages" 지원)
+            # 핵심: answer_node에서 직접 astream() 호출 → LangGraph가 AIMessageChunk 캡처
+            langchain_llm = llm.get_langchain_llm()
+
+            # LangChain 메시지 구성
+            langchain_messages = []
+            if prepared.system_prompt:
+                langchain_messages.append(SystemMessage(content=prepared.system_prompt))
+            langchain_messages.append(HumanMessage(content=prepared.prompt))
+
+            # 직접 astream() 호출 → LangGraph stream_mode="messages"가 캡처
             answer_parts = []
-            async for token in command.execute(input_dto):
-                answer_parts.append(token)
+            async for chunk in langchain_llm.astream(langchain_messages):
+                content = chunk.content
+                if content:
+                    answer_parts.append(content)
 
             answer = "".join(answer_parts)
+
+            # 5. 캐시 저장 (필요한 경우)
+            if prepared.is_cacheable and answer:
+                await command.save_to_cache(prepared.cache_key, answer)
 
             logger.info(
                 "Answer generated",
                 extra={"job_id": job_id, "length": len(answer)},
             )
 
-            # 3. Lamport Clock 정리 (메모리 관리)
+            # 6. Lamport Clock 정리 (메모리 관리)
             # answer_node는 파이프라인의 마지막 노드이므로 여기서 정리
             cleanup_sequence(job_id)
 
-            # 4. output → state 변환
+            # 7. output → state 변환
             return {"answer": answer}
 
         except Exception as e:

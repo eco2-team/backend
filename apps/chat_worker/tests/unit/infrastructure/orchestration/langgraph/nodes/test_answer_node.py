@@ -17,15 +17,43 @@ from chat_worker.infrastructure.orchestration.langgraph.nodes.answer_node import
 )
 
 
+class MockAIMessageChunk:
+    """테스트용 Mock AIMessageChunk."""
+
+    def __init__(self, content: str):
+        self.content = content
+
+
+class MockLangChainLLM:
+    """테스트용 Mock LangChain LLM."""
+
+    def __init__(self, mock_client: "MockLLMClient"):
+        self._mock_client = mock_client
+
+    async def astream(self, messages):
+        """Mock astream - LangGraph stream_mode="messages" 지원."""
+        self._mock_client.call_count += 1
+        response = (
+            self._mock_client.responses[0] if self._mock_client.responses else "Test response"
+        )
+        for char in response:
+            yield MockAIMessageChunk(content=char)
+
+
 class MockLLMClient:
     """테스트용 Mock LLM Client."""
 
     def __init__(self):
         self.responses: list[str] = []
         self.call_count = 0
+        self._mock_langchain_llm = MockLangChainLLM(self)
 
     def set_responses(self, responses: list[str]):
         self.responses = responses
+
+    def get_langchain_llm(self):
+        """LangChain LLM 반환 (stream_mode="messages" 지원)."""
+        return self._mock_langchain_llm
 
     async def generate_stream(self, prompt: str, system_prompt: str = ""):
         self.call_count += 1
@@ -323,7 +351,18 @@ class TestAnswerNodeErrorHandling:
         Node는 fallback 메시지만 반환.
         """
 
+        class ErrorLangChainLLM:
+            async def astream(self, messages):
+                raise Exception("LLM Error")
+                yield  # Generator로 만들기 위해
+
         class ErrorLLM:
+            def __init__(self):
+                self._error_llm = ErrorLangChainLLM()
+
+            def get_langchain_llm(self):
+                return self._error_llm
+
             async def generate_stream(self, prompt: str, system_prompt: str = ""):
                 raise Exception("LLM Error")
                 yield  # Generator로 만들기 위해

@@ -67,7 +67,12 @@ from chat_worker.infrastructure.interaction import (
     RedisInputRequester,
     RedisInteractionStateStore,
 )
-from chat_worker.infrastructure.llm import GeminiLLMClient, OpenAILLMClient
+from chat_worker.infrastructure.llm import (
+    GeminiLLMClient,
+    LangChainLLMAdapter,
+    LangChainOpenAIRunnable,
+    OpenAILLMClient,
+)
 from chat_worker.infrastructure.llm.vision import (
     GeminiVisionClient,
     OpenAIVisionClient,
@@ -148,19 +153,23 @@ async def get_progress_notifier() -> ProgressNotifierPort:
     """ProgressNotifier 싱글톤 (SSE/UI 이벤트).
 
     Redis Streams로 이벤트 발행 → event-router가 소비.
+    redis_streams_url을 사용해야 event-router와 동일한 Redis를 바라봄.
     """
     global _progress_notifier
     if _progress_notifier is None:
-        redis = await get_redis()
+        redis = await get_redis_streams()
         _progress_notifier = RedisProgressNotifier(redis=redis)
     return _progress_notifier
 
 
 async def get_domain_event_bus() -> RedisStreamDomainEventBus:
-    """DomainEventBus 싱글톤 (시스템 이벤트)."""
+    """DomainEventBus 싱글톤 (시스템 이벤트).
+
+    Redis Streams로 이벤트 발행 → event-router가 소비.
+    """
     global _domain_event_bus
     if _domain_event_bus is None:
-        redis = await get_redis()
+        redis = await get_redis_streams()
         _domain_event_bus = RedisStreamDomainEventBus(redis=redis)
     return _domain_event_bus
 
@@ -227,20 +236,52 @@ def get_metrics() -> MetricsPort:
 def create_llm_client(
     provider: Literal["openai", "google"] = "openai",
     model: str | None = None,
+    enable_token_streaming: bool = True,
 ) -> LLMClientPort:
-    """LLM 클라이언트 팩토리."""
+    """LLM 클라이언트 팩토리.
+
+    Args:
+        provider: LLM 프로바이더 ("openai" 또는 "google")
+        model: 모델명 (None이면 기본값 사용)
+        enable_token_streaming: LangGraph stream_mode="messages" 토큰 스트리밍 활성화
+
+    Returns:
+        LLMClientPort 구현체
+
+    Token Streaming:
+        enable_token_streaming=True (기본):
+        - OpenAI: LangChainLLMAdapter + LangChainOpenAIRunnable 사용
+        - LangGraph stream_mode="messages"가 토큰을 캡처하여 SSE로 전달
+
+        enable_token_streaming=False:
+        - 기존 OpenAILLMClient 사용 (순수 SDK)
+        - 토큰 스트리밍 미지원 (done 이벤트에 전체 답변)
+    """
     settings = get_settings()
 
     if provider == "google":
+        # Google Gemini (토큰 스트리밍 미지원)
         return GeminiLLMClient(
             model=model or settings.gemini_default_model,
             api_key=settings.google_api_key,
         )
     else:
-        return OpenAILLMClient(
-            model=model or settings.openai_default_model,
-            api_key=settings.openai_api_key,
-        )
+        # OpenAI
+        actual_model = model or settings.openai_default_model
+
+        if enable_token_streaming:
+            # LangChain Runnable 기반 - stream_mode="messages" 토큰 캡처 지원
+            runnable = LangChainOpenAIRunnable(
+                model=actual_model,
+                api_key=settings.openai_api_key,
+            )
+            return LangChainLLMAdapter(runnable)
+        else:
+            # 순수 OpenAI SDK - 토큰 스트리밍 미지원
+            return OpenAILLMClient(
+                model=actual_model,
+                api_key=settings.openai_api_key,
+            )
 
 
 def create_vision_client(

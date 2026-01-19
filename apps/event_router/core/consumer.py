@@ -166,12 +166,33 @@ class StreamConsumer:
 
                     EVENT_ROUTER_XREADGROUP_BATCH_SIZE.observe(len(messages))
 
+                    # 배치 수신 로깅
+                    logger.info(
+                        "batch_received",
+                        extra={
+                            "stream": stream_name,
+                            "message_count": len(messages),
+                        },
+                    )
+
                     for msg_id, data in messages:
                         if isinstance(msg_id, bytes):
                             msg_id = msg_id.decode()
 
                         # 이벤트 파싱
                         event = self._parse_event(data)
+
+                        # 개별 이벤트 수신 로깅
+                        logger.info(
+                            "event_received",
+                            extra={
+                                "stream": stream_name,
+                                "msg_id": msg_id,
+                                "job_id": event.get("job_id"),
+                                "stage": event.get("stage"),
+                                "seq": event.get("seq"),
+                            },
+                        )
 
                         # 이벤트 처리 (stream_name 전달하여 도메인별 state prefix 결정)
                         try:
