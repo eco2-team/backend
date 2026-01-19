@@ -35,6 +35,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from openai import AsyncOpenAI
+from pydantic import BaseModel
 
 from chat_worker.infrastructure.llm.config import (
     HTTP_LIMITS,
@@ -223,6 +224,96 @@ class LangChainOpenAIRunnable(BaseChatModel):
                 yield generation_chunk
 
         logger.debug("LangChainOpenAIRunnable stream completed")
+
+    def with_structured_output(
+        self,
+        schema: type[BaseModel],
+        **kwargs: Any,
+    ) -> "StructuredOutputRunnable":
+        """구조화된 출력을 반환하는 Runnable 생성.
+
+        OpenAI의 response_format (JSON Schema) 또는 function calling 사용.
+
+        Args:
+            schema: Pydantic BaseModel 서브클래스
+            **kwargs: 추가 인자 (무시됨)
+
+        Returns:
+            StructuredOutputRunnable 인스턴스
+        """
+        return StructuredOutputRunnable(
+            client=self._client,
+            model=self.model,
+            temperature=self.temperature,
+            schema=schema,
+        )
+
+
+class StructuredOutputRunnable:
+    """구조화된 출력을 위한 Runnable.
+
+    OpenAI의 response_format (JSON Schema 모드) 사용.
+    """
+
+    def __init__(
+        self,
+        client: AsyncOpenAI,
+        model: str,
+        temperature: float,
+        schema: type[BaseModel],
+    ) -> None:
+        self._client = client
+        self._model = model
+        self._temperature = temperature
+        self._schema = schema
+
+    def _convert_messages(self, messages: list[BaseMessage]) -> list[dict[str, str]]:
+        """LangChain 메시지를 OpenAI 포맷으로 변환."""
+        result = []
+        for msg in messages:
+            role = "user"
+            if msg.type == "system":
+                role = "system"
+            elif msg.type == "ai" or msg.type == "assistant":
+                role = "assistant"
+            elif msg.type == "human" or msg.type == "user":
+                role = "user"
+            result.append({"role": role, "content": str(msg.content)})
+        return result
+
+    async def ainvoke(
+        self,
+        messages: list[BaseMessage],
+        **kwargs: Any,
+    ) -> BaseModel:
+        """비동기로 구조화된 출력 생성.
+
+        Args:
+            messages: 입력 메시지 리스트
+
+        Returns:
+            schema 타입의 인스턴스
+        """
+        openai_messages = self._convert_messages(messages)
+
+        # OpenAI response_format with JSON Schema
+        response = await self._client.beta.chat.completions.parse(
+            model=self._model,
+            messages=openai_messages,
+            temperature=self._temperature,
+            response_format=self._schema,
+        )
+
+        # Parse the response into the schema
+        parsed = response.choices[0].message.parsed
+        if parsed is None:
+            # Fallback: try to parse content as JSON
+            content = response.choices[0].message.content
+            if content:
+                return self._schema.model_validate_json(content)
+            raise ValueError("No structured output returned from model")
+
+        return parsed
 
 
 __all__ = ["LangChainOpenAIRunnable"]
