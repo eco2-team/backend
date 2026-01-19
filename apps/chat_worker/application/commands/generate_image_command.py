@@ -5,6 +5,7 @@
 Clean Architecture:
 - Command(UseCase): 이 파일 - Port 호출, 오케스트레이션
 - Port: ImageGeneratorPort - 이미지 생성 API 호출
+- Port: PromptLoaderPort - 프롬프트 로딩
 - Node(Adapter): image_generation_node.py - LangGraph glue
 
 아키텍처 의사결정:
@@ -15,6 +16,12 @@ Clean Architecture:
 캐릭터 참조 이미지:
 - character_context.asset에서 캐릭터 참조 이미지 가져옴
 - generate_with_reference()로 캐릭터 스타일 반영
+
+프롬프트 관리:
+- assets/prompts/image_generation/ 에서 프롬프트 로드
+- character_reference.txt: 캐릭터 참조 이미지 생성용
+- reference_only.txt: 캐릭터 정보 없이 참조 이미지만 사용
+- basic.txt: 기본 이미지 생성용
 """
 
 from __future__ import annotations
@@ -27,6 +34,7 @@ if TYPE_CHECKING:
     from chat_worker.application.ports.image_generator import (
         ImageGeneratorPort,
     )
+    from chat_worker.application.ports.prompt_loader import PromptLoaderPort
 
 logger = logging.getLogger(__name__)
 
@@ -74,23 +82,81 @@ class GenerateImageCommand:
 
     플로우:
     1. 프롬프트 검증
-    2. ImageGeneratorPort 호출 (Responses API)
-    3. 결과 반환 (이미지 URL + 설명)
+    2. 프롬프트 빌드 (캐릭터 컨텍스트 반영)
+    3. ImageGeneratorPort 호출 (Responses API)
+    4. 결과 반환 (이미지 URL + 설명)
 
     Port 주입:
     - image_generator: ImageGeneratorPort 구현체
+    - prompt_loader: PromptLoaderPort 구현체 (선택)
     """
 
     def __init__(
         self,
         image_generator: "ImageGeneratorPort",
+        prompt_loader: "PromptLoaderPort | None" = None,
     ) -> None:
         """Command 초기화.
 
         Args:
             image_generator: 이미지 생성 클라이언트
+            prompt_loader: 프롬프트 로더 (선택, 없으면 기본 프롬프트 사용)
         """
         self._image_generator = image_generator
+
+        # 프롬프트 로드 (optional - 없으면 기본값 사용)
+        if prompt_loader:
+            try:
+                self._character_reference_prompt = prompt_loader.load(
+                    "image_generation", "character_reference"
+                )
+                self._reference_only_prompt = prompt_loader.load(
+                    "image_generation", "reference_only"
+                )
+                self._basic_prompt = prompt_loader.load("image_generation", "basic")
+                self._prompts_loaded = True
+                logger.info("Image generation prompts loaded from files")
+            except FileNotFoundError as e:
+                logger.warning(f"Failed to load image generation prompts: {e}")
+                self._prompts_loaded = False
+        else:
+            self._prompts_loaded = False
+
+    def _build_generation_prompt(
+        self,
+        user_prompt: str,
+        character_name: str | None = None,
+        character_category: str | None = None,
+        has_reference: bool = False,
+    ) -> str:
+        """이미지 생성 프롬프트 빌드.
+
+        Args:
+            user_prompt: 사용자 원본 프롬프트
+            character_name: 캐릭터 이름 (예: 페티)
+            character_category: 폐기물 카테고리 (예: 무색페트병)
+            has_reference: 참조 이미지 여부
+
+        Returns:
+            빌드된 프롬프트
+        """
+        if not self._prompts_loaded:
+            # 프롬프트 파일이 없으면 원본 프롬프트 그대로 반환
+            return user_prompt
+
+        if has_reference and character_name:
+            # 캐릭터 정보가 있는 참조 이미지 생성
+            return self._character_reference_prompt.format(
+                character_name=character_name,
+                character_category=character_category or "분리배출",
+                prompt=user_prompt,
+            )
+        elif has_reference:
+            # 캐릭터 정보 없이 참조 이미지만 있는 경우
+            return self._reference_only_prompt.format(prompt=user_prompt)
+        else:
+            # 기본 이미지 생성
+            return self._basic_prompt.format(prompt=user_prompt)
 
     async def execute(self, input_dto: GenerateImageInput) -> GenerateImageOutput:
         """Command 실행.
@@ -135,21 +201,30 @@ class GenerateImageCommand:
 
         events.append("prompt_validated")
 
-        # 2. 이미지 생성 API 호출
+        # 2. 프롬프트 빌드 (캐릭터 컨텍스트 반영)
         has_reference = input_dto.reference_image_url is not None
+        built_prompt = self._build_generation_prompt(
+            user_prompt=input_dto.prompt,
+            character_name=input_dto.character_name,
+            character_category=input_dto.character_category,
+            has_reference=has_reference,
+        )
 
+        # 3. 이미지 생성 API 호출
         try:
             logger.info(
                 "Generating image",
                 extra={
                     "job_id": input_dto.job_id,
-                    "prompt_length": len(input_dto.prompt),
+                    "original_prompt_length": len(input_dto.prompt),
+                    "built_prompt_length": len(built_prompt),
                     "size": input_dto.size,
                     "quality": input_dto.quality,
                     "has_reference": has_reference,
                     "reference_url": input_dto.reference_image_url,
                     "character_name": input_dto.character_name,
                     "character_category": input_dto.character_category,
+                    "prompts_loaded": self._prompts_loaded,
                 },
             )
 
@@ -158,20 +233,12 @@ class GenerateImageCommand:
                 # URL만 전달 - Gemini generator에서 lazy fetch
                 from chat_worker.application.ports.image_generator import ReferenceImage
 
-                # 캐릭터 설명 생성 (Gemini 프롬프트에 포함됨)
-                char_description = None
-                if input_dto.character_name:
-                    char_description = f"'{input_dto.character_name}' 캐릭터"
-                    if input_dto.character_category:
-                        char_description += f" ({input_dto.character_category} 담당)"
-
                 reference = ReferenceImage(
                     image_url=input_dto.reference_image_url,
                     mime_type=input_dto.reference_image_mime,
-                    description=char_description,
                 )
                 result = await self._image_generator.generate_with_reference(
-                    prompt=input_dto.prompt,
+                    prompt=built_prompt,
                     reference_images=[reference],
                     size=input_dto.size,
                     quality=input_dto.quality,
@@ -180,7 +247,7 @@ class GenerateImageCommand:
             else:
                 # 참조 이미지 없거나 미지원 시 기본 생성
                 result = await self._image_generator.generate(
-                    prompt=input_dto.prompt,
+                    prompt=built_prompt,
                     size=input_dto.size,
                     quality=input_dto.quality,
                 )

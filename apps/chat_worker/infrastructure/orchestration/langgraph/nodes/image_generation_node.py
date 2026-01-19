@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from chat_worker.application.ports.events import ProgressNotifierPort
     from chat_worker.application.ports.image_generator import ImageGeneratorPort
     from chat_worker.application.ports.image_storage import ImageStoragePort
+    from chat_worker.application.ports.prompt_loader import PromptLoaderPort
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ def create_image_generation_node(
     image_generator: "ImageGeneratorPort",
     event_publisher: "ProgressNotifierPort",
     image_storage: "ImageStoragePort | None" = None,
+    prompt_loader: "PromptLoaderPort | None" = None,
     default_size: str = "1024x1024",
     default_quality: str = "medium",
 ):
@@ -62,6 +64,7 @@ def create_image_generation_node(
         image_generator: 이미지 생성 클라이언트 (Responses API)
         event_publisher: 이벤트 발행자 (SSE)
         image_storage: 이미지 저장소 클라이언트 (gRPC, optional)
+        prompt_loader: 프롬프트 로더 (optional, 없으면 기본 프롬프트 사용)
         default_size: 기본 이미지 크기 (Config에서 주입)
         default_quality: 기본 이미지 품질 (Config에서 주입)
 
@@ -69,7 +72,10 @@ def create_image_generation_node(
         LangGraph 노드 함수
     """
     # Command(UseCase) 인스턴스 생성 - Port 조립
-    command = GenerateImageCommand(image_generator=image_generator)
+    command = GenerateImageCommand(
+        image_generator=image_generator,
+        prompt_loader=prompt_loader,
+    )
 
     async def _image_generation_node_inner(state: dict[str, Any]) -> dict[str, Any]:
         """실제 노드 로직 (NodeExecutor가 래핑).

@@ -1,0 +1,19 @@
+# Character Reference Image Generation
+
+## Character Context
+다음은 {character_name} 캐릭터({character_category} 담당)의 참조 이미지입니다.
+
+## Instructions
+이 캐릭터의 다음 요소를 정확하게 유지해주세요:
+- 캐릭터의 전체적인 형태와 실루엣
+- 색상 팔레트와 색조
+- 얼굴 표정과 눈의 스타일
+- 캐릭터의 특징적인 디테일
+
+## User Request
+{prompt}
+
+## Output Guidelines
+- 캐릭터가 사용자 요청에 맞는 상황/동작을 하는 이미지 생성
+- 분리배출/재활용 주제에 맞는 배경 연출
+- 밝고 친근한 분위기 유지

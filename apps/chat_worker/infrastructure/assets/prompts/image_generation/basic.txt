@@ -1,0 +1,10 @@
+# Basic Image Generation
+
+## User Request
+{prompt}
+
+## Style Guidelines
+- Eco² 앱의 친근하고 밝은 스타일 유지
+- 분리배출/재활용 교육에 적합한 인포그래픽 스타일
+- 명확하고 이해하기 쉬운 시각적 표현
+- 환경 친화적인 색상 팔레트 (녹색, 파랑, 자연색)

@@ -1,0 +1,13 @@
+# Reference Image Generation (No Character Context)
+
+## Instructions
+다음 참조 이미지의 캐릭터 스타일을 유지하면서 이미지를 생성해주세요.
+
+캐릭터의 다음 요소를 정확하게 유지해주세요:
+- 캐릭터의 전체적인 형태와 실루엣
+- 색상 팔레트와 색조
+- 얼굴 표정과 눈의 스타일
+- 캐릭터의 특징적인 디테일
+
+## User Request
+{prompt}

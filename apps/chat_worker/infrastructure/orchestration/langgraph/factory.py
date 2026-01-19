@@ -453,6 +453,7 @@ def create_chat_graph(
             image_generator=image_generator,
             event_publisher=event_publisher,
             image_storage=image_storage,  # gRPC 업로드 (선택)
+            prompt_loader=prompt_loader,  # 이미지 생성 프롬프트 로더
             default_size=image_default_size,
             default_quality=image_default_quality,
         )
