@@ -124,16 +124,15 @@ class OpenAIResponsesImageGenerator(ImageGeneratorPort):
 
         try:
             # Responses API with native image_generation tool
+            # Note: size/quality are passed at tool level, not nested
             response = await self._client.responses.create(
                 model=self._model,
                 input=self._build_input_prompt(prompt),
                 tools=[
                     {
                         "type": "image_generation",
-                        "image_generation": {
-                            "size": size,
-                            "quality": quality,
-                        },
+                        "size": size,
+                        "quality": quality,
                     }
                 ],
             )
@@ -241,10 +240,8 @@ class OpenAIResponsesImageGenerator(ImageGeneratorPort):
                 tools=[
                     {
                         "type": "image_generation",
-                        "image_generation": {
-                            "size": size,
-                            "quality": quality,
-                        },
+                        "size": size,
+                        "quality": quality,
                     }
                 ],
             )
