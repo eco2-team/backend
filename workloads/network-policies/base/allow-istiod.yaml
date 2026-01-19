@@ -230,3 +230,61 @@ spec:
       protocol: TCP
     - port: 443
       protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-istiod
+  namespace: event-router
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          app: istiod
+    ports:
+    - port: 15012
+      protocol: TCP
+    - port: 15010
+      protocol: TCP
+    - port: 15014
+      protocol: TCP
+    - port: 15017
+      protocol: TCP
+    - port: 443
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-istiod
+  namespace: sse-consumer
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          app: istiod
+    ports:
+    - port: 15012
+      protocol: TCP
+    - port: 15010
+      protocol: TCP
+    - port: 15014
+      protocol: TCP
+    - port: 15017
+      protocol: TCP
+    - port: 443
+      protocol: TCP
