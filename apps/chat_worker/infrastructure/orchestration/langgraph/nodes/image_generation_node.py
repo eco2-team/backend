@@ -80,7 +80,8 @@ def create_image_generation_node(
             업데이트된 상태
         """
         job_id = state.get("job_id", "")
-        query = state.get("query", "")
+        # 사용자 메시지를 프롬프트로 사용 (다른 노드와 동일한 패턴)
+        query = state.get("message", "")
 
         # Progress: 시작 (UX)
         await event_publisher.notify_stage(
