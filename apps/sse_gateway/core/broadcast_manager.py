@@ -549,10 +549,6 @@ class SSEBroadcastManager:
             await pubsub.subscribe(channel)
             SSE_PUBSUB_CONNECTED.set(1)
 
-            # 구독 완료 시그널
-            if subscribed_event:
-                subscribed_event.set()
-
             logger.info(
                 "pubsub_subscribed",
                 extra={"job_id": job_id, "channel": channel},
@@ -561,6 +557,15 @@ class SSEBroadcastManager:
             async for message in pubsub.listen():
                 if self._shutdown:
                     break
+
+                # subscription confirmation 메시지 처리
+                # NOTE: listen() 시작 후에 실제 SUBSCRIBE가 전송되므로
+                # 여기서 subscribed_event를 set해야 race condition 방지
+                if message["type"] == "subscribe":
+                    if subscribed_event:
+                        subscribed_event.set()
+                        subscribed_event = None  # 한 번만 set
+                    continue
 
                 if message["type"] != "message":
                     continue
