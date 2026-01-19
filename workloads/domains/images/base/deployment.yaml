@@ -29,6 +29,8 @@ spec:
         ports:
         - containerPort: 8000
           name: http
+        - containerPort: 50052
+          name: grpc
         env:
         - name: OTEL_SERVICE_NAME
           value: images-api

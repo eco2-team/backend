@@ -20,4 +20,5 @@ resources:
 - allow-sse-gateway.yaml
 - allow-auth-to-users-grpc.yaml
 - allow-auth-to-character.yaml
+- allow-chat-to-images-grpc.yaml
 # - default-deny-all.yaml

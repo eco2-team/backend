@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-chat-to-images-grpc
+  namespace: images
+  labels:
+    app.kubernetes.io/component: network-policy
+    app.kubernetes.io/part-of: eco2
+spec:
+  podSelector:
+    matchLabels:
+      app: images-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    # chat namespace의 chat-worker에서 gRPC 접근 허용
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: chat
+      podSelector:
+        matchLabels:
+          app: chat-worker
+    ports:
+    - protocol: TCP
+      port: 50052
