@@ -174,9 +174,8 @@ def create_answer_node(
             message_lower = message.lower()
 
             # GENERAL intent에서 웹 검색 키워드가 있으면 네이티브 web_search 사용
-            needs_web_search = (
-                intent == "general"
-                and any(kw in message_lower for kw in WEB_SEARCH_KEYWORDS)
+            needs_web_search = intent == "general" and any(
+                kw in message_lower for kw in WEB_SEARCH_KEYWORDS
             )
 
             answer_parts = []
