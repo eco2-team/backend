@@ -223,9 +223,7 @@ class GenerateAnswerCommand:
         # 1. 컨텍스트 구성 (Service - 순수 로직)
         context = self._build_context(input_dto)
         cache_key = self._generate_cache_key(input_dto.message, input_dto.intent)
-        is_cacheable = self._cache is not None and self._is_cacheable(
-            input_dto.intent, context
-        )
+        is_cacheable = self._cache is not None and self._is_cacheable(input_dto.intent, context)
 
         # 2. 캐시 확인 (Command에서 Port 호출)
         cached_answer = None
