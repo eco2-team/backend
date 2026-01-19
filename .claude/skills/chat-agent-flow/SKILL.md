@@ -351,13 +351,20 @@ kubectl get pods -n chat -l app=chat-persistence-consumer
 
 ### Issue 7: SSE 이벤트 수신 불가 (Redis 불일치)
 
-| Event | Description |
-|-------|-------------|
-| `intent` | Intent 분류 완료 |
-| `{node}` | 서브에이전트 시작/완료 |
-| `token` | 답변 토큰 스트리밍 |
-| `done` | 처리 완료 |
-| `error` | 오류 발생 |
+**SSE Event Types (검증됨 - 2026-01-19)**:
+
+| Event | seq 범위 | Description |
+|-------|----------|-------------|
+| `intent` | 1-999 | Intent 분류 완료 |
+| `router` | 1-999 | 라우팅 완료 |
+| `answer` | 1-999 | 답변 생성 시작/완료 |
+| **`token`** | **1001+** | **실시간 토큰 스트리밍 (핵심!)** |
+| `token_recovery` | - | 늦은 구독자용 스냅샷 |
+| `done` | 1-999 | 처리 완료 + 최종 결과 |
+| `error` | - | 오류 발생 |
+| `keepalive` | - | 연결 유지 |
+
+> **상세 형식**: `references/sse-event-format.md` 참조
 
 ## Redis Streams Pipeline
 
@@ -389,6 +396,7 @@ kubectl exec -n redis rfr-pubsub-redis-0 -c redis -- redis-cli PSUBSCRIBE "sse:e
 
 ## Reference Files
 
+- **SSE Event Format**: `references/sse-event-format.md` ← Token streaming 이벤트 형식 상세
 - **E2E Test Plan**: `docs/reports/e2e-intent-test-plan.md`
 - **Troubleshooting (E2E)**: `docs/troubleshooting/chat-worker-e2e-infra-fixes.md`
 - **Troubleshooting (Persistence)**: `docs/troubleshooting/chat-messages-not-persisted.md`
@@ -411,3 +419,4 @@ kubectl exec -n redis rfr-pubsub-redis-0 -c redis -- redis-cli PSUBSCRIBE "sse:e
 | #415 | feat(chat_worker): Channel Separation + Priority | Send API 병렬 충돌 |
 | #422-424 | feat(chat): ChatPersistenceConsumer 배포 | 메시지 영속화 |
 | #425 | fix(chat): CachedPostgresSaver 트랜잭션 | CREATE INDEX CONCURRENTLY 오류 |
+| #440 | fix(chat_worker): LangChain LLM 직접 호출로 토큰 스트리밍 | stream_mode="messages" 캡처 안됨 |
