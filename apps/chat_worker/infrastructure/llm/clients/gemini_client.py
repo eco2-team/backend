@@ -78,7 +78,7 @@ class GeminiLLMClient(LLMClientPort):
         if temperature is not None:
             config["temperature"] = temperature
 
-        response = self._client.models.generate_content(
+        response = await self._client.aio.models.generate_content(
             model=self._model,
             contents=full_prompt,
             config=config if config else None,
@@ -100,11 +100,11 @@ class GeminiLLMClient(LLMClientPort):
             full_prompt += f"## Context\n{context_str}\n\n"
         full_prompt += f"## Question\n{prompt}"
 
-        response = self._client.models.generate_content_stream(
+        response = await self._client.aio.models.generate_content_stream(
             model=self._model,
             contents=full_prompt,
         )
-        for chunk in response:
+        async for chunk in response:
             if chunk.text:
                 yield chunk.text
 
@@ -147,7 +147,7 @@ class GeminiLLMClient(LLMClientPort):
             config["temperature"] = temperature
 
         try:
-            response = self._client.models.generate_content(
+            response = await self._client.aio.models.generate_content(
                 model=self._model,
                 contents=full_prompt,
                 config=config,
