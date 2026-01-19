@@ -498,14 +498,10 @@ class ProcessChatCommand:
             # 노드 시작 알림 (첫 번째 업데이트)
             if node_name not in seen_nodes:
                 seen_nodes.add(node_name)
-                await self._notify_node_progress(
-                    node_name, job_id, "started", progress_tracker
-                )
+                await self._notify_node_progress(node_name, job_id, "started", progress_tracker)
 
             # 노드 완료 알림
-            await self._notify_node_progress(
-                node_name, job_id, "completed", progress_tracker
-            )
+            await self._notify_node_progress(node_name, job_id, "completed", progress_tracker)
 
             # 결과 수집
             if isinstance(state_update, dict):
