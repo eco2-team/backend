@@ -255,6 +255,7 @@ def create_answer_node(
             logger.error(
                 "Answer generation failed",
                 extra={"job_id": job_id, "error": str(e)},
+                exc_info=True,
             )
             # 에러 발생 시에도 Lamport Clock 정리
             cleanup_sequence(job_id)
