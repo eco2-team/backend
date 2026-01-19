@@ -66,6 +66,12 @@ def get_redis() -> Redis:
 
     동기 redis-py - gevent 몽키패칭 호환.
     Worker lifecycle 동안 유지.
+
+    Resilience 설정:
+    - health_check_interval: 30초마다 연결 상태 확인
+    - socket_timeout: 10초 내 응답 없으면 타임아웃
+    - socket_connect_timeout: 5초 내 연결 실패 시 타임아웃
+    - retry_on_timeout: 타임아웃 시 자동 재시도
     """
     global _redis
     if _redis is None:
@@ -75,6 +81,9 @@ def get_redis() -> Redis:
             decode_responses=True,
             socket_connect_timeout=5,
             socket_timeout=10,
+            # Resilience settings
+            health_check_interval=30,
+            retry_on_timeout=True,
         )
         logger.info("Redis client created (sync)")
     return _redis
