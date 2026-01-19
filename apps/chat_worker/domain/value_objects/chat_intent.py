@@ -58,6 +58,31 @@ class ChatIntent:
         return self.confidence >= 0.8
 
     @classmethod
+    def simple(
+        cls,
+        intent: str | Intent,
+        confidence: float = 1.0,
+        complexity: QueryComplexity = QueryComplexity.SIMPLE,
+    ) -> "ChatIntent":
+        """지정된 의도로 ChatIntent 생성 (팩토리 메서드).
+
+        Args:
+            intent: 의도 (문자열 또는 Intent enum)
+            confidence: 신뢰도 (0.0 ~ 1.0)
+            complexity: 복잡도 (기본: SIMPLE)
+
+        Returns:
+            ChatIntent 인스턴스
+        """
+        if isinstance(intent, str):
+            intent = Intent.from_string(intent)
+        return cls(
+            intent=intent,
+            complexity=complexity,
+            confidence=confidence,
+        )
+
+    @classmethod
     def simple_waste(cls, confidence: float = 1.0) -> "ChatIntent":
         """단순 분리배출 질문 생성."""
         return cls(
