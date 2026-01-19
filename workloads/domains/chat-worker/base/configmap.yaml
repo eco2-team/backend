@@ -39,6 +39,9 @@ data:
   CHAT_WORKER_CHARACTER_GRPC_PORT: '50051'
   CHAT_WORKER_LOCATION_GRPC_HOST: location-grpc.location.svc.cluster.local
   CHAT_WORKER_LOCATION_GRPC_PORT: '50051'
+  # gRPC Client (Image Storage)
+  CHAT_WORKER_IMAGES_GRPC_HOST: images-api.images.svc.cluster.local
+  CHAT_WORKER_IMAGES_GRPC_PORT: '50052'
   # External API Timeouts
   CHAT_WORKER_KAKAO_API_TIMEOUT: '10.0'
   CHAT_WORKER_KMA_API_TIMEOUT: '10.0'
