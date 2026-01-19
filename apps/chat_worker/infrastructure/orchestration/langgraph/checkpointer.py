@@ -313,12 +313,28 @@ async def _ensure_tables_exist(conn) -> None:
             checkpoint_ns TEXT NOT NULL DEFAULT '',
             checkpoint_id TEXT NOT NULL,
             task_id TEXT NOT NULL,
+            task_path TEXT NOT NULL DEFAULT '',
             idx INTEGER NOT NULL,
             channel TEXT NOT NULL,
             type TEXT,
             blob BYTEA NOT NULL,
             PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
         )
+    """
+    )
+
+    # Add task_path column if it doesn't exist (migration for existing tables)
+    await conn.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'checkpoint_writes' AND column_name = 'task_path'
+            ) THEN
+                ALTER TABLE checkpoint_writes ADD COLUMN task_path TEXT NOT NULL DEFAULT '';
+            END IF;
+        END $$
     """
     )
 
