@@ -212,5 +212,6 @@ gh pr merge --squash --delete-branch
 
 - **Branch naming**: See [branch-naming.md](./references/branch-naming.md)
 - **Commit examples**: See [commit-examples.md](./references/commit-examples.md)
+- **Token streaming fix**: See [token-streaming-fix.md](./references/token-streaming-fix.md) - Worktree + 트러블슈팅 사례
 - **PR templates**: See `.github/PULL_REQUESTS/`
 - **Issue templates**: See `.github/ISSUE_TEMPLATE/`
