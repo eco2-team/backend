@@ -151,8 +151,7 @@ async def get_progress_notifier() -> ProgressNotifierPort:
     """
     global _progress_notifier
     if _progress_notifier is None:
-        # Streams 전용 Redis 사용 (event-router와 동일)
-        redis = await get_redis_streams()
+        redis = await get_redis()
         _progress_notifier = RedisProgressNotifier(redis=redis)
     return _progress_notifier
 

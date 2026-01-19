@@ -103,16 +103,13 @@ class TaskiqJobSubmitter(JobSubmitterPort):
         broker = await self._get_broker()
 
         try:
-            # W3C TraceContext 추출 (traceparent, tracestate)
-            trace_context = _get_trace_context()
-
             # TaskIQ TaskiqMessage 형식으로 메시지 구성
             # Worker의 broker.formatter.loads()가 기대하는 전체 형식:
             # {"task_id": ..., "task_name": ..., "labels": {}, "args": [], "kwargs": {...}}
             taskiq_message = {
                 "task_id": job_id,
                 "task_name": "chat.process",
-                "labels": trace_context,  # W3C trace context 포함
+                "labels": {},
                 "args": [],
                 "kwargs": {
                     "job_id": job_id,
@@ -129,7 +126,7 @@ class TaskiqJobSubmitter(JobSubmitterPort):
                 task_id=job_id,
                 task_name="chat.process",
                 message=json.dumps(taskiq_message).encode(),
-                labels=trace_context,  # BrokerMessage에도 trace context 포함
+                labels={},
             )
             await broker.kick(broker_message)
 

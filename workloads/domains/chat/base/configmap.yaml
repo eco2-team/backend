@@ -18,7 +18,6 @@ data:
   CHAT_REDIS_PUBSUB_URL: redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0
   # RabbitMQ (Taskiq) - credentials overridden by secret
   CHAT_RABBITMQ_URL: amqp://guest:guest@eco2-rabbitmq.rabbitmq.svc.cluster.local:5672/eco2
-  CHAT_RABBITMQ_QUEUE: chat.process
   # Shard 설정 (chat-worker, event_router와 동일)
   CHAT_SHARD_COUNT: '4'
   # LLM

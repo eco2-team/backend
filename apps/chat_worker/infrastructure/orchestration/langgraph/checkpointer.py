@@ -54,6 +54,9 @@ CACHE_KEY_PREFIX = "chat:checkpoint:cache"
 DEFAULT_CACHE_TTL = 86400  # 24시간
 
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
+
+
 class CachedPostgresSaver(BaseCheckpointSaver):
     """Cache-Aside 패턴 Checkpointer.
 
