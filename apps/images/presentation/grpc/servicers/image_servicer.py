@@ -26,13 +26,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # 허용된 Content-Type
-ALLOWED_CONTENT_TYPES = frozenset({
-    "image/png",
-    "image/jpeg",
-    "image/jpg",
-    "image/gif",
-    "image/webp",
-})
+ALLOWED_CONTENT_TYPES = frozenset(
+    {
+        "image/png",
+        "image/jpeg",
+        "image/jpg",
+        "image/gif",
+        "image/webp",
+    }
+)
 
 # Content-Type → 확장자 매핑
 CONTENT_TYPE_TO_EXT = {

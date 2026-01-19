@@ -15,6 +15,8 @@ extend-exclude = '''
   | dist
   | worktrees
 )/
+| .*_pb2\.pyi?$
+| .*_pb2_grpc\.pyi?$
 '''
 
 [tool.isort]
@@ -25,7 +27,7 @@ include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
-skip_glob = ["worktrees/*", ".venv/*"]
+skip_glob = ["worktrees/*", ".venv/*", "*_pb2.py", "*_pb2_grpc.py"]
 
 [tool.mypy]
 python_version = "3.11"
