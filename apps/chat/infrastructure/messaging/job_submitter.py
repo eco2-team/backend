@@ -101,6 +101,7 @@ class TaskiqJobSubmitter(JobSubmitterPort):
         - Worker에서 traceparent 추출하여 연결
         """
         broker = await self._get_broker()
+        trace_context = _get_trace_context()
 
         try:
             # TaskIQ TaskiqMessage 형식으로 메시지 구성
