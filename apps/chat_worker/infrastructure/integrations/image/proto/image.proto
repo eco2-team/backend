@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package image.v1;
+
+// ImageService - 내부 이미지 업로드 서비스
+// chat_worker 등 내부 서비스에서 이미지를 S3에 업로드할 때 사용
+service ImageService {
+  // 바이트 데이터를 S3에 업로드하고 CDN URL 반환
+  rpc UploadBytes (UploadBytesRequest) returns (UploadBytesResponse) {}
+}
+
+message UploadBytesRequest {
+  string channel = 1;       // 채널 (예: "generated", "scan", "profile")
+  bytes image_data = 2;     // 이미지 바이트 데이터
+  string content_type = 3;  // MIME 타입 (예: "image/png", "image/jpeg")
+  string uploader_id = 4;   // 업로더 ID (user_id 또는 "system")
+  map<string, string> metadata = 5;  // 추가 메타데이터 (선택)
+}
+
+message UploadBytesResponse {
+  bool success = 1;         // 성공 여부
+  string cdn_url = 2;       // CDN URL (예: https://cdn.growbin.app/generated/xxx.png)
+  string key = 3;           // S3 오브젝트 키
+  string error = 4;         // 에러 메시지 (실패 시)
+}

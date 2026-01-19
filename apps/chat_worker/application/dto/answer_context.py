@@ -12,6 +12,10 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
+# 이미지 생성 실패 시 기본 fallback 이미지
+FALLBACK_IMAGE_URL = "https://cdn.growbin.app/static/image-generation-failed.png"
+FALLBACK_IMAGE_ALT = "이미지를 생성하지 못했습니다"
+
 
 @dataclass
 class AnswerContext:
@@ -93,24 +97,58 @@ class AnswerContext:
         if self.image_generation_context:
             img_ctx = self.image_generation_context
             # create_context는 data를 직접 펼쳐서 저장 (data 키 없음)
-            if img_ctx.get("image_url"):
-                # Note: base64 data URL은 프롬프트에 포함하면 토큰 폭발 발생
-                # 클라이언트는 SSE 이벤트에서 직접 이미지 URL을 받음
-                # LLM에게는 이미지 생성 성공 메타 정보만 전달
-                description = img_ctx.get("description", "")
-                parts.append(
-                    f"## Generated Image\n"
-                    f"이미지가 성공적으로 생성되었습니다.\n"
-                    f"- Description: {description}\n\n"
-                    f"사용자에게 이미지가 생성되었음을 안내하고, "
-                    f"이미지는 이미 화면에 표시되었다고 알려주세요. "
-                    f"이미지 URL을 텍스트로 출력하지 마세요."
-                )
+            image_url = img_ctx.get("image_url")
+            if image_url:
+                description = img_ctx.get("description", "생성된 이미지")
+                width = img_ctx.get("width")
+                height = img_ctx.get("height")
+                # has_synthid는 S3 메타데이터에만 저장, LLM 프롬프트에서는 불필요
+
+                # 크기 정보 문자열 구성
+                size_info = ""
+                if width and height:
+                    size_info = f"- Size: {width}x{height}px\n"
+
+                # CDN URL (http로 시작)은 마크다운으로 응답에 포함
+                # base64 data URL (data:로 시작)은 프롬프트에 포함하면 토큰 폭발 발생
+                if image_url.startswith("http"):
+                    # 마크다운 이미지 문법을 그대로 출력하도록 강제
+                    markdown_image = f"![{description}]({image_url})"
+                    parts.append(
+                        f"## Generated Image\n"
+                        f"이미지가 성공적으로 생성되었습니다.\n"
+                        f"- Description: {description}\n"
+                        f"{size_info}"
+                        f"### 출력 규칙 (MUST)\n"
+                        f"1. 응답의 첫 번째 줄에 아래 마크다운을 그대로 출력하세요:\n"
+                        f"> {markdown_image}\n"
+                        f"2. 그 다음 줄부터 이미지에 대한 설명을 추가하세요.\n"
+                        f"3. URL을 텍스트로 노출하지 마세요."
+                    )
+                else:
+                    # base64 fallback: 이미지는 SSE로 전달됨
+                    parts.append(
+                        f"## Generated Image\n"
+                        f"이미지가 성공적으로 생성되었습니다.\n"
+                        f"- Description: {description}\n"
+                        f"{size_info}"
+                        f"### 출력 규칙\n"
+                        f"1. 사용자에게 이미지가 생성되었음을 안내하세요.\n"
+                        f"2. 이미지는 이미 화면에 표시되었다고 알려주세요.\n"
+                        f"3. 이미지 URL이나 base64 데이터를 출력하지 마세요."
+                    )
             elif img_ctx.get("error"):
+                # 실패 시 fallback 이미지 제공
+                error_msg = img_ctx.get("error", "알 수 없는 오류")
+                fallback_markdown = f"![{FALLBACK_IMAGE_ALT}]({FALLBACK_IMAGE_URL})"
                 parts.append(
                     f"## Image Generation Error\n"
-                    f"이미지 생성에 실패했습니다: {img_ctx.get('error')}\n"
-                    f"사용자에게 이미지 생성에 실패했음을 안내해주세요."
+                    f"이미지 생성에 실패했습니다: {error_msg}\n\n"
+                    f"### 출력 규칙 (MUST)\n"
+                    f"1. 사용자에게 이미지 생성에 실패했음을 안내하세요.\n"
+                    f"2. 다시 시도해달라고 요청하세요.\n"
+                    f"3. 응답에 아래 fallback 이미지를 포함하세요:\n"
+                    f"> {fallback_markdown}"
                 )
 
         if self.user_input:

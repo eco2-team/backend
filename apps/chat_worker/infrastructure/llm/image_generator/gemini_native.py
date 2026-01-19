@@ -18,11 +18,13 @@ API 문서: https://ai.google.dev/gemini-api/docs/image-generation
 from __future__ import annotations
 
 import base64
+import io
 import logging
 import os
 
 from google import genai
 from google.genai import types
+from PIL import Image
 
 from chat_worker.application.ports.image_generator import (
     ImageGenerationError,
@@ -258,14 +260,24 @@ class GeminiNativeImageGenerator(ImageGeneratorPort):
             if not image_bytes:
                 raise ImageGenerationError("No image generated in response")
 
+            # 이미지 크기 추출 (PIL)
+            width, height = None, None
+            try:
+                with Image.open(io.BytesIO(image_bytes)) as img:
+                    width, height = img.size
+            except Exception as e:
+                logger.warning("Failed to extract image dimensions: %s", e)
+
             # 이미지를 Base64 Data URL로 변환
             # Gemini는 URL 대신 바이트를 반환하므로 Data URL 생성
             image_b64 = base64.b64encode(image_bytes).decode("utf-8")
             image_url = f"data:image/png;base64,{image_b64}"
 
             logger.info(
-                "Image generated successfully (size=%d bytes)",
+                "Image generated successfully (size=%d bytes, dimensions=%sx%s)",
                 len(image_bytes),
+                width,
+                height,
             )
 
             return ImageGenerationResult(
@@ -274,6 +286,9 @@ class GeminiNativeImageGenerator(ImageGeneratorPort):
                 description=description,
                 provider="google",
                 model=self._model,
+                width=width,
+                height=height,
+                has_synthid=True,  # Gemini Native는 항상 SynthID 포함
             )
 
         except ImageGenerationError:

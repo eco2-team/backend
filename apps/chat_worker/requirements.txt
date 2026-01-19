@@ -14,6 +14,7 @@ openai>=1.58.0
 anthropic>=0.40.0
 google-genai>=0.3.0
 tiktoken>=0.8.0
+Pillow>=10.0.0  # Image processing for Gemini native image generation
 
 # LangGraph 1.0+ (Context Compression 지원)
 # Python >=3.10 필요

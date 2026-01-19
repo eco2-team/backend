@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # 기본 이미지 품질 (low: ~$0.02, medium: ~$0.07, high: ~$0.19)
     image_generation_default_quality: str = "medium"
 
+    # Images gRPC: 생성된 이미지 S3 업로드 (별도 Pod)
+    images_grpc_host: str = "images-api"
+    images_grpc_port: int = 50052
+
     # Gemini
     google_api_key: str | None = None
     gemini_default_model: str = "gemini-3-flash-preview"

@@ -16,3 +16,7 @@ spec:
     targetPort: 8000
     protocol: TCP
     name: http
+  - port: 50052
+    targetPort: 50052
+    protocol: TCP
+    name: grpc
