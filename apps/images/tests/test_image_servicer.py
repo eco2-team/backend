@@ -105,9 +105,7 @@ class TestUploadBytesSuccess:
     """Tests for successful UploadBytes."""
 
     @pytest.mark.asyncio
-    async def test_uploads_image_successfully(
-        self, mock_session, test_settings, mock_grpc_context
-    ):
+    async def test_uploads_image_successfully(self, mock_session, test_settings, mock_grpc_context):
         """이미지를 성공적으로 업로드합니다."""
         # Mock S3 client context manager
         mock_s3 = AsyncMock()
@@ -145,9 +143,7 @@ class TestUploadBytesSuccess:
         assert call_kwargs["ContentType"] == "image/png"
 
     @pytest.mark.asyncio
-    async def test_uses_default_channel(
-        self, mock_session, test_settings, mock_grpc_context
-    ):
+    async def test_uses_default_channel(self, mock_session, test_settings, mock_grpc_context):
         """채널이 없으면 'generated'를 사용합니다."""
         mock_s3 = AsyncMock()
         mock_s3.put_object = AsyncMock()
@@ -172,9 +168,7 @@ class TestUploadBytesSuccess:
         assert "generated/" in response.key
 
     @pytest.mark.asyncio
-    async def test_includes_metadata(
-        self, mock_session, test_settings, mock_grpc_context
-    ):
+    async def test_includes_metadata(self, mock_session, test_settings, mock_grpc_context):
         """메타데이터가 S3에 포함됩니다."""
         mock_s3 = AsyncMock()
         mock_s3.put_object = AsyncMock()
@@ -210,9 +204,7 @@ class TestUploadBytesError:
     """Tests for UploadBytes error handling."""
 
     @pytest.mark.asyncio
-    async def test_handles_s3_error(
-        self, mock_session, test_settings, mock_grpc_context
-    ):
+    async def test_handles_s3_error(self, mock_session, test_settings, mock_grpc_context):
         """S3 오류를 처리합니다."""
         mock_s3 = AsyncMock()
         mock_s3.put_object = AsyncMock(side_effect=Exception("S3 connection failed"))
