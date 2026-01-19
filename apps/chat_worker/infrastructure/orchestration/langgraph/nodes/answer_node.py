@@ -206,28 +206,43 @@ def create_answer_node(
                 # 토큰 스트림 완료 처리
                 await event_publisher.finalize_token_stream(job_id)
             else:
-                # LangChain 방식 (answer_node에서 직접 토큰 발행)
-                # LangGraph stream_mode="messages" 캡처 대신 직접 발행하여 중복 방지
-                langchain_llm = llm.get_langchain_llm()
+                # LLM 스트리밍 호출
+                # LangChain Adapter가 있으면 LangChain 방식, 없으면 네이티브 generate_stream 사용
+                if hasattr(llm, "get_langchain_llm"):
+                    # LangChain 방식 (answer_node에서 직접 토큰 발행)
+                    langchain_llm = llm.get_langchain_llm()
 
-                # LangChain 메시지 구성
-                langchain_messages = []
-                if prepared.system_prompt:
-                    langchain_messages.append(SystemMessage(content=prepared.system_prompt))
-                langchain_messages.append(HumanMessage(content=prepared.prompt))
+                    # LangChain 메시지 구성
+                    langchain_messages = []
+                    if prepared.system_prompt:
+                        langchain_messages.append(SystemMessage(content=prepared.system_prompt))
+                    langchain_messages.append(HumanMessage(content=prepared.prompt))
 
-                # 직접 astream() 호출 및 토큰 발행
-                async for chunk in langchain_llm.astream(langchain_messages):
-                    content = chunk.content
-                    if content:
-                        answer_parts.append(content)
-                        # 직접 토큰 발행 (ProcessChatCommand와 중복 방지)
-                        if event_publisher is not None:
-                            await event_publisher.notify_token_v2(
-                                task_id=job_id,
-                                content=content,
-                                node="answer",
-                            )
+                    # 직접 astream() 호출 및 토큰 발행
+                    async for chunk in langchain_llm.astream(langchain_messages):
+                        content = chunk.content
+                        if content:
+                            answer_parts.append(content)
+                            if event_publisher is not None:
+                                await event_publisher.notify_token_v2(
+                                    task_id=job_id,
+                                    content=content,
+                                    node="answer",
+                                )
+                else:
+                    # 네이티브 LLM (Gemini 등) - generate_stream 직접 사용
+                    async for chunk in llm.generate_stream(
+                        prompt=prepared.prompt,
+                        system_prompt=prepared.system_prompt,
+                    ):
+                        if chunk:
+                            answer_parts.append(chunk)
+                            if event_publisher is not None:
+                                await event_publisher.notify_token_v2(
+                                    task_id=job_id,
+                                    content=chunk,
+                                    node="answer",
+                                )
 
                 # 토큰 스트림 완료 처리
                 if event_publisher is not None:
