@@ -122,7 +122,14 @@ _image_storage_checked: bool = False  # 캐싱 상태 플래그
 
 
 async def get_redis() -> Redis:
-    """Redis 클라이언트 싱글톤 (기본 - 캐시, Pub/Sub 등)."""
+    """Redis 클라이언트 싱글톤 (기본 - 캐시, Pub/Sub 등).
+
+    Resilience 설정:
+    - health_check_interval: 30초마다 연결 상태 확인
+    - socket_timeout: 5초 내 응답 없으면 타임아웃
+    - socket_connect_timeout: 5초 내 연결 실패 시 타임아웃
+    - retry_on_timeout: 타임아웃 시 자동 재시도
+    """
     global _redis
     if _redis is None:
         settings = get_settings()
@@ -130,6 +137,11 @@ async def get_redis() -> Redis:
             settings.redis_url,
             encoding="utf-8",
             decode_responses=True,
+            # Resilience settings
+            health_check_interval=30,
+            socket_timeout=5.0,
+            socket_connect_timeout=5.0,
+            retry_on_timeout=True,
         )
         logger.info("Redis connected: %s", settings.redis_url)
     return _redis
@@ -140,6 +152,12 @@ async def get_redis_streams() -> Redis:
 
     event-router와 동일한 Redis를 바라봐야 함.
     설정되지 않으면 기본 redis_url 사용 (로컬 개발용).
+
+    Resilience 설정:
+    - health_check_interval: 30초마다 연결 상태 확인
+    - socket_timeout: 60초 (Streams는 blocking read 가능)
+    - socket_connect_timeout: 5초 내 연결 실패 시 타임아웃
+    - retry_on_timeout: 타임아웃 시 자동 재시도
     """
     global _redis_streams
     if _redis_streams is None:
@@ -150,6 +168,11 @@ async def get_redis_streams() -> Redis:
             streams_url,
             encoding="utf-8",
             decode_responses=True,
+            # Resilience settings (Streams는 blocking read 가능하므로 socket_timeout 길게)
+            health_check_interval=30,
+            socket_timeout=60.0,
+            socket_connect_timeout=5.0,
+            retry_on_timeout=True,
         )
         logger.info("Redis Streams connected: %s", streams_url)
     return _redis_streams

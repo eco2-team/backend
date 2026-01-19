@@ -48,11 +48,26 @@ async def get_pg_pool() -> asyncpg.Pool | None:
 
 
 async def get_redis() -> Redis:
-    """Redis client (싱글톤)."""
+    """Redis client (싱글톤).
+
+    Resilience 설정:
+    - health_check_interval: 30초마다 연결 상태 확인
+    - socket_timeout: 5초 내 응답 없으면 타임아웃
+    - socket_connect_timeout: 5초 내 연결 실패 시 타임아웃
+    - retry_on_timeout: 타임아웃 시 자동 재시도
+    """
     global _redis
     if _redis is None:
         settings = get_settings()
-        _redis = Redis.from_url(settings.redis_url, decode_responses=True)
+        _redis = Redis.from_url(
+            settings.redis_url,
+            decode_responses=True,
+            # Resilience settings
+            health_check_interval=30,
+            socket_timeout=5.0,
+            socket_connect_timeout=5.0,
+            retry_on_timeout=True,
+        )
     return _redis
 
 
