@@ -446,32 +446,24 @@ class ProcessChatCommand:
         LLM 토큰을 notify_token_v2로 전달.
         answer 노드는 자체적으로 토큰을 발행하므로 건너뜁니다.
 
+        Note:
+            현재 아키텍처에서는 모든 토큰 발행을 개별 노드에서 직접 처리합니다:
+            - answer_node: notify_token_v2로 직접 토큰 발행 (웹 검색/LangChain 모두)
+            - intent_node: 분류 결과만 반환 (토큰 스트리밍 불필요)
+            - 기타 노드: 컨텍스트 수집만 수행 (토큰 스트리밍 불필요)
+
+            따라서 ProcessChatCommand는 stream_mode="messages"에서 캡처되는
+            LLM 응답을 토큰으로 발행하지 않습니다. 이를 통해:
+            1. answer_node와의 토큰 중복 방지
+            2. intent_node 분류 결과가 토큰으로 노출되는 것 방지
+
         Args:
             data: (AIMessageChunk, metadata) 튜플
             job_id: 작업 ID
         """
-        try:
-            chunk, metadata = data
-
-            # 노드 정보 추출
-            node = metadata.get("langgraph_node", "answer")
-
-            # answer 노드는 자체적으로 토큰을 발행하므로 건너뜀 (중복 방지)
-            if node == "answer":
-                return
-
-            # AIMessageChunk에서 content 추출
-            content = getattr(chunk, "content", None)
-            if not content:
-                return
-
-            await self._progress_notifier.notify_token_v2(
-                task_id=job_id,
-                content=content,
-                node=node,
-            )
-        except Exception as e:
-            logger.debug(f"Message chunk handling error: {e}")
+        # 모든 토큰 발행은 개별 노드에서 직접 처리하므로 여기서는 건너뜀
+        # answer_node가 notify_token_v2로 직접 토큰을 발행함
+        return
 
     async def _handle_node_update(
         self,

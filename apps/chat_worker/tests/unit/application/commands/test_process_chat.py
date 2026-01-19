@@ -440,24 +440,29 @@ class TestProcessChatCommand:
         assert result.intent == "waste"
 
     @pytest.mark.anyio
-    async def test_streaming_skips_answer_node_tokens(
+    async def test_streaming_skips_all_message_tokens(
         self,
         streaming_command: ProcessChatCommand,
         mock_notifier: MockProgressNotifier,
         sample_request: ProcessChatRequest,
     ):
-        """스트리밍에서 answer 노드 토큰 건너뛰기.
+        """스트리밍에서 모든 메시지 토큰 건너뛰기.
 
-        answer_node가 자체적으로 토큰을 발행하므로
-        ProcessChatCommand._handle_message_chunk()는 answer 노드 토큰을 건너뜁니다.
-        실제 answer_node 테스트는 answer_node.py 단위 테스트에서 수행.
+        현재 아키텍처에서는 모든 토큰 발행을 개별 노드에서 직접 처리합니다:
+        - answer_node: notify_token_v2로 직접 토큰 발행
+        - intent_node: 분류 결과만 반환 (토큰 스트리밍 불필요)
+        - 기타 노드: 컨텍스트 수집만 수행 (토큰 스트리밍 불필요)
+
+        따라서 ProcessChatCommand._handle_message_chunk()는 모든 메시지를 건너뜁니다.
+        이를 통해:
+        1. answer_node와의 토큰 중복 방지
+        2. intent_node 분류 결과가 토큰으로 노출되는 것 방지
         """
         await streaming_command.execute(sample_request)
 
-        # ProcessChatCommand는 answer 노드 토큰을 건너뜀 (중복 방지)
-        # 실제 토큰은 answer_node에서 직접 발행됨
-        answer_tokens = [t for t in mock_notifier.tokens if t["node"] == "answer"]
-        assert len(answer_tokens) == 0
+        # ProcessChatCommand는 모든 메시지 토큰을 건너뜀
+        # 실제 토큰은 각 노드(특히 answer_node)에서 직접 발행됨
+        assert len(mock_notifier.tokens) == 0
 
     @pytest.mark.anyio
     async def test_streaming_notifies_stage_events(
