@@ -57,43 +57,71 @@ class ToolName(str, Enum):
     GEOCODE = "geocode"
 
 
-# OpenAI Function Calling 형식
+# ============================================================
+# OpenAI Function Calling Tools (GPT-5.2 Strict Mode)
+# ============================================================
+# Best Practices Applied (2026):
+# 1. Prescriptive descriptions (WHEN to use, not just what)
+# 2. Front-load key rules and requirements
+# 3. Include usage criteria and edge cases
+# 4. Strict mode enabled for schema validation (GPT-5.2 필수 권장)
+# Reference: https://cookbook.openai.com/examples/gpt-5/gpt-5-1_prompting_guide
+
 OPENAI_TOOLS = [
     {
         "type": "function",
         "function": {
             "name": "search_places",
-            "description": "키워드로 장소를 검색합니다. 재활용센터, 제로웨이스트샵, 특정 가게 등을 검색할 때 사용합니다.",
+            "description": (
+                "키워드 기반 장소 검색. "
+                "사용 시점: 사용자가 '재활용센터', '제로웨이스트샵', '분리수거장' 등 "
+                "특정 장소 유형을 키워드로 찾을 때 호출. "
+                "좌표가 없으면 전국 검색, 좌표가 있으면 해당 위치 주변 검색. "
+                "주의: 사용자가 '강남역 근처 재활용센터'라고 하면 먼저 geocode로 "
+                "'강남역' 좌표를 얻은 후 이 함수 호출."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "검색 키워드 (예: '강남역 재활용센터', '홍대 제로웨이스트샵')",
+                        "description": (
+                            "검색 키워드. 장소 유형을 포함해야 함. "
+                            "예: '재활용센터', '제로웨이스트샵', '폐건전지 수거함'. "
+                            "지역명은 포함하지 않음 (좌표로 처리)."
+                        ),
                     },
                     "latitude": {
                         "type": "number",
-                        "description": "검색 중심 위도 (선택사항)",
+                        "description": "검색 중심 위도. 주변 검색 시 필수. 범위: 33.0~43.0 (한국)",
                     },
                     "longitude": {
                         "type": "number",
-                        "description": "검색 중심 경도 (선택사항)",
+                        "description": "검색 중심 경도. 주변 검색 시 필수. 범위: 124.0~132.0 (한국)",
                     },
                     "radius": {
                         "type": "integer",
-                        "description": "검색 반경 (미터, 기본 5000)",
-                        "default": 5000,
+                        "description": "검색 반경(미터). 기본 5000m. 최대 20000m.",
                     },
                 },
                 "required": ["query"],
+                "additionalProperties": False,
             },
+            "strict": True,
         },
     },
     {
         "type": "function",
         "function": {
             "name": "search_category",
-            "description": "카테고리로 주변 장소를 검색합니다. 주변 카페, 음식점, 편의점 등을 찾을 때 사용합니다. 좌표가 필수입니다.",
+            "description": (
+                "카테고리 기반 주변 장소 검색. 좌표 필수. "
+                "사용 시점: 사용자가 '주변 카페', '근처 편의점', '가까운 약국' 등 "
+                "일반적인 장소 카테고리를 찾을 때 호출. "
+                "주의: 좌표 없이 호출 불가. 사용자 위치가 없고 지역명만 있으면 "
+                "먼저 geocode로 좌표를 얻은 후 호출. "
+                "재활용센터, 제로웨이스트샵 등 특수 장소는 search_places 사용."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -111,68 +139,99 @@ OPENAI_TOOLS = [
                             "GAS_STATION",
                             "PARKING",
                         ],
-                        "description": "카테고리 (MART: 대형마트, CONVENIENCE: 편의점, SUBWAY: 지하철역, CAFE: 카페, RESTAURANT: 음식점, HOSPITAL: 병원, PHARMACY: 약국)",
+                        "description": (
+                            "장소 카테고리. "
+                            "MART=대형마트, CONVENIENCE=편의점, SUBWAY=지하철역, "
+                            "CAFE=카페, RESTAURANT=음식점, HOSPITAL=병원, "
+                            "PHARMACY=약국, BANK=은행, GAS_STATION=주유소, PARKING=주차장"
+                        ),
                     },
                     "latitude": {
                         "type": "number",
-                        "description": "검색 중심 위도 (필수)",
+                        "description": "검색 중심 위도. 필수. 범위: 33.0~43.0 (한국)",
                     },
                     "longitude": {
                         "type": "number",
-                        "description": "검색 중심 경도 (필수)",
+                        "description": "검색 중심 경도. 필수. 범위: 124.0~132.0 (한국)",
                     },
                     "radius": {
                         "type": "integer",
-                        "description": "검색 반경 (미터, 기본 5000)",
-                        "default": 5000,
+                        "description": "검색 반경(미터). 기본 5000m. 최대 20000m.",
                     },
                 },
                 "required": ["category", "latitude", "longitude"],
+                "additionalProperties": False,
             },
+            "strict": True,
         },
     },
     {
         "type": "function",
         "function": {
             "name": "geocode",
-            "description": "장소명이나 주소를 좌표(위도, 경도)로 변환합니다. 사용자가 특정 지역 주변을 검색하고 싶을 때 먼저 좌표를 얻는 데 사용합니다.",
+            "description": (
+                "장소명/주소를 좌표(위도, 경도)로 변환. "
+                "사용 시점: 사용자가 '강남역', '홍대입구', '서울시청' 등 "
+                "특정 지역을 언급했으나 좌표가 없을 때 먼저 호출. "
+                "실행 순서: 이 함수로 좌표를 먼저 얻은 후 search_places 또는 "
+                "search_category 호출. "
+                "주의: 사용자 위치(user_location)가 이미 있으면 호출 불필요."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "place_name": {
                         "type": "string",
-                        "description": "장소명 또는 주소 (예: '강남역', '서울시 강남구')",
+                        "description": (
+                            "좌표로 변환할 장소명 또는 주소. "
+                            "예: '강남역', '홍대입구역', '서울시 강남구', '부산 해운대'. "
+                            "가능한 구체적으로 입력."
+                        ),
                     },
                 },
                 "required": ["place_name"],
+                "additionalProperties": False,
             },
+            "strict": True,
         },
     },
 ]
 
-# Gemini Function Calling 형식
+# ============================================================
+# Gemini Function Calling Tools (Gemini 3)
+# ============================================================
+# Best Practices Applied (2026):
+# 1. Clear, prescriptive descriptions
+# 2. Strong-typed parameters with enums
+# 3. Parallel & Compositional function calling 지원
+# Reference: https://ai.google.dev/gemini-api/docs/function-calling
+
 GEMINI_TOOLS = [
     {
         "name": "search_places",
-        "description": "키워드로 장소를 검색합니다. 재활용센터, 제로웨이스트샵, 특정 가게 등을 검색할 때 사용합니다.",
+        "description": (
+            "키워드 기반 장소 검색. "
+            "사용 시점: 재활용센터, 제로웨이스트샵, 분리수거장 등 특정 장소를 찾을 때. "
+            "지역명 언급 시 먼저 geocode로 좌표 획득 후 호출."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "검색 키워드 (예: '강남역 재활용센터', '홍대 제로웨이스트샵')",
+                    "description": "검색 키워드 (장소 유형). 예: '재활용센터', '제로웨이스트샵'",
                 },
                 "latitude": {
                     "type": "number",
-                    "description": "검색 중심 위도 (선택사항)",
+                    "description": "검색 중심 위도. 주변 검색 시 필수.",
                 },
                 "longitude": {
                     "type": "number",
-                    "description": "검색 중심 경도 (선택사항)",
+                    "description": "검색 중심 경도. 주변 검색 시 필수.",
                 },
                 "radius": {
                     "type": "integer",
-                    "description": "검색 반경 (미터, 기본 5000)",
+                    "description": "검색 반경(미터). 기본 5000, 최대 20000.",
                 },
             },
             "required": ["query"],
@@ -180,7 +239,11 @@ GEMINI_TOOLS = [
     },
     {
         "name": "search_category",
-        "description": "카테고리로 주변 장소를 검색합니다. 주변 카페, 음식점, 편의점 등을 찾을 때 사용합니다. 좌표가 필수입니다.",
+        "description": (
+            "카테고리 기반 주변 장소 검색. 좌표 필수. "
+            "사용 시점: 주변 카페, 편의점, 약국 등 일반 장소 검색 시. "
+            "좌표 없으면 먼저 geocode 호출 필요."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
@@ -198,19 +261,22 @@ GEMINI_TOOLS = [
                         "GAS_STATION",
                         "PARKING",
                     ],
-                    "description": "카테고리",
+                    "description": (
+                        "장소 카테고리. MART=대형마트, CONVENIENCE=편의점, "
+                        "CAFE=카페, RESTAURANT=음식점, PHARMACY=약국"
+                    ),
                 },
                 "latitude": {
                     "type": "number",
-                    "description": "검색 중심 위도 (필수)",
+                    "description": "검색 중심 위도. 필수.",
                 },
                 "longitude": {
                     "type": "number",
-                    "description": "검색 중심 경도 (필수)",
+                    "description": "검색 중심 경도. 필수.",
                 },
                 "radius": {
                     "type": "integer",
-                    "description": "검색 반경 (미터, 기본 5000)",
+                    "description": "검색 반경(미터). 기본 5000.",
                 },
             },
             "required": ["category", "latitude", "longitude"],
@@ -218,13 +284,17 @@ GEMINI_TOOLS = [
     },
     {
         "name": "geocode",
-        "description": "장소명이나 주소를 좌표(위도, 경도)로 변환합니다.",
+        "description": (
+            "장소명/주소를 좌표로 변환. "
+            "사용 시점: 지역명 언급 시 좌표가 필요할 때 먼저 호출. "
+            "사용자 위치가 이미 있으면 불필요."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
                 "place_name": {
                     "type": "string",
-                    "description": "장소명 또는 주소 (예: '강남역', '서울시 강남구')",
+                    "description": "장소명 또는 주소. 예: '강남역', '서울시 강남구'",
                 },
             },
             "required": ["place_name"],
@@ -232,27 +302,70 @@ GEMINI_TOOLS = [
     },
 ]
 
-# System prompt for location agent
-LOCATION_AGENT_SYSTEM_PROMPT = """당신은 위치 기반 장소 검색을 도와주는 어시스턴트입니다.
+# ============================================================
+# System Prompt for Location Agent
+# ============================================================
+# Best Practices Applied (2026 - GPT-5.2 CTCO Framework):
+# 1. Context: 배경 정보
+# 2. Task: 수행할 작업
+# 3. Constraints: DO/DON'T 명시
+# 4. Output: 출력 형식
+# 5. Preambles: Tool 호출 전 reasoning 설명 (GPT-5.2)
+# Reference: https://cookbook.openai.com/examples/gpt-5/gpt-5-1_prompting_guide
 
-사용자의 요청을 분석하여 적절한 도구를 선택하고 실행하세요.
+LOCATION_AGENT_SYSTEM_PROMPT = """# Context
+당신은 Eco² 앱의 위치 기반 장소 검색 에이전트입니다.
+사용자가 재활용센터, 제로웨이스트샵, 주변 시설을 찾을 때 도구를 사용해 정보를 제공합니다.
 
-사용 가능한 도구:
-1. search_places: 키워드로 장소 검색 (재활용센터, 제로웨이스트샵 등)
-2. search_category: 카테고리로 주변 검색 (카페, 음식점 등) - 좌표 필수
-3. geocode: 장소명 → 좌표 변환
+# Preambles (GPT-5.2)
+도구를 호출하기 전에, 왜 그 도구를 호출하는지 간단히 설명하세요.
+예: "강남역 좌표를 얻기 위해 geocode를 호출합니다."
 
-검색 전략:
-- 사용자가 특정 지역을 언급하면 먼저 geocode로 좌표를 얻은 후 검색
-- 사용자 위치(user_location)가 있으면 그 좌표를 활용
-- "근처", "주변" 같은 표현이 있으면 좌표 기반 검색 필요
+# Tool 사용 규칙
 
-예시:
-- "강남역 근처 재활용센터" → geocode("강남역") → search_places("재활용센터", lat, lon)
-- "주변 카페 찾아줘" (user_location 있음) → search_category("CAFE", lat, lon)
-- "제로웨이스트샵 알려줘" → search_places("제로웨이스트샵")
+## 사용 시점 (DO)
+- 재활용센터, 제로웨이스트샵, 분리수거장 검색 → search_places
+- 주변 카페, 편의점, 약국 등 일반 시설 검색 → search_category
+- 지역명(강남역, 홍대 등) 언급 + 좌표 없음 → geocode 먼저 호출
 
-결과를 사용자가 이해하기 쉬운 형태로 정리해서 제공하세요."""
+## 사용 금지 (DON'T)
+- 분리배출 방법 질문 → 도구 사용 X, 직접 답변
+- 일반 대화, 인사 → 도구 사용 X
+- 이미 좌표가 있는데 geocode 호출 X
+
+# Tool 호출 순서 (Critical)
+
+"[지역명] 근처 [장소]" 패턴:
+1. geocode(place_name="지역명") → 좌표 획득
+2. search_places(query="장소", latitude=결과lat, longitude=결과lon)
+
+"주변 [카테고리]" 패턴 (user_location 있음):
+1. search_category(category="카테고리", latitude=user_lat, longitude=user_lon)
+
+"주변 [카테고리]" 패턴 (user_location 없음):
+→ "위치 정보가 필요합니다" 안내 (도구 호출 X)
+
+# 파라미터 규칙
+
+- query: 장소 유형만 포함 (지역명 제외). "재활용센터" O, "강남역 재활용센터" X
+- latitude/longitude: geocode 결과 또는 user_location 사용
+- radius: 기본 5000m, 넓은 범위 요청 시 최대 20000m
+
+# 에러 처리
+
+- geocode 실패 → "해당 지역을 찾을 수 없습니다. 다른 지역명을 알려주세요."
+- 검색 결과 없음 → "해당 지역에서 [장소]를 찾을 수 없습니다."
+- 좌표 없이 search_category 호출 시도 → 호출하지 말고 위치 요청
+
+# 응답 형식
+
+검색 결과가 있으면:
+1. 가장 가까운 장소 1-3개 요약
+2. 장소명, 주소, 거리 포함
+3. 전화번호가 있으면 포함
+
+검색 결과가 없으면:
+- 대안 제시 (다른 검색어, 반경 확대 등)"""
 
 
 # ============================================================
@@ -568,11 +681,12 @@ async def run_gemini_agent(
         if lat and lon:
             user_message = f"{message}\n\n[현재 위치: 위도 {lat}, 경도 {lon}]"
 
-    # Gemini Tool 설정
+    # Gemini 3 Tool 설정 (Best Practice: temperature=0 for deterministic tool selection)
     tools = types.Tool(function_declarations=GEMINI_TOOLS)
     config = types.GenerateContentConfig(
         tools=[tools],
         system_instruction=LOCATION_AGENT_SYSTEM_PROMPT,
+        temperature=0,  # Gemini 3: 결정론적 Tool 선택을 위해 low temperature 권장
     )
 
     contents = [user_message]
@@ -646,19 +760,20 @@ def create_location_agent_node(
     event_publisher: "ProgressNotifierPort",
     openai_client: Any | None = None,
     gemini_client: Any | None = None,
-    default_model: str = "gpt-4o-mini",
+    default_model: str = "gpt-5.2",  # GPT-5.2 (2026)
     default_provider: str = "openai",
 ):
     """Location Agent 노드 팩토리.
 
     LLM이 Kakao API를 Tool로 사용하여 장소 검색을 수행.
+    GPT-5.2 / Gemini 3 지원.
 
     Args:
         kakao_client: Kakao Local API 클라이언트
         event_publisher: 이벤트 발행기
         openai_client: OpenAI AsyncClient (선택)
         gemini_client: Gemini Client (선택)
-        default_model: 기본 모델명
+        default_model: 기본 모델명 (gpt-5.2, gemini-3-flash 등)
         default_provider: 기본 프로바이더 ("openai" | "gemini")
 
     Returns:

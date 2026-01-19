@@ -47,67 +47,259 @@ OpenAI와 Gemini 모두 지원.
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Tool 정의 스키마
+## Tool 정의 Best Practices (2026)
 
-### OpenAI Format
+### 핵심 원칙
+
+1. **Prescriptive Description**: "무엇을 하는가"가 아닌 "언제 사용하는가" 명시
+2. **Front-load Rules**: 핵심 규칙과 요구사항을 설명 앞부분에 배치
+3. **Strict Mode**: OpenAI는 `strict: true`로 스키마 검증 강제 (GPT-5.2 필수 권장)
+4. **Strong Typing**: enum, 범위 제한 등으로 잘못된 입력 방지
+5. **Preambles**: GPT-5.2는 Tool 호출 전 reasoning을 출력하도록 설정 권장
+
+### 지원 모델 (2026)
+
+**OpenAI**:
+- GPT-5.2, GPT-5.2-Codex (최신)
+- Responses API 권장 (Chain-of-Thought 유지)
+
+**Google**:
+- Gemini 3 Pro, Gemini 3 Flash (최신)
+- Parallel & Compositional function calling 지원
+
+### OpenAI Format (Strict Mode)
 
 ```python
 OPENAI_TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "tool_name",
-            "description": "Tool이 수행하는 작업 설명 (LLM이 이해할 수 있게)",
+            "name": "search_places",
+            "description": (
+                # Prescriptive: WHEN to use
+                "키워드 기반 장소 검색. "
+                "사용 시점: 사용자가 특정 장소 유형을 키워드로 찾을 때. "
+                # Edge cases
+                "좌표가 없으면 전국 검색, 있으면 주변 검색. "
+                # Dependencies
+                "주의: 지역명 언급 시 먼저 geocode로 좌표 획득 후 호출."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "param1": {
+                    "query": {
                         "type": "string",
-                        "description": "파라미터 설명",
+                        # Clear description with examples
+                        "description": (
+                            "검색 키워드. 장소 유형만 포함. "
+                            "예: '재활용센터', '제로웨이스트샵'. "
+                            "지역명은 포함하지 않음 (좌표로 처리)."
+                        ),
                     },
-                    "param2": {
+                    "latitude": {
                         "type": "number",
-                        "description": "숫자 파라미터",
+                        # Range constraints
+                        "description": "검색 중심 위도. 범위: 33.0~43.0 (한국)",
                     },
-                    "param3": {
-                        "type": "string",
-                        "enum": ["option1", "option2", "option3"],
-                        "description": "선택지가 정해진 파라미터",
+                    "longitude": {
+                        "type": "number",
+                        "description": "검색 중심 경도. 범위: 124.0~132.0 (한국)",
                     },
                 },
-                "required": ["param1"],  # 필수 파라미터
+                "required": ["query"],
+                # Strict mode requirement
+                "additionalProperties": False,
             },
+            # Enable strict schema validation
+            "strict": True,
         },
     },
 ]
 ```
 
-### Gemini Format
+### Gemini Format (Gemini 3)
+
+Gemini 3는 4가지 Function Calling Mode 지원:
+- **AUTO** (기본): 모델이 텍스트/함수 호출 자동 결정
+- **ANY**: 항상 함수 호출
+- **NONE**: 함수 호출 금지
+- **VALIDATED**: 스키마 준수 보장하며 텍스트/함수 선택
 
 ```python
 GEMINI_TOOLS = [
     {
-        "name": "tool_name",
-        "description": "Tool이 수행하는 작업 설명",
+        "name": "search_places",
+        "description": (
+            "키워드 기반 장소 검색. "
+            "사용 시점: 특정 장소를 찾을 때. "
+            "지역명 언급 시 먼저 geocode로 좌표 획득 후 호출."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
-                "param1": {
+                "query": {
                     "type": "string",
-                    "description": "파라미터 설명",
+                    "description": "검색 키워드 (장소 유형). 예: '재활용센터'",
                 },
-                "param2": {
+                "latitude": {
                     "type": "number",
-                    "description": "숫자 파라미터",
+                    "description": "검색 중심 위도. 주변 검색 시 필수.",
+                },
+                "longitude": {
+                    "type": "number",
+                    "description": "검색 중심 경도. 주변 검색 시 필수.",
                 },
             },
-            "required": ["param1"],
+            "required": ["query"],
         },
     },
 ]
+
+# Gemini 3 Config 예시
+config = types.GenerateContentConfig(
+    tools=[gemini_tools],
+    tool_config=types.ToolConfig(
+        function_calling_config=types.FunctionCallingConfig(
+            mode="AUTO",  # or "ANY", "NONE", "VALIDATED"
+        ),
+    ),
+    temperature=0,  # 결정론적 Tool 선택
+)
 ```
 
-## OpenAI Function Calling 구현
+### Tool Description Anti-patterns
+
+```python
+# ❌ BAD: 무엇을 하는지만 설명
+"description": "장소를 검색합니다."
+
+# ❌ BAD: 너무 장황하고 비규범적
+"description": "이 함수는 다양한 장소를 검색할 수 있는 유용한 도구입니다..."
+
+# ✅ GOOD: 언제 사용하는지 명시 + 규칙 + 예외
+"description": (
+    "키워드 기반 장소 검색. "
+    "사용 시점: 특정 장소 유형을 찾을 때. "
+    "주의: 지역명 언급 시 먼저 geocode 호출 필요."
+)
+```
+
+## System Prompt Best Practices (2026)
+
+### GPT-5.2 CTCO Framework
+
+GPT-5.2는 구조화된 프롬프트를 선호. CTCO 패턴 권장:
+
+```
+# Context: 배경 정보
+# Task: 수행할 작업
+# Constraints: 제약 조건 (DO/DON'T)
+# Output: 출력 형식
+```
+
+### Preambles 활성화
+
+GPT-5.2는 Tool 호출 전 reasoning을 출력하는 Preambles 기능 지원:
+
+```python
+# System prompt에 추가
+"Before you call a tool, briefly explain why you are calling it."
+```
+
+이점:
+- Tool 호출 정확도 향상
+- 디버깅 용이
+- 사용자 신뢰도 증가
+
+### Scope Discipline
+
+GPT-5.2는 충분히 강력해서 "작업을 발명"할 수 있음. 범위 제한 필수:
+
+```python
+# ❌ BAD: 모호한 지시
+"필요한 작업을 수행하세요"
+
+# ✅ GOOD: 명확한 범위 제한
+"search_places 또는 geocode만 사용. 다른 작업 수행 금지."
+```
+
+### 핵심 구조: RBOE 패턴
+
+```
+# Role: 역할 정의 + 경계
+# Boundaries: 도구 사용 시점 (DO/DON'T)
+# Ordering: 도구 호출 순서
+# Error: 에러 처리 가이드
+```
+
+### 예시: Location Agent System Prompt
+
+```python
+SYSTEM_PROMPT = """# Role
+당신은 Eco² 앱의 위치 기반 장소 검색 에이전트입니다.
+재활용센터, 제로웨이스트샵, 주변 시설 검색을 도와줍니다.
+
+# Tool 사용 규칙
+
+## 사용 시점 (DO)
+- 재활용센터, 제로웨이스트샵 검색 → search_places
+- 주변 카페, 편의점, 약국 검색 → search_category
+- 지역명 언급 + 좌표 없음 → geocode 먼저 호출
+
+## 사용 금지 (DON'T)
+- 분리배출 방법 질문 → 도구 사용 X, 직접 답변
+- 일반 대화, 인사 → 도구 사용 X
+- 이미 좌표가 있는데 geocode 호출 X
+
+# Tool 호출 순서 (Critical)
+
+"[지역명] 근처 [장소]" 패턴:
+1. geocode(place_name="지역명") → 좌표 획득
+2. search_places(query="장소", latitude=결과lat, longitude=결과lon)
+
+"주변 [카테고리]" 패턴 (좌표 있음):
+1. search_category(category="카테고리", latitude=lat, longitude=lon)
+
+# 에러 처리
+
+- geocode 실패 → "해당 지역을 찾을 수 없습니다" 안내
+- 검색 결과 없음 → 대안 제시 (다른 검색어, 반경 확대)
+- 좌표 없이 search_category 시도 → 호출 안함, 위치 요청
+"""
+```
+
+### System Prompt Anti-patterns
+
+```python
+# ❌ BAD: 도구 목록만 나열
+"사용 가능한 도구: search_places, geocode, search_category"
+
+# ❌ BAD: 호출 순서 미지정
+"적절한 도구를 선택해서 사용하세요"
+
+# ✅ GOOD: 시점 + 순서 + 경계 명시
+"""
+## 사용 시점 (DO)
+- 재활용센터 검색 → search_places
+
+## 사용 금지 (DON'T)
+- 일반 대화 → 도구 사용 X
+
+## 호출 순서
+지역명 언급 시: geocode → search_places
+"""
+```
+
+### 참고 자료
+
+- [GPT-5.2 Prompting Guide](https://cookbook.openai.com/examples/gpt-5/gpt-5-1_prompting_guide)
+- [GPT-5 New Params and Tools](https://cookbook.openai.com/examples/gpt-5/gpt-5_new_params_and_tools)
+- [OpenAI Function Calling](https://platform.openai.com/docs/guides/function-calling)
+- [Gemini Function Calling](https://ai.google.dev/gemini-api/docs/function-calling)
+
+## OpenAI Function Calling 구현 (GPT-5.2)
+
+GPT-5.2는 Responses API 권장이나, Chat Completions API도 호환.
 
 ```python
 import json
@@ -126,11 +318,11 @@ async def run_openai_agent(
 
     Args:
         client: OpenAI AsyncClient
-        model: 모델명 (gpt-4o-mini, gpt-4o, etc.)
+        model: 모델명 (gpt-5.2, gpt-5.2-codex, etc.)
         user_message: 사용자 메시지
         tools: Tool 정의 리스트 (OpenAI format)
         tool_executor: Tool 실행기
-        system_prompt: 시스템 프롬프트
+        system_prompt: 시스템 프롬프트 (Preambles 포함 권장)
         max_iterations: 최대 반복 횟수 (무한 루프 방지)
 
     Returns:
@@ -202,7 +394,9 @@ async def run_openai_agent(
     }
 ```
 
-## Gemini Function Calling 구현
+## Gemini Function Calling 구현 (Gemini 3)
+
+Gemini 3 시리즈는 Parallel & Compositional function calling 지원.
 
 ```python
 from google import genai
@@ -221,7 +415,7 @@ async def run_gemini_agent(
 
     Args:
         client: Gemini Client
-        model: 모델명 (gemini-3-flash-preview, etc.)
+        model: 모델명 (gemini-3-flash, gemini-3-pro, etc.)
         user_message: 사용자 메시지
         tools: Tool 정의 리스트 (Gemini format)
         tool_executor: Tool 실행기
@@ -363,7 +557,7 @@ def create_agent_node(
     event_publisher: ProgressNotifierPort,
     openai_client: AsyncOpenAI | None = None,
     gemini_client: genai.Client | None = None,
-    default_model: str = "gpt-4o-mini",
+    default_model: str = "gpt-5.2",  # GPT-5.2 권장
     default_provider: str = "openai",
     system_prompt: str = "",
 ):
@@ -560,16 +754,21 @@ location_node = create_agent_node(
 )
 ```
 
-## Best Practices
+## Best Practices (2026)
 
-1. **Tool Description**: LLM이 언제 Tool을 사용해야 하는지 명확하게 설명
-2. **Parameter Description**: 각 파라미터의 용도와 형식을 상세히 기술
-3. **Error Handling**: Tool 실행 실패 시 의미 있는 에러 메시지 반환
-4. **Max Iterations**: 무한 루프 방지를 위해 최대 반복 횟수 설정
-5. **Fallback**: LLM 클라이언트 없을 때 대체 로직 제공
+1. **Tool Description**: Prescriptive하게 "언제" 사용하는지 명시
+2. **Strict Mode**: OpenAI는 항상 `strict: true` 활성화 (GPT-5.2 필수 권장)
+3. **Preambles**: GPT-5.2에서 Tool 호출 전 reasoning 출력 활성화
+4. **Scope Discipline**: 모델이 "작업을 발명"하지 않도록 범위 제한
+5. **Low Temperature**: Gemini는 temperature 0으로 설정 (결정론적 Tool 선택)
+6. **Max Iterations**: 무한 루프 방지를 위해 최대 반복 횟수 설정
+7. **VALIDATED Mode**: Gemini 3에서 스키마 준수 보장 필요 시 사용
+8. **Error Handling**: Tool 실패 시 의미 있는 에러 메시지 반환
+9. **Tool 개수 제한**: 10-20개 이내로 유지 (정확도 최적화)
 
 ## Reference
 
-- OpenAI: https://platform.openai.com/docs/guides/function-calling
-- Gemini: https://ai.google.dev/gemini-api/docs/function-calling
+- OpenAI Function Calling: https://platform.openai.com/docs/guides/function-calling
+- GPT-5.2 Prompting Guide: https://cookbook.openai.com/examples/gpt-5/gpt-5-1_prompting_guide
+- Gemini Function Calling: https://ai.google.dev/gemini-api/docs/function-calling
 - LangGraph: https://langchain-ai.github.io/langgraph/
