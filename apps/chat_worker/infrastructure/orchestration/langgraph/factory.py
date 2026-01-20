@@ -289,8 +289,8 @@ def create_chat_graph(
     )  # P2: Intent 캐싱
     rag_node = create_rag_node(retriever, event_publisher)
     answer_node = create_answer_node(
-        llm, cache=cache, event_publisher=event_publisher
-    )  # P3: Answer 캐싱 (네이티브 스트리밍, GENERAL: native web_search)
+        llm, event_publisher=event_publisher
+    )  # 네이티브 스트리밍 (GENERAL: native web_search)
 
     # Vision 노드 (선택)
     if vision_model is not None:

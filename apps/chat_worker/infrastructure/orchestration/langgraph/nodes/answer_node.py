@@ -34,7 +34,6 @@ from chat_worker.infrastructure.assets.prompt_loader import PromptBuilder
 from chat_worker.infrastructure.orchestration.langgraph.sequence import cleanup_sequence
 
 if TYPE_CHECKING:
-    from chat_worker.application.ports.cache import CachePort
     from chat_worker.application.ports.events import ProgressNotifierPort
     from chat_worker.application.ports.llm import LLMClientPort
 
@@ -43,7 +42,6 @@ logger = logging.getLogger(__name__)
 
 def create_answer_node(
     llm: "LLMClientPort",
-    cache: "CachePort | None" = None,
     event_publisher: "ProgressNotifierPort | None" = None,
 ):
     """답변 생성 노드 팩토리.
@@ -62,7 +60,6 @@ def create_answer_node(
 
     Args:
         llm: LLM 클라이언트
-        cache: 캐시 클라이언트 (선택, Answer 캐싱용)
         event_publisher: 이벤트 발행자 (선택, 웹 검색 시 토큰 직접 발행용)
 
     Returns:
@@ -73,7 +70,6 @@ def create_answer_node(
     command = GenerateAnswerCommand(
         llm=llm,
         prompt_builder=prompt_builder,
-        cache=cache,
     )
 
     async def answer_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -164,16 +160,7 @@ def create_answer_node(
             # 2. 프롬프트 준비 (Command에서 컨텍스트 빌드만 수행)
             prepared = await command.prepare(input_dto)
 
-            # 3. 캐시 히트 시 캐시된 답변 반환
-            if prepared.cached_answer:
-                logger.info(
-                    "Answer from cache",
-                    extra={"job_id": job_id, "length": len(prepared.cached_answer)},
-                )
-                cleanup_sequence(job_id)
-                return {"answer": prepared.cached_answer}
-
-            # 4. LLM 호출 - 웹 검색 필요 여부에 따라 분기
+            # 3. LLM 호출 - 웹 검색 필요 여부에 따라 분기
             intent = state.get("intent", "general")
             message = state.get("message", "")
             message_lower = message.lower()
@@ -253,10 +240,6 @@ def create_answer_node(
                     await event_publisher.finalize_token_stream(job_id)
 
             answer = "".join(answer_parts)
-
-            # 5. 캐시 저장 (필요한 경우)
-            if prepared.is_cacheable and answer:
-                await command.save_to_cache(prepared.cache_key, answer)
 
             logger.info(
                 "Answer generated",
