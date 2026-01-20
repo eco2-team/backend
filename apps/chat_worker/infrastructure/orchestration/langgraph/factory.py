@@ -366,8 +366,9 @@ def create_chat_graph(
         location_node = create_kakao_place_node(
             kakao_client=kakao_client,
             event_publisher=event_publisher,
+            llm=llm,  # Function Calling용
         )
-        logger.info("Location subagent node created (Kakao HTTP)")
+        logger.info("Location subagent node created (Kakao HTTP + Function Calling)")
     else:
         # Fallback: passthrough
         async def location_node(state: dict[str, Any]) -> dict[str, Any]:
