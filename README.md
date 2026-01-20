@@ -136,7 +136,7 @@ Retry: 2회
 > `app.get_graph().draw_mermaid()` ([참고](https://rudaks.tistory.com/entry/langgraph-%EA%B7%B8%EB%9E%98%ED%94%84%EB%A5%BC-%EC%8B%9C%EA%B0%81%ED%99%94%ED%95%98%EB%8A%94-%EB%B0%A9%EB%B2%95))
 
 
-**Dynamic Routing (Send API)**를 사용하여 런타임에 복수 노드를 병렬 실행합니다.
+Dynamic Routing (Send API)를 사용하여 런타임에 복수 노드를 병렬 실행합니다.
 
 - **Multi-Intent Fanout**: `additional_intents` → 각각 병렬 Send
 - **Intent 기반 Enrichment**: `waste` → `weather` 자동 추가 (분리배출 + 날씨 팁)
