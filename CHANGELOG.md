@@ -7,6 +7,173 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 
 ---
 
+## [1.1.0-pre] - 2026-01-21
+
+### 🚀 Highlights
+> **Chat Agent 전환**: Celery 기반 단순 파이프라인에서 LangGraph 기반 Multi-Agent 아키텍처로 전면 전환.
+> 9개 Intent 분류, Function Calling Agents, 이미지 생성, Token Streaming 등 차세대 대화형 AI 시스템 구축.
+
+### Added
+- **LangGraph 기반 Multi-Agent 아키텍처**
+  - **Intent Classification Node**: 사용자 메시지를 9개 Intent로 분류 (WASTE, CHARACTER, WEATHER, LOCATION, INFO, NEWS, IMAGE_GENERATION, GENERAL, GREETING)
+  - **Domain Agent Router**: Intent별 전문 Agent로 라우팅하는 Conditional Edge 구현
+  - **Multi-Intent 지원**: 단일 메시지에서 복수 Intent 추출 및 순차 처리
+  - **State Management**: ChatState 기반 대화 컨텍스트 관리 (user_location, character_id 등)
+
+- **Function Calling Agents**
+  - **Location Agent**: Kakao Local API 연동, 주소 → 좌표 변환 (geocoding)
+  - **Weather Agent**: 기상청 API 연동, 위치 기반 날씨 정보 제공
+  - **News Agent**: Info API 연동, 환경 뉴스 검색
+  - **GPT-5.2 / Gemini 3 네이티브 Function Calling** 적용
+
+- **이미지 생성 파이프라인**
+  - **Gemini 기반 이미지 생성**: `gemini-2.0-flash-exp` 모델 활용
+  - **gRPC 이미지 업로드**: Images API와 gRPC 통신으로 S3 업로드 후 CDN URL 반환
+  - **Character Reference 지원**: 캐릭터 이름 감지 및 이미지 생성 컨텍스트 전달
+  - **Token Explosion 방지**: Base64 이미지를 프롬프트에서 제외하는 안전 장치
+
+- **Token Streaming 개선**
+  - **stream_mode=messages**: LangGraph 메시지 스트리밍 모드 적용
+  - **LangChain LLM 직접 호출**: answer_node에서 토큰 단위 스트리밍
+  - **Event Router Unicode 수정**: 한글 토큰 인코딩 문제 해결
+  - **Pub/Sub Retry Logic**: 발행 실패 시 재시도 로직 추가
+
+- **PostgreSQL 메시지 영속화**
+  - **chat-persistence-consumer**: Redis Streams → PostgreSQL 메시지 저장 Consumer 배포
+  - **LangGraph Checkpointer**: PostgreSQL 기반 체크포인트 저장/복구 구현
+  - **checkpoint_writes 스키마**: task_path 컬럼 추가
+
+- **분산 트레이싱 확장**
+  - **E2E 트레이싱**: Chat API → RabbitMQ → Chat Worker → Event Router → SSE Gateway 전 구간 추적
+  - **LangSmith 연동**: LangGraph 실행 트레이스 수집
+  - **OpenTelemetry Middleware**: 요청/응답 자동 계측
+
+- **Observability 강화**
+  - **25-Node Cluster Grafana 대시보드**: 전체 노드 모니터링 대시보드 추가
+  - **Chat Worker Metrics**: Intent 분류, Agent 실행, 토큰 생성 메트릭
+
+### Changed
+- **Intent 통합**: WEB_SEARCH → GENERAL로 통합, 네이티브 web_search tool 사용
+- **Model-Centric Intent Classification**: with_structured_output 기반 JSON 스키마 분류
+- **이미지 생성 전용 모델**: OpenAI → Gemini 전환 (비용 및 품질 최적화)
+- **Chat API 스펙 정렬**: Frontend 요구사항에 맞춰 cursor 기반 페이지네이션 적용
+- **S3 Upload 비동기화**: boto3 → aioboto3 마이그레이션
+
+### Fixed
+- **SSE Pub/Sub Race Condition**: `subscribed_event.set()` 타이밍 수정으로 이벤트 누락 방지
+- **Gemini API 호출**: `Part.from_text()` 키워드 인자, async iterator 처리 수정
+- **OpenAI Responses API**: image_generation tool 포맷 수정
+- **Token Duplication**: answer_node에서 토큰 발행 단일화
+- **max_tokens 처리**: None 값 API 호출 제외
+- **Multi-Intent JSON 파싱**: Markdown 코드 블록 제거 로직 추가
+
+### Infrastructure
+- **chat-worker 노드**: TaskIQ + RabbitMQ 기반 비동기 작업 처리
+- **chat-persistence-consumer**: Redis Streams Consumer 전용 배포
+- **NetworkPolicy 확장**: chat → images gRPC, event-router namespace egress 허용
+- **ConfigMap 분리**: 이미지 생성 프롬프트 파일 외부화
+
+---
+
+## [1.0.9] - 2026-01-18
+
+### 🚀 Highlights
+> **Info 서비스 프로비저닝**: 환경 뉴스 수집 및 제공을 위한 Info API/Worker 3-Tier 아키텍처 구축.
+> **Claude Code Context 마이그레이션**: Cursor 기반 개발 환경에서 Claude Code Skills로 전환.
+
+### Added
+- **Info API 3-Tier Architecture**
+  - **Info API**: FastAPI 기반 뉴스 조회 REST API
+  - **Info Worker**: Celery Beat 기반 뉴스 수집 스케줄러
+  - **PostgreSQL 영속화**: 뉴스 데이터 저장
+  - **Redis 캐싱**: 조회 성능 최적화
+
+- **News Service 개발**
+  - **NewsData API 연동**: 환경 관련 뉴스 자동 수집
+  - **카테고리 분류**: 뉴스 카테고리 list 타입 처리
+  - **Cursor 기반 페이지네이션**: 대용량 뉴스 목록 처리
+
+- **Claude Code Skills 도입**
+  - **chat-agent-flow Skill**: E2E 테스트 및 트러블슈팅 가이드
+  - **프로젝트 특화 가이드**: Redis Streams 아키텍처 문서화
+
+- **RabbitMQ Topology**
+  - **info.collect_news 큐**: Celery Beat 작업 큐 CR 추가
+  - **Worker 사용자 권한**: eco2 vhost 접근 권한 설정
+
+### Changed
+- **개발 환경 전환**: Cursor → Claude Code Context 마이그레이션
+- **CORS 설정**: dev frontend origin 추가
+- **Database 설정**: eco2 → ecoeco 데이터베이스명 수정
+
+### Fixed
+- **Celery Beat 안정화**
+  - Standalone beat sidecar 분리 (embedded -B 플래그 문제 해결)
+  - emptyDir 볼륨으로 beat schedule 파일 관리
+  - /proc 파일시스템 기반 liveness probe
+- **asyncpg DSN 호환성**: SQLAlchemy DSN 형식 변환
+- **Info Worker 배포**: Secret key 참조, 환경변수 prefix 수정
+- **NetworkPolicy**: info namespace RabbitMQ/전체 egress 허용
+
+### Infrastructure
+- **info namespace**: API 및 Worker 전용 네임스페이스
+- **ArgoCD ApplicationSet**: info API, info-worker 자동 배포
+- **ServiceMonitor**: info 서비스 메트릭 수집
+
+---
+
+## [1.0.8] - 2026-01-15
+
+### 🚀 Highlights
+> **Clean Architecture 마이그레이션**: 레거시 `domains/` 구조에서 `apps/` 기반 3-tier 아키텍처로 전면 전환.
+> 도메인별 독립성 강화 및 CI/CD 파이프라인 정비.
+
+### Added
+- **RabbitMQ Named Exchange 기반 이벤트 라우팅**
+  - **reward.events Fanout Exchange**: 1:N 이벤트 브로드캐스팅
+  - **Cross-Domain Task Routing**: AMQP default exchange 활용
+  - **Topology CR 기반 큐 관리**: task_create_missing_queues=False
+
+- **Character Worker 독립화**
+  - **Gevent Pool 호환**: 동기 DB 세션 사용
+  - **Redis 캐시 Lazy Loading**: 초기화 예외 처리 강화
+  - **reward_character_task autodiscover**: 태스크 자동 등록
+
+- **Multi-Model Image Generation**
+  - **Provider 인식 이미지 생성**: OpenAI/Gemini 자동 선택
+  - **Character Reference 컨텍스트**: 캐릭터 기반 이미지 생성 지원
+
+### Changed
+- **디렉토리 구조 전환**: `domains/` → `apps/` 마이그레이션
+  - 모든 도메인 서비스 apps/ 하위로 이동
+  - `domains/_base` 제거
+  - 레거시 `domains/` 디렉토리 삭제
+- **CI 파이프라인 수정**
+  - `apps/` 경로 기반 트리거
+  - chat, chat_worker PR 트리거 추가
+- **DB/Redis 연결 정규화**
+  - POSTGRES_HOST 통일
+  - Redis master pod DNS 직접 참조
+- **네이밍 통일**: `image` → `images` 전체 변경
+
+### Fixed
+- **Celery 큐 바인딩 문제**
+  - Queue에 no_declare=True 추가
+  - task_queues 정의로 Topology CR 큐 사용
+  - 기본 exchange 사용으로 routing 수정
+- **RabbitMQ TTL Mismatch**: 자동 큐 생성 비활성화
+- **scan-worker 직렬화 에러**: kombu publish 수정
+- **character-worker gevent 호환**: 동기 DB 세션 전환
+- **SSE Gateway CORS**: credentials와 함께 특정 origin 설정
+- **Redis 연결 재시도**: 이미지 서비스 설정 개선
+
+### Infrastructure
+- **users namespace**: dockerhub-secret ExternalSecret 추가
+- **images namespace**: NetworkPolicy 전체 파일 업데이트
+- **Secrets 정비**: image → images 시크릿 네이밍 통일
+
+---
+
 ## [1.0.7] - 2025-12-28
 
 ### Added
@@ -550,6 +717,6 @@ Eco² Backend 프로젝트의 모든 주목할 만한 변경사항을 기록합�
 
 ---
 
-**문서 버전**: 1.0.7
-**최종 업데이트**: 2025-12-28
+**문서 버전**: 1.1.0-pre
+**최종 업데이트**: 2026-01-21
 **관리자**: Backend Platform Team
