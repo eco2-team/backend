@@ -262,6 +262,9 @@ class ProcessChatCommand:
             )
 
             # 2. 파이프라인 초기 상태
+            # Context 필드들은 _reset 마커로 초기화하여 이전 턴 값이 유지되지 않도록 함
+            # (priority_preemptive_reducer가 _reset 마커를 감지하면 None 반환)
+            _reset_marker = {"_reset": True}
             initial_state = {
                 "job_id": request.job_id,
                 "session_id": request.session_id,
@@ -269,6 +272,18 @@ class ProcessChatCommand:
                 "message": request.message,
                 "image_url": request.image_url,
                 "user_location": request.user_location,
+                # Context 필드 리셋 (매 턴마다 새로 계산)
+                "classification_result": _reset_marker,
+                "disposal_rules": _reset_marker,
+                "character_context": _reset_marker,
+                "location_context": _reset_marker,
+                "web_search_results": _reset_marker,
+                "recyclable_price_context": _reset_marker,
+                "bulk_waste_context": _reset_marker,
+                "weather_context": _reset_marker,
+                "collection_point_context": _reset_marker,
+                "image_generation_context": _reset_marker,
+                "general_context": _reset_marker,
             }
 
             # Telemetry + LangGraph config 생성

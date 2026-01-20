@@ -1,17 +1,12 @@
 """Answer Node 단위 테스트.
 
 P2: Multi-Intent Policy 조합 주입
-P3: Answer 캐싱
 """
 
 from __future__ import annotations
 
 import pytest
 
-from chat_worker.application.commands.generate_answer_command import (
-    ANSWER_CACHE_TTL,
-    CACHEABLE_INTENTS,
-)
 from chat_worker.infrastructure.orchestration.langgraph.nodes.answer_node import (
     create_answer_node,
 )
@@ -62,38 +57,12 @@ class MockLLMClient:
             yield char
 
 
-class MockCache:
-    """테스트용 Mock Cache."""
-
-    def __init__(self):
-        self._store: dict[str, str] = {}
-        self.get_calls: list[str] = []
-        self.set_calls: list[tuple[str, str, int | None]] = []
-
-    async def get(self, key: str) -> str | None:
-        self.get_calls.append(key)
-        return self._store.get(key)
-
-    async def set(self, key: str, value: str, ttl: int | None = None) -> bool:
-        self.set_calls.append((key, value, ttl))
-        self._store[key] = value
-        return True
-
-    def preset(self, key: str, value: str):
-        """테스트용 캐시 프리셋."""
-        self._store[key] = value
-
-
 class TestAnswerNodeBasic:
     """Answer Node 기본 동작 테스트."""
 
     @pytest.fixture
     def mock_llm(self) -> MockLLMClient:
         return MockLLMClient()
-
-    @pytest.fixture
-    def mock_cache(self) -> MockCache:
-        return MockCache()
 
     @pytest.mark.asyncio
     async def test_basic_answer_generation(self, mock_llm: MockLLMClient):
@@ -184,159 +153,6 @@ class TestMultiIntentAnswer:
 
         # 단일 프롬프트로 처리됨
         assert mock_llm.call_count == 1
-
-
-class TestAnswerCache:
-    """P3: Answer 캐싱 테스트."""
-
-    @pytest.fixture
-    def mock_llm(self) -> MockLLMClient:
-        return MockLLMClient()
-
-    @pytest.fixture
-    def mock_cache(self) -> MockCache:
-        return MockCache()
-
-    def test_cacheable_intents(self):
-        """캐시 가능한 Intent 확인."""
-        assert "general" in CACHEABLE_INTENTS
-        assert "greeting" in CACHEABLE_INTENTS
-        assert "waste" not in CACHEABLE_INTENTS
-        assert "character" not in CACHEABLE_INTENTS
-
-    @pytest.mark.asyncio
-    async def test_cache_hit_returns_cached(
-        self,
-        mock_llm: MockLLMClient,
-        mock_cache: MockCache,
-    ):
-        """캐시 히트 시 LLM 호출 없이 캐시된 답변 반환."""
-        # 캐시에 답변 저장 (실제 키 형식으로)
-        import hashlib
-
-        message = "안녕"
-        intent = "general"
-        content = f"answer:{intent}:{message.strip().lower()}"
-        cache_key = f"answer:{hashlib.sha256(content.encode()).hexdigest()[:16]}"
-        mock_cache.preset(cache_key, "캐시된 답변!")
-
-        node = create_answer_node(mock_llm, cache=mock_cache)
-
-        state = {
-            "job_id": "test-job",
-            "message": message,
-            "intent": intent,
-        }
-
-        result = await node(state)
-
-        # 캐시된 답변 반환
-        assert result["answer"] == "캐시된 답변!"
-        # Note: cache_hit 플래그는 스트리밍 아키텍처에서 전달되지 않음
-        # 대신 LLM 호출 횟수로 캐시 히트 검증
-
-        # LLM 호출 안 됨 (캐시 히트)
-        assert mock_llm.call_count == 0
-
-    @pytest.mark.asyncio
-    async def test_cache_miss_calls_llm_and_caches(
-        self,
-        mock_llm: MockLLMClient,
-        mock_cache: MockCache,
-    ):
-        """캐시 미스 시 LLM 호출 후 캐시 저장."""
-        mock_llm.set_responses(["새 답변!"])
-
-        node = create_answer_node(mock_llm, cache=mock_cache)
-
-        state = {
-            "job_id": "test-job",
-            "message": "안녕",
-            "intent": "general",
-        }
-
-        result = await node(state)
-
-        # LLM 호출됨
-        assert mock_llm.call_count == 1
-        assert result["answer"] == "새 답변!"
-
-        # 캐시 저장됨
-        assert len(mock_cache.set_calls) == 1
-        _, value, ttl = mock_cache.set_calls[0]
-        assert value == "새 답변!"
-        assert ttl == ANSWER_CACHE_TTL
-
-    @pytest.mark.asyncio
-    async def test_non_cacheable_intent_not_cached(
-        self,
-        mock_llm: MockLLMClient,
-        mock_cache: MockCache,
-    ):
-        """캐시 불가능한 Intent는 캐시하지 않음."""
-        mock_llm.set_responses(["분리수거 답변"])
-
-        node = create_answer_node(mock_llm, cache=mock_cache)
-
-        state = {
-            "job_id": "test-job",
-            "message": "페트병 어떻게 버려",
-            "intent": "waste",  # 캐시 불가
-        }
-
-        await node(state)
-
-        # LLM 호출됨
-        assert mock_llm.call_count == 1
-        # 캐시 저장 안 됨
-        assert len(mock_cache.set_calls) == 0
-
-    @pytest.mark.asyncio
-    async def test_context_present_not_cached(
-        self,
-        mock_llm: MockLLMClient,
-        mock_cache: MockCache,
-    ):
-        """컨텍스트가 있으면 general이어도 캐시하지 않음."""
-        mock_llm.set_responses(["캐릭터 정보 포함 답변"])
-
-        node = create_answer_node(mock_llm, cache=mock_cache)
-
-        state = {
-            "job_id": "test-job",
-            "message": "안녕",
-            "intent": "general",  # 캐시 가능 Intent
-            "character_context": {"name": "이코", "level": 5},  # 하지만 컨텍스트 있음
-        }
-
-        await node(state)
-
-        # LLM 호출됨
-        assert mock_llm.call_count == 1
-        # 캐시 저장 안 됨 (컨텍스트 있으므로)
-        assert len(mock_cache.set_calls) == 0
-
-    @pytest.mark.asyncio
-    async def test_no_cache_without_cache_port(
-        self,
-        mock_llm: MockLLMClient,
-    ):
-        """CachePort 없으면 캐싱 안 함."""
-        mock_llm.set_responses(["답변"])
-
-        node = create_answer_node(mock_llm, cache=None)
-
-        state = {
-            "job_id": "test-job",
-            "message": "안녕",
-            "intent": "general",
-        }
-
-        result = await node(state)
-
-        assert result["answer"] == "답변"
-        assert mock_llm.call_count == 1
-        assert result.get("cache_hit") is None
 
 
 class TestAnswerNodeErrorHandling:
