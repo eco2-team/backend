@@ -393,8 +393,9 @@ def create_chat_graph(
         bulk_waste_node = create_bulk_waste_node(
             bulk_waste_client=bulk_waste_client,
             event_publisher=event_publisher,
+            llm=llm,  # Function Calling용
         )
-        logger.info("Bulk waste subagent node created (MOIS API)")
+        logger.info("Bulk waste subagent node created (MOIS API + Function Calling)")
     else:
         # Fallback: passthrough
         async def bulk_waste_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -408,8 +409,9 @@ def create_chat_graph(
         recyclable_price_node = create_recyclable_price_node(
             price_client=recyclable_price_client,
             event_publisher=event_publisher,
+            llm=llm,  # Function Calling용
         )
-        logger.info("Recyclable price subagent node created (KECO)")
+        logger.info("Recyclable price subagent node created (KECO + Function Calling)")
     else:
         # Fallback: passthrough
         async def recyclable_price_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -423,8 +425,9 @@ def create_chat_graph(
         weather_node = create_weather_node(
             weather_client=weather_client,
             event_publisher=event_publisher,
+            llm=llm,  # Function Calling용
         )
-        logger.info("Weather subagent node created (KMA API)")
+        logger.info("Weather subagent node created (KMA API + Function Calling)")
     else:
         # Fallback: passthrough (날씨는 보조 정보)
         async def weather_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -438,8 +441,9 @@ def create_chat_graph(
         collection_point_node = create_collection_point_node(
             collection_point_client=collection_point_client,
             event_publisher=event_publisher,
+            llm=llm,  # Function Calling용
         )
-        logger.info("Collection point subagent node created (KECO API)")
+        logger.info("Collection point subagent node created (KECO API + Function Calling)")
     else:
         # Fallback: passthrough
         async def collection_point_node(state: dict[str, Any]) -> dict[str, Any]:
