@@ -15,7 +15,6 @@ Pattern: test_openai_client_function_calling.py 참고
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -440,7 +439,6 @@ class TestKakaoPlaceNodeFunctionCalling:
         )
 
         # Command의 execute를 mock으로 교체
-        import chat_worker.infrastructure.orchestration.langgraph.nodes.kakao_place_node as kakao_place_module
         from chat_worker.application.commands.search_kakao_place_command import (
             SearchKakaoPlaceCommand,
         )

@@ -12,13 +12,9 @@ LangGraph 어댑터(Node)에서 LLM Function Calling 기능 테스트.
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from chat_worker.application.commands.search_bulk_waste_command import (
-    SearchBulkWasteOutput,
-)
 from chat_worker.application.ports.bulk_waste_client import (
     BulkWasteCollectionDTO,
     BulkWasteItemDTO,
@@ -408,7 +404,7 @@ class TestBulkWasteNodeFunctionCalling:
         }
 
         # When: 노드 실행
-        result = await node(state)
+        _ = await node(state)
 
         # Then: waiting 이벤트 발행 확인
         waiting_events = [e for e in mock_publisher.stages if e["status"] == "waiting"]

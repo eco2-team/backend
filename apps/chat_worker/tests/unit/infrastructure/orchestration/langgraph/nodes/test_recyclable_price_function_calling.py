@@ -17,7 +17,7 @@ Note:
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -29,7 +29,6 @@ from chat_worker.application.ports.recyclable_price_client import (
     RecyclableCategory,
     RecyclablePriceDTO,
     RecyclablePriceSearchResponse,
-    RecyclableRegion,
 )
 from chat_worker.infrastructure.orchestration.langgraph.nodes.recyclable_price_node import (
     create_recyclable_price_node,

@@ -48,28 +48,32 @@ class TestSubscriberQueue:
 
     @pytest.mark.asyncio
     async def test_put_event_duplicate_seq_rejected(self):
-        """중복 seq 이벤트 거부."""
+        """중복 timestamp 이벤트 거부 (timestamp 기반 필터링)."""
         from sse_gateway.core.broadcast_manager import SubscriberQueue
 
         queue = SubscriberQueue(job_id="test-job")
 
         # 첫 번째 이벤트 성공
-        result1 = await queue.put_event({"stage": "vision", "seq": 1})
+        result1 = await queue.put_event({"stage": "vision", "status": "started", "timestamp": 1000.0, "seq": 1})
         assert result1 is True
 
-        # 같은 seq 거부
-        result2 = await queue.put_event({"stage": "rule", "seq": 1})
+        # 같은 stage:status의 같은 timestamp 거부
+        result2 = await queue.put_event({"stage": "vision", "status": "started", "timestamp": 1000.0, "seq": 1})
         assert result2 is False
 
-        # 작은 seq 거부
-        result3 = await queue.put_event({"stage": "rule", "seq": 0})
+        # 같은 stage:status의 더 오래된 timestamp 거부
+        result3 = await queue.put_event({"stage": "vision", "status": "started", "timestamp": 999.0, "seq": 0})
         assert result3 is False
 
-        # 큰 seq 성공
-        result4 = await queue.put_event({"stage": "rule", "seq": 2})
+        # 더 최근 timestamp는 성공
+        result4 = await queue.put_event({"stage": "vision", "status": "started", "timestamp": 1001.0, "seq": 2})
         assert result4 is True
 
-        assert queue.queue.qsize() == 2
+        # 다른 stage는 seq 무관하게 성공 (timestamp 기반)
+        result5 = await queue.put_event({"stage": "rule", "status": "started", "timestamp": 500.0, "seq": 0})
+        assert result5 is True
+
+        assert queue.queue.qsize() == 3  # vision(1000), vision(1001), rule(500)
 
     @pytest.mark.asyncio
     async def test_put_event_preserves_done(self):
@@ -79,12 +83,12 @@ class TestSubscriberQueue:
         queue = SubscriberQueue(job_id="test-job")
         queue.queue = asyncio.Queue(maxsize=2)
 
-        # done 이벤트로 Queue 채우기
-        await queue.put_event({"stage": "done", "seq": 1})
-        await queue.put_event({"stage": "done", "seq": 2})
+        # done 이벤트로 Queue 채우기 (timestamp 필수)
+        await queue.put_event({"stage": "done", "status": "started", "timestamp": 1000.0, "seq": 1})
+        await queue.put_event({"stage": "done", "status": "completed", "timestamp": 1001.0, "seq": 2})
 
         # 새 이벤트는 done을 보존하므로 드롭
-        result = await queue.put_event({"stage": "vision", "seq": 3})
+        result = await queue.put_event({"stage": "vision", "status": "started", "timestamp": 1002.0, "seq": 3})
         assert result is False
 
         # done이 유지됨

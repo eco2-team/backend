@@ -40,7 +40,6 @@ Flow:
 from __future__ import annotations
 
 import logging
-import re
 from typing import TYPE_CHECKING, Any
 
 from chat_worker.application.commands.get_weather_command import (

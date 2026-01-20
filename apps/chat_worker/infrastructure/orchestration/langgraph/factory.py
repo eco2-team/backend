@@ -105,9 +105,6 @@ from chat_worker.infrastructure.orchestration.langgraph.routing import (
 from chat_worker.infrastructure.orchestration.langgraph.nodes.kakao_place_node import (
     create_kakao_place_node,
 )
-from chat_worker.infrastructure.orchestration.langgraph.nodes.location_agent_node import (
-    create_location_agent_node,
-)
 
 # NOTE: web_search_node는 더 이상 Intent 기반 라우팅에 사용되지 않음
 # GENERAL intent에서 네이티브 web_search tool (OpenAI Responses API)을 사용
