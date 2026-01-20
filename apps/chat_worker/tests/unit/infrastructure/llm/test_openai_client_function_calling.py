@@ -39,11 +39,11 @@ class TestOpenAIClientFunctionCalling:
     @pytest.mark.asyncio
     async def test_function_call_success(self, mock_openai_response):
         """Function call 성공 시나리오."""
-        mock_response = mock_openai_response(
-            "search_place", '{"query": "카페", "radius": 5000}'
-        )
+        mock_response = mock_openai_response("search_place", '{"query": "카페", "radius": 5000}')
 
-        with patch("chat_worker.infrastructure.llm.clients.openai_client.AsyncOpenAI") as mock_openai:
+        with patch(
+            "chat_worker.infrastructure.llm.clients.openai_client.AsyncOpenAI"
+        ) as mock_openai:
             mock_client = MagicMock()
             mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
             mock_openai.return_value = mock_client
@@ -83,11 +83,11 @@ class TestOpenAIClientFunctionCalling:
     @pytest.mark.asyncio
     async def test_function_call_forced(self, mock_openai_response):
         """Function call 강제 호출."""
-        mock_response = mock_openai_response(
-            "get_weather", '{"needs_weather": true}'
-        )
+        mock_response = mock_openai_response("get_weather", '{"needs_weather": true}')
 
-        with patch("chat_worker.infrastructure.llm.clients.openai_client.AsyncOpenAI") as mock_openai:
+        with patch(
+            "chat_worker.infrastructure.llm.clients.openai_client.AsyncOpenAI"
+        ) as mock_openai:
             mock_client = MagicMock()
             mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
             mock_openai.return_value = mock_client
@@ -125,7 +125,9 @@ class TestOpenAIClientFunctionCalling:
         """Function call이 없는 경우."""
         mock_response = mock_openai_response(None, None)
 
-        with patch("chat_worker.infrastructure.llm.clients.openai_client.AsyncOpenAI") as mock_openai:
+        with patch(
+            "chat_worker.infrastructure.llm.clients.openai_client.AsyncOpenAI"
+        ) as mock_openai:
             mock_client = MagicMock()
             mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
             mock_openai.return_value = mock_client
@@ -153,7 +155,9 @@ class TestOpenAIClientFunctionCalling:
         """잘못된 JSON arguments."""
         mock_response = mock_openai_response("search_place", "{invalid json}")
 
-        with patch("chat_worker.infrastructure.llm.clients.openai_client.AsyncOpenAI") as mock_openai:
+        with patch(
+            "chat_worker.infrastructure.llm.clients.openai_client.AsyncOpenAI"
+        ) as mock_openai:
             mock_client = MagicMock()
             mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
             mock_openai.return_value = mock_client
@@ -173,7 +177,9 @@ class TestOpenAIClientFunctionCalling:
         """System prompt 포함 확인."""
         mock_response = mock_openai_response("test_func", "{}")
 
-        with patch("chat_worker.infrastructure.llm.clients.openai_client.AsyncOpenAI") as mock_openai:
+        with patch(
+            "chat_worker.infrastructure.llm.clients.openai_client.AsyncOpenAI"
+        ) as mock_openai:
             mock_client = MagicMock()
             mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
             mock_openai.return_value = mock_client
