@@ -4,6 +4,8 @@ kind: Kustomization
 namespace: prometheus
 
 resources:
+# Cluster Overview Dashboard (25 Nodes)
+- cluster-all-nodes.yaml
 # Master Node Dashboards
 - master-node-resources.yaml
 - master-control-plane.yaml
