@@ -67,6 +67,17 @@ class Intent(str, Enum):
     - 폐형광등 어디서 버려?
     """
 
+    WEATHER = "weather"
+    """날씨 정보 조회 (기상청 KMA API).
+
+    현재 날씨, 기온, 강수 확률 등 날씨 정보.
+
+    - 오늘 날씨 어때?
+    - 지금 비 와?
+    - 강남역 날씨 알려줘
+    - 우산 챙겨야 해?
+    """
+
     IMAGE_GENERATION = "image_generation"
     """이미지 생성 요청.
 

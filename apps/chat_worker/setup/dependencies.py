@@ -119,6 +119,9 @@ _metrics: MetricsPort | None = None
 _image_generator: ImageGeneratorPort | None = None
 _image_storage: ImageStoragePort | None = None
 _image_storage_checked: bool = False  # 캐싱 상태 플래그
+# Raw SDK clients for Location Agent (Function Calling)
+_openai_async_client = None  # openai.AsyncOpenAI
+_gemini_client = None  # google.genai.Client
 
 
 async def get_redis() -> Redis:
@@ -332,6 +335,75 @@ def create_vision_client(
             model=model or settings.openai_default_model,
             api_key=settings.openai_api_key,
         )
+
+
+# ============================================================
+# Raw SDK Clients for Function Calling (Location Agent)
+# ============================================================
+
+
+def get_openai_async_client():
+    """OpenAI AsyncOpenAI 클라이언트 싱글톤.
+
+    Location Agent의 Function Calling에 사용.
+    LLMClientPort와 별개로 raw SDK 클라이언트가 필요함.
+
+    Returns:
+        openai.AsyncOpenAI 또는 None
+    """
+    global _openai_async_client
+    if _openai_async_client is None:
+        settings = get_settings()
+        if not settings.openai_api_key:
+            logger.warning("OpenAI API key not configured")
+            return None
+
+        try:
+            from openai import AsyncOpenAI
+            import httpx
+
+            http_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(60.0, connect=10.0),
+            )
+            _openai_async_client = AsyncOpenAI(
+                api_key=settings.openai_api_key,
+                http_client=http_client,
+                max_retries=3,
+            )
+            logger.info("OpenAI AsyncOpenAI client created (for function calling)")
+        except ImportError:
+            logger.warning("openai package not installed")
+            return None
+
+    return _openai_async_client
+
+
+def get_gemini_client():
+    """Google Gemini Client 싱글톤.
+
+    Location Agent의 Function Calling에 사용.
+    LLMClientPort와 별개로 raw SDK 클라이언트가 필요함.
+
+    Returns:
+        google.genai.Client 또는 None
+    """
+    global _gemini_client
+    if _gemini_client is None:
+        settings = get_settings()
+        if not settings.google_api_key:
+            logger.warning("Google API key not configured")
+            return None
+
+        try:
+            from google import genai
+
+            _gemini_client = genai.Client(api_key=settings.google_api_key)
+            logger.info("Google Gemini client created (for function calling)")
+        except ImportError:
+            logger.warning("google-genai package not installed")
+            return None
+
+    return _gemini_client
 
 
 # ============================================================
@@ -852,6 +924,10 @@ async def get_chat_graph(
     input_requester = await get_input_requester()
     checkpointer = await get_checkpointer()
 
+    # Location Agent용 raw SDK 클라이언트
+    openai_async_client = get_openai_async_client()
+    gemini_client = get_gemini_client()
+
     return create_chat_graph(
         llm=llm,
         retriever=retriever,
@@ -881,6 +957,12 @@ async def get_chat_graph(
         # Dynamic routing 활성화 (Channel Separation + Priority Scheduling 적용됨)
         # ChatState Annotated Reducer로 Send API 병렬 실행 안전
         enable_dynamic_routing=True,
+        # Location Agent 설정 (LLM + Kakao API Tools)
+        openai_async_client=openai_async_client,
+        gemini_client=gemini_client,
+        location_agent_model=settings.openai_default_model,  # 기본 모델
+        location_agent_provider=settings.default_provider,
+        enable_location_agent=True,  # Location Agent 활성화
     )
 
 

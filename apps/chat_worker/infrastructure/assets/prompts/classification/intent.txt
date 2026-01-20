@@ -46,6 +46,14 @@ Eco² 앱의 채팅 시스템에서 적절한 처리 경로를 결정하기 위�
 - "폐건전지 수거함"
 - "폐형광등 버리는 곳"
 
+## weather
+현재 날씨, 기온, 강수 확률, 우산 필요 여부 등 날씨 정보 질문.
+- "오늘 날씨 어때?"
+- "지금 비 와?"
+- "강남역 날씨 알려줘"
+- "우산 챙겨야 해?"
+- "내일 비 오나?"
+
 ## image_generation
 이미지, 그림, 인포그래픽 생성 요청. 캐릭터 그리기 요청 포함.
 - "분리배출 이미지로 보여줘"
@@ -78,7 +86,7 @@ Eco² 앱의 채팅 시스템에서 적절한 처리 경로를 결정하기 위�
 
 # Output
 JSON 형식으로 응답하세요:
-- intent: 8개 카테고리 중 하나
+- intent: 9개 카테고리 중 하나 (waste, character, location, bulk_waste, recyclable_price, collection_point, weather, image_generation, general)
 - confidence: 0.0~1.0 (확실하면 0.85+, 애매하면 0.5~0.7)
 - reasoning: 이 의도로 분류한 이유 (한 문장)
 
@@ -101,6 +109,12 @@ A: {"intent": "bulk_waste", "confidence": 0.90, "reasoning": "대형폐기물 �
 
 Q: "폐건전지 어디서 버려?"
 A: {"intent": "collection_point", "confidence": 0.88, "reasoning": "특수 수거함 위치 질문"}
+
+Q: "오늘 날씨 어때?"
+A: {"intent": "weather", "confidence": 0.95, "reasoning": "현재 날씨 정보 요청"}
+
+Q: "우산 챙겨야 할까?"
+A: {"intent": "weather", "confidence": 0.90, "reasoning": "강수 여부 확인 질문"}
 
 Q: "분리배출이 환경에 도움이 되나요?"
 A: {"intent": "general", "confidence": 0.85, "reasoning": "환경 상식 질문, 특정 품목 처리 아님"}
