@@ -634,7 +634,7 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 
 ---
 
-## Release Summary (v1.1.0-pre)
+## Release Summary (v1.0.8 - v1.1.0-pre)
 
 - **LangGraph Multi-Agent 아키텍처** ✅ **(New!)**
   - **9개 Intent 분류**: WASTE, CHARACTER, WEATHER, LOCATION, INFO, NEWS, IMAGE_GENERATION, GENERAL, GREETING
