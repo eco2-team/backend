@@ -121,7 +121,18 @@ def priority_preemptive_reducer(
         ...     {"success": True, "_priority": 0, "_sequence": 2},
         ... )
         {"success": True, "_priority": 0, "_sequence": 2}
+
+        >>> # _reset 마커로 명시적 리셋
+        >>> priority_preemptive_reducer(
+        ...     {"success": True, "image_url": "..."},
+        ...     {"_reset": True},
+        ... )
+        None
     """
+    # _reset 마커: 명시적으로 필드 초기화 (새 턴 시작 시)
+    if isinstance(new, dict) and new.get("_reset"):
+        return None
+
     # None 처리
     if new is None:
         return existing
