@@ -47,43 +47,43 @@ class TestSubscriberQueue:
         assert queue.last_event_at > initial_time
 
     @pytest.mark.asyncio
-    async def test_put_event_duplicate_seq_rejected(self):
-        """중복 timestamp 이벤트 거부 (timestamp 기반 필터링)."""
+    async def test_put_event_duplicate_stream_id_rejected(self):
+        """중복 stream_id 이벤트 거부 (Stream ID 기반 필터링)."""
         from sse_gateway.core.broadcast_manager import SubscriberQueue
 
         queue = SubscriberQueue(job_id="test-job")
 
         # 첫 번째 이벤트 성공
         result1 = await queue.put_event(
-            {"stage": "vision", "status": "started", "timestamp": 1000.0, "seq": 1}
+            {"stage": "vision", "status": "started", "stream_id": "1000-0", "seq": 1}
         )
         assert result1 is True
 
-        # 같은 stage:status의 같은 timestamp 거부
+        # 같은 stream_id 거부
         result2 = await queue.put_event(
-            {"stage": "vision", "status": "started", "timestamp": 1000.0, "seq": 1}
+            {"stage": "vision", "status": "started", "stream_id": "1000-0", "seq": 1}
         )
         assert result2 is False
 
-        # 같은 stage:status의 더 오래된 timestamp 거부
+        # 더 오래된 stream_id 거부
         result3 = await queue.put_event(
-            {"stage": "vision", "status": "started", "timestamp": 999.0, "seq": 0}
+            {"stage": "vision", "status": "started", "stream_id": "999-0", "seq": 0}
         )
         assert result3 is False
 
-        # 더 최근 timestamp는 성공
+        # 더 최근 stream_id는 성공
         result4 = await queue.put_event(
-            {"stage": "vision", "status": "started", "timestamp": 1001.0, "seq": 2}
+            {"stage": "vision", "status": "started", "stream_id": "1001-0", "seq": 2}
         )
         assert result4 is True
 
-        # 다른 stage는 seq 무관하게 성공 (timestamp 기반)
+        # 다른 stage도 stream_id가 더 크면 성공
         result5 = await queue.put_event(
-            {"stage": "rule", "status": "started", "timestamp": 500.0, "seq": 0}
+            {"stage": "rule", "status": "started", "stream_id": "1002-0", "seq": 0}
         )
         assert result5 is True
 
-        assert queue.queue.qsize() == 3  # vision(1000), vision(1001), rule(500)
+        assert queue.queue.qsize() == 3
 
     @pytest.mark.asyncio
     async def test_put_event_preserves_done(self):
