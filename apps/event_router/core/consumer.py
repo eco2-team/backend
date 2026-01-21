@@ -182,6 +182,10 @@ class StreamConsumer:
                         # 이벤트 파싱
                         event = self._parse_event(data)
 
+                        # Stream ID를 이벤트에 추가 (단조 증가 보장)
+                        # SSE Gateway에서 중복 필터링에 사용
+                        event["stream_id"] = msg_id
+
                         # 개별 이벤트 수신 로깅
                         logger.info(
                             "event_received",

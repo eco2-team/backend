@@ -80,6 +80,15 @@ def get_state_prefix(domain: str | None = None) -> str:
 class SubscriberQueue:
     """클라이언트별 Bounded Queue.
 
+    중복 필터링 전략 (정석 패턴):
+    - 토큰 이벤트: 전용 seq 기반 (last_token_seq)
+    - Stage 이벤트: Redis Stream ID 기반 (단조 증가 보장)
+
+    Stream ID 기반 장점:
+    - 분산 환경에서도 순서 보장 (Redis가 발급)
+    - timestamp 기반의 clock skew 문제 없음
+    - 병렬 노드에서도 정상 이벤트 드랍 방지
+
     Drop 정책:
     - Queue가 가득 차면 가장 오래된 이벤트 제거
     - done/error 이벤트는 항상 보존
@@ -90,8 +99,12 @@ class SubscriberQueue:
     queue: asyncio.Queue[dict[str, Any]] = field(default_factory=lambda: asyncio.Queue(maxsize=100))
     created_at: float = field(default_factory=time.time)
     last_event_at: float = field(default_factory=time.time)
-    last_seq: int = field(default=-1)  # catch-up을 위한 seq 추적
-    seen_events: dict[str, float] = field(default_factory=dict)  # timestamp 기반 중복 필터링
+    # 토큰 전용 seq (stage seq와 완전 분리)
+    last_token_seq: int = field(default=-1)
+    # Stage 이벤트용 Stream ID (Redis Stream ID = 단조 증가 보장)
+    last_stream_id: str = field(default="0-0")
+    # catch-up용 seq (레거시 호환)
+    last_seq: int = field(default=-1)
 
     def __hash__(self) -> int:
         """set에 추가할 수 있도록 hash 구현."""
@@ -101,11 +114,44 @@ class SubscriberQueue:
         """동일 인스턴스 비교."""
         return self is other
 
-    async def put_event(self, event: dict[str, Any]) -> bool:
-        """이벤트 추가 (timestamp 기반 중복 필터링 + Drop 정책).
+    @staticmethod
+    def _compare_stream_id(a: str, b: str) -> int:
+        """Redis Stream ID 비교.
 
-        병렬 실행 노드를 지원하기 위해 seq 대신 timestamp로 중복 체크.
-        stage:status 조합으로 이벤트를 식별하고, 더 오래된 timestamp는 필터링.
+        Stream ID 형식: "{timestamp_ms}-{seq}" (예: "1737415902456-0")
+        단조 증가 보장: 같은 Stream에서 나중에 발행된 ID가 항상 더 큼.
+
+        Returns:
+            -1 if a < b, 0 if a == b, 1 if a > b
+        """
+
+        def parse(sid: str) -> tuple[int, int]:
+            try:
+                parts = sid.split("-")
+                ts = int(parts[0]) if parts[0] else 0
+                seq = int(parts[1]) if len(parts) > 1 and parts[1] else 0
+                return (ts, seq)
+            except (ValueError, IndexError):
+                return (0, 0)
+
+        a_parsed, b_parsed = parse(a), parse(b)
+        if a_parsed < b_parsed:
+            return -1
+        elif a_parsed > b_parsed:
+            return 1
+        return 0
+
+    async def put_event(self, event: dict[str, Any]) -> bool:
+        """이벤트 추가 (중복 필터링 + Drop 정책).
+
+        중복 필터링 전략:
+        - 토큰 이벤트 (stage="token"): 전용 seq 기반 (last_token_seq)
+        - Stage 이벤트: stream_id 기반 (Redis Stream ID = 단조 증가 보장)
+
+        이 방식의 장점:
+        1. 토큰/stage seq 충돌 방지 (별도 추적)
+        2. 분산 환경에서도 순서 보장 (Stream ID = Redis가 발급)
+        3. clock skew, timestamp 해상도 문제 없음
 
         Args:
             event: 이벤트 딕셔너리
@@ -113,34 +159,45 @@ class SubscriberQueue:
         Returns:
             성공 여부
         """
-        # timestamp 기반 중복 필터링
         event_stage = event.get("stage", "unknown")
-        event_status = event.get("status", "unknown")
-        event_id = f"{event_stage}:{event_status}"
-        event_timestamp = event.get("timestamp", 0)
 
-        try:
-            event_timestamp = float(event_timestamp)
-        except (ValueError, TypeError):
-            event_timestamp = 0
+        # 토큰 이벤트: 전용 seq 기반 필터링
+        # (모든 토큰이 stage:status="token:streaming"으로 동일)
+        if event_stage == "token":
+            event_seq = event.get("seq", 0)
+            try:
+                event_seq = int(event_seq)
+            except (ValueError, TypeError):
+                event_seq = 0
 
-        # 같은 이벤트(stage:status)의 더 최근 timestamp만 허용
-        if event_id in self.seen_events:
-            if event_timestamp <= self.seen_events[event_id]:
-                # 이미 전달했거나 더 오래된 이벤트
+            if event_seq <= self.last_token_seq:
+                # 이미 전달했거나 역순
                 return False
+            self.last_token_seq = event_seq
 
-        self.seen_events[event_id] = event_timestamp
+            # catch-up용 last_seq도 업데이트
+            if event_seq > self.last_seq:
+                self.last_seq = event_seq
+        else:
+            # Stage 이벤트: stream_id 기반 필터링 (단조 증가 보장)
+            stream_id = event.get("stream_id", "")
 
-        # seq 업데이트 (catch-up을 위해 유지)
-        event_seq = event.get("seq", 0)
-        try:
-            event_seq = int(event_seq)
-        except (ValueError, TypeError):
-            event_seq = 0
+            if stream_id:
+                # Stream ID 비교 (Redis가 발급한 단조 증가 ID)
+                if self._compare_stream_id(stream_id, self.last_stream_id) <= 0:
+                    # 이미 전달했거나 역순
+                    return False
+                self.last_stream_id = stream_id
 
-        if event_seq > self.last_seq:
-            self.last_seq = event_seq
+            # catch-up용 last_seq 업데이트
+            event_seq = event.get("seq", 0)
+            try:
+                event_seq = int(event_seq)
+            except (ValueError, TypeError):
+                event_seq = 0
+
+            if event_seq > self.last_seq:
+                self.last_seq = event_seq
 
         # done/error는 항상 보존 - Queue가 가득 차면 오래된 것 제거
         if self.queue.full():
