@@ -84,7 +84,7 @@ class DefaultLLMPolicy(LLMPolicyPort):
                     self._templates[template_name] = f.read()
                     logger.debug(
                         "Template loaded",
-                        extra={"name": template_name},
+                        extra={"template_name": template_name},
                     )
             except Exception as e:
                 logger.error(
@@ -118,7 +118,7 @@ class DefaultLLMPolicy(LLMPolicyPort):
         if not template:
             logger.warning(
                 "Template not found",
-                extra={"name": template_name},
+                extra={"template_name": template_name},
             )
             return ""
 
@@ -127,7 +127,7 @@ class DefaultLLMPolicy(LLMPolicyPort):
         except KeyError as e:
             logger.error(
                 "Template formatting failed",
-                extra={"name": template_name, "error": str(e)},
+                extra={"template_name": template_name, "error": str(e)},
             )
             return template
 

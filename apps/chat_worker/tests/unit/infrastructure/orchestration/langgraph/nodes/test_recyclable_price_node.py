@@ -45,12 +45,25 @@ class MockRecyclablePriceClient:
             survey_date="2025-01",
             total_count=1,
         )
+        self._category_response: RecyclablePriceSearchResponse | None = None
+        self.search_price_calls: list[dict] = []
+        self.get_category_calls: list[dict] = []
+
+    def set_response(self, response: RecyclablePriceSearchResponse):
+        """search_price 응답 설정."""
+        self._response = response
+
+    def set_category_response(self, response: RecyclablePriceSearchResponse):
+        """get_category_prices 응답 설정."""
+        self._category_response = response
 
     async def search_price(self, item_name: str, region=None):
+        self.search_price_calls.append({"item_name": item_name, "region": region})
         return self._response
 
     async def get_category_prices(self, category, region=None):
-        return self._response
+        self.get_category_calls.append({"category": category, "region": region})
+        return self._category_response or self._response
 
     async def get_all_prices(self, region=None):
         return self._response
@@ -60,6 +73,43 @@ class MockRecyclablePriceClient:
 
     async def close(self):
         pass
+
+
+class MockLLMClient:
+    """테스트용 Mock LLM Client (Function Calling 지원)."""
+
+    def __init__(self):
+        self.function_call_results: list[tuple[str | None, dict | None]] = []
+        self.call_count = 0
+        self.should_raise = False
+        self.error_message = "LLM Error"
+
+    def set_function_call_result(self, func_name: str | None, func_args: dict | None):
+        """Function call 결과 설정."""
+        self.function_call_results = [(func_name, func_args)]
+
+    def set_error(self, error_message: str = "LLM Error"):
+        """에러 발생 설정."""
+        self.should_raise = True
+        self.error_message = error_message
+
+    async def generate_function_call(
+        self,
+        prompt: str,
+        functions: list[dict],
+        system_prompt: str = "",
+        function_call: dict | str = "auto",
+    ) -> tuple[str | None, dict | None]:
+        """Mock function call 생성."""
+        self.call_count += 1
+
+        if self.should_raise:
+            raise Exception(self.error_message)
+
+        if self.function_call_results:
+            return self.function_call_results[0]
+
+        return None, None
 
 
 class MockEventPublisher:
@@ -104,13 +154,19 @@ class TestRecyclablePriceNode:
         return MockEventPublisher()
 
     @pytest.fixture
+    def mock_llm(self) -> MockLLMClient:
+        """Mock LLM Client (Function Calling 지원)."""
+        return MockLLMClient()
+
+    @pytest.fixture
     def node(
         self,
         mock_client: MockRecyclablePriceClient,
         mock_publisher: MockEventPublisher,
+        mock_llm: MockLLMClient,
     ):
         """테스트용 Node."""
-        return create_recyclable_price_node(mock_client, mock_publisher)
+        return create_recyclable_price_node(mock_client, mock_publisher, mock_llm)
 
     # ==========================================================
     # Basic Execution Tests
@@ -157,10 +213,19 @@ class TestRecyclablePriceNode:
         self,
         mock_client: MockRecyclablePriceClient,
         mock_publisher: MockEventPublisher,
+        mock_llm: MockLLMClient,
     ):
-        """명시적 품목명 우선 사용."""
-        mock_client.search_price = AsyncMock(
-            return_value=RecyclablePriceSearchResponse(
+        """LLM이 추출한 품목명 사용 (detail_type만 있는 경우)."""
+        # LLM function call 결과 설정 (detail_type만, material 없음)
+        # material이 없으면 category가 설정되지 않아 search_price가 호출됨
+        mock_llm.set_function_call_result(
+            "get_recyclable_price",
+            {"detail_type": "페트"},  # material 없음
+        )
+
+        # Mock 응답 설정
+        mock_client.set_response(
+            RecyclablePriceSearchResponse(
                 items=[
                     RecyclablePriceDTO(
                         item_code="plastic_pet",
@@ -174,19 +239,18 @@ class TestRecyclablePriceNode:
             )
         )
 
-        node = create_recyclable_price_node(mock_client, mock_publisher)
+        node = create_recyclable_price_node(mock_client, mock_publisher, mock_llm)
 
         state = {
             "job_id": "job-789",
             "message": "캔 얼마야?",  # message에는 "캔"
-            "recyclable_item": "페트",  # 명시적으로 "페트" 지정
         }
 
         await node(state)
 
-        # 명시적 item_name이 우선
-        call_kwargs = mock_client.search_price.call_args.kwargs
-        assert call_kwargs["item_name"] == "페트"
+        # LLM이 추출한 detail_type이 item_name으로 사용됨
+        assert len(mock_client.search_price_calls) == 1
+        assert mock_client.search_price_calls[0]["item_name"] == "페트"
 
     # ==========================================================
     # State Transformation Tests
@@ -197,33 +261,44 @@ class TestRecyclablePriceNode:
         self,
         mock_client: MockRecyclablePriceClient,
         mock_publisher: MockEventPublisher,
+        mock_llm: MockLLMClient,
     ):
-        """카테고리 전달."""
-        mock_client.get_category_prices = AsyncMock(
-            return_value=RecyclablePriceSearchResponse(
+        """LLM이 추출한 카테고리 전달 (material이 category로 사용됨)."""
+        # LLM function call 결과 설정 (material만 있고 detail_type 없음)
+        # material이 있으면 category로 설정되어 get_category_prices가 호출됨
+        mock_llm.set_function_call_result(
+            "get_recyclable_price",
+            {"material": "metal"},
+        )
+
+        # Mock 응답 설정
+        mock_client.set_response(
+            RecyclablePriceSearchResponse(
                 items=[],
                 query="metal",
                 total_count=0,
             )
         )
 
-        node = create_recyclable_price_node(mock_client, mock_publisher)
+        node = create_recyclable_price_node(mock_client, mock_publisher, mock_llm)
 
         state = {
             "job_id": "job-cat",
             "message": "폐금속 시세",
-            "recyclable_category": RecyclableCategory.METAL,
         }
 
         await node(state)
 
-        mock_client.get_category_prices.assert_called_once()
+        # material이 category로 사용되어 get_category_prices 호출됨
+        assert len(mock_client.get_category_calls) == 1
+        assert mock_client.get_category_calls[0]["category"] == "metal"
 
     @pytest.mark.anyio
     async def test_node_passes_region(
         self,
         mock_client: MockRecyclablePriceClient,
         mock_publisher: MockEventPublisher,
+        mock_llm: MockLLMClient,
     ):
         """권역 전달."""
         mock_client.search_price = AsyncMock(
@@ -234,7 +309,7 @@ class TestRecyclablePriceNode:
             )
         )
 
-        node = create_recyclable_price_node(mock_client, mock_publisher)
+        node = create_recyclable_price_node(mock_client, mock_publisher, mock_llm)
 
         state = {
             "job_id": "job-region",
@@ -339,6 +414,7 @@ class TestRecyclablePriceNode:
     async def test_node_handles_client_error(
         self,
         mock_publisher: MockEventPublisher,
+        mock_llm: MockLLMClient,
     ):
         """클라이언트 에러 처리."""
 
@@ -355,7 +431,7 @@ class TestRecyclablePriceNode:
             async def get_price_trend(self, item_name, region=None, months=6):
                 return None
 
-        node = create_recyclable_price_node(ErrorClient(), mock_publisher)
+        node = create_recyclable_price_node(ErrorClient(), mock_publisher, mock_llm)
 
         state = {
             "job_id": "job-error",
@@ -379,6 +455,7 @@ class TestRecyclablePriceNode:
         self,
         mock_client: MockRecyclablePriceClient,
         mock_publisher: MockEventPublisher,
+        mock_llm: MockLLMClient,
     ):
         """검색 결과 없음 처리."""
         mock_client.search_price = AsyncMock(
@@ -389,7 +466,7 @@ class TestRecyclablePriceNode:
             )
         )
 
-        node = create_recyclable_price_node(mock_client, mock_publisher)
+        node = create_recyclable_price_node(mock_client, mock_publisher, mock_llm)
 
         state = {
             "job_id": "job-notfound",
@@ -405,20 +482,36 @@ class TestRecyclablePriceNode:
     @pytest.mark.anyio
     async def test_node_handles_no_item(
         self,
-        node,
+        mock_client: MockRecyclablePriceClient,
         mock_publisher: MockEventPublisher,
+        mock_llm: MockLLMClient,
     ):
-        """품목 없을 때 안내 메시지."""
+        """LLM이 품목 추출 실패 시 fallback으로 검색."""
+        # LLM function call이 None 반환 (품목 추출 실패)
+        mock_llm.set_function_call_result(None, None)
+
+        # fallback으로 message가 item_name이 되어 검색 시도
+        # "안녕하세요"로 검색하면 결과 없음
+        mock_client.search_price = AsyncMock(
+            return_value=RecyclablePriceSearchResponse(
+                items=[],
+                query="안녕하세요",
+                total_count=0,
+            )
+        )
+
+        node = create_recyclable_price_node(mock_client, mock_publisher, mock_llm)
+
         state = {
             "job_id": "job-noitem",
             "message": "안녕하세요",  # 품목 키워드 없음
-            # recyclable_item 없음
         }
 
         result = await node(state)
 
         context = result["recyclable_price_context"]
-        assert context["type"] == "guide"
+        # fallback으로 검색 시도 → 결과 없음 → not_found
+        assert context["type"] == "not_found"
 
     # ==========================================================
     # State Preservation Tests

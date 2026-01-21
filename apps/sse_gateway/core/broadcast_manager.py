@@ -90,7 +90,8 @@ class SubscriberQueue:
     queue: asyncio.Queue[dict[str, Any]] = field(default_factory=lambda: asyncio.Queue(maxsize=100))
     created_at: float = field(default_factory=time.time)
     last_event_at: float = field(default_factory=time.time)
-    last_seq: int = field(default=-1)  # seq 기반 중복 필터링
+    last_seq: int = field(default=-1)  # catch-up을 위한 seq 추적
+    seen_events: dict[str, float] = field(default_factory=dict)  # timestamp 기반 중복 필터링
 
     def __hash__(self) -> int:
         """set에 추가할 수 있도록 hash 구현."""
@@ -101,7 +102,10 @@ class SubscriberQueue:
         return self is other
 
     async def put_event(self, event: dict[str, Any]) -> bool:
-        """이벤트 추가 (seq 기반 중복/역순 필터링 + Drop 정책).
+        """이벤트 추가 (timestamp 기반 중복 필터링 + Drop 정책).
+
+        병렬 실행 노드를 지원하기 위해 seq 대신 timestamp로 중복 체크.
+        stage:status 조합으로 이벤트를 식별하고, 더 오래된 timestamp는 필터링.
 
         Args:
             event: 이벤트 딕셔너리
@@ -109,18 +113,34 @@ class SubscriberQueue:
         Returns:
             성공 여부
         """
-        # seq 기반 중복/역순 필터링
+        # timestamp 기반 중복 필터링
+        event_stage = event.get("stage", "unknown")
+        event_status = event.get("status", "unknown")
+        event_id = f"{event_stage}:{event_status}"
+        event_timestamp = event.get("timestamp", 0)
+
+        try:
+            event_timestamp = float(event_timestamp)
+        except (ValueError, TypeError):
+            event_timestamp = 0
+
+        # 같은 이벤트(stage:status)의 더 최근 timestamp만 허용
+        if event_id in self.seen_events:
+            if event_timestamp <= self.seen_events[event_id]:
+                # 이미 전달했거나 더 오래된 이벤트
+                return False
+
+        self.seen_events[event_id] = event_timestamp
+
+        # seq 업데이트 (catch-up을 위해 유지)
         event_seq = event.get("seq", 0)
         try:
             event_seq = int(event_seq)
         except (ValueError, TypeError):
             event_seq = 0
 
-        if event_seq <= self.last_seq:
-            # 이미 전달했거나 역순
-            return False
-
-        self.last_seq = event_seq
+        if event_seq > self.last_seq:
+            self.last_seq = event_seq
 
         # done/error는 항상 보존 - Queue가 가득 차면 오래된 것 제거
         if self.queue.full():
