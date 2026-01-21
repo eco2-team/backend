@@ -1,15 +1,15 @@
 # Eco² Backend
 
-> **Version**: v1.0.7 | [Changelog](CHANGELOG.md)
+> **Version**: v1.1.0-pre | [Changelog](CHANGELOG.md)
 
 <img width="3840" height="2160" alt="515829337-6a4f523a-fa37-49de-b8e1-0a5befe26605" src="https://github.com/user-attachments/assets/e6c7d948-aa06-4bbb-b2fc-237aa7f01223" />
 
 
-- **GPT Vision + Rule-based-retrieval** 기반 AI 어시스턴트로, 폐기물 이미지 분류·분리배출 안내·챗봇 기능을 제공합니다.
-- Self-managed Kubernetes 21-Nodes 클러스터에서 **Istio Service Mesh**(mTLS, Auth Offloading)와 **ArgoCD GitOps**로 운영합니다.
+- **LangGraph Multi-Agent + GPT Vision** 기반 AI 어시스턴트로, 9개 Intent 분류·Function Calling·이미지 생성·폐기물 분류·챗봇 기능을 제공합니다.
+- Self-managed Kubernetes **25-Nodes** 클러스터에서 **Istio Service Mesh**(mTLS, Auth Offloading)와 **ArgoCD GitOps**로 운영합니다.
 - **Redis Streams + Pub/Sub + State KV** 기반 Event Relay Layer로 실시간 SSE 이벤트를 처리하고, **KEDA**로 이벤트 드리븐 오토스케일링을 수행합니다.
-- **RabbitMQ + Celery** 비동기 Task Queue로 AI 파이프라인을 처리하고, **EFK + Jaeger**로 로깅·트레이싱을 수집합니다.
-- 7개 도메인 마이크로서비스(auth, my, scan, chat, character, location, image)를 모노레포로 관리합니다.
+- **RabbitMQ + TaskIQ/Celery** 비동기 Task Queue로 AI 파이프라인을 처리하고, **EFK + Jaeger + LangSmith**로 로깅·트레이싱을 수집합니다.
+- 8개 도메인 마이크로서비스(auth, users, scan, chat, character, location, info, images)를 모노레포로 관리합니다.
 - 정상 배포 중: [https://frontend.dev.growbin.app](https://frontend.dev.growbin.app)
 
 ---
@@ -20,23 +20,23 @@
 
 ```yaml
 Edge Layer               : Route 53, AWS ALB, Istio Ingress Gateway
-Service Layer            : auth, users, my, scan, character, location, chat (w/ Envoy Sidecar)
+Service Layer            : auth, users, scan, character, location, chat, info, images (w/ Envoy Sidecar)
 Integration Layer        :
   - Event Relay          : Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
-  - Worker (Storage)     : auth-worker, auth-relay, users-worker, character-worker, my-worker, character-match-worker
-  - Worker (AI)          : scan-worker (Vision→Rule→Answer→Reward)
+  - Worker (Storage)     : auth-worker, auth-relay, users-worker, character-worker, character-match-worker, info-worker
+  - Worker (AI)          : scan-worker (Vision→Rule→Answer→Reward), chat-worker (LangGraph Multi-Agent)
 Persistence Layer        : PostgreSQL, Redis (Blacklist/State/Streams/Pub-Sub/Cache)
-Platform Layer           : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, EFK Stack
+Platform Layer           : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, LangSmith, EFK Stack
 ```
 
 본 서비스는 5-Layer Architecture로 구성되었습니다.
 
 - **Edge Layer**: AWS ALB가 SSL Termination을 처리하고, 트래픽을 `Istio Ingress Gateway`로 전달합니다. Gateway는 `VirtualService` 규칙에 따라 North-South 트래픽을 라우팅합니다.
-- **Service Layer**: 모든 마이크로서비스는 **Istio Service Mesh** 내에서 동작하며, `Envoy Sidecar`를 통해 mTLS 통신, 트래픽 제어, 메트릭 수집을 수행합니다. `auth`→`users` gRPC 통신으로 도메인 간 동기 호출을 처리합니다.
-- **Integration Layer - Event Relay**: **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처로 SSE 파이프라인을 처리합니다. **RabbitMQ + Celery** 비동기 Task Queue로 AI 파이프라인(Vision→Rule→Answer→Reward)을 처리하고, **KEDA**가 이벤트 드리븐 오토스케일링을 수행합니다.
-- **Integration Layer - Worker**: **Storage Worker**(`worker-storage` 노드)는 Persistence Layer에 접근하여 데이터를 동기화합니다. `auth-worker`는 RabbitMQ에서 블랙리스트 이벤트를 소비해 Redis에 저장하고, `auth-relay`는 Redis Outbox 패턴으로 실패 이벤트를 재발행합니다. `users-worker`는 Celery Batch로 캐릭터 소유권을 PostgreSQL에 UPSERT합니다. **AI Worker**(`worker-ai` 노드)는 OpenAI API와 통신하며, `scan-worker`가 Vision→Rule→Answer→Reward 체인을 gevent pool로 처리합니다.
+- **Service Layer**: 모든 마이크로서비스는 **Istio Service Mesh** 내에서 동작하며, `Envoy Sidecar`를 통해 mTLS 통신, 트래픽 제어, 메트릭 수집을 수행합니다. `auth`→`users` gRPC 통신, `chat`→`images` gRPC 통신으로 도메인 간 동기 호출을 처리합니다.
+- **Integration Layer - Event Relay**: **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처로 SSE 파이프라인을 처리합니다. **RabbitMQ + TaskIQ/Celery** 비동기 Task Queue로 AI 파이프라인을 처리하고, **KEDA**가 이벤트 드리븐 오토스케일링을 수행합니다.
+- **Integration Layer - Worker**: **Storage Worker**(`worker-storage` 노드)는 Persistence Layer에 접근하여 데이터를 동기화합니다. `auth-worker`는 RabbitMQ에서 블랙리스트 이벤트를 소비해 Redis에 저장하고, `auth-relay`는 Redis Outbox 패턴으로 실패 이벤트를 재발행합니다. `users-worker`는 Celery Batch로 캐릭터 소유권을 PostgreSQL에 UPSERT합니다. `info-worker`는 Celery Beat로 환경 뉴스를 주기적으로 수집합니다. **AI Worker**(`worker-ai` 노드)는 OpenAI/Google API와 통신하며, `scan-worker`가 Vision→Rule→Answer→Reward 체인을 gevent pool로 처리하고, `chat-worker`가 LangGraph Multi-Agent를 실행합니다.
 - **Persistence Layer**: 서비스는 영속성을 위해 PostgreSQL, Redis를 사용합니다. Redis는 용도별로 분리(Blacklist/OAuth State/Streams/Pub-Sub/Cache)되며, Helm Chart로 관리되는 독립적인 데이터 인프라입니다.
-- **Platform Layer**: `Istiod`가 Service Mesh를 제어하고, `ArgoCD`가 GitOps 동기화를 담당합니다. `KEDA`가 이벤트 드리븐 오토스케일링을 수행하고, Observability 스택(`Prometheus/Grafana/Kiali`, `Jaeger`, `EFK Stack`)이 메트릭·트레이싱·로깅을 통합 관리합니다.
+- **Platform Layer**: `Istiod`가 Service Mesh를 제어하고, `ArgoCD`가 GitOps 동기화를 담당합니다. `KEDA`가 이벤트 드리븐 오토스케일링을 수행하고, Observability 스택(`Prometheus/Grafana/Kiali`, `Jaeger`, `LangSmith`, `EFK Stack`)이 메트릭·트레이싱·로깅을 통합 관리합니다.
 
 각 계층은 서로 독립적으로 기능하도록 설계되었으며, Platform Layer가 전 계층을 제어 및 관측합니다.
 프로덕션 환경을 전제로 한 Self-manged Kubernetes 기반 클러스터로 컨테이너화된 어플리케이션의 오케스트레이션을 지원합니다.
@@ -51,12 +51,13 @@ Platform Layer           : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jae
 | 서비스 | 설명 | 이미지/태그 |
 |--------|------|-------------|
 | auth | JWT 인증/인가 (RS256) | `docker.io/mng990/eco2:auth-{env}-latest` |
-| my | 사용자 정보 | `docker.io/mng990/eco2:my-{env}-latest` |
-| scan | Lite RAG + GPT 5.1 Vision 폐기물 분류 | `docker.io/mng990/eco2:scan-{env}-latest` |
-| chat | Lite RAG + GPT 5.1 챗봇 | `docker.io/mng990/eco2:chat-{env}-latest` |
+| users | 사용자 정보 관리 (gRPC) | `docker.io/mng990/eco2:users-{env}-latest` |
+| scan | Lite RAG + GPT-5.2 Vision 폐기물 분류 | `docker.io/mng990/eco2:scan-{env}-latest` |
+| chat | **LangGraph Multi-Agent 챗봇** (9 Intents) | `docker.io/mng990/eco2:chat-{env}-latest` |
 | character | 캐릭터 제공 | `docker.io/mng990/eco2:character-{env}-latest` |
 | location | 지도/수거함 검색 | `docker.io/mng990/eco2:location-{env}-latest` |
-| images | 이미지 업로드 | `docker.io/mng990/eco2:image-{env}-latest` |
+| info | 환경 뉴스 조회 | `docker.io/mng990/eco2:info-{env}-latest` |
+| images | 이미지 업로드 (gRPC) | `docker.io/mng990/eco2:images-{env}-latest` |
 
 ### Celery Workers ✅
 
@@ -65,16 +66,45 @@ Platform Layer           : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jae
 | scan-worker | `worker-ai` | AI 파이프라인 처리 (Vision→Rule→Answer→Reward) | `scan.vision`, `scan.rule`, `scan.answer`, `scan.reward` | KEDA (RabbitMQ) |
 | character-match-worker | `worker-storage` | 캐릭터 매칭 처리 | `character.match` | KEDA (RabbitMQ) |
 | character-worker | `worker-storage` | 캐릭터 소유권 저장 (batch) | `character.reward` | KEDA (RabbitMQ) |
-| my-worker | `worker-storage` | 마이페이지 캐릭터 동기화 (batch) | `my.reward` | KEDA (RabbitMQ) |
-| users-worker | `worker-storage` | 유저 캐릭터 소유권 PostgreSQL UPSERT (Clean Arch) | `users.character` | KEDA (RabbitMQ) |
+| users-worker | `worker-storage` | 유저 캐릭터 소유권 PostgreSQL UPSERT | `users.character` | KEDA (RabbitMQ) |
+| info-worker | `worker-storage` | 환경 뉴스 수집 (Celery Beat) | `info.collect_news` | 단일 인스턴스 |
 | celery-beat | `worker-storage` | DLQ 재처리 스케줄링 | - | 단일 인스턴스 |
 
-### Auth Workers (Clean Architecture) ✅
+### TaskIQ Workers (LangGraph) ✅
+
+| Worker | 노드 | 설명 | Exchange / Queue | Scaling |
+|--------|------|------|------------------|---------|
+| chat-worker | `worker-ai` | LangGraph Multi-Agent 실행 (9 Intents, timeout 120s, retry 2) | `chat_tasks` → `chat.process` | KEDA (RabbitMQ) |
+| chat-persistence-consumer | `worker-storage` | Redis Streams → PostgreSQL 메시지 저장 | - | 단일 인스턴스 |
+
+<details>
+<summary>📋 TaskIQ Worker 상세 설정</summary>
+
+```yaml
+# chat-worker 설정
+Exchange: chat_tasks (direct)
+Queue: chat.process (DLX, TTL 설정)
+Workers: 4 (concurrent)
+Max Async Tasks: 10
+Timeout: 120s
+Retry: 2회
+
+# 트레이싱
+- aio-pika Instrumentation (MQ 메시지 추적)
+- OpenAI/Gemini Instrumentation (LLM API 호출)
+- LangSmith OTEL (LangGraph → Jaeger 통합)
+```
+
+</details>
+
+### Token Blacklist Event Relay ✅
+
+> JWT 토큰 무효화를 위한 Redis-backed Outbox 패턴. 분산 환경에서 블랙리스트 이벤트의 **At-Least-Once 전달**을 보장합니다.
 
 | Worker | 노드 | 설명 | 입력 | 출력 |
 |--------|------|------|------|------|
-| auth-worker | `worker-storage` | 블랙리스트 이벤트 → Redis 저장 | RabbitMQ `blacklist.events` | Redis `blacklist:{jti}` |
-| auth-relay | `worker-storage` | Redis Outbox → RabbitMQ 재발행 (Outbox Pattern) | Redis `outbox:blacklist` | RabbitMQ `blacklist.events` |
+| auth-worker | `worker-storage` | 블랙리스트 이벤트 수신 → Redis KV 저장 | RabbitMQ `blacklist.events` | Redis `blacklist:{jti}` |
+| auth-relay | `worker-storage` | Redis Outbox 폴링 → RabbitMQ 재발행 | Redis `outbox:blacklist` | RabbitMQ `blacklist.events` |
 
 ### Event Relay Components ✅
 
@@ -87,17 +117,189 @@ Platform Layer           : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jae
 
 ---
 
-## AI Domain Progress
+## LLM Image Classification Pipeline (Scan API, Chat API 이미지 인식)
 ![ECA49AD6-EA0C-4957-8891-8C6FA12A2916](https://github.com/user-attachments/assets/52242701-3c5d-4cf3-9ab7-7c391215f17f)
 
-| 항목 | 진행 내용 (2025-11 기준) |
+| 항목 | 진행 내용 (2026-01 기준) |
 |------|-------------------------|
-| Vision 인식 파이프라인 | `domains/chat/app/core/ImageRecognition.py`, `vision.py`에서 Azure Vision → OpenAI GPT-4o-mini 조합으로 폐기물 이미지를 분류. `item_class_list.yaml`, `situation_tags.yaml`에 카테고리/상황 태그 정의 후 Prompt에 자동 삽입. |
-| Text/Intent 분류 | `text_classifier.py`, `prompts/text_classification_prompt.txt` 기반으로 사용자 질의를 intent/priority로 자동 분류하여 답변 라우팅. |
-| RAG/지식 베이스 | `app/core/source/*.json`에 음식물/재활용 품목별 처리 지침을 다수의 JSON으로 축적하고, `rag.py`가 검색·요약해 답변에 인용. |
-| 답변 생성 Prompt | `prompts/answer_generation_prompt.txt`, `vision_classification_prompt.txt`를 통해 다중 소스 결과를 하나의 친절한 응답으로 구성. multi-turn 컨텍스트와 tone을 prompt 레벨에서 제어. |
-| API 구조 | `domains/chat/app` → FastAPI + `chat/app/core/*` 서비스 계층으로 분리. `/api/v1/chat` 엔드포인트는 text/vision 요청을 자동 판별하고 OpenAI 호출을 추상화. |
-| 테스트/운영 | `tests/test_app.py`로 API 레벨 smoke test, `requirements.txt`에 OpenAI/Azure SDK 고정.|
+| Vision 인식 파이프라인 | `apps/scan_worker/`에서 **GPT-5.2 Vision**으로 폐기물 이미지 분류. `item_class_list.yaml`, `situation_tags.yaml`에 카테고리/상황 태그 정의. |
+| RAG/지식 베이스 | `apps/scan_worker/infrastructure/source/*.json`에 음식물/재활용 품목별 처리 지침 축적. Lite RAG 검색·요약. |
+
+---
+
+## Chat Agent Architecture (LangGraph)
+
+> **Status**: e2e 검증 중
+
+### 1. LangGraph StateGraph (Intent-Routed Workflow)
+
+> `app.get_graph().draw_mermaid()` 스타일 ([참고](https://rudaks.tistory.com/entry/langgraph-%EA%B7%B8%EB%9E%98%ED%94%84%EB%A5%BC-%EC%8B%9C%EA%B0%81%ED%99%94%ED%95%98%EB%8A%94-%EB%B0%A9%EB%B2%95))
+
+**Dynamic Routing (Send API)**를 사용하여 런타임에 복수 노드를 병렬 실행합니다.
+
+- **Multi-Intent Fanout**: `additional_intents` → 각각 병렬 Send
+- **Intent 기반 Enrichment**: `waste` → `weather` 자동 추가 (분리배출 + 날씨 팁)
+- **Conditional Enrichment**: `user_location` 있으면 `weather` 자동 추가
+- **Context Compression**: 토큰 임계값 초과 시 `summarize` 노드에서 이전 대화 요약
+
+```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
+graph TD;
+    __start__([<p>__start__</p>]):::first
+    intent(intent)
+    vision(vision)
+    router{router}
+    waste_rag(waste_rag)
+    character(character)
+    location(location)
+    weather(weather)
+    collection_point(collection_point)
+    bulk_waste(bulk_waste)
+    recyclable_price(recyclable_price)
+    image_generation(image_generation)
+    general(general)
+    aggregator(aggregator)
+    summarize(summarize)
+    answer(answer)
+    __end__([<p>__end__</p>]):::last
+
+    __start__ --> intent;
+    intent -->|image_url exists| vision;
+    intent -->|no image| router;
+    vision --> router;
+    router -->|WASTE| waste_rag;
+    router -->|CHARACTER| character;
+    router -->|LOCATION| location;
+    router -->|WEATHER| weather;
+    router -->|COLLECTION_POINT| collection_point;
+    router -->|BULK_WASTE| bulk_waste;
+    router -->|RECYCLABLE_PRICE| recyclable_price;
+    router -->|IMAGE_GENERATION| image_generation;
+    router -->|GENERAL| general;
+    waste_rag --> aggregator;
+    character --> aggregator;
+    location --> aggregator;
+    weather --> aggregator;
+    collection_point --> aggregator;
+    bulk_waste --> aggregator;
+    recyclable_price --> aggregator;
+    image_generation --> aggregator;
+    general --> aggregator;
+    aggregator -->|tokens > threshold| summarize;
+    aggregator -->|tokens <= threshold| answer;
+    summarize --> answer;
+    answer --> __end__;
+
+    classDef first fill:#b2dfdb,stroke:#00796b,stroke-width:2px
+    classDef last fill:#ffccbc,stroke:#e64a19,stroke-width:2px
+```
+
+### 2. Event Bus (Token Streaming Pipeline)
+
+토큰 스트리밍을 위한 **Redis Streams + Pub/Sub** 이중 구조입니다.
+
+| 구성 요소 | Redis 역할 | 키/채널 | 설명 |
+|-----------|------------|---------|------|
+| **Streams** | 내구성 (XADD/XREADGROUP) | `chat:events:{shard}` | Consumer Group으로 Exactly-Once 처리 |
+| **State KV** | 복구용 (SETEX/GET) | `chat:state:{job_id}` | 재연결 시 현재 상태 스냅샷 제공 |
+| **Pub/Sub** | 실시간 (PUBLISH/SUBSCRIBE) | `sse:events:{job_id}` | Fan-out 브로드캐스트 (저장 안됨) |
+
+- **멀티 도메인 지원**: `scan:events`, `chat:events` 동시 구독
+- **Shard 기반 분산**: 도메인별 4개 shard (`chat:events:{0-3}`)
+- **Pending Reclaimer**: 5분 이상 미처리 메시지 자동 재할당
+- **분산 트레이싱**: Pub/Sub 메시지에서 `trace_id` 추출 → Jaeger linked span
+
+```mermaid
+flowchart LR
+    subgraph Worker["🤖 Chat Worker"]
+        AN["Answer Node<br/>(Token Generator)"]
+    end
+
+    subgraph Streams["📊 Redis Streams"]
+        RS[("chat:events:{shard}<br/>(XADD)")]
+    end
+
+    subgraph Router["🔀 Event Router"]
+        ER["Consumer Group<br/>(XREADGROUP)"]
+        RC["Pending Reclaimer<br/>(XCLAIM)"]
+    end
+
+    subgraph State["💾 State KV"]
+        SK[("chat:state:{job_id}<br/>(SETEX 30s)")]
+    end
+
+    subgraph PubSub["📡 Redis Pub/Sub"]
+        PS[("sse:events:{job_id}<br/>(PUBLISH)")]
+    end
+
+    subgraph Gateway["🌐 SSE Gateway"]
+        SG["Pub/Sub Subscriber<br/>(SUBSCRIBE)"]
+    end
+
+    subgraph Client["👤 Client"]
+        CL["Browser/App<br/>(EventSource)"]
+    end
+
+    AN -->|"XADD token"| RS
+    RS -->|"XREADGROUP"| ER
+    RS -.->|"XCLAIM (5min idle)"| RC
+    RC -.->|"reprocess"| ER
+    ER -->|"SETEX state"| SK
+    ER -->|"PUBLISH + XACK"| PS
+    SK -.->|"GET (reconnect)"| SG
+    PS -->|"SUBSCRIBE"| SG
+    SG -->|"SSE data:"| CL
+
+    classDef worker fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#000
+    classDef streams fill:#ffccbc,stroke:#e64a19,stroke-width:2px,color:#000
+    classDef router fill:#b3e5fc,stroke:#0288d1,stroke-width:2px,color:#000
+    classDef state fill:#d1c4e9,stroke:#512da8,stroke-width:2px,color:#000
+    classDef pubsub fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef gateway fill:#b2dfdb,stroke:#00796b,stroke-width:2px,color:#000
+    classDef client fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px,color:#000
+
+    class AN worker
+    class RS streams
+    class ER,RC router
+    class SK state
+    class PS pubsub
+    class SG gateway
+    class CL client
+```
+
+### Intent Classification
+
+| Intent | 설명 | Agent | External API |
+|--------|------|-------|--------------|
+| `WASTE` | 폐기물 분류/분리배출 질문 | Waste Agent | - |
+| `CHARACTER` | 캐릭터 관련 질문 | Character Agent | - |
+| `WEATHER` | 날씨 정보 요청 | Weather Agent | 기상청 API (Function Calling) |
+| `LOCATION` | 위치/수거함 검색 | Location Agent | Kakao Local API (Function Calling) |
+| `INFO` | 환경 정보 질문 | Info Agent | - |
+| `NEWS` | 환경 뉴스 검색 | News Agent | Info API (Function Calling) |
+| `IMAGE_GENERATION` | 이미지 생성 요청 | Image Generation Agent | Gemini 2.0 Flash |
+| `GENERAL` | 일반 질문 (웹 검색) | General Agent | OpenAI web_search tool |
+| `GREETING` | 인사/잡담 | Greeting Agent | - |
+
+### 주요 특징
+
+| 항목 | 설명 |
+|------|------|
+| LangGraph Multi-Agent | `apps/chat_worker/application/nodes/`에 9개 Intent별 Agent 구현. Intent Classification → Domain Agent Router → Answer Node 파이프라인. |
+| Intent Classification | **LangGraph Intent Node**에서 with_structured_output 기반 9개 Intent 분류. |
+| Function Calling Agents | **Location Agent** (Kakao Local API), **Weather Agent** (기상청 API), **News Agent** (Info API) - GPT-5.2/Gemini 3 네이티브 Function Calling 적용. |
+| 이미지 생성 | **Gemini 2.0 Flash**로 이미지 생성, **gRPC**로 Images API에 업로드 후 CDN URL 반환. Character Reference 지원. |
+| Token Streaming | **LangChain LLM 직접 호출**로 토큰 단위 스트리밍. Event Router → Pub/Sub → SSE Gateway 실시간 전달. |
+| 메시지 영속화 | **chat-persistence-consumer**가 Redis Streams → PostgreSQL로 대화 기록 저장. LangGraph Checkpointer 구현. |
+| API 구조 | `apps/chat/` → FastAPI + `apps/chat_worker/` LangGraph Agent. `/api/v1/chat` 엔드포인트는 RabbitMQ로 TaskIQ Job 발행. |
+| 트레이싱 | **LangSmith** 연동으로 LangGraph 실행 트레이스 수집. **OpenTelemetry** E2E 분산 트레이싱. |
+
+- **Multi-Intent 지원**: 단일 메시지에서 복수 Intent 추출 및 순차 처리
+- **Function Calling**: GPT-5.2 / Gemini 3 네이티브 tool 호출
+- **Token Streaming**: LangChain LLM 직접 호출로 실시간 토큰 전달
+- **이미지 생성**: Gemini 기반 생성 + gRPC CDN 업로드
+- **Character Reference**: 캐릭터 이름 감지 및 컨텍스트 전달
+- **메시지 영속화**: PostgreSQL + LangGraph Checkpointer
 
 ---
 
@@ -308,7 +510,6 @@ sequenceDiagram
 | **scan-worker** | Vision 분석, RAG 검색, 답변 생성, 보상 판정 | `scan.vision`, `scan.rule`, `scan.answer`, `scan.reward` | KEDA (큐 길이) |
 | **character-match-worker** | 캐릭터 매칭 처리 | `character.match` | KEDA (큐 길이) |
 | **character-worker** | 캐릭터 소유권 저장 (batch) | `character.reward` | KEDA (큐 길이) |
-| **my-worker** | 마이페이지 캐릭터 동기화 (batch) | `my.reward` | KEDA (큐 길이) |
 | **celery-beat** | DLQ 재처리 스케줄링 (5분 주기) | - | 단일 인스턴스 |
 | **RabbitMQ** | AMQP 메시지 브로커 | vhost: `eco2` | Quorum Queue |
 
@@ -320,7 +521,7 @@ sequenceDiagram
 flowchart LR
     subgraph Pods["Kubernetes Pods"]
         API["API Pods<br/>(auth, scan, chat...)"]
-        Workers["Celery Workers<br/>(scan, character-match, character, my)"]
+        Workers["Celery Workers<br/>(scan, character-match, character)"]
         Infra["Infra Pods<br/>(istio, argocd...)"]
     end
 
@@ -386,7 +587,7 @@ flowchart LR
 ## Bootstrap Overview
 
 ```yaml
-Cluster   : kubeadm Self-Managed (21 Nodes)
+Cluster   : kubeadm Self-Managed (25 Nodes)
 GitOps    :
   Layer0 - Terraform (AWS 인프라)
   Layer1 - Ansible (kubeadm, CNI)
@@ -394,18 +595,18 @@ GitOps    :
   Layer3 - GitHub Actions + Docker Hub
 Architecture :
   Edge Layer        - Route 53, AWS ALB, Istio Ingress Gateway
-  Service Layer     - auth, users, my, scan, character, location, chat
+  Service Layer     - auth, users, scan, character, location, chat, info, images
   Integration Layer :
     - Event Relay   - Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
-    - Worker (Storage) - auth-worker, auth-relay, users-worker, character-worker, my-worker
-    - Worker (AI)   - scan-worker (Vision→Rule→Answer→Reward)
+    - Worker (Storage) - auth-worker, auth-relay, users-worker, character-worker, info-worker, chat-persistence-consumer
+    - Worker (AI)   - scan-worker (Vision→Rule→Answer→Reward), chat-worker (LangGraph Multi-Agent)
     - KEDA (Event-driven Autoscaling)
   Persistence Layer - PostgreSQL, Redis (Blacklist/State/Streams/Pub-Sub/Cache 분리)
-  Platform Layer    - ArgoCD, Istiod, KEDA, Observability (Prometheus, Grafana, EFK, Jaeger)
+  Platform Layer    - ArgoCD, Istiod, KEDA, Observability (Prometheus, Grafana, EFK, Jaeger, LangSmith)
 Network   : Calico CNI + Istio Service Mesh (mTLS)
 Node Isolation :
   - worker-storage  - Taint: domain=worker-storage:NoSchedule (Persistence 접근 Worker 전용)
-  - worker-ai       - Taint: domain=worker-ai:NoSchedule (AI/OpenAI API 호출 Worker 전용)
+  - worker-ai       - Taint: domain=worker-ai:NoSchedule (AI/OpenAI/Google API 호출 Worker 전용)
 ```
 1. Terraform으로 AWS 인프라를 구축합니다.
 2. Ansible로 구축된 AWS 인프라를 엮어 K8s 클러스터를 구성하고, ArgoCD root-app을 설치합니다.
@@ -432,37 +633,56 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 
 ---
 
-## Release Summary (v1.0.7)
+## Release Summary (v1.1.0-pre)
+
+- **LangGraph Multi-Agent 아키텍처** ✅ **(New!)**
+  - **9개 Intent 분류**: WASTE, CHARACTER, WEATHER, LOCATION, INFO, NEWS, IMAGE_GENERATION, GENERAL, GREETING
+  - **Function Calling Agents**: Location (Kakao Local), Weather (기상청), News (Info API) - GPT-5.2/Gemini 3 네이티브 tool
+  - **이미지 생성**: Gemini 2.0 Flash + gRPC CDN Upload, Character Reference 지원
+  - **Token Streaming**: LangChain LLM 직접 호출, Event Router Unicode 수정
+  - **메시지 영속화**: chat-persistence-consumer (Redis Streams → PostgreSQL), LangGraph Checkpointer
+  - **분산 트레이싱**: LangSmith 연동, OpenTelemetry E2E 트레이싱
+
+- **Info 서비스 프로비저닝** ✅ **(New!)**
+  - **Info API/Worker**: 3-Tier Architecture (FastAPI + Celery Beat + PostgreSQL + Redis)
+  - **NewsData API 연동**: 환경 뉴스 자동 수집
+  - **Claude Code Skills**: chat-agent-flow 등 프로젝트 특화 가이드
+
+- **Clean Architecture 마이그레이션** ✅ **(New!)**
+  - **디렉토리 구조 전환**: `domains/` → `apps/` 마이그레이션
+  - **RabbitMQ Named Exchange**: reward.events Fanout Exchange, Cross-Domain Task Routing
+  - **CI/CD 파이프라인 정비**: apps/ 경로 기반 트리거
 
 - **Event Relay Layer + AI 파이프라인** ✅
-  - **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처 구현
+  - **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처
   - **Event Router**: Consumer Group(`XREADGROUP`)으로 Streams 소비, Pub/Sub Fan-out, 멱등성 보장
   - **SSE Gateway**: Pub/Sub 구독 기반 실시간 전달, State 복구, Streams Catch-up
-  - **Celery Chain**(Vision→Rule→Answer→Reward): **GPT 5.1 Vision** + **GPT 5.1-mini** 조합
-  - **gevent pool** (100 greenlets) + **httpx connection pooling**, 단일 요청 ≈ **12초**
-  - 부하 테스트 결과 (단일 노드 기준, 이전 Celery Events 대비 2.8배 향상)
+  - **Celery Chain**(Vision→Rule→Answer→Reward): **GPT-5.2 Vision** + **GPT-5.2-mini** 조합
+
+<details>
+<summary>📊 부하 테스트 결과 (Scan Pipeline)</summary>
 
 | VU | 요청 수 | 완료율 | Throughput | E2E p95 | Scan p95 | 상태 |
 |----|---------|--------|------------|---------|----------|------|
 | 50 | 685 | 99.7% | 198 req/m | 17.7초 | 93ms | ✅ 여유 |
 | 200 | 1,649 | 99.8% | 367 req/m | 33.2초 | 83ms | ✅ 안정 |
-| **250** | **1,754** | **99.9%** | **418 req/m** | **40.5초** | **78ms** | ⭐ **SLA 기준** |
-| 300 | 1,732 | 99.9% | 402 req/m | 48.5초 | 83ms | ⚠️ 포화 시작 |
+| 250 | 1,754 | 99.9% | 418 req/m | 40.5초 | 78ms | ✅ 여유 |
+| **300** | **1,732** | **99.9%** | **402 req/m** | **48.5초** | **83ms** | ⭐ **SLA 기준** |
 | 400 | 1,901 | 98.9% | 422 req/m | 62.2초 | 207ms | ⚠️ 한계 근접 |
 | 500 | 1,990 | 94.0% | 438 req/m | 76.4초 | 154ms | ❌ 단일 노드 한계 |
 
+</details>
+
 - **KEDA 이벤트 드리븐 오토스케일링** ✅
   - **scan-worker**: RabbitMQ 큐 길이 기반 자동 스케일링 (1-3 replicas)
+  - **chat-worker**: RabbitMQ chat.process 큐 기반 스케일링
   - **event-router**: Redis Streams pending 메시지 기반 스케일링
-  - **character-match-worker**: RabbitMQ character.match 큐 기반 스케일링
   - Prometheus Adapter 연동으로 커스텀 메트릭 기반 HPA 구현
 
-- **부하 테스트 및 스케일링 검증** ✅
-  - **21-Node 클러스터**: Event Router, Redis Pub/Sub 전용 노드 추가
+- **25-Node 클러스터 확장** ✅
+  - **신규 노드**: chat-worker, info, info-worker, chat-persistence-consumer 전용 노드 추가
   - **Redis 인스턴스 분리**: Streams(내구성) / Pub/Sub(실시간) / Cache(LRU)
-  - **부하 테스트 검증**: 50/200/250/300/400/500 VU 테스트 완료
-    - 단일 노드(k8s-worker-ai, 2 cores) 기준 **250 VU SLA**, **500 VU 한계점** 도출
-    - KEDA 자동 스케일링 검증: scan-worker 1→3 pods, scan-api 1→3 pods
+  - **Grafana 대시보드**: 25-Node 전체 모니터링 대시보드
 
 ---
 
@@ -474,14 +694,33 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 
 ## Status
 
+### v1.1.0-pre - Chat Agent 전환 ⭐ Latest
+- ✅ **LangGraph Multi-Agent 아키텍처 완료** (9개 Intent 분류)
+- ✅ **Function Calling Agents**: Location, Weather, News (GPT-5.2/Gemini 3)
+- ✅ **Gemini 이미지 생성 파이프라인** + gRPC CDN Upload
+- ✅ **Token Streaming 개선**: LangChain LLM 직접 호출
+- ✅ **PostgreSQL 메시지 영속화**: chat-persistence-consumer + Checkpointer
+- ✅ **25-Node 클러스터 확장**: Grafana 대시보드 추가
+- ✅ **분산 트레이싱**: LangSmith + OpenTelemetry E2E
+
+### v1.0.9 - Info 서비스 & Context 마이그레이션
+- ✅ Info API/Worker 3-Tier Architecture 완료
+- ✅ NewsData API 연동 환경 뉴스 수집
+- ✅ Claude Code Skills 도입 (chat-agent-flow 등)
+- ✅ Celery Beat 안정화 (standalone sidecar)
+
+### v1.0.8 - Clean Architecture 마이그레이션
+- ✅ `domains/` → `apps/` 구조 전환 완료
+- ✅ RabbitMQ Named Exchange 이벤트 라우팅 (reward.events Fanout)
+- ✅ CI/CD 파이프라인 정비 (apps/ 경로 기반)
+- ✅ DB/Redis 연결 정규화
+
 ### v1.0.7 - Event Relay & KEDA
 - ✅ Redis Streams + Pub/Sub + State KV 기반 Event Relay Layer 완료
 - ✅ Event Router, SSE Gateway 컴포넌트 개발 완료
 - ✅ KEDA 이벤트 드리븐 오토스케일링 적용 (scan-worker, event-router, character-match-worker)
 - ✅ Celery 비동기 AI 파이프라인 완료 (Vision→Rule→Answer→Reward)
-- ✅ 부하 테스트 완료: **50/200/250/300/400/500 VU** 검증
-  - **250 VU (SLA)**: 99.9% 완료율, 418 req/m, E2E p95 40초
-  - **500 VU**: 단일 노드 한계점 (94% 완료율, E2E p95 76초)
+- ✅ 부하 테스트 완료: **300 VU SLA**, **500 VU 한계점**
 
 ### v1.0.6 - Observability
 - ✅ EFK 로깅 파이프라인 (Fluent Bit → Elasticsearch → Kibana)
