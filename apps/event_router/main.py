@@ -137,21 +137,21 @@ async def startup() -> None:
     )
 
     # Reclaimer 초기화 (멀티 도메인 지원)
-    # 각 도메인별로 별도 Reclaimer 생성
-    reclaimers = []
-    for prefix, shard_count in stream_configs:
-        reclaimer = PendingReclaimer(
-            redis_client=redis_streams_client,
-            processor=processor,
-            consumer_group=settings.consumer_group,
-            consumer_name=settings.consumer_name,
-            stream_prefix=prefix,
-            shard_count=shard_count,
-            min_idle_ms=settings.reclaim_min_idle_ms,
-            interval_seconds=settings.reclaim_interval_seconds,
-        )
-        reclaimers.append(reclaimer)
-        logger.info(f"Reclaimer initialized for {prefix} (shards={shard_count})")
+    # Consumer와 동일하게 stream_configs로 모든 도메인 처리
+    reclaimer = PendingReclaimer(
+        redis_client=redis_streams_client,
+        processor=processor,
+        consumer_group=settings.consumer_group,
+        consumer_name=settings.consumer_name,
+        stream_configs=stream_configs,
+        min_idle_ms=settings.reclaim_min_idle_ms,
+        interval_seconds=settings.reclaim_interval_seconds,
+    )
+    reclaimers = [reclaimer]
+    logger.info(
+        "reclaimer_initialized",
+        extra={"stream_configs": stream_configs},
+    )
 
     # Consumer Group 설정
     await consumer.setup()
