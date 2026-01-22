@@ -405,6 +405,8 @@ class EventProcessor:
             EVENT_ROUTER_EVENTS_PROCESSED.labels(stage=stage).inc()
             return publish_success
         else:
+            # 중복 이벤트: 이미 처리되었으므로 ACK 가능 (True 반환)
+            # Pub/Sub 발행 실패와 구분하여 불필요한 reclaim 방지
             EVENT_ROUTER_EVENTS_SKIPPED.labels(reason="duplicate_or_out_of_order").inc()
             if span:
                 span.set_attribute("event.skipped", True)
@@ -419,7 +421,7 @@ class EventProcessor:
                     "reason": "duplicate_or_out_of_order",
                 },
             )
-            return False
+            return True  # 이미 처리됨 = ACK 가능
 
     async def process_batch(self, events: list[dict[str, Any]]) -> int:
         """배치 이벤트 처리.
