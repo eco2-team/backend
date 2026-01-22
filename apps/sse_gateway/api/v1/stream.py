@@ -101,7 +101,7 @@ async def event_generator(
                     "id": f"recovery:{recovery_event.get('last_seq', 0)}",
                 }
 
-    async for event in manager.subscribe(job_id, domain=domain):
+    async for event in manager.subscribe(job_id, domain=domain, last_event_id=last_event_id):
         # 클라이언트 연결 해제 확인
         if await request.is_disconnected():
             logger.info(
@@ -195,16 +195,19 @@ async def stream_events(
     if not job_id:
         raise HTTPException(status_code=400, detail="job_id is required")
 
+    last_event_id = request.headers.get("Last-Event-ID") or request.headers.get("last-event-id")
+
     logger.info(
         "sse_stream_started",
         extra={
             "job_id": job_id,
+            "last_event_id": last_event_id,
             "client_ip": request.client.host if request.client else "unknown",
         },
     )
 
     return EventSourceResponse(
-        event_generator(job_id, request),
+        event_generator(job_id, request, last_event_id=last_event_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
