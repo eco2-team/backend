@@ -7,4 +7,8 @@ spec:
   tracing:
   - providers:
     - name: jaeger
-    randomSamplingPercentage: 100.00
+    randomSamplingPercentage: 50
+    customTags:
+      request.path:
+        header:
+          name: :path

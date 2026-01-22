@@ -70,6 +70,8 @@ spec:
           value: jaeger-collector-clusterip.istio-system.svc.cluster.local:4317
         - name: OTEL_SAMPLING_RATE
           value: '1.0'
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: grpc
         - name: RELEASE_TYPE
           value: canary
         livenessProbe:

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 OTEL_EXPORTER_ENDPOINT = os.getenv(
     "OTEL_EXPORTER_OTLP_ENDPOINT",
-    "jaeger-collector.istio-system.svc.cluster.local:4317",
+    "http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4318",
 )
 OTEL_SAMPLING_RATE = float(os.getenv("OTEL_SAMPLING_RATE", "1.0"))
 OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
@@ -31,7 +31,7 @@ def setup_tracing(service_name: str) -> bool:
 
     try:
         from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
             OTLPSpanExporter,
         )
         from opentelemetry.sdk.resources import Resource
@@ -51,8 +51,7 @@ def setup_tracing(service_name: str) -> bool:
         provider = TracerProvider(resource=resource, sampler=sampler)
 
         exporter = OTLPSpanExporter(
-            endpoint=OTEL_EXPORTER_ENDPOINT,
-            insecure=True,
+            endpoint=f"{OTEL_EXPORTER_ENDPOINT}/v1/traces",
         )
 
         provider.add_span_processor(
@@ -94,7 +93,7 @@ def instrument_fastapi(app) -> None:
 
         FastAPIInstrumentor.instrument_app(
             app,
-            excluded_urls="health,ready,metrics",
+            excluded_urls="health,ready,metrics,ping",
         )
         logger.info("FastAPI instrumentation enabled")
 

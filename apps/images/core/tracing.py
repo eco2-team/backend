@@ -7,7 +7,7 @@ CNCF/BigTech 베스트 프랙티스 기반 분산 트레이싱 설정:
 - Uber Jaeger: OpenTelemetry native, adaptive sampling
 
 Architecture:
-  App (OTel SDK) → OTLP/gRPC (4317) → Jaeger Collector → Elasticsearch
+  App (OTel SDK) → OTLP/HTTP (4318) → Jaeger Collector
 """
 
 import logging
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Environment variables
 OTEL_EXPORTER_ENDPOINT = os.getenv(
     "OTEL_EXPORTER_OTLP_ENDPOINT",
-    "jaeger-collector.istio-system.svc.cluster.local:4317",
+    "http://jaeger-collector-clusterip.istio-system.svc.cluster.local:4318",
 )
 OTEL_SAMPLING_RATE = float(os.getenv("OTEL_SAMPLING_RATE", "1.0"))
 OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
@@ -54,7 +54,7 @@ def configure_tracing(
 
     try:
         from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
             OTLPSpanExporter,
         )
         from opentelemetry.sdk.resources import Resource
@@ -82,10 +82,9 @@ def configure_tracing(
             sampler=sampler,
         )
 
-        # OTLP gRPC Exporter (Jaeger Collector)
+        # OTLP HTTP Exporter (Jaeger Collector)
         exporter = OTLPSpanExporter(
-            endpoint=OTEL_EXPORTER_ENDPOINT,
-            insecure=True,  # mTLS disabled for Jaeger (no sidecar)
+            endpoint=f"{OTEL_EXPORTER_ENDPOINT}/v1/traces",
         )
 
         # BatchSpanProcessor (async, low overhead)
@@ -135,7 +134,7 @@ def instrument_fastapi(app: FastAPI) -> None:
 
         FastAPIInstrumentor.instrument_app(
             app,
-            excluded_urls="health,ready,metrics",  # Health check 제외
+            excluded_urls="health,ready,metrics,ping",  # Health check 제외
         )
         logger.info("FastAPI instrumentation enabled")
 

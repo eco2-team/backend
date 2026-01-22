@@ -120,7 +120,7 @@ def instrument_fastapi(app: FastAPI) -> None:
 
         FastAPIInstrumentor.instrument_app(
             app,
-            excluded_urls="health,ready,metrics",
+            excluded_urls="health,ready,metrics,ping",
         )
         logger.info("FastAPI instrumentation enabled")
 

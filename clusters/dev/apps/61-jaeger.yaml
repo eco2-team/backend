@@ -20,15 +20,15 @@ spec:
           enabled: true
           resources:
             requests:
-              memory: 512Mi
+              memory: 256Mi
               cpu: 100m
             limits:
-              memory: 1Gi
+              memory: 512Mi
               cpu: 500m
-          # 메모리 사용량 제한: 최대 50,000개 트레이스만 유지
+          # 메모리 사용량 제한: 최대 15,000개 트레이스만 유지 (OOM 방지)
           extraEnv:
           - name: MEMORY_MAX_TRACES
-            value: '50000'
+            value: '15000'
         storage:
           type: memory
         agent:
