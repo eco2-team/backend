@@ -64,6 +64,9 @@ description: Redis 기반 Composite Event Bus 패턴 가이드. Event Router, SS
 - **SSE Gateway**: See [sse-gateway.md](./references/sse-gateway.md)
 - **Idempotency 패턴**: See [idempotency.md](./references/idempotency.md)
 - **Failure Recovery**: See [failure-recovery.md](./references/failure-recovery.md)
+- **ACK Policy**: See [ack-policy.md](./references/ack-policy.md) ⚠️ Critical
+- **Reclaimer 패턴**: See [reclaimer-patterns.md](./references/reclaimer-patterns.md)
+- **SSE 표준**: See [sse-standard.md](./references/sse-standard.md)
 
 ## 핵심 컴포넌트
 
@@ -94,9 +97,11 @@ async def publish_stage_event(
 
 ### 2. Event Router Consumer
 
+⚠️ **Critical: ACK는 처리 성공 시에만** - See [ack-policy.md](./references/ack-policy.md)
+
 ```python
 async def consume_loop():
-    """XREADGROUP 기반 이벤트 소비"""
+    """XREADGROUP 기반 이벤트 소비 - ACK on Success Only"""
     while True:
         messages = await redis.xreadgroup(
             groupname="eventrouter",
@@ -108,15 +113,23 @@ async def consume_loop():
 
         for stream, events in messages:
             for event_id, data in events:
-                await processor.process(data)
-                await redis.xack(stream, "eventrouter", event_id)
+                data["stream_id"] = event_id  # SSE id 필드용
+                try:
+                    success = await processor.process(data)
+                    if not success:
+                        continue  # ACK 스킵 - PEL에 유지
+                except Exception:
+                    continue  # ACK 스킵 - PEL에 유지
+                await redis.xack(stream, "eventrouter", event_id)  # 성공 시만
 ```
 
 ### 3. SSE Gateway Streaming
 
+SSE 표준 `id:` 필드를 포함하여 Last-Event-ID 복구 지원 - See [sse-standard.md](./references/sse-standard.md)
+
 ```python
 async def stream_events(job_id: str) -> AsyncGenerator[str, None]:
-    """SSE 이벤트 스트리밍"""
+    """SSE 이벤트 스트리밍 (표준 id 필드 포함)"""
     channel = f"sse:events:{job_id}"
     pubsub = redis.pubsub()
     await pubsub.subscribe(channel)
@@ -124,12 +137,18 @@ async def stream_events(job_id: str) -> AsyncGenerator[str, None]:
     # Recovery: State KV에서 마지막 상태 조회
     state = await redis.get(f"{domain}:state:{job_id}")
     if state:
-        yield f"data: {state}\n\n"
+        event = json.loads(state)
+        stream_id = event.get("stream_id", "")
+        stage = event.get("stage", "message")
+        yield f"event: {stage}\nid: {stream_id}\ndata: {state}\n\n"
 
     # Real-time: Pub/Sub 구독
     async for message in pubsub.listen():
         if message["type"] == "message":
-            yield f"data: {message['data']}\n\n"
+            event = json.loads(message["data"])
+            stream_id = event.get("stream_id", "")
+            stage = event.get("stage", "message")
+            yield f"event: {stage}\nid: {stream_id}\ndata: {message['data']}\n\n"
 ```
 
 ## 설정

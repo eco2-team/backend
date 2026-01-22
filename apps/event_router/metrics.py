@@ -200,14 +200,14 @@ EVENT_ROUTER_RECLAIM_RUNS = Counter(
 EVENT_ROUTER_RECLAIM_MESSAGES = Counter(
     "event_router_reclaim_messages_total",
     "Total messages reclaimed via XAUTOCLAIM",
-    labelnames=["shard"],
+    labelnames=["domain", "shard"],
     registry=REGISTRY,
 )
 
 EVENT_ROUTER_RECLAIM_LATENCY = Histogram(
     "event_router_reclaim_latency_seconds",
     "XAUTOCLAIM latency per shard",
-    labelnames=["shard"],
+    labelnames=["domain", "shard"],
     registry=REGISTRY,
     buckets=RECLAIM_LATENCY_BUCKETS,
 )

@@ -144,7 +144,7 @@ class KmaWeatherHttpClient(WeatherClientPort):
                 error_msg = header.get("resultMsg", "Unknown error")
                 logger.warning(
                     "KMA API error response",
-                    extra={"result_code": result_code, "message": error_msg},
+                    extra={"result_code": result_code, "error_msg": error_msg},
                 )
                 return WeatherResponse(
                     success=False,

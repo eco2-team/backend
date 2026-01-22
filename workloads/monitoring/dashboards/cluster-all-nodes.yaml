@@ -1,6 +1,6 @@
-# 25-Node Kubernetes Cluster 전체 노드 리소스 대시보드
-# 목적: 모든 클러스터 노드의 CPU, Memory, Disk 사용량 실시간 모니터링
-# 카테고리: Control Plane, API, Workers, Data, Observability, Network
+# 24-Node Kubernetes Cluster 전체 노드 리소스 대시보드
+# 목적: 모든 클러스터 노드의 CPU, Memory, Disk(GP3), Network 사용량 실시간 모니터링
+# 구성: 상단 요약 + 24개 노드 상세 (노드당 1행: CPU | Memory | Disk | Network)
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -14,50 +14,83 @@ metadata:
 data:
   cluster-all-nodes.json: |
     {
-      "title": "🖥️ 25-Node Cluster - All Resources",
-      "uid": "cluster-all-nodes-v1",
+      "title": "\ud83d\udda5\ufe0f 24-Node Cluster - Per Node Metrics",
+      "uid": "cluster-24-nodes-detail",
       "version": 1,
       "timezone": "browser",
       "schemaVersion": 38,
       "refresh": "30s",
-      "time": { "from": "now-1h", "to": "now" },
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
       "templating": {
         "list": [
           {
             "name": "datasource",
             "type": "datasource",
             "query": "prometheus",
-            "current": { "text": "Prometheus", "value": "prometheus" },
+            "current": {
+              "text": "Prometheus",
+              "value": "prometheus"
+            },
             "hide": 2
           }
         ]
       },
       "panels": [
         {
-          "title": "📊 Cluster Summary",
+          "title": "\ud83d\udcca Cluster Summary (24 Nodes)",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
           "collapsed": false
         },
         {
           "title": "Total Nodes",
           "type": "stat",
-          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 0,
+            "y": 1
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
               "expr": "count(node_uname_info{job=\"node-exporter\"})",
-              "legendFormat": "Nodes"
+              "legendFormat": "Total Nodes"
             }
           ],
           "fieldConfig": {
             "defaults": {
+              "unit": "short",
+              "decimals": 2,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 20 },
-                  { "color": "red", "value": 10 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 10
+                  },
+                  {
+                    "color": "red",
+                    "value": 50
+                  }
                 ]
               }
             }
@@ -65,26 +98,45 @@ data:
         },
         {
           "title": "Avg CPU %",
-          "type": "gauge",
-          "gridPos": { "h": 4, "w": 5, "x": 4, "y": 1 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 4,
+            "y": 1
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
               "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m])) * 100)",
-              "legendFormat": "CPU"
+              "legendFormat": "Avg CPU %"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "min": 0,
-              "max": 100,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 50 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
                 ]
               }
             }
@@ -92,26 +144,45 @@ data:
         },
         {
           "title": "Avg Memory %",
-          "type": "gauge",
-          "gridPos": { "h": 4, "w": 5, "x": 9, "y": 1 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 8,
+            "y": 1
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
               "expr": "(1 - avg(node_memory_MemAvailable_bytes{job=\"node-exporter\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"})) * 100",
-              "legendFormat": "Memory"
+              "legendFormat": "Avg Memory %"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "min": 0,
-              "max": 100,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
                 ]
               }
             }
@@ -119,384 +190,2067 @@ data:
         },
         {
           "title": "Avg Disk %",
-          "type": "gauge",
-          "gridPos": { "h": 4, "w": 5, "x": 14, "y": 1 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 12,
+            "y": 1
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
               "expr": "(1 - avg(node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"})) * 100",
+              "legendFormat": "Avg Disk %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Total RX (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 16,
+            "y": 1
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m])) / 1024 / 1024",
+              "legendFormat": "Total RX (MB/s)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 10
+                  },
+                  {
+                    "color": "red",
+                    "value": 50
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Total TX (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 20,
+            "y": 1
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m])) / 1024 / 1024",
+              "legendFormat": "Total TX (MB/s)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 10
+                  },
+                  {
+                    "color": "red",
+                    "value": 50
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "\ud83d\udccb Per-Node Detailed Metrics (CPU | Memory | Disk GP3 | Network)",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 4
+          },
+          "collapsed": false
+        },
+        {
+          "title": "\ud83d\udc51 Control Plane | k8s-master | t3.xlarge | 4vCPU \u00b7 16GB \u00b7 80GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 5
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 6
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-master\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 6
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-master\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-master\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 6
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-master\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-master\"})) * 100",
               "legendFormat": "Disk"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "min": 0,
-              "max": 100,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 70 },
-                  { "color": "red", "value": 85 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "Total Memory (GB)",
+          "title": "Network (MB/s)",
           "type": "stat",
-          "gridPos": { "h": 4, "w": 5, "x": 19, "y": 1 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 6
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "sum(node_memory_MemTotal_bytes{job=\"node-exporter\"}) / 1024 / 1024 / 1024",
-              "legendFormat": "Total GB"
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-master\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-master\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
             }
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "decgbytes",
-              "decimals": 0
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
             }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
           }
         },
         {
-          "title": "👑 Control Plane (1 node)",
+          "title": "\ud83d\udd0c API | k8s-api-auth | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 9
+          },
           "collapsed": false
         },
         {
-          "title": "k8s-master CPU",
+          "title": "CPU %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 4, "x": 0, "y": 6 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 10
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*master.*\"}) * 100)",
-              "legendFormat": "CPU %"
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-auth\"}) * 100)",
+              "legendFormat": "CPU"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
               "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 50 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "k8s-master Memory",
+          "title": "Memory %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 4, "x": 4, "y": 6 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 10
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "(1 - avg(node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*master.*\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*master.*\"})) * 100",
-              "legendFormat": "Memory %"
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-auth\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-auth\"})) * 100",
+              "legendFormat": "Memory"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
               "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "k8s-master Disk",
+          "title": "Disk (GP3) %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 4, "x": 8, "y": 6 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 10
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "(1 - avg(node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*master.*\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=~\".*master.*\"})) * 100",
-              "legendFormat": "Disk %"
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-auth\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-auth\"})) * 100",
+              "legendFormat": "Disk"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
               "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 70 },
-                  { "color": "red", "value": 85 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "🔌 API Nodes (9 nodes)",
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 10
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-auth\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-auth\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udd0c API | k8s-api-users | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 13
+          },
           "collapsed": false
         },
         {
-          "title": "api-auth",
+          "title": "CPU %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 2, "x": 0, "y": 10 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 14
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*api-auth.*\"}) * 100)",
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-users\"}) * 100)",
               "legendFormat": "CPU"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "api-users",
+          "title": "Memory %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 2, "x": 2, "y": 10 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 14
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*api-users.*\"}) * 100)",
-              "legendFormat": "CPU"
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-users\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-users\"})) * 100",
+              "legendFormat": "Memory"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "api-my",
+          "title": "Disk (GP3) %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 2, "x": 4, "y": 10 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 14
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*api-my.*\"}) * 100)",
-              "legendFormat": "CPU"
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-users\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-users\"})) * 100",
+              "legendFormat": "Disk"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "api-scan ⭐",
+          "title": "Network (MB/s)",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 6, "y": 10 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 14
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*api-scan.*\"}) * 100)",
-              "legendFormat": "CPU"
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-users\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-users\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
             }
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "percent",
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
-                ]
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
               }
             }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
           }
         },
         {
-          "title": "api-character",
-          "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 9, "y": 10 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "targets": [
-            {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*api-character.*\"}) * 100)",
-              "legendFormat": "CPU"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
-                ]
-              }
-            }
-          }
-        },
-        {
-          "title": "api-location",
-          "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 12, "y": 10 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "targets": [
-            {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*api-location.*\"}) * 100)",
-              "legendFormat": "CPU"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
-                ]
-              }
-            }
-          }
-        },
-        {
-          "title": "api-image",
-          "type": "stat",
-          "gridPos": { "h": 3, "w": 2, "x": 15, "y": 10 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "targets": [
-            {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*api-image.*\"}) * 100)",
-              "legendFormat": "CPU"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
-                ]
-              }
-            }
-          }
-        },
-        {
-          "title": "api-chat ⭐",
-          "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 17, "y": 10 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "targets": [
-            {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*api-chat.*\"}) * 100)",
-              "legendFormat": "CPU"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
-                ]
-              }
-            }
-          }
-        },
-        {
-          "title": "api-info",
-          "type": "stat",
-          "gridPos": { "h": 3, "w": 2, "x": 20, "y": 10 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "targets": [
-            {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*api-info.*\"}) * 100)",
-              "legendFormat": "CPU"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
-                ]
-              }
-            }
-          }
-        },
-        {
-          "title": "⚙️ Workers (4 nodes)",
+          "title": "\ud83d\udd0c API | k8s-api-scan | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 17
+          },
           "collapsed": false
         },
         {
-          "title": "worker-storage",
+          "title": "CPU %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 0, "y": 14 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 18
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-scan\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 18
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-scan\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-scan\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 18
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-scan\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-scan\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 18
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-scan\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-scan\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udd0c API | k8s-api-character | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 21
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 22
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-character\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 22
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-character\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-character\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 22
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-character\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-character\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 22
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-character\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-character\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udd0c API | k8s-api-location | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 25
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 26
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-location\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 26
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-location\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-location\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 26
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-location\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-location\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 26
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-location\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-location\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udd0c API | k8s-api-image | t3.medium | 2vCPU \u00b7 4GB \u00b7 30GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 29
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 30
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-image\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 30
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-image\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-image\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 30
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-image\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-image\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 30
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-image\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-image\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udd0c API | k8s-api-chat | t3.medium | 2vCPU \u00b7 4GB \u00b7 30GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 33
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 34
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-chat\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 34
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-chat\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-chat\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 34
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-chat\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-chat\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 34
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-chat\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-chat\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udd0c API | k8s-api-info | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 37
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 38
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-info\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 38
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-info\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-info\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 38
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-info\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-info\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 38
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-info\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-api-info\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\u2699\ufe0f Worker | k8s-worker-storage | t3.medium | 2vCPU \u00b7 4GB \u00b7 40GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 41
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 42
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
               "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage\"}) * 100)",
@@ -506,23 +2260,207 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "worker-storage-2",
+          "title": "Memory %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 3, "y": 14 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 42
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 42
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 42
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\u2699\ufe0f Worker | k8s-worker-storage-2 | t3.medium | 2vCPU \u00b7 4GB \u00b7 40GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 45
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 46
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
               "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage-2\"}) * 100)",
@@ -532,23 +2470,207 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "worker-ai ⭐",
+          "title": "Memory %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 6, "y": 14 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 46
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage-2\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage-2\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 46
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage-2\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage-2\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 46
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage-2\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-storage-2\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\u2699\ufe0f Worker | k8s-worker-ai | t3.medium | 2vCPU \u00b7 4GB \u00b7 40GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 49
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 50
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
               "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai\"}) * 100)",
@@ -558,23 +2680,207 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "worker-ai-2 ⭐",
+          "title": "Memory %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 9, "y": 14 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 50
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 50
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 50
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\u2699\ufe0f Worker | k8s-worker-ai-2 | t3.medium | 2vCPU \u00b7 4GB \u00b7 40GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 53
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 54
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
               "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai-2\"}) * 100)",
@@ -584,366 +2890,2491 @@ data:
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "💾 Data Layer (6 nodes)",
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 54
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai-2\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai-2\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 54
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai-2\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai-2\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 54
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai-2\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-worker-ai-2\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udcbe Data | k8s-rabbitmq | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 57
+          },
           "collapsed": false
         },
         {
-          "title": "postgresql ⭐",
+          "title": "CPU %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 4, "x": 0, "y": 18 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 58
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*postgresql.*\"}) * 100)",
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-rabbitmq\"}) * 100)",
               "legendFormat": "CPU"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "redis-auth",
+          "title": "Memory %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 4, "y": 18 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 58
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-auth.*\"}) * 100)",
-              "legendFormat": "CPU"
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-rabbitmq\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-rabbitmq\"})) * 100",
+              "legendFormat": "Memory"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "redis-streams",
+          "title": "Disk (GP3) %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 7, "y": 18 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 58
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-streams.*\"}) * 100)",
-              "legendFormat": "CPU"
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-rabbitmq\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-rabbitmq\"})) * 100",
+              "legendFormat": "Disk"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "redis-cache",
+          "title": "Network (MB/s)",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 10, "y": 18 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 58
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-cache.*\"}) * 100)",
-              "legendFormat": "CPU"
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-rabbitmq\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-rabbitmq\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
             }
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "percent",
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
-                ]
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
               }
             }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
           }
         },
         {
-          "title": "redis-pubsub",
-          "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 13, "y": 18 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "targets": [
-            {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*redis-pubsub.*\"}) * 100)",
-              "legendFormat": "CPU"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
-                ]
-              }
-            }
-          }
-        },
-        {
-          "title": "rabbitmq",
-          "type": "stat",
-          "gridPos": { "h": 3, "w": 3, "x": 16, "y": 18 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "targets": [
-            {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*rabbitmq.*\"}) * 100)",
-              "legendFormat": "CPU"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
-                ]
-              }
-            }
-          }
-        },
-        {
-          "title": "📊 Observability (2 nodes)",
+          "title": "\ud83d\udcbe Data | k8s-postgresql | t3.large | 2vCPU \u00b7 8GB \u00b7 60GB",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 },
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 61
+          },
           "collapsed": false
         },
         {
-          "title": "monitoring",
+          "title": "CPU %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 4, "x": 0, "y": 22 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 62
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*monitoring.*\"}) * 100)",
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-postgresql\"}) * 100)",
               "legendFormat": "CPU"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "logging ⭐",
+          "title": "Memory %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 4, "x": 4, "y": 22 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 62
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*logging.*\"}) * 100)",
-              "legendFormat": "CPU"
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-postgresql\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-postgresql\"})) * 100",
+              "legendFormat": "Memory"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "🌐 Network (3 nodes)",
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 62
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-postgresql\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-postgresql\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 62
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-postgresql\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-postgresql\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udcbe Data | k8s-redis-auth | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 },
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 65
+          },
           "collapsed": false
         },
         {
-          "title": "ingress-gateway ⭐",
+          "title": "CPU %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 4, "x": 0, "y": 26 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 66
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*ingress-gateway.*\"}) * 100)",
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-auth\"}) * 100)",
               "legendFormat": "CPU"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "sse-gateway",
+          "title": "Memory %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 4, "x": 4, "y": 26 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 66
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*sse-gateway.*\"}) * 100)",
-              "legendFormat": "CPU"
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-auth\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-auth\"})) * 100",
+              "legendFormat": "Memory"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "event-router",
+          "title": "Disk (GP3) %",
           "type": "stat",
-          "gridPos": { "h": 3, "w": 4, "x": 8, "y": 26 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 66
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=~\".*event-router.*\"}) * 100)",
-              "legendFormat": "CPU"
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-auth\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-auth\"})) * 100",
+              "legendFormat": "Disk"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "decimals": 0,
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 60 },
-                  { "color": "red", "value": 80 }
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
                 ]
               }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "📈 Cluster Resource Trends",
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 66
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-auth\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-auth\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udcbe Data | k8s-redis-streams | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
           "type": "row",
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 29 },
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 69
+          },
           "collapsed": false
         },
         {
-          "title": "All Nodes - CPU Usage %",
-          "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 30 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 70
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "100 - (avg by (nodename) (rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{}) * 100)",
-              "legendFormat": "{{nodename}}"
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-streams\"}) * 100)",
+              "legendFormat": "CPU"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "min": 0,
-              "max": 100,
-              "custom": { "lineWidth": 1, "fillOpacity": 10 }
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
           }
         },
         {
-          "title": "All Nodes - Memory Usage %",
-          "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 30 },
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 70
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "targets": [
             {
-              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{})) * 100",
-              "legendFormat": "{{nodename}}"
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-streams\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-streams\"})) * 100",
+              "legendFormat": "Memory"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
-              "min": 0,
-              "max": 100,
-              "custom": { "lineWidth": 1, "fillOpacity": 10 }
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
             }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 70
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-streams\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-streams\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 70
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-streams\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-streams\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udcbe Data | k8s-redis-cache | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 73
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 74
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-cache\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 74
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-cache\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-cache\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 74
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-cache\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-cache\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 74
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-cache\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-cache\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udcbe Data | k8s-redis-pubsub | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 77
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 78
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-pubsub\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 78
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-pubsub\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-pubsub\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 78
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-pubsub\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-pubsub\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 78
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-pubsub\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-redis-pubsub\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udcca Observability | k8s-monitoring | t3.large | 2vCPU \u00b7 8GB \u00b7 80GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 81
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 82
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-monitoring\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 82
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-monitoring\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-monitoring\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 82
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-monitoring\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-monitoring\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 82
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-monitoring\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-monitoring\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83d\udcca Observability | k8s-logging | t3.xlarge | 4vCPU \u00b7 16GB \u00b7 80GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 85
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 86
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-logging\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 86
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-logging\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-logging\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 86
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-logging\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-logging\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 86
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-logging\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-logging\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83c\udf10 Network | k8s-ingress-gateway | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 89
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 90
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-ingress-gateway\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 90
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-ingress-gateway\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-ingress-gateway\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 90
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-ingress-gateway\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-ingress-gateway\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 90
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-ingress-gateway\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-ingress-gateway\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83c\udf10 Network | k8s-sse-gateway | t3.small | 2vCPU \u00b7 2GB \u00b7 20GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 93
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 94
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-sse-gateway\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 94
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-sse-gateway\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-sse-gateway\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 94
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-sse-gateway\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-sse-gateway\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 94
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-sse-gateway\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-sse-gateway\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "\ud83c\udf10 Network | k8s-event-router | t3.medium | 2vCPU \u00b7 4GB \u00b7 30GB",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 97
+          },
+          "collapsed": false
+        },
+        {
+          "title": "CPU %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 98
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node-exporter\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-event-router\"}) * 100)",
+              "legendFormat": "CPU"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 50
+                  },
+                  {
+                    "color": "orange",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Memory %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 6,
+            "y": 98
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-event-router\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-event-router\"})) * 100",
+              "legendFormat": "Memory"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Disk (GP3) %",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 12,
+            "y": 98
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "(1 - (node_filesystem_avail_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-event-router\"} / node_filesystem_size_bytes{job=\"node-exporter\", mountpoint=\"/\", fstype!=\"rootfs\"} * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-event-router\"})) * 100",
+              "legendFormat": "Disk"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "orange",
+                    "value": 75
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+          }
+        },
+        {
+          "title": "Network (MB/s)",
+          "type": "stat",
+          "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 98
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(node_network_receive_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-event-router\"}) / 1024 / 1024",
+              "legendFormat": "\u2b07\ufe0f RX"
+            },
+            {
+              "expr": "sum(rate(node_network_transmit_bytes_total{job=\"node-exporter\", device!~\"lo|veth.*|cali.*|tunl.*|docker.*\"}[5m]) * on(instance) group_left(nodename) node_uname_info{nodename=\"k8s-event-router\"}) / 1024 / 1024",
+              "legendFormat": "\u2b06\ufe0f TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "MBs",
+              "decimals": 2,
+              "color": {
+                "mode": "palette-classic"
+              }
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area"
           }
         }
       ]

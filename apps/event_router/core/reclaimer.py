@@ -42,19 +42,30 @@ class PendingReclaimer:
         processor: EventProcessor,
         consumer_group: str,
         consumer_name: str,
-        stream_prefix: str = "scan:events",
-        shard_count: int = 4,
+        stream_configs: list[tuple[str, int]] | None = None,
         min_idle_ms: int = 300000,  # 5분
         interval_seconds: int = 60,
         count: int = 100,
     ) -> None:
-        """초기화."""
+        """초기화.
+
+        Args:
+            redis_client: Redis 클라이언트
+            processor: 이벤트 처리기
+            consumer_group: Consumer Group 이름
+            consumer_name: Consumer 이름
+            stream_configs: [(prefix, shard_count), ...] 형태
+                예: [("scan:events", 4), ("chat:events", 4)]
+            min_idle_ms: Pending 메시지 최소 대기 시간 (기본 5분)
+            interval_seconds: Reclaim 주기 (기본 60초)
+            count: 한 번에 처리할 최대 메시지 수
+        """
         self._redis = redis_client
         self._processor = processor
         self._consumer_group = consumer_group
         self._consumer_name = consumer_name
-        self._stream_prefix = stream_prefix
-        self._shard_count = shard_count
+        # 멀티 도메인 지원: Consumer와 동일한 구조
+        self._stream_configs = stream_configs or [("scan:events", 4)]
         self._min_idle_ms = min_idle_ms
         self._interval = interval_seconds
         self._count = count
@@ -67,6 +78,7 @@ class PendingReclaimer:
             extra={
                 "consumer_group": self._consumer_group,
                 "consumer_name": self._consumer_name,
+                "stream_configs": self._stream_configs,
                 "min_idle_ms": self._min_idle_ms,
                 "interval_seconds": self._interval,
             },
@@ -91,11 +103,38 @@ class PendingReclaimer:
         logger.info("reclaimer_stopped")
 
     async def _reclaim_pending(self) -> None:
-        """모든 shard의 Pending 메시지 재할당."""
-        total_reclaimed = 0
+        """모든 도메인의 모든 shard에서 Pending 메시지 재할당.
 
-        for shard in range(self._shard_count):
-            stream_key = f"{self._stream_prefix}:{shard}"
+        각 도메인을 병렬로 처리하여 한 도메인의 지연이 다른 도메인에 영향 없음.
+        """
+        # 도메인별 병렬 처리
+        tasks = [
+            self._reclaim_domain(prefix, shard_count)
+            for prefix, shard_count in self._stream_configs
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 결과 집계
+        total_reclaimed = 0
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error("reclaim_domain_error", extra={"error": str(result)})
+            elif isinstance(result, int):
+                total_reclaimed += result
+
+        if total_reclaimed > 0:
+            logger.info(
+                "reclaim_completed",
+                extra={"total_reclaimed": total_reclaimed},
+            )
+
+    async def _reclaim_domain(self, prefix: str, shard_count: int) -> int:
+        """단일 도메인의 모든 shard에서 Pending 메시지 재할당."""
+        domain = prefix.split(":")[0]
+        domain_reclaimed = 0
+
+        for shard in range(shard_count):
+            stream_key = f"{prefix}:{shard}"
             shard_str = str(shard)
 
             try:
@@ -110,15 +149,19 @@ class PendingReclaimer:
                     count=self._count,
                 )
                 reclaim_latency = time.perf_counter() - start_time
-                EVENT_ROUTER_RECLAIM_LATENCY.labels(shard=shard_str).observe(reclaim_latency)
+                EVENT_ROUTER_RECLAIM_LATENCY.labels(domain=domain, shard=shard_str).observe(
+                    reclaim_latency
+                )
 
                 # result: (next_start_id, [(msg_id, data), ...], deleted_ids)
                 if len(result) >= 2:
                     messages = result[1]
                     if messages:
                         reclaimed_count = await self._process_reclaimed(stream_key, messages)
-                        total_reclaimed += reclaimed_count
-                        EVENT_ROUTER_RECLAIM_MESSAGES.labels(shard=shard_str).inc(reclaimed_count)
+                        domain_reclaimed += reclaimed_count
+                        EVENT_ROUTER_RECLAIM_MESSAGES.labels(domain=domain, shard=shard_str).inc(
+                            reclaimed_count
+                        )
 
             except Exception as e:
                 if "NOGROUP" in str(e):
@@ -126,21 +169,23 @@ class PendingReclaimer:
                     continue
                 logger.error(
                     "xautoclaim_error",
-                    extra={"stream": stream_key, "error": str(e)},
+                    extra={"stream": stream_key, "domain": domain, "error": str(e)},
                 )
 
-        if total_reclaimed > 0:
-            logger.info(
-                "reclaim_completed",
-                extra={"total_reclaimed": total_reclaimed},
-            )
+        return domain_reclaimed
 
     async def _process_reclaimed(
         self,
         stream_key: str,
         messages: list[tuple[bytes | str, dict[bytes | str, bytes | str]]],
     ) -> int:
-        """재할당된 메시지 처리."""
+        """재할당된 메시지 처리.
+
+        Consumer와 동일한 패턴:
+        - stream_id 주입 (SSE Gateway 중복 필터링용)
+        - stream_name 전달 (도메인별 state prefix 결정)
+        - 실패 시 ACK 스킵 (다음 reclaim 주기에 재시도)
+        """
         processed_count = 0
 
         for msg_id, data in messages:
@@ -149,9 +194,25 @@ class PendingReclaimer:
 
             event = self._parse_event(data)
 
+            # Stream ID 주입 (Consumer와 동일)
+            # SSE Gateway에서 중복 필터링에 사용
+            event["stream_id"] = msg_id
+
+            # 이벤트 처리 (stream_key 전달하여 도메인별 state prefix 결정)
+            # 실패 시 ACK 하지 않음 → 다음 reclaim 주기에 재시도
             try:
-                # 이벤트 처리 (멱등성 보장되므로 안전)
-                await self._processor.process_event(event)
+                success = await self._processor.process_event(event, stream_name=stream_key)
+                if not success:
+                    # Pub/Sub 발행 실패 - 다음 reclaim 주기에 재시도
+                    logger.warning(
+                        "reclaim_pubsub_failed",
+                        extra={
+                            "stream": stream_key,
+                            "msg_id": msg_id,
+                            "job_id": event.get("job_id"),
+                        },
+                    )
+                    continue  # ACK 스킵
                 processed_count += 1
             except Exception as e:
                 logger.error(
@@ -162,8 +223,10 @@ class PendingReclaimer:
                         "error": str(e),
                     },
                 )
+                # 처리 실패 - 다음 reclaim 주기에 재시도
+                continue  # ACK 스킵
 
-            # ACK
+            # 성공한 경우만 ACK
             try:
                 await self._redis.xack(
                     stream_key,

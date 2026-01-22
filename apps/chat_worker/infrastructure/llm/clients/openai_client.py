@@ -11,6 +11,10 @@ Structured Output 지원:
 Native Tools 지원 (Responses API):
 - https://platform.openai.com/docs/api-reference/responses
 - web_search: 실시간 웹 검색
+
+Function Calling 지원:
+- https://platform.openai.com/docs/guides/function-calling
+- Chat Completions API의 functions 파라미터 사용
 """
 
 from __future__ import annotations
@@ -291,3 +295,82 @@ class OpenAILLMClient(LLMClientPort):
                 context=context,
             ):
                 yield chunk
+
+    async def generate_function_call(
+        self,
+        prompt: str,
+        functions: list[dict[str, Any]],
+        system_prompt: str | None = None,
+        function_call: str | dict[str, str] = "auto",
+    ) -> tuple[str | None, dict[str, Any] | None]:
+        """Function Calling API 호출 (OpenAI Chat Completions).
+
+        OpenAI의 Function Calling 기능을 사용하여 LLM이 어떤 함수를
+        어떤 인자로 호출해야 할지 결정하도록 합니다.
+
+        Args:
+            prompt: 사용자 메시지
+            functions: OpenAI function definitions 리스트
+            system_prompt: 시스템 프롬프트 (선택)
+            function_call: 함수 호출 제어 ("auto", "none", {"name": "..."})
+
+        Returns:
+            (function_name, arguments) 튜플
+            - function_name: 호출할 함수 이름 (None이면 함수 호출 안함)
+            - arguments: 함수 인자 dict (JSON 파싱됨)
+
+        Raises:
+            ValueError: JSON 파싱 실패 시
+        """
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        try:
+            # Chat Completions API with functions
+            response = await self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                functions=functions,
+                function_call=function_call,
+            )
+
+            message = response.choices[0].message
+
+            # Function call 결과 확인
+            if hasattr(message, "function_call") and message.function_call:
+                func_call = message.function_call
+                func_name = func_call.name
+                func_args_str = func_call.arguments
+
+                # JSON 파싱
+                try:
+                    func_args = json.loads(func_args_str)
+                except json.JSONDecodeError as e:
+                    logger.error(
+                        f"Failed to parse function arguments: {e}",
+                        extra={
+                            "function_name": func_name,
+                            "arguments_str": func_args_str,
+                        },
+                    )
+                    raise ValueError(f"Invalid function arguments JSON: {e}") from e
+
+                logger.debug(
+                    "Function call generated",
+                    extra={
+                        "function_name": func_name,
+                        "arguments": func_args,
+                    },
+                )
+
+                return (func_name, func_args)
+
+            # Function call이 없는 경우 (일반 응답)
+            logger.debug("No function call generated")
+            return (None, None)
+
+        except Exception as e:
+            logger.error(f"generate_function_call failed: {e}")
+            raise

@@ -146,7 +146,7 @@ class CircuitBreaker(CircuitBreakerPort):
                 # HALF_OPEN에서 성공하면 CLOSED로 전환
                 logger.info(
                     "Circuit breaker recovered",
-                    extra={"name": self.name, "previous_state": "half_open"},
+                    extra={"cb_name": self.name, "previous_state": "half_open"},
                 )
             self._state = CircuitState.CLOSED
             self._failure_count = 0
@@ -164,7 +164,7 @@ class CircuitBreaker(CircuitBreakerPort):
                 self._half_open_calls = 0
                 logger.warning(
                     "Circuit breaker reopened after half-open failure",
-                    extra={"name": self.name},
+                    extra={"cb_name": self.name},
                 )
                 return
 

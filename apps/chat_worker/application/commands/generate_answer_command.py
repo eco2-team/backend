@@ -325,7 +325,7 @@ class GenerateAnswerCommand:
         if use_web_search:
             logger.info(
                 "Using native web_search tool",
-                extra={"job_id": input_dto.job_id, "message": input_dto.message[:50]},
+                extra={"job_id": input_dto.job_id, "user_message": input_dto.message[:50]},
             )
             async for token in self._llm.generate_with_tools(
                 prompt=prompt,

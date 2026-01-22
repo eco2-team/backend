@@ -47,29 +47,43 @@ class TestSubscriberQueue:
         assert queue.last_event_at > initial_time
 
     @pytest.mark.asyncio
-    async def test_put_event_duplicate_seq_rejected(self):
-        """중복 seq 이벤트 거부."""
+    async def test_put_event_duplicate_stream_id_rejected(self):
+        """중복 stream_id 이벤트 거부 (Stream ID 기반 필터링)."""
         from sse_gateway.core.broadcast_manager import SubscriberQueue
 
         queue = SubscriberQueue(job_id="test-job")
 
         # 첫 번째 이벤트 성공
-        result1 = await queue.put_event({"stage": "vision", "seq": 1})
+        result1 = await queue.put_event(
+            {"stage": "vision", "status": "started", "stream_id": "1000-0", "seq": 1}
+        )
         assert result1 is True
 
-        # 같은 seq 거부
-        result2 = await queue.put_event({"stage": "rule", "seq": 1})
+        # 같은 stream_id 거부
+        result2 = await queue.put_event(
+            {"stage": "vision", "status": "started", "stream_id": "1000-0", "seq": 1}
+        )
         assert result2 is False
 
-        # 작은 seq 거부
-        result3 = await queue.put_event({"stage": "rule", "seq": 0})
+        # 더 오래된 stream_id 거부
+        result3 = await queue.put_event(
+            {"stage": "vision", "status": "started", "stream_id": "999-0", "seq": 0}
+        )
         assert result3 is False
 
-        # 큰 seq 성공
-        result4 = await queue.put_event({"stage": "rule", "seq": 2})
+        # 더 최근 stream_id는 성공
+        result4 = await queue.put_event(
+            {"stage": "vision", "status": "started", "stream_id": "1001-0", "seq": 2}
+        )
         assert result4 is True
 
-        assert queue.queue.qsize() == 2
+        # 다른 stage도 stream_id가 더 크면 성공
+        result5 = await queue.put_event(
+            {"stage": "rule", "status": "started", "stream_id": "1002-0", "seq": 0}
+        )
+        assert result5 is True
+
+        assert queue.queue.qsize() == 3
 
     @pytest.mark.asyncio
     async def test_put_event_preserves_done(self):
@@ -79,12 +93,16 @@ class TestSubscriberQueue:
         queue = SubscriberQueue(job_id="test-job")
         queue.queue = asyncio.Queue(maxsize=2)
 
-        # done 이벤트로 Queue 채우기
-        await queue.put_event({"stage": "done", "seq": 1})
-        await queue.put_event({"stage": "done", "seq": 2})
+        # done 이벤트로 Queue 채우기 (timestamp 필수)
+        await queue.put_event({"stage": "done", "status": "started", "timestamp": 1000.0, "seq": 1})
+        await queue.put_event(
+            {"stage": "done", "status": "completed", "timestamp": 1001.0, "seq": 2}
+        )
 
         # 새 이벤트는 done을 보존하므로 드롭
-        result = await queue.put_event({"stage": "vision", "seq": 3})
+        result = await queue.put_event(
+            {"stage": "vision", "status": "started", "timestamp": 1002.0, "seq": 3}
+        )
         assert result is False
 
         # done이 유지됨

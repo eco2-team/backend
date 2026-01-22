@@ -105,9 +105,6 @@ from chat_worker.infrastructure.orchestration.langgraph.routing import (
 from chat_worker.infrastructure.orchestration.langgraph.nodes.kakao_place_node import (
     create_kakao_place_node,
 )
-from chat_worker.infrastructure.orchestration.langgraph.nodes.location_agent_node import (
-    create_location_agent_node,
-)
 
 # NOTE: web_search_node는 더 이상 Intent 기반 라우팅에 사용되지 않음
 # GENERAL intent에서 네이티브 web_search tool (OpenAI Responses API)을 사용
@@ -372,32 +369,12 @@ def create_chat_graph(
     # gRPC location_client는 미사용 (deprecated)
     _ = location_client  # suppress unused warning
     if kakao_client is not None:
-        if enable_location_agent and (openai_async_client is not None or gemini_client is not None):
-            # Location Agent: LLM이 Kakao API를 Tool로 사용
-            location_node = create_location_agent_node(
-                kakao_client=kakao_client,
-                event_publisher=event_publisher,
-                openai_client=openai_async_client,
-                gemini_client=gemini_client,
-                default_model=location_agent_model,
-                default_provider=location_agent_provider,
-            )
-            logger.info(
-                "Location Agent node created (LLM + Kakao Tools)",
-                extra={
-                    "provider": location_agent_provider,
-                    "model": location_agent_model,
-                    "openai_available": openai_async_client is not None,
-                    "gemini_available": gemini_client is not None,
-                },
-            )
-        else:
-            # Fallback: 기존 kakao_place_node (고정 파이프라인)
-            location_node = create_kakao_place_node(
-                kakao_client=kakao_client,
-                event_publisher=event_publisher,
-            )
-            logger.info("Location subagent node created (Kakao HTTP, legacy mode)")
+        location_node = create_kakao_place_node(
+            kakao_client=kakao_client,
+            event_publisher=event_publisher,
+            llm=llm,  # Function Calling용
+        )
+        logger.info("Location subagent node created (Kakao HTTP + Function Calling)")
     else:
         # Fallback: passthrough
         async def location_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -422,8 +399,9 @@ def create_chat_graph(
         bulk_waste_node = create_bulk_waste_node(
             bulk_waste_client=bulk_waste_client,
             event_publisher=event_publisher,
+            llm=llm,  # Function Calling용
         )
-        logger.info("Bulk waste subagent node created (MOIS API)")
+        logger.info("Bulk waste subagent node created (MOIS API + Function Calling)")
     else:
         # Fallback: passthrough
         async def bulk_waste_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -437,8 +415,9 @@ def create_chat_graph(
         recyclable_price_node = create_recyclable_price_node(
             price_client=recyclable_price_client,
             event_publisher=event_publisher,
+            llm=llm,  # Function Calling용
         )
-        logger.info("Recyclable price subagent node created (KECO)")
+        logger.info("Recyclable price subagent node created (KECO + Function Calling)")
     else:
         # Fallback: passthrough
         async def recyclable_price_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -453,10 +432,9 @@ def create_chat_graph(
         weather_node = create_weather_node(
             weather_client=weather_client,
             event_publisher=event_publisher,
-            kakao_client=kakao_client,  # geocoding 지원
+            llm=llm,  # Function Calling용
         )
-        geocoding_status = "with geocoding" if kakao_client else "without geocoding"
-        logger.info(f"Weather subagent node created (KMA API, {geocoding_status})")
+        logger.info("Weather subagent node created (KMA API + Function Calling)")
     else:
         # Fallback: passthrough (날씨는 보조 정보)
         async def weather_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -470,8 +448,9 @@ def create_chat_graph(
         collection_point_node = create_collection_point_node(
             collection_point_client=collection_point_client,
             event_publisher=event_publisher,
+            llm=llm,  # Function Calling용
         )
-        logger.info("Collection point subagent node created (KECO API)")
+        logger.info("Collection point subagent node created (KECO API + Function Calling)")
     else:
         # Fallback: passthrough
         async def collection_point_node(state: dict[str, Any]) -> dict[str, Any]:

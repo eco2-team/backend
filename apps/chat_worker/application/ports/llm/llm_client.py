@@ -5,6 +5,7 @@
 - 스트리밍 생성 (generate_stream)
 - 구조화된 응답 생성 (generate_structured)
 - 네이티브 도구 사용 생성 (generate_with_tools)
+- 함수 호출 (generate_function_call)
 
 포함하지 않는 것 (LLMPolicy로 분리):
 - 프롬프트 템플릿
@@ -15,6 +16,7 @@
 참고:
 - OpenAI Structured Outputs: https://platform.openai.com/docs/guides/structured-outputs
 - OpenAI Responses API: https://platform.openai.com/docs/api-reference/responses
+- OpenAI Function Calling: https://platform.openai.com/docs/guides/function-calling
 - Gemini Structured Output: https://ai.google.dev/gemini-api/docs/structured-output
 """
 
@@ -168,3 +170,64 @@ class LLMClientPort(ABC):
             context=context,
         ):
             yield chunk
+
+    async def generate_function_call(
+        self,
+        prompt: str,
+        functions: list[dict[str, Any]],
+        system_prompt: str | None = None,
+        function_call: str | dict[str, str] = "auto",
+    ) -> tuple[str | None, dict[str, Any] | None]:
+        """Function Calling API 호출.
+
+        LLM에게 function definitions을 제공하고, LLM이 어떤 함수를
+        어떤 인자로 호출해야 할지 결정하도록 합니다.
+
+        Args:
+            prompt: 사용자 메시지
+            functions: OpenAI function definitions 리스트.
+                각 function은 name, description, parameters를 포함.
+                예: [{"name": "search", "description": "...", "parameters": {...}}]
+            system_prompt: 시스템 프롬프트 (선택)
+            function_call: 함수 호출 제어.
+                - "auto": LLM이 자동 결정 (기본값)
+                - "none": 함수 호출하지 않음
+                - {"name": "function_name"}: 특정 함수 강제 호출
+
+        Returns:
+            (function_name, arguments) 튜플
+            - function_name: 호출할 함수 이름 (None이면 함수 호출 안함)
+            - arguments: 함수 인자 dict (JSON 파싱됨)
+
+        Raises:
+            ValueError: JSON 파싱 실패 시
+            NotImplementedError: 구현체가 Function Calling을 지원하지 않을 때
+
+        Note:
+            기본 구현은 NotImplementedError를 발생시킵니다.
+            OpenAI 구현체는 Chat Completions API의 functions 파라미터를 사용합니다.
+
+        Example:
+            >>> functions = [{
+            ...     "name": "search_place",
+            ...     "description": "장소 검색",
+            ...     "parameters": {
+            ...         "type": "object",
+            ...         "properties": {
+            ...             "query": {"type": "string", "description": "검색어"},
+            ...             "radius": {"type": "integer", "description": "반경(m)"}
+            ...         },
+            ...         "required": ["query"]
+            ...     }
+            ... }]
+            >>> name, args = await llm.generate_function_call(
+            ...     prompt="주변 카페 찾아줘",
+            ...     functions=functions
+            ... )
+            >>> # name == "search_place"
+            >>> # args == {"query": "카페", "radius": 5000}
+        """
+        raise NotImplementedError(
+            "generate_function_call() is not implemented. "
+            "Override this method in the implementation class."
+        )
