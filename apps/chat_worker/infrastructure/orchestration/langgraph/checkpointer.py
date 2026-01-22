@@ -235,16 +235,19 @@ async def create_cached_postgres_checkpointer(
     psycopg_conn_string = conn_string.replace("postgresql+asyncpg://", "postgresql://")
 
     # Connection pool 생성 (연결 안정성 강화)
+    # - min_size/max_size: 동시 task 수(CONCURRENCY=40+)에 맞춘 풀 크기
     # - check: 연결 사용 전 상태 확인 (끊어진 연결 감지)
     # - max_lifetime: 연결 최대 수명 (5분마다 갱신하여 stale 연결 방지)
     # - num_workers: 백그라운드 연결 관리 worker 수
     # - reconnect_timeout: 재연결 타임아웃
     pool = AsyncConnectionPool(
         conninfo=psycopg_conn_string,
+        min_size=10,
+        max_size=50,
         open=False,
         check=AsyncConnectionPool.check_connection,
         max_lifetime=300,  # 5분
-        num_workers=2,
+        num_workers=3,
         reconnect_timeout=30,
     )
     await pool.open()
@@ -389,10 +392,12 @@ async def create_postgres_checkpointer(
     # Connection pool 생성 (연결 안정성 강화)
     pool = AsyncConnectionPool(
         conninfo=psycopg_conn_string,
+        min_size=10,
+        max_size=50,
         open=False,
         check=AsyncConnectionPool.check_connection,
         max_lifetime=300,  # 5분
-        num_workers=2,
+        num_workers=3,
         reconnect_timeout=30,
     )
     await pool.open()
