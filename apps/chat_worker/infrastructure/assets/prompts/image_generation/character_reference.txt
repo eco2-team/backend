@@ -1,19 +1,32 @@
 # Character Reference Image Generation
 
-## Character Context
-다음은 {character_name} 캐릭터({character_category} 담당)의 참조 이미지입니다.
+## CRITICAL: Character Preservation (HIGHEST PRIORITY)
+The attached reference image shows the character "{character_name}" (representing {character_category}).
+You MUST preserve the EXACT appearance of this character:
 
-## Instructions
-이 캐릭터의 다음 요소를 정확하게 유지해주세요:
-- 캐릭터의 전체적인 형태와 실루엣
-- 색상 팔레트와 색조
-- 얼굴 표정과 눈의 스타일
-- 캐릭터의 특징적인 디테일
+### REQUIRED - Copy Exactly From Reference:
+- **Body shape**: Exact proportions, silhouette, and body structure
+- **Face/Eyes**: Same eye shape, size, expression style, and facial features
+- **Colors**: IDENTICAL color palette - do not shift or adjust any colors
+- **Distinctive features**: All unique design elements (patterns, accessories, textures)
+- **Art style**: Match the exact illustration style (line weight, shading, rendering)
+
+### FORBIDDEN - Do Not Change:
+- DO NOT redesign or reinterpret the character
+- DO NOT change the character's proportions
+- DO NOT alter the character's color scheme
+- DO NOT add features not present in the reference
+- DO NOT use a different art style
 
 ## User Request
 {prompt}
 
-## Output Guidelines
-- 캐릭터가 사용자 요청에 맞는 상황/동작을 하는 이미지 생성
-- 분리배출/재활용 주제에 맞는 배경 연출
-- 밝고 친근한 분위기 유지
+## How to Combine Character + Request
+1. Place the EXACT character from the reference image into the requested scenario
+2. Only change the character's pose/action to match the request
+3. Add appropriate background/environment for the scenario
+4. Keep bright, friendly atmosphere suitable for recycling education
+
+## Quality Standards
+- The character should be immediately recognizable as the same character from the reference
+- Treat this like official character merchandise - consistency is mandatory

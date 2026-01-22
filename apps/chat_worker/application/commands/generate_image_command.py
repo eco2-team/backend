@@ -107,6 +107,7 @@ class GenerateImageCommand:
         # 프롬프트 로드 (optional - 없으면 기본값 사용)
         if prompt_loader:
             try:
+                self._system_prompt = prompt_loader.load("image_generation", "system")
                 self._character_reference_prompt = prompt_loader.load(
                     "image_generation", "character_reference"
                 )
@@ -119,8 +120,10 @@ class GenerateImageCommand:
             except FileNotFoundError as e:
                 logger.warning(f"Failed to load image generation prompts: {e}")
                 self._prompts_loaded = False
+                self._system_prompt = None
         else:
             self._prompts_loaded = False
+            self._system_prompt = None
 
     def _build_generation_prompt(
         self,
@@ -138,25 +141,30 @@ class GenerateImageCommand:
             has_reference: 참조 이미지 여부
 
         Returns:
-            빌드된 프롬프트
+            빌드된 프롬프트 (시스템 지시 + 사용자 요청)
         """
         if not self._prompts_loaded:
             # 프롬프트 파일이 없으면 원본 프롬프트 그대로 반환
             return user_prompt
 
+        # 시스템 프롬프트 (캐릭터 보존 강조)
+        system_part = self._system_prompt + "\n\n" if self._system_prompt else ""
+
         if has_reference and character_name:
             # 캐릭터 정보가 있는 참조 이미지 생성
-            return self._character_reference_prompt.format(
+            task_prompt = self._character_reference_prompt.format(
                 character_name=character_name,
                 character_category=character_category or "분리배출",
                 prompt=user_prompt,
             )
         elif has_reference:
             # 캐릭터 정보 없이 참조 이미지만 있는 경우
-            return self._reference_only_prompt.format(prompt=user_prompt)
+            task_prompt = self._reference_only_prompt.format(prompt=user_prompt)
         else:
             # 기본 이미지 생성
-            return self._basic_prompt.format(prompt=user_prompt)
+            task_prompt = self._basic_prompt.format(prompt=user_prompt)
+
+        return system_part + task_prompt
 
     async def execute(self, input_dto: GenerateImageInput) -> GenerateImageOutput:
         """Command 실행.

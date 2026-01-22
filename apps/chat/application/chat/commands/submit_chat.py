@@ -48,13 +48,6 @@ class SubmitChatCommand:
     책임 아님 (Worker에서 수행):
     - 이벤트 발행 (queued, progress, done)
     - 상태 관리
-
-    면접 포인트:
-    Q: "API가 queued 이벤트를 발행하지 않으면 클라이언트는 어떻게 상태를 알죠?"
-    A: "클라이언트는 stream_url로 SSE 연결 후 Worker가 발행하는 이벤트를 수신합니다.
-        Worker가 작업을 수신하면 즉시 queued 이벤트를 발행합니다.
-        이렇게 하면 '실제로 Worker가 작업을 받았을 때'만 queued가 되어
-        상태의 일관성이 보장됩니다."
     """
 
     def __init__(self, job_submitter: JobSubmitterPort):

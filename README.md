@@ -133,9 +133,10 @@ Retry: 2회
 
 ### 1. LangGraph StateGraph (Intent-Routed Workflow)
 
-> `app.get_graph().draw_mermaid()` 스타일 ([참고](https://rudaks.tistory.com/entry/langgraph-%EA%B7%B8%EB%9E%98%ED%94%84%EB%A5%BC-%EC%8B%9C%EA%B0%81%ED%99%94%ED%95%98%EB%8A%94-%EB%B0%A9%EB%B2%95))
+> `app.get_graph().draw_mermaid()` ([참고](https://rudaks.tistory.com/entry/langgraph-%EA%B7%B8%EB%9E%98%ED%94%84%EB%A5%BC-%EC%8B%9C%EA%B0%81%ED%99%94%ED%95%98%EB%8A%94-%EB%B0%A9%EB%B2%95))
 
-**Dynamic Routing (Send API)**를 사용하여 런타임에 복수 노드를 병렬 실행합니다.
+
+Dynamic Routing (Send API)를 사용하여 런타임에 복수 노드를 병렬 실행합니다.
 
 - **Multi-Intent Fanout**: `additional_intents` → 각각 병렬 Send
 - **Intent 기반 Enrichment**: `waste` → `weather` 자동 추가 (분리배출 + 날씨 팁)
@@ -372,7 +373,7 @@ flowchart LR
 
 ---
 
-## Async Task Pipeline (Celery) ✅
+## Async Task Pipeline (Scan: Celery + GEVENT, Chat: Taskiq + Asyncio) ✅
 
 > **Status**: RabbitMQ + Celery + KEDA 이벤트 드리븐 오토스케일링 완료
 
@@ -633,11 +634,11 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 
 ---
 
-## Release Summary (v1.1.0-pre)
+## Release Summary (v1.0.8 - v1.1.0-pre)
 
 - **LangGraph Multi-Agent 아키텍처** ✅ **(New!)**
-  - **9개 Intent 분류**: WASTE, CHARACTER, WEATHER, LOCATION, INFO, NEWS, IMAGE_GENERATION, GENERAL, GREETING
-  - **Function Calling Agents**: Location (Kakao Local), Weather (기상청), News (Info API) - GPT-5.2/Gemini 3 네이티브 tool
+  - **9개 Intent 분류**: WASTE, CHARACTER, WEATHER, LOCATION, IMAGE_GENERATION, GENERAL
+  - **Function Calling Agents**: Location (Kakao Local), Weather (기상청), Character (Character API) - GPT-5.2/Gemini 3 네이티브 tool
   - **이미지 생성**: Gemini 2.0 Flash + gRPC CDN Upload, Character Reference 지원
   - **Token Streaming**: LangChain LLM 직접 호출, Event Router Unicode 수정
   - **메시지 영속화**: chat-persistence-consumer (Redis Streams → PostgreSQL), LangGraph Checkpointer
@@ -645,7 +646,7 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 
 - **Info 서비스 프로비저닝** ✅ **(New!)**
   - **Info API/Worker**: 3-Tier Architecture (FastAPI + Celery Beat + PostgreSQL + Redis)
-  - **NewsData API 연동**: 환경 뉴스 자동 수집
+  - **NewsData API 연동**: 환경/에너지/AI 뉴스 자동 수집
   - **Claude Code Skills**: chat-agent-flow 등 프로젝트 특화 가이드
 
 - **Clean Architecture 마이그레이션** ✅ **(New!)**

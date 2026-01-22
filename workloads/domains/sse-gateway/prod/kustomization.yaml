@@ -7,7 +7,7 @@ images:
 - name: mng990/eco2
   newTag: sse-gateway-prod-latest
 - name: docker.io/mng990/eco2
-  newTag: sse-gateway-1.0.7-62a1b1
+  newTag: sse-gateway-1.1.0-pre-7e38aa
 patches:
 - patch: "- op: replace\n  path: /spec/replicas\n  value: 2"
   target:

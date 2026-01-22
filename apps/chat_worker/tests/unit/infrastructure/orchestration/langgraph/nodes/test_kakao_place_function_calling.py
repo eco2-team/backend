@@ -280,8 +280,8 @@ class TestKakaoPlaceNodeFunctionCalling:
         assert mock_kakao_client.last_radius == 5000
 
         # 결과 확인
-        assert "kakao_place_context" in result
-        assert result["kakao_place_context"] is not None
+        assert "location_context" in result
+        assert result["location_context"] is not None
 
     @pytest.mark.anyio
     async def test_function_call_extracts_different_search_types(
@@ -356,7 +356,7 @@ class TestKakaoPlaceNodeFunctionCalling:
         assert mock_kakao_client.last_radius == 5000  # 기본값
 
         # 결과는 여전히 성공
-        assert "kakao_place_context" in result
+        assert "location_context" in result
 
     @pytest.mark.anyio
     async def test_function_call_llm_error_returns_error_context(
@@ -384,8 +384,8 @@ class TestKakaoPlaceNodeFunctionCalling:
         result = await node(state)
 
         # Then: 에러 컨텍스트 반환 (success=False, error 메시지 포함)
-        assert "kakao_place_context" in result
-        context = result["kakao_place_context"]
+        assert "location_context" in result
+        context = result["location_context"]
         assert context.get("success") is False
         assert "검색 정보를 추출할 수 없습니다" in context.get("error", "")
 
@@ -509,7 +509,7 @@ class TestKakaoPlaceNodeFunctionCalling:
 
         # Then: 검색 성공 (정확도순)
         assert mock_kakao_client.search_keyword_called
-        assert "kakao_place_context" in result
+        assert "location_context" in result
 
     # ==========================================================
     # Custom Radius Tests
@@ -727,7 +727,7 @@ class TestKakaoPlaceNodeFunctionCalling:
 
         # Then: Fallback으로 빈 query 전달
         # Command에서 검색어 없음 처리
-        assert "kakao_place_context" in result
+        assert "location_context" in result
 
     @pytest.mark.anyio
     async def test_function_call_preserves_state(
@@ -757,6 +757,6 @@ class TestKakaoPlaceNodeFunctionCalling:
         result = await node(state)
 
         # Then: 노드는 자신의 채널만 반환 + state 확장
-        assert "kakao_place_context" in result
+        assert "location_context" in result
         # 기존 state는 LangGraph reducer가 병합
         # 노드는 **state로 확장하므로 일부 키가 포함될 수 있음

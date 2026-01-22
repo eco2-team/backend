@@ -13,12 +13,6 @@ class JobSubmitterPort(ABC):
     책임:
     - Taskiq/RabbitMQ에 작업 enqueue만 담당
     - 이벤트 발행 X (Worker의 책임)
-
-    면접 포인트:
-    - "API는 왜 이벤트를 발행하지 않나요?"
-    - → "상태 변경(queued→running→done)의 source of truth는 Worker입니다.
-        API가 queued 이벤트를 발행하면 Worker가 아직 수신 전인데
-        클라이언트는 이미 진행 중으로 착각할 수 있습니다."
     """
 
     @abstractmethod
