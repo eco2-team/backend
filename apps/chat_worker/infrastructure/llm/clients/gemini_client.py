@@ -152,7 +152,8 @@ class GeminiLLMClient(LLMClientPort):
                 contents=full_prompt,
                 config=config,
             )
-            content = response.text or "{}"
+            # 빈 응답 또는 공백만 있는 응답 처리
+            content = (response.text or "").strip() or "{}"
 
             # JSON 파싱 및 Pydantic 검증
             data = json.loads(content)
@@ -165,8 +166,18 @@ class GeminiLLMClient(LLMClientPort):
             return result
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse structured response: {e}")
+            logger.error(
+                "Failed to parse structured response",
+                extra={
+                    "error": str(e),
+                    "content_preview": content[:100] if content else "(empty)",
+                    "schema": response_schema.__name__,
+                },
+            )
             raise ValueError(f"Invalid JSON response: {e}") from e
         except Exception as e:
-            logger.error(f"Structured output generation failed: {e}")
+            logger.error(
+                "Structured output generation failed",
+                extra={"error": str(e), "schema": response_schema.__name__},
+            )
             raise

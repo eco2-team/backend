@@ -23,6 +23,8 @@ from chat_worker.application.services.intent_classifier_service import (
     INTENT_CACHE_TTL,
     IntentClassificationSchema,
     IntentClassifierService,
+    MultiIntentDetectionSchema,
+    QueryDecompositionSchema,
 )
 from chat_worker.domain import ChatIntent
 from chat_worker.infrastructure.assets.character_name_detector import (
@@ -293,18 +295,16 @@ class ClassifyIntentCommand:
 
         events.append("multi_intent_candidate")
 
-        # Stage 2: LLM 기반 Multi-Intent 감지 (Command에서 Port 호출)
+        # Stage 2: LLM 기반 Multi-Intent 감지 (Structured Output으로 JSON 보장)
         try:
-            detect_response = await self._llm.generate(
+            detection = await self._llm.generate_structured(
                 prompt=message,
+                response_schema=MultiIntentDetectionSchema,
                 system_prompt=self._service.get_multi_detect_system_prompt(),
                 max_tokens=200,
                 temperature=0.1,
             )
             events.append("multi_detect_llm_called")
-
-            # 파싱 (Service - 순수 로직)
-            detection = self._service.parse_multi_detect_response(detect_response)
 
             if not detection.is_multi:
                 logger.debug(f"Stage 2: LLM says single intent: {detection.reason}")
@@ -318,18 +318,16 @@ class ClassifyIntentCommand:
             events.append("multi_detect_error")
             return await self._execute_single_intent(message, None, events)
 
-        # Stage 3: Query Decomposition (Command에서 Port 호출)
+        # Stage 3: Query Decomposition (Structured Output으로 JSON 보장)
         try:
-            decompose_response = await self._llm.generate(
+            decomposed = await self._llm.generate_structured(
                 prompt=message,
+                response_schema=QueryDecompositionSchema,
                 system_prompt=self._service.get_decompose_system_prompt(),
                 max_tokens=300,
                 temperature=0.1,
             )
             events.append("decompose_llm_called")
-
-            # 파싱 (Service - 순수 로직)
-            decomposed = self._service.parse_decompose_response(decompose_response, message)
             queries = decomposed.queries if decomposed.is_compound else [message]
 
         except Exception as e:
