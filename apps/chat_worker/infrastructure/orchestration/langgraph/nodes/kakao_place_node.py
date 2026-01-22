@@ -192,8 +192,8 @@ def create_kakao_place_node(
                 result={"error": "파라미터 추출 실패"},
             )
             return {
-                "kakao_place_context": create_error_context(
-                    producer="kakao_place",
+                "location_context": create_error_context(
+                    producer="location",
                     job_id=job_id,
                     error=f"검색 정보를 추출할 수 없습니다: {str(e)}",
                 ),
@@ -256,7 +256,7 @@ def create_kakao_place_node(
             )
             return {
                 **state,
-                "kakao_place_context": output.places_context,
+                "location_context": output.places_context,
                 "needs_location": True,
             }
 
@@ -269,8 +269,8 @@ def create_kakao_place_node(
             )
             return {
                 **state,
-                "kakao_place_context": output.places_context,
-                "kakao_place_error": output.error_message,
+                "location_context": output.places_context,
+                "location_error": output.error_message,
             }
 
         # Progress: 완료 (UX)
@@ -291,7 +291,7 @@ def create_kakao_place_node(
 
         return {
             **state,
-            "kakao_place_context": output.places_context,
+            "location_context": output.places_context,
         }
 
     return kakao_place_node
