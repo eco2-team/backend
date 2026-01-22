@@ -264,7 +264,7 @@ class IntentClassifierService:
                 elif role == "assistant":
                     history_lines.append(f"어시스턴트: {content}")
             if history_lines:
-                parts.append(f"[최근 대화]\n" + "\n".join(history_lines))
+                parts.append("[최근 대화]\n" + "\n".join(history_lines))
 
         # 2. 이전 의도 (Chain-of-Intent)
         previous_intents = context.get("previous_intents", [])

@@ -200,5 +200,91 @@ class LangChainLLMAdapter(LLMClientPort):
             logger.error(f"Structured output generation failed: {e}")
             raise
 
+    async def generate_function_call(
+        self,
+        prompt: str,
+        functions: list[dict[str, Any]],
+        system_prompt: str | None = None,
+        function_call: str | dict[str, str] = "auto",
+    ) -> tuple[str | None, dict[str, Any] | None]:
+        """Function Calling API 호출 (OpenAI via LangChain).
+
+        LangChainOpenAIRunnable의 내부 AsyncOpenAI 클라이언트를 사용하여
+        Function Calling을 수행합니다.
+
+        Args:
+            prompt: 사용자 메시지
+            functions: OpenAI 호환 function definitions 리스트
+            system_prompt: 시스템 프롬프트 (선택)
+            function_call: 함수 호출 제어 ("auto", "none", {"name": "..."})
+
+        Returns:
+            (function_name, arguments) 튜플
+            - function_name: 호출할 함수 이름 (None이면 함수 호출 안함)
+            - arguments: 함수 인자 dict
+
+        Raises:
+            NotImplementedError: 내부 LLM이 Function Calling을 지원하지 않을 때
+        """
+        # LangChainOpenAIRunnable의 경우 _client 사용
+        if hasattr(self._llm, "_client") and self._llm._client is not None:
+            client = self._llm._client
+            model = getattr(self._llm, "model", "gpt-4o")
+
+            messages: list[dict[str, str]] = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+
+            # OpenAI tools 형식으로 변환
+            tools = [{"type": "function", "function": func} for func in functions]
+
+            # tool_choice 설정
+            tool_choice: str | dict[str, Any] = "auto"
+            if function_call == "none":
+                tool_choice = "none"
+            elif isinstance(function_call, dict) and "name" in function_call:
+                tool_choice = {
+                    "type": "function",
+                    "function": {"name": function_call["name"]},
+                }
+
+            try:
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                )
+
+                # Function call 결과 확인
+                if response.choices[0].message.tool_calls:
+                    tool_call = response.choices[0].message.tool_calls[0]
+                    func_name = tool_call.function.name
+                    func_args = json.loads(tool_call.function.arguments)
+
+                    logger.debug(
+                        "Function call generated",
+                        extra={
+                            "function_name": func_name,
+                            "arguments": func_args,
+                        },
+                    )
+                    return (func_name, func_args)
+
+                logger.debug("No function call generated")
+                return (None, None)
+
+            except Exception as e:
+                logger.error(
+                    "generate_function_call failed",
+                    extra={"error": str(e)},
+                )
+                raise
+
+        raise NotImplementedError(
+            "generate_function_call() requires LangChainOpenAIRunnable with _client"
+        )
+
 
 __all__ = ["LangChainLLMAdapter"]
