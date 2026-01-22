@@ -1060,6 +1060,71 @@ class SSEBroadcastManager:
                 extra={"job_id": job_id, "error": str(e)},
             )
 
+    async def catch_up_from_last_event_id(
+        self,
+        job_id: str,
+        last_event_id: str,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Last-Event-ID 기반 토큰 복구 (네이티브 SSE 표준).
+
+        브라우저 EventSource 자동 재연결 시 Last-Event-ID 헤더로 전달되는
+        Redis Stream ID를 사용하여 누락된 토큰을 XRANGE로 효율적으로 복구.
+
+        Args:
+            job_id: 작업 ID
+            last_event_id: 마지막으로 수신한 SSE id (Redis Stream ID 형식)
+
+        Yields:
+            Token 이벤트 (stage=token)
+        """
+        if not self._streams_client:
+            return
+
+        token_stream_key = f"{TOKEN_STREAM_PREFIX}:{job_id}"
+
+        try:
+            # XRANGE with exclusive lower bound: (last_event_id ~ +
+            # Redis Stream ID가 다른 stream의 것이라도 timestamp 기반이므로
+            # 그 이후 시점의 토큰을 정확히 반환
+            messages = await self._streams_client.xrange(
+                token_stream_key,
+                min=f"({last_event_id}",  # exclusive lower bound
+                max="+",
+                count=10000,
+            )
+
+            caught_up_count = 0
+            for msg_id, data in messages:
+                caught_up_count += 1
+                yield {
+                    "stage": "token",
+                    "status": "streaming",
+                    "seq": int(data.get("seq", "0")),
+                    "content": data.get("delta", ""),
+                    "node": data.get("node", ""),
+                    "stream_id": msg_id,
+                }
+
+            if caught_up_count > 0:
+                logger.info(
+                    "token_catch_up_from_last_event_id",
+                    extra={
+                        "job_id": job_id,
+                        "last_event_id": last_event_id,
+                        "caught_up_count": caught_up_count,
+                    },
+                )
+
+        except Exception as e:
+            logger.warning(
+                "token_catch_up_from_last_event_id_error",
+                extra={
+                    "job_id": job_id,
+                    "last_event_id": last_event_id,
+                    "error": str(e),
+                },
+            )
+
     async def get_token_recovery_event(
         self,
         job_id: str,

@@ -24,6 +24,7 @@ async def event_generator(
     job_id: str,
     request: Request,
     domain: str = "scan",
+    last_event_id: str | None = None,
     last_token_seq: int = 0,
 ) -> AsyncGenerator[dict[str, str], None]:
     """SSE 이벤트 제너레이터.
@@ -32,7 +33,8 @@ async def event_generator(
         job_id: Chain root task ID
         request: FastAPI Request (연결 상태 확인용)
         domain: 서비스 도메인 (scan, chat)
-        last_token_seq: 마지막으로 받은 토큰 seq (Token v2 복구용)
+        last_event_id: Last-Event-ID 헤더 (네이티브 SSE 재연결 시 브라우저가 자동 전송)
+        last_token_seq: 마지막으로 받은 토큰 seq (레거시 호환, last_event_id 우선)
 
     Yields:
         SSE 이벤트 딕셔너리 (event, data, id)
@@ -41,27 +43,49 @@ async def event_generator(
     """
     manager = await SSEBroadcastManager.get_instance()
 
-    # Token v2: 재연결 시 Token 복구 (chat 도메인만)
+    # Token 복구 (chat 도메인만)
     if domain == "chat":
-        if last_token_seq > 0:
-            # 마지막 seq 이후 토큰 catch-up
+        if last_event_id and "-" in last_event_id and not last_event_id.startswith("recovery:"):
+            # 네이티브 Last-Event-ID 기반 복구 (Redis Stream ID)
+            # 브라우저 EventSource 자동 재연결 시 전송됨
+            logger.info(
+                "sse_catch_up_from_last_event_id",
+                extra={"job_id": job_id, "last_event_id": last_event_id},
+            )
+            async for token_event in manager.catch_up_from_last_event_id(job_id, last_event_id):
+                if await request.is_disconnected():
+                    break
+                yield {
+                    "event": "token",
+                    "data": json.dumps(token_event),
+                    "id": token_event.get("stream_id", ""),
+                }
+        elif last_event_id and last_event_id.startswith("recovery:"):
+            # recovery:seq 형식 → seq 이후 토큰 catch-up
+            try:
+                from_seq = int(last_event_id.split(":", 1)[1])
+                async for token_event in manager.catch_up_tokens(job_id, from_seq):
+                    if await request.is_disconnected():
+                        break
+                    yield {
+                        "event": "token",
+                        "data": json.dumps(token_event),
+                        "id": token_event.get("stream_id", ""),
+                    }
+            except (ValueError, IndexError):
+                pass
+        elif last_token_seq > 0:
+            # 레거시: last_token_seq 쿼리 파라미터 (하위 호환)
             async for token_event in manager.catch_up_tokens(job_id, last_token_seq):
                 if await request.is_disconnected():
                     break
-                logger.info(
-                    "sse_token_sent",
-                    extra={
-                        "job_id": job_id,
-                        "seq": token_event.get("seq"),
-                    },
-                )
                 yield {
                     "event": "token",
                     "data": json.dumps(token_event),
                     "id": token_event.get("stream_id", ""),
                 }
         else:
-            # 새 연결: Token State에서 누적 텍스트 복구
+            # 새 연결 (Last-Event-ID 없음): Token State에서 누적 텍스트 복구
             recovery_event = await manager.get_token_recovery_event(job_id)
             if recovery_event:
                 logger.info(
@@ -265,18 +289,29 @@ async def stream_events_restful(
             detail=f"지원하지 않는 서비스입니다. (지원: {', '.join(SUPPORTED_DOMAINS)})",
         )
 
+    # 네이티브 SSE: Last-Event-ID 헤더 읽기
+    # 브라우저 EventSource가 자동 재연결 시 마지막 수신 id를 헤더로 전송
+    last_event_id = request.headers.get("Last-Event-ID") or request.headers.get("last-event-id")
+
     logger.info(
         "sse_stream_started",
         extra={
             "service": service,
             "job_id": job_id,
+            "last_event_id": last_event_id,
             "last_token_seq": last_token_seq,
             "client_ip": request.client.host if request.client else "unknown",
         },
     )
 
     return EventSourceResponse(
-        event_generator(job_id, request, domain=service, last_token_seq=last_token_seq),
+        event_generator(
+            job_id,
+            request,
+            domain=service,
+            last_event_id=last_event_id,
+            last_token_seq=last_token_seq,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
