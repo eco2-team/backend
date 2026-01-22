@@ -903,6 +903,8 @@ class SSEBroadcastManager:
                 seq = int(data.get("seq", "0"))
                 if from_seq < seq <= to_seq:
                     event = dict(data)  # 이미 문자열
+                    # stream_id 추가 (SSE id 필드용)
+                    event["stream_id"] = msg_id
                     # result 필드 JSON 파싱
                     if event.get("result"):
                         try:
@@ -1039,6 +1041,7 @@ class SSEBroadcastManager:
                         "seq": seq,
                         "content": data.get("delta", ""),
                         "node": data.get("node", ""),
+                        "stream_id": msg_id,  # SSE id 필드용
                     }
 
             if caught_up_count > 0:
