@@ -43,6 +43,10 @@ description: Git Flow 브랜치 전략 및 PR 절차 가이드. 브랜치 생성
 3. **Hotfix**: Branch from `main`, merge to both `main` and `develop`
 4. **Release**: Branch from `develop`, merge to `main` after QA
 
+> ⚠️ **CRITICAL: PR은 반드시 `develop` 브랜치를 base로 생성해야 합니다.**
+> - `gh pr create --base develop` (NOT `--base main`)
+> - main으로 잘못 머지하면 main → develop PR을 추가로 생성해야 합니다.
+
 ## Commit Convention (Conventional Commits)
 
 ```
