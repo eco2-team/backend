@@ -7,6 +7,9 @@ Port: application/ports/llm/llm_client.py
 
 Structured Output 지원:
 - https://ai.google.dev/gemini-api/docs/structured-output
+
+Function Calling 지원:
+- https://ai.google.dev/gemini-api/docs/function-calling
 """
 
 from __future__ import annotations
@@ -179,5 +182,123 @@ class GeminiLLMClient(LLMClientPort):
             logger.error(
                 "Structured output generation failed",
                 extra={"error": str(e), "schema": response_schema.__name__},
+            )
+            raise
+
+    async def generate_function_call(
+        self,
+        prompt: str,
+        functions: list[dict[str, Any]],
+        system_prompt: str | None = None,
+        function_call: str | dict[str, str] = "auto",
+    ) -> tuple[str | None, dict[str, Any] | None]:
+        """Function Calling API 호출 (Gemini).
+
+        Gemini의 Function Calling 기능을 사용하여 LLM이 어떤 함수를
+        어떤 인자로 호출해야 할지 결정하도록 합니다.
+
+        Args:
+            prompt: 사용자 메시지
+            functions: OpenAI 호환 function definitions 리스트
+            system_prompt: 시스템 프롬프트 (선택)
+            function_call: 함수 호출 제어 ("auto", "none", {"name": "..."})
+
+        Returns:
+            (function_name, arguments) 튜플
+            - function_name: 호출할 함수 이름 (None이면 함수 호출 안함)
+            - arguments: 함수 인자 dict
+
+        Raises:
+            ValueError: 응답 파싱 실패 시
+        """
+        from google.genai import types
+
+        # OpenAI 포맷 → Gemini 포맷 변환
+        function_declarations = []
+        for func in functions:
+            # parameters 스키마 변환
+            params = func.get("parameters", {})
+            properties = params.get("properties", {})
+            required = params.get("required", [])
+
+            # Gemini Schema 형식으로 변환
+            schema_properties = {}
+            for prop_name, prop_def in properties.items():
+                prop_type = prop_def.get("type", "string").upper()
+                schema_properties[prop_name] = types.Schema(
+                    type=prop_type,
+                    description=prop_def.get("description", ""),
+                )
+
+            function_declarations.append(
+                types.FunctionDeclaration(
+                    name=func["name"],
+                    description=func.get("description", ""),
+                    parameters=types.Schema(
+                        type="OBJECT",
+                        properties=schema_properties,
+                        required=required,
+                    ),
+                )
+            )
+
+        tools = [types.Tool(function_declarations=function_declarations)]
+
+        # 프롬프트 구성
+        full_prompt = ""
+        if system_prompt:
+            full_prompt = f"{system_prompt}\n\n"
+        full_prompt += prompt
+
+        # tool_config 설정
+        tool_config = None
+        if function_call == "none":
+            tool_config = types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(mode="NONE")
+            )
+        elif isinstance(function_call, dict) and "name" in function_call:
+            tool_config = types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(
+                    mode="ANY",
+                    allowed_function_names=[function_call["name"]],
+                )
+            )
+        # "auto"는 기본값이므로 별도 설정 불필요
+
+        try:
+            response = await self._client.aio.models.generate_content(
+                model=self._model,
+                contents=full_prompt,
+                config={
+                    "tools": tools,
+                    "tool_config": tool_config,
+                },
+            )
+
+            # Function call 결과 확인
+            if response.candidates and response.candidates[0].content.parts:
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, "function_call") and part.function_call:
+                        func_call = part.function_call
+                        func_name = func_call.name
+                        func_args = dict(func_call.args) if func_call.args else {}
+
+                        logger.debug(
+                            "Function call generated",
+                            extra={
+                                "function_name": func_name,
+                                "arguments": func_args,
+                            },
+                        )
+                        return (func_name, func_args)
+
+            # Function call이 없는 경우 (일반 응답)
+            logger.debug("No function call generated")
+            return (None, None)
+
+        except Exception as e:
+            logger.error(
+                "generate_function_call failed",
+                extra={"error": str(e)},
             )
             raise
