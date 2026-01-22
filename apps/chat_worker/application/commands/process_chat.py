@@ -264,6 +264,7 @@ class ProcessChatCommand:
             # 2. 파이프라인 초기 상태
             # Context 필드들은 _reset 마커로 초기화하여 이전 턴 값이 유지되지 않도록 함
             # (priority_preemptive_reducer가 _reset 마커를 감지하면 None 반환)
+            # NOTE: reducer가 없는 필드(classification_result)는 None 직접 사용
             _reset_marker = {"_reset": True}
             initial_state = {
                 "job_id": request.job_id,
@@ -272,8 +273,10 @@ class ProcessChatCommand:
                 "message": request.message,
                 "image_url": request.image_url,
                 "user_location": request.user_location,
-                # Context 필드 리셋 (매 턴마다 새로 계산)
-                "classification_result": _reset_marker,
+                # classification_result는 reducer가 없으므로 None 직접 설정
+                # ({"_reset": True}를 넣으면 그대로 state에 남아 LLM에 노출됨)
+                "classification_result": None,
+                # Context 필드 리셋 (priority_preemptive_reducer 적용됨)
                 "disposal_rules": _reset_marker,
                 "character_context": _reset_marker,
                 "location_context": _reset_marker,
