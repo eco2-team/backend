@@ -36,6 +36,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Protocol
 
+from langchain_core.messages import HumanMessage
+
 from chat_worker.application.services.progress_tracker import (
     DynamicProgressTracker,
     SUBAGENT_NODES,
@@ -272,6 +274,9 @@ class ProcessChatCommand:
                 "message": request.message,
                 "image_url": request.image_url,
                 "user_location": request.user_location,
+                # 멀티턴: 현재 사용자 메시지를 messages에 추가
+                # add_messages reducer가 checkpointer의 이전 messages와 병합
+                "messages": [HumanMessage(content=request.message)],
                 # Context 필드 리셋 (매 턴마다 새로 계산)
                 "classification_result": _reset_marker,
                 "disposal_rules": _reset_marker,

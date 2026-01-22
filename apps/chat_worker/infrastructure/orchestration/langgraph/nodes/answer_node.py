@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from chat_worker.application.commands.generate_answer_command import (
     GenerateAnswerCommand,
@@ -251,7 +251,8 @@ def create_answer_node(
             cleanup_sequence(job_id)
 
             # 7. output → state 변환
-            return {"answer": answer}
+            # 멀티턴: AIMessage를 messages에 추가하여 checkpointer가 저장
+            return {"answer": answer, "messages": [AIMessage(content=answer)]}
 
         except Exception as e:
             logger.error(
@@ -261,8 +262,10 @@ def create_answer_node(
             )
             # 에러 발생 시에도 Lamport Clock 정리
             cleanup_sequence(job_id)
+            error_answer = "답변 생성 중 오류가 발생했습니다. 다시 시도해주세요."
             return {
-                "answer": "답변 생성 중 오류가 발생했습니다. 다시 시도해주세요.",
+                "answer": error_answer,
+                "messages": [AIMessage(content=error_answer)],
             }
 
     return answer_node
