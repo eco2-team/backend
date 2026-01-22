@@ -159,10 +159,17 @@ class ClassifyIntentCommand:
         """
         events: list[str] = []
         message = input_dto.message
-        # Chain-of-Intent: previous_intents는 intent 문자열 배열 (예: ["waste", "location"])
-        context = (
-            {"previous_intents": input_dto.previous_intents} if input_dto.previous_intents else None
-        )
+
+        # Multi-turn context 구성
+        # - previous_intents: Chain-of-Intent (예: ["waste", "location"])
+        # - conversation_history: 최근 대화 내용 (멀티턴 맥락 파악용)
+        context: dict | None = None
+        if input_dto.previous_intents or input_dto.conversation_history:
+            context = {}
+            if input_dto.previous_intents:
+                context["previous_intents"] = input_dto.previous_intents
+            if input_dto.conversation_history:
+                context["conversation_history"] = input_dto.conversation_history
 
         # 캐릭터 이름 감지 (이미지 생성 시 참조 이미지로 사용)
         detected_character = self._detect_character(message)

@@ -90,10 +90,21 @@ def create_intent_node(
         # Chain-of-Intent: 이전 intent 히스토리 추출 (예: ["waste", "location"])
         intent_history: list[str] = state.get("intent_history", [])
 
+        # 멀티턴 대화 컨텍스트: messages에서 conversation_history 추출
+        # messages는 LangChain AnyMessage 리스트 (add_messages reducer로 누적됨)
+        conversation_history: list[dict[str, Any]] | None = None
+        messages = state.get("messages", [])
+        if messages:
+            conversation_history = []
+            for msg in messages[-6:]:  # 최근 6개 메시지 (3턴)
+                role = "user" if msg.type == "human" else "assistant"
+                content = msg.content if isinstance(msg.content, str) else str(msg.content)
+                conversation_history.append({"role": role, "content": content})
+
         input_dto = ClassifyIntentInput(
             job_id=job_id,
             message=state["message"],
-            conversation_history=state.get("conversation_history"),
+            conversation_history=conversation_history,
             previous_intents=intent_history if intent_history else None,
         )
 

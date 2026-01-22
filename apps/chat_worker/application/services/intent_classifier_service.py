@@ -240,7 +240,7 @@ class IntentClassifierService:
 
         Args:
             message: 사용자 메시지
-            context: 대화 맥락 (previous_intents 등)
+            context: 대화 맥락 (previous_intents, conversation_history)
 
         Returns:
             구성된 프롬프트
@@ -248,12 +248,34 @@ class IntentClassifierService:
         if not context:
             return message
 
+        parts: list[str] = []
+
+        # 1. 이전 대화 내용 (멀티턴 맥락 파악에 핵심)
+        conversation_history = context.get("conversation_history", [])
+        if conversation_history:
+            # 최근 3개 대화만 포함 (토큰 절약)
+            recent_history = conversation_history[-3:]
+            history_lines = []
+            for turn in recent_history:
+                role = turn.get("role", "unknown")
+                content = turn.get("content", "")[:100]  # 길이 제한
+                if role == "user":
+                    history_lines.append(f"사용자: {content}")
+                elif role == "assistant":
+                    history_lines.append(f"어시스턴트: {content}")
+            if history_lines:
+                parts.append(f"[최근 대화]\n" + "\n".join(history_lines))
+
+        # 2. 이전 의도 (Chain-of-Intent)
         previous_intents = context.get("previous_intents", [])
         if previous_intents:
             intent_history = ", ".join(previous_intents[-3:])
-            return f"[이전 대화 의도: {intent_history}]\n{message}"
+            parts.append(f"[이전 의도: {intent_history}]")
 
-        return message
+        # 3. 현재 메시지
+        parts.append(f"[현재 메시지]\n{message}")
+
+        return "\n\n".join(parts) if parts else message
 
     # ===== LLM 응답 파싱 (순수 로직) =====
 
