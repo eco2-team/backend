@@ -250,6 +250,13 @@ class ChatState(TypedDict, total=False):
     current_query: str
     """현재 처리 중인 질문."""
 
+    detected_character: dict[str, Any] | None
+    """감지된 캐릭터 정보 (intent_node에서 설정).
+
+    이미지 생성 시 참조 이미지 URL 포함.
+    형식: {"code": str, "name": str, "cdn_code": str, "image_url": str, "match_label": str}
+    """
+
     # ==================== Vision Layer ====================
 
     classification_result: str | None
