@@ -199,8 +199,22 @@ class StreamConsumer:
                         )
 
                         # 이벤트 처리 (stream_name 전달하여 도메인별 state prefix 결정)
+                        # 실패 시 ACK 하지 않음 → PEL에 유지 → Reclaimer가 재처리
                         try:
-                            await self._processor.process_event(event, stream_name=stream_name)
+                            success = await self._processor.process_event(
+                                event, stream_name=stream_name
+                            )
+                            if not success:
+                                # Pub/Sub 발행 실패 - PEL에 유지하여 reclaimer가 재시도
+                                logger.warning(
+                                    "process_event_pubsub_failed",
+                                    extra={
+                                        "stream": stream_name,
+                                        "msg_id": msg_id,
+                                        "job_id": event.get("job_id"),
+                                    },
+                                )
+                                continue  # ACK 스킵
                         except Exception as e:
                             logger.error(
                                 "process_event_error",
@@ -210,10 +224,10 @@ class StreamConsumer:
                                     "error": str(e),
                                 },
                             )
-                            # 처리 실패해도 ACK (재처리는 reclaimer가 담당)
-                            # 또는 Pending 상태로 유지하려면 continue
+                            # 처리 실패 - PEL에 유지하여 reclaimer가 재할당
+                            continue  # ACK 스킵
 
-                        # ACK
+                        # 성공한 경우만 ACK
                         try:
                             await self._redis.xack(
                                 stream_name,

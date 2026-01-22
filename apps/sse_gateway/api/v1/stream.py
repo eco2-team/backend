@@ -35,7 +35,9 @@ async def event_generator(
         last_token_seq: 마지막으로 받은 토큰 seq (Token v2 복구용)
 
     Yields:
-        SSE 이벤트 딕셔너리 (event, data)
+        SSE 이벤트 딕셔너리 (event, data, id)
+        - id: SSE 표준 Last-Event-ID (stream_id 사용)
+          브라우저 재연결 시 Last-Event-ID 헤더로 자동 전송됨
     """
     manager = await SSEBroadcastManager.get_instance()
 
@@ -56,6 +58,7 @@ async def event_generator(
                 yield {
                     "event": "token",
                     "data": json.dumps(token_event),
+                    "id": token_event.get("stream_id", ""),
                 }
         else:
             # 새 연결: Token State에서 누적 텍스트 복구
@@ -71,6 +74,7 @@ async def event_generator(
                 yield {
                     "event": "token_recovery",
                     "data": json.dumps(recovery_event),
+                    "id": f"recovery:{recovery_event.get('last_seq', 0)}",
                 }
 
     async for event in manager.subscribe(job_id, domain=domain):
@@ -84,7 +88,7 @@ async def event_generator(
 
         event_type = event.get("type", "message")
 
-        # keepalive
+        # keepalive (id 없음 - 복구 불필요)
         if event_type == "keepalive":
             yield {
                 "event": "keepalive",
@@ -104,22 +108,26 @@ async def event_generator(
             yield {
                 "event": "error",
                 "data": json.dumps(event),
+                "id": event.get("stream_id", ""),
             }
             continue
 
         # stage 이벤트 (queued, vision, rule, answer, reward, done)
         stage = event.get("stage", "unknown")
+        stream_id = event.get("stream_id", "")
         logger.info(
             "sse_event_sent",
             extra={
                 "job_id": job_id,
                 "event_type": stage,
                 "seq": event.get("seq"),
+                "stream_id": stream_id,
             },
         )
         yield {
             "event": stage,
             "data": json.dumps(event),
+            "id": stream_id,
         }
 
 
