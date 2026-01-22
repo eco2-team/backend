@@ -142,11 +142,29 @@ def create_kakao_place_node(
 """
 
         try:
+            logger.info(
+                "Function calling started",
+                extra={
+                    "job_id": job_id,
+                    "user_message": message[:100],
+                    "llm_type": type(llm).__name__,
+                },
+            )
+
             func_name, func_args = await llm.generate_function_call(
                 prompt=message,
                 functions=[KAKAO_PLACE_FUNCTION],
                 system_prompt=system_prompt,
                 function_call={"name": "search_kakao_place"},  # 강제 호출
+            )
+
+            logger.info(
+                "Function calling completed",
+                extra={
+                    "job_id": job_id,
+                    "func_name": func_name,
+                    "func_args": func_args,
+                },
             )
 
             if not func_args:
@@ -182,18 +200,44 @@ def create_kakao_place_node(
             }
 
         # 2. Function call 결과 → input DTO 변환
+        user_location = state.get("user_location")
         input_dto = SearchKakaoPlaceInput(
             job_id=job_id,
             query=func_args.get("query", message),
             search_type=func_args.get("search_type", "keyword"),
             category_code=func_args.get("category_code"),
             radius=func_args.get("radius", 5000),
-            user_location=state.get("user_location"),
+            user_location=user_location,
             limit=10,
+        )
+
+        logger.info(
+            "Kakao place search input",
+            extra={
+                "job_id": job_id,
+                "query": input_dto.query,
+                "search_type": input_dto.search_type,
+                "radius": input_dto.radius,
+                "has_location": user_location is not None,
+                "location": user_location,
+            },
         )
 
         # 3. Command 실행 (정책/흐름은 Command에서)
         output = await command.execute(input_dto)
+
+        logger.info(
+            "Kakao place search output",
+            extra={
+                "job_id": job_id,
+                "success": output.success,
+                "needs_location": output.needs_location,
+                "error": output.error_message,
+                "places_found": (
+                    output.places_context.get("count", 0) if output.places_context else 0
+                ),
+            },
+        )
 
         # 4. output → state 변환
         if output.needs_location:
