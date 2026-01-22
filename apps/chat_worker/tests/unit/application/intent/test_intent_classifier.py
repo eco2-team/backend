@@ -67,17 +67,19 @@ class TestIntentClassifierService:
         context = {"previous_intents": ["waste", "character"]}
         prompt = service.build_prompt_with_context("뭐야?", context)
 
-        assert "이전 대화 의도" in prompt
+        assert "[이전 의도:" in prompt
         assert "waste" in prompt
         assert "character" in prompt
 
     def test_build_prompt_with_context_empty_previous_intents(
         self, service: IntentClassifierService
     ):
-        """빈 이전 Intent."""
+        """빈 이전 Intent - context가 있으면 현재 메시지 레이블 추가."""
         context = {"previous_intents": []}
         prompt = service.build_prompt_with_context("테스트", context)
-        assert prompt == "테스트"
+        # context가 존재하면 (빈 리스트라도) 현재 메시지 레이블이 붙음
+        assert "[현재 메시지]" in prompt
+        assert "테스트" in prompt
 
     # ==========================================================
     # LLM 응답 파싱 Tests
