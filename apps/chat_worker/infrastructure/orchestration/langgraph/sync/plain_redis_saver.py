@@ -114,9 +114,7 @@ class PlainAsyncRedisSaver:
             }
 
         # Pending writes 조회
-        pending_writes = await self._get_pending_writes(
-            thread_id, checkpoint_ns, checkpoint_id
-        )
+        pending_writes = await self._get_pending_writes(thread_id, checkpoint_ns, checkpoint_id)
 
         return CheckpointTuple(
             config={
@@ -280,9 +278,7 @@ class PlainAsyncRedisSaver:
         return f"cp:{thread_id}:{checkpoint_ns}:{checkpoint_id}"
 
     @staticmethod
-    def _writes_key(
-        thread_id: str, checkpoint_ns: str, checkpoint_id: str, task_id: str
-    ) -> str:
+    def _writes_key(thread_id: str, checkpoint_ns: str, checkpoint_id: str, task_id: str) -> str:
         return f"cp:writes:{thread_id}:{checkpoint_ns}:{checkpoint_id}:{task_id}"
 
     @staticmethod
@@ -300,7 +296,7 @@ class PlainAsyncRedisSaver:
             return float(ts)
         if isinstance(ts, str):
             try:
-                from datetime import datetime, timezone
+                from datetime import datetime
 
                 dt = datetime.fromisoformat(ts)
                 return dt.timestamp()
