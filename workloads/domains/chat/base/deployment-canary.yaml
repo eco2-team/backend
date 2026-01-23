@@ -47,7 +47,7 @@ spec:
         - name: OTEL_EXPORTER_OTLP_PROTOCOL
           value: http/protobuf
         - name: POSTGRES_HOST
-          value: postgresql.postgres.svc.cluster.local
+          value: dev-postgresql.postgres.svc.cluster.local
         - name: REDIS_STREAMS_HOST
           value: rfr-streams-redis.redis.svc.cluster.local
         - name: REDIS_PUBSUB_HOST
