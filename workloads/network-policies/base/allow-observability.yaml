@@ -60,8 +60,9 @@ spec:
           - location
           - images
           - info
+          - users
           - event-router
-          - sse-gateway
+          - sse-consumer
     ports:
     - port: 4317  # OTLP gRPC
       protocol: TCP

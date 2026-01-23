@@ -69,10 +69,10 @@ spec:
         - name: ENVIRONMENT
           value: development
         # OTEL 설정
-        # BLOCKED: k8s-event-router → k8s-master 노드 간 네트워크 차단
-        # FIX: AWS Security Group에서 event-router SG → master SG inbound 4318 허용 필요
+        # Root cause: NetworkPolicy에서 event-router → jaeger egress 미허용이었음
+        # FIX: allow-jaeger-egress.yaml에 event-router 네임스페이스 추가
         - name: OTEL_ENABLED
-          value: 'false'
+          value: 'true'
         - name: OTEL_SAMPLE_RATE
           value: '0.1'
         - name: OTEL_SERVICE_NAME
