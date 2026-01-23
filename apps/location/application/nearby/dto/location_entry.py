@@ -24,3 +24,5 @@ class LocationEntryDTO:
     start_time: str | None
     end_time: str | None
     phone: str | None
+    place_url: str | None = None
+    kakao_place_id: str | None = None

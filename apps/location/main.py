@@ -43,6 +43,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
     logger.info(f"Shutting down {settings.service_name}")
+
+    from location.setup.dependencies import get_kakao_client
+
+    kakao = get_kakao_client()
+    if kakao is not None:
+        await kakao.close()
+
     shutdown_tracing()
 
 

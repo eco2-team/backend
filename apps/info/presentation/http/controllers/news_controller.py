@@ -8,17 +8,22 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query
 
 from info.application.commands.fetch_news_command import FetchNewsCommand
 from info.application.dto.news_request import NewsListRequest
+from info.application.exceptions.validation import (
+    InvalidCategoryError,
+    InvalidCursorFormatError,
+    InvalidSourceError,
+)
 from info.domain.constants import VALID_CATEGORIES, VALID_SOURCES
 from info.presentation.http.schemas import (
-    NewsListResponseSchema,
-    NewsArticleSchema,
-    NewsMetaSchema,
     CategoryListResponseSchema,
     CategorySchema,
+    NewsArticleSchema,
+    NewsListResponseSchema,
+    NewsMetaSchema,
 )
 from info.setup.dependencies import get_fetch_news_command
 
@@ -67,17 +72,11 @@ async def get_news(
     """
     # 카테고리 검증
     if category not in VALID_CATEGORIES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid category. Must be one of: {VALID_CATEGORIES}",
-        )
+        raise InvalidCategoryError(VALID_CATEGORIES)
 
     # 소스 검증
     if source not in VALID_SOURCES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid source. Must be one of: {VALID_SOURCES}",
-        )
+        raise InvalidSourceError(VALID_SOURCES)
 
     # cursor 변환 (두 가지 형식 지원)
     # 1. 순수 숫자: Redis 캐시에서 온 cursor (예: "1768584028000")
@@ -92,10 +91,7 @@ async def get_news(
             else:
                 cursor_int = int(cursor)
         except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid cursor format. Must be a numeric timestamp or timestamp_id.",
-            )
+            raise InvalidCursorFormatError()
 
     # Command 실행
     request = NewsListRequest(

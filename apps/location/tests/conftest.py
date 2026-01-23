@@ -7,6 +7,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from location.application.ports.kakao_local_client import (
+    KakaoPlaceDTO,
+    KakaoSearchResponse,
+)
 from location.domain.entities import NormalizedSite
 
 
@@ -15,8 +19,37 @@ def mock_location_reader() -> AsyncMock:
     """LocationReader mock."""
     reader = AsyncMock()
     reader.find_within_radius = AsyncMock(return_value=[])
+    reader.find_by_id = AsyncMock(return_value=None)
     reader.count_sites = AsyncMock(return_value=0)
     return reader
+
+
+@pytest.fixture
+def mock_kakao_client() -> AsyncMock:
+    """KakaoLocalClientPort mock."""
+    client = AsyncMock()
+    client.search_keyword = AsyncMock(return_value=KakaoSearchResponse())
+    client.close = AsyncMock()
+    return client
+
+
+@pytest.fixture
+def sample_kakao_place() -> KakaoPlaceDTO:
+    """테스트용 KakaoPlaceDTO."""
+    return KakaoPlaceDTO(
+        id="12345",
+        place_name="강남 재활용센터",
+        category_name="공공기관 > 재활용센터",
+        category_group_code="",
+        category_group_name="",
+        phone="02-1234-5678",
+        address_name="서울 강남구 역삼동 123",
+        road_address_name="서울 강남구 테헤란로 123",
+        x="127.028",
+        y="37.497",
+        place_url="https://place.map.kakao.com/12345",
+        distance="500",
+    )
 
 
 @pytest.fixture

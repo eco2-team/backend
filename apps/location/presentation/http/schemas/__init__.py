@@ -1,5 +1,9 @@
 """HTTP Schemas."""
 
-from location.presentation.http.schemas.location import LocationEntry
+from location.presentation.http.schemas.location import (
+    LocationDetail,
+    LocationEntry,
+    SuggestEntry,
+)
 
-__all__ = ["LocationEntry"]
+__all__ = ["LocationDetail", "LocationEntry", "SuggestEntry"]

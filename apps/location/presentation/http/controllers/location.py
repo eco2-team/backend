@@ -7,9 +7,15 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from location.application.nearby import GetNearbyCentersQuery, SearchRequest
+from location.application.nearby.queries.search_by_keyword import SearchByKeywordQuery
 from location.domain.enums import PickupCategory, StoreCategory
-from location.presentation.http.schemas import LocationEntry
-from location.setup.dependencies import get_nearby_centers_query
+from location.presentation.http.schemas import LocationDetail, LocationEntry, SuggestEntry
+from location.setup.dependencies import (
+    get_center_detail_query,
+    get_nearby_centers_query,
+    get_search_by_keyword_query,
+    get_suggest_places_query,
+)
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
@@ -77,6 +83,94 @@ async def centers(
     ]
 
 
+@router.get("/search", response_model=list[LocationEntry], summary="Search locations by keyword")
+async def search(
+    search_query: Annotated[SearchByKeywordQuery | None, Depends(get_search_by_keyword_query)],
+    q: str = Query(..., min_length=1, max_length=100, description="검색 키워드"),
+    radius: int = Query(5000, ge=100, le=20000, description="검색 반경 (미터)"),
+) -> list[LocationEntry]:
+    """키워드로 장소를 검색합니다 (Kakao API + DB 하이브리드)."""
+    if search_query is None:
+        raise HTTPException(status_code=503, detail="Kakao API is not configured.")
+
+    entries = await search_query.execute(query=q, radius=radius)
+
+    return [
+        LocationEntry(
+            id=e.id,
+            name=e.name,
+            source=e.source,
+            road_address=e.road_address,
+            latitude=e.latitude,
+            longitude=e.longitude,
+            distance_km=e.distance_km,
+            distance_text=e.distance_text,
+            store_category=e.store_category,
+            pickup_categories=e.pickup_categories,
+            is_holiday=e.is_holiday,
+            is_open=e.is_open,
+            start_time=e.start_time,
+            end_time=e.end_time,
+            phone=e.phone,
+            place_url=e.place_url,
+            kakao_place_id=e.kakao_place_id,
+        )
+        for e in entries
+    ]
+
+
+@router.get(
+    "/suggest", response_model=list[SuggestEntry], summary="Suggest places for autocomplete"
+)
+async def suggest(
+    query: str = Query(..., min_length=1, max_length=100, alias="q", description="검색어"),
+) -> list[SuggestEntry]:
+    """자동완성을 위한 장소 제안을 반환합니다."""
+    suggest_query = get_suggest_places_query()
+    if suggest_query is None:
+        raise HTTPException(status_code=503, detail="Kakao API is not configured.")
+
+    places = await suggest_query.execute(query=query)
+    return [
+        SuggestEntry(
+            place_name=p.place_name,
+            address=p.address,
+            latitude=p.latitude,
+            longitude=p.longitude,
+            place_url=p.place_url,
+        )
+        for p in places
+    ]
+
+
+@router.get("/centers/{center_id}", response_model=LocationDetail, summary="Get location detail")
+async def center_detail(
+    center_id: int,
+    detail_query=Depends(get_center_detail_query),
+) -> LocationDetail:
+    """장소 상세 정보를 조회합니다."""
+    result = await detail_query.execute(center_id=center_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Location not found.")
+
+    return LocationDetail(
+        id=result.id,
+        name=result.name,
+        source=result.source,
+        road_address=result.road_address,
+        lot_address=result.lot_address,
+        latitude=result.latitude,
+        longitude=result.longitude,
+        store_category=result.store_category,
+        pickup_categories=result.pickup_categories,
+        phone=result.phone,
+        place_url=result.place_url,
+        kakao_place_id=result.kakao_place_id,
+        collection_items=result.collection_items,
+        introduction=result.introduction,
+    )
+
+
 def _parse_store_category_param(raw: str) -> set[StoreCategory] | None:
     """store_category 파라미터를 파싱합니다."""
     if not raw or raw.lower() == "all":
@@ -89,9 +183,11 @@ def _parse_store_category_param(raw: str) -> set[StoreCategory] | None:
         try:
             categories.add(StoreCategory(value))
         except ValueError as exc:
+            allowed = [c.value for c in StoreCategory]
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid store_category '{value}'. Allowed values: {[c.value for c in StoreCategory]} or 'all'.",
+                detail=f"Invalid store_category '{value}'. "
+                f"Allowed values: {allowed} or 'all'.",
             ) from exc
     return categories or None
 
@@ -108,8 +204,10 @@ def _parse_pickup_category_param(raw: str) -> set[PickupCategory] | None:
         try:
             categories.add(PickupCategory(value))
         except ValueError as exc:
+            allowed = [c.value for c in PickupCategory]
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid pickup_category '{value}'. Allowed values: {[c.value for c in PickupCategory]} or 'all'.",
+                detail=f"Invalid pickup_category '{value}'. "
+                f"Allowed values: {allowed} or 'all'.",
             ) from exc
     return categories or None

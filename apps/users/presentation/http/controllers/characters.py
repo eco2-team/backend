@@ -6,11 +6,15 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header
 
 from users.application.character.queries import (
     CheckCharacterOwnershipQuery,
     GetCharactersQuery,
+)
+from users.application.common.exceptions.auth import (
+    InvalidUserIdFormatError,
+    MissingUserIdError,
 )
 from users.presentation.http.schemas import (
     CharacterOwnershipResponse,
@@ -31,17 +35,11 @@ def get_auth_user_id(
 ) -> UUID:
     """ext-authz에서 전달된 사용자 ID를 추출합니다."""
     if not x_user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing user ID",
-        )
+        raise MissingUserIdError()
     try:
         return UUID(x_user_id)
     except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user ID format",
-        )
+        raise InvalidUserIdFormatError()
 
 
 @router.get("", response_model=list[UserCharacterResponse])

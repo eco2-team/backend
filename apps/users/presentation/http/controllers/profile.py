@@ -6,18 +6,17 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Header, Response, status
 
+from users.application.common.exceptions.auth import (
+    InvalidUserIdFormatError,
+    MissingUserIdError,
+)
 from users.application.profile.commands import (
     DeleteUserInteractor,
     UpdateProfileInteractor,
 )
 from users.application.profile.dto import UserUpdate
-from users.application.profile.exceptions import (
-    InvalidPhoneNumberError,
-    NoChangesProvidedError,
-    UserNotFoundError,
-)
 from users.application.profile.queries import GetProfileQuery
 from users.presentation.http.schemas import UserProfileResponse, UserUpdateRequest
 from users.setup.dependencies import (
@@ -36,17 +35,11 @@ def get_user_id(
 ) -> UUID:
     """ext-authz에서 전달된 사용자 ID를 추출합니다."""
     if not x_user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing user ID",
-        )
+        raise MissingUserIdError()
     try:
         return UUID(x_user_id)
     except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user ID format",
-        )
+        raise InvalidUserIdFormatError()
 
 
 def get_provider(
@@ -81,34 +74,18 @@ async def update_profile(
     interactor: UpdateProfileInteractor = Depends(get_update_profile_interactor),
 ) -> UserProfileResponse:
     """현재 사용자 프로필을 수정합니다."""
-    try:
-        update = UserUpdate(
-            nickname=request.nickname,
-            phone_number=request.phone_number,
-        )
-        profile = await interactor.execute(user_id, update, provider)
-        return UserProfileResponse(
-            display_name=profile.display_name,
-            nickname=profile.nickname,
-            phone_number=profile.phone_number,
-            provider=profile.provider,
-            last_login_at=profile.last_login_at,
-        )
-    except UserNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    except NoChangesProvidedError:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="No changes provided",
-        )
-    except InvalidPhoneNumberError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e),
-        )
+    update = UserUpdate(
+        nickname=request.nickname,
+        phone_number=request.phone_number,
+    )
+    profile = await interactor.execute(user_id, update, provider)
+    return UserProfileResponse(
+        display_name=profile.display_name,
+        nickname=profile.nickname,
+        phone_number=profile.phone_number,
+        provider=profile.provider,
+        last_login_at=profile.last_login_at,
+    )
 
 
 @router.delete("")
@@ -117,11 +94,5 @@ async def delete_user(
     interactor: DeleteUserInteractor = Depends(get_delete_user_interactor),
 ) -> Response:
     """현재 사용자 계정을 삭제합니다."""
-    try:
-        await interactor.execute(user_id)
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
-    except UserNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+    await interactor.execute(user_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

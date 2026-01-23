@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from uuid import UUID
 from typing import Optional
+from uuid import UUID
 
-from fastapi import Header, HTTPException, status
+from fastapi import Header
 from pydantic import BaseModel
 
 from images.core.config import get_settings
+from images.core.exceptions.auth import InvalidUserIdFormatError, MissingUserIdError
 
 
 class UserInfo(BaseModel):
@@ -33,17 +34,11 @@ async def _extract_user_info(
 ) -> UserInfo:
     """ext-authz가 주입한 헤더에서 사용자 정보 추출"""
     if not x_user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing x-user-id header",
-        )
+        raise MissingUserIdError()
     try:
         user_id = UUID(x_user_id)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid x-user-id format",
-        ) from exc
+    except ValueError:
+        raise InvalidUserIdFormatError()
 
     return UserInfo(user_id=user_id, provider=x_auth_provider or "unknown")
 

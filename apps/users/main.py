@@ -20,6 +20,7 @@ from users.presentation.http.controllers import (
     health_router,
     profile_router,
 )
+from users.presentation.http.errors import register_exception_handlers
 from users.setup.config import get_settings
 from users.setup.logging import setup_logging
 from users.setup.tracing import (
@@ -86,6 +87,9 @@ def create_app() -> FastAPI:
 
     # OpenTelemetry FastAPI instrumentation
     instrument_fastapi(app)
+
+    # 예외 핸들러 등록
+    register_exception_handlers(app)
 
     # 라우터 등록
     app.include_router(health_router)  # /health, /ping (prefix 없음)

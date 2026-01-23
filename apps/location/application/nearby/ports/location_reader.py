@@ -36,6 +36,18 @@ class LocationReader(ABC):
         ...
 
     @abstractmethod
+    async def find_by_id(self, site_id: int) -> NormalizedSite | None:
+        """ID로 사이트를 조회합니다.
+
+        Args:
+            site_id: 사이트 ID
+
+        Returns:
+            NormalizedSite 또는 None (미발견 시)
+        """
+        ...
+
+    @abstractmethod
     async def count_sites(self) -> int:
         """전체 사이트 수를 반환합니다."""
         ...

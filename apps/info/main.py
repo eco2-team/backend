@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from info.presentation.http import router
+from info.presentation.http.errors import register_exception_handlers
 from info.setup.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # 예외 핸들러 등록
+    register_exception_handlers(app)
 
     # Router
     app.include_router(router)

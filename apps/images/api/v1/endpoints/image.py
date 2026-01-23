@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 
 from images.api.v1.dependencies import get_image_service
+from images.core.exceptions.upload import UploaderMismatchError
 from images.schemas.image import (
     ImageChannel,
     ImageUploadCallbackRequest,
@@ -8,13 +9,8 @@ from images.schemas.image import (
     ImageUploadRequest,
     ImageUploadResponse,
 )
+from images.security import UserInfo, get_current_user
 from images.services.image import ImageService
-from images.services.image import (
-    PendingUploadChannelMismatchError,
-    PendingUploadNotFoundError,
-    PendingUploadPermissionDeniedError,
-)
-from images.security import get_current_user, UserInfo
 
 router = APIRouter(prefix="/images", tags=["images"])
 
@@ -32,10 +28,7 @@ async def create_upload_url(
 ):
     user_id = str(user.user_id)
     if payload.uploader_id and payload.uploader_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Uploader mismatch",
-        )
+        raise UploaderMismatchError()
     return await service.create_upload_url(
         channel,
         payload,
@@ -54,24 +47,8 @@ async def finalize_upload(
     service: ImageService = Depends(get_image_service),
     user: UserInfo = Depends(get_current_user),
 ):
-    try:
-        return await service.finalize_upload(
-            channel,
-            payload,
-            uploader_id=str(user.user_id),
-        )
-    except PendingUploadNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Upload session not found or expired",
-        ) from None
-    except PendingUploadChannelMismatchError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Channel does not match the original upload request",
-        ) from None
-    except PendingUploadPermissionDeniedError:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Uploader mismatch",
-        ) from None
+    return await service.finalize_upload(
+        channel,
+        payload,
+        uploader_id=str(user.user_id),
+    )

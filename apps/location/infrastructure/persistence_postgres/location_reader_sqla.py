@@ -44,6 +44,15 @@ class SqlaLocationReader(LocationReader):
             distance_expr = self._haversine_expr(latitude, longitude)
             return await self._execute_distance_query(distance_expr, radius_km, limit)
 
+    async def find_by_id(self, site_id: int) -> NormalizedSite | None:
+        """ID로 사이트를 조회합니다."""
+        query = select(NormalizedLocationSite).where(NormalizedLocationSite.positn_sn == site_id)
+        result = await self._session.execute(query)
+        site = result.scalar_one_or_none()
+        if site is None:
+            return None
+        return self._to_domain(site)
+
     async def count_sites(self) -> int:
         """전체 사이트 수를 반환합니다."""
         result = await self._session.execute(

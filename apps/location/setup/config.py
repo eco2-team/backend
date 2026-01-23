@@ -36,6 +36,10 @@ class Settings(BaseSettings):
         description="gRPC 서버 포트",
     )
 
+    # Kakao API
+    kakao_rest_api_key: str = ""
+    kakao_api_timeout: float = 5.0
+
     # OpenTelemetry
     otel_enabled: bool = False
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"

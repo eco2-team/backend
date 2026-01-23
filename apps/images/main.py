@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from images.api.errors import register_exception_handlers
 from images.api.v1.routers import api_router, health_router
 from images.core.constants import (
     DEFAULT_ENVIRONMENT,
@@ -93,6 +94,9 @@ def create_app() -> FastAPI:
 
     # OpenTelemetry FastAPI instrumentation
     instrument_fastapi(app)
+
+    # 예외 핸들러 등록
+    register_exception_handlers(app)
 
     app.include_router(health_router)
     app.include_router(api_router)
