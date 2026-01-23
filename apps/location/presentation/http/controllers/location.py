@@ -189,9 +189,7 @@ def _parse_store_category_param(raw: str) -> set[StoreCategory] | None:
         try:
             categories.add(StoreCategory(value))
         except ValueError:
-            raise InvalidStoreCategoryError(
-                value=value, allowed=[c.value for c in StoreCategory]
-            )
+            raise InvalidStoreCategoryError(value=value, allowed=[c.value for c in StoreCategory])
     return categories or None
 
 
@@ -207,7 +205,5 @@ def _parse_pickup_category_param(raw: str) -> set[PickupCategory] | None:
         try:
             categories.add(PickupCategory(value))
         except ValueError:
-            raise InvalidPickupCategoryError(
-                value=value, allowed=[c.value for c in PickupCategory]
-            )
+            raise InvalidPickupCategoryError(value=value, allowed=[c.value for c in PickupCategory])
     return categories or None

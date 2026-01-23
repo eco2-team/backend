@@ -11,10 +11,6 @@ import os
 
 import redis.asyncio as aioredis
 
-_logger = logging.getLogger(__name__)
-
-OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
-
 from auth_relay.application.commands.relay_event import RelayEventCommand
 from auth_relay.infrastructure.messaging.rabbitmq_publisher import (
     RabbitMQEventPublisher,
@@ -24,6 +20,10 @@ from auth_relay.infrastructure.persistence_redis.outbox_reader_redis import (
 )
 from auth_relay.presentation.relay_loop import RelayLoop
 from auth_relay.setup.config import get_settings
+
+_logger = logging.getLogger(__name__)
+
+OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
 
 
 class Container:
