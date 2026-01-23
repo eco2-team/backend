@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     grpc_port: int = Field(
         50051,
         description="gRPC 서버 포트",
+        validation_alias=AliasChoices("LOCATION_GRPC_SERVER_PORT"),
     )
 
     # OpenTelemetry
