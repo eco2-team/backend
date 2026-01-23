@@ -90,10 +90,16 @@ async def create_postgres_checkpointer(
         AsyncPostgresSaver 인스턴스
     """
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    from psycopg import AsyncConnection
     from psycopg_pool import AsyncConnectionPool
 
     # SQLAlchemy URL → psycopg URL 변환
     psycopg_conn_string = conn_string.replace("postgresql+asyncpg://", "postgresql://")
+
+    # setup()은 CREATE INDEX CONCURRENTLY를 포함하므로 autocommit 연결 필요
+    async with await AsyncConnection.connect(psycopg_conn_string, autocommit=True) as setup_conn:
+        setup_saver = AsyncPostgresSaver(setup_conn)
+        await setup_saver.setup()
 
     pool = AsyncConnectionPool(
         conninfo=psycopg_conn_string,
@@ -109,7 +115,6 @@ async def create_postgres_checkpointer(
     await pool.open()
 
     checkpointer = AsyncPostgresSaver(pool)
-    await checkpointer.setup()
 
     logger.info(
         "PostgreSQL checkpointer created (pool min=%d, max=%d)",
