@@ -41,7 +41,7 @@ spec:
         - name: OTEL_LOGS_EXPORTER
           value: none
         - name: OTEL_PROPAGATORS
-          value: b3,tracecontext,baggage
+          value: tracecontext,baggage
         - name: OTEL_EXPORTER_OTLP_PROTOCOL
           value: http/protobuf
         # POSTGRES_HOST, REDIS_HOST는 character-secret에서 가져옴
