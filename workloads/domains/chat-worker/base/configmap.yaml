@@ -22,11 +22,11 @@ data:
   CHAT_WORKER_CHECKPOINT_TTL_MINUTES: '1440'
   # Checkpoint Read-Through (Worker용, Cold Start PG Fallback)
   # Redis TTL 만료 세션 → PG에서 읽어 Redis로 promote (LRU)
-  CHAT_WORKER_CHECKPOINT_READ_POSTGRES_URL: postgresql+asyncpg://postgres:postgres@postgresql.postgres.svc.cluster.local:5432/eco2
+  # CHAT_WORKER_CHECKPOINT_READ_POSTGRES_URL is in secrets (credentials)
   CHAT_WORKER_CHECKPOINT_READ_PG_POOL_MIN: '1'
   CHAT_WORKER_CHECKPOINT_READ_PG_POOL_MAX: '2'
   # Checkpoint Syncer (Redis → PostgreSQL 동기화)
-  CHAT_WORKER_SYNCER_POSTGRES_URL: postgresql+asyncpg://postgres:postgres@postgresql.postgres.svc.cluster.local:5432/eco2
+  # CHAT_WORKER_SYNCER_POSTGRES_URL is in secrets (credentials)
   CHAT_WORKER_SYNCER_PG_POOL_MIN_SIZE: '1'
   CHAT_WORKER_SYNCER_PG_POOL_MAX_SIZE: '5'
   CHAT_WORKER_SYNCER_INTERVAL: '5.0'
