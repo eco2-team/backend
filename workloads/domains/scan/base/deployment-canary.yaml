@@ -73,7 +73,7 @@ spec:
           value: http/protobuf
         # === Infrastructure ===
         - name: POSTGRES_HOST
-          value: postgresql.postgres.svc.cluster.local
+          value: dev-postgresql.postgres.svc.cluster.local
         - name: REDIS_HOST
           value: rfr-cache-redis.redis.svc.cluster.local
         - name: REDIS_STREAMS_URL
