@@ -1,384 +1,90 @@
-"""LangGraph Checkpointer with Cache-Aside Pattern.
+"""LangGraph Checkpointer - Redis Primary + PostgreSQL Async Sync.
 
-멀티턴 대화 컨텍스트를 영구 저장합니다.
+Worker는 Redis에만 checkpoint를 저장하고,
+별도 프로세스(checkpoint_syncer)가 PostgreSQL로 비동기 동기화.
 
 아키텍처:
 ```
-조회 (get)
-──────────
-Client → Redis (L1, ~1ms)
-            │
-            ├── Hit → Return (빠름)
-            │
-            └── Miss → PostgreSQL (L2) → Load
-                            │
-                            └── Redis에 캐싱 (warm-up)
-                                    │
-                                    └── Return
-
-저장 (put)
-──────────
-Client → PostgreSQL (영구) + Redis (캐시)
-         Write-Through
+Worker → AsyncRedisSaver (Redis)
+              │
+              └─ checkpoint_syncer (별도 프로세스)
+                   └─ AsyncPostgresSaver → PostgreSQL
 ```
 
-Scan vs Chat:
-- Scan: Stateless Reducer + Redis (단일 요청, TTL 1시간)
-- Chat: Cache-Aside + PostgreSQL (멀티턴 대화, 영구 저장)
-
-참조:
-- Clean Architecture #14: Stateless Reducer Pattern
-- LangGraph Checkpointing
+이점:
+- Worker에서 PostgreSQL connection pool 제거
+- PoolTimeout 구조적 제거
+- KEDA 스케일링에도 PostgreSQL 영향 없음
 """
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import TYPE_CHECKING, Any, AsyncIterator, Sequence
-
-from langgraph.checkpoint.base import BaseCheckpointSaver
+import random
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from langgraph.checkpoint.base import (
-        Checkpoint,
-        CheckpointMetadata,
-        CheckpointTuple,
+    from langgraph.checkpoint.base import BaseCheckpointSaver
+
+    from chat_worker.infrastructure.orchestration.langgraph.sync import (
+        ReadThroughCheckpointer,
     )
-    from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 
-# 캐시 키 프리픽스
-CACHE_KEY_PREFIX = "chat:checkpoint:cache"
-DEFAULT_CACHE_TTL = 86400  # 24시간
+# Redis checkpoint TTL (분 단위)
+DEFAULT_CHECKPOINT_TTL_MINUTES = 1440  # 24시간
 
 
-class CachedPostgresSaver(BaseCheckpointSaver):
-    """Cache-Aside 패턴 Checkpointer.
+async def create_redis_checkpointer(
+    redis_url: str,
+    ttl_minutes: int = DEFAULT_CHECKPOINT_TTL_MINUTES,
+) -> "BaseCheckpointSaver":
+    """Redis 기반 LangGraph checkpointer 생성 (sync queue 포함).
 
-    L1: Redis (빠름, TTL 24시간)
-    L2: PostgreSQL (영구)
-
-    Hot session은 Redis에서 ~1ms 응답.
-    Cold session은 PostgreSQL에서 로드 후 캐싱.
-    """
-
-    def __init__(
-        self,
-        postgres_saver: "BaseCheckpointSaver",
-        redis: "Redis",
-        cache_ttl: int = DEFAULT_CACHE_TTL,
-    ):
-        """초기화.
-
-        Args:
-            postgres_saver: PostgreSQL 체크포인터 (L2)
-            redis: Redis 클라이언트 (L1 캐시)
-            cache_ttl: 캐시 TTL 초 (기본 24시간)
-        """
-        self._postgres = postgres_saver
-        self._redis = redis
-        self._ttl = cache_ttl
-        logger.info(
-            "CachedPostgresSaver initialized (ttl=%d)",
-            cache_ttl,
-        )
-
-    def _cache_key(self, thread_id: str, checkpoint_ns: str = "") -> str:
-        """캐시 키 생성."""
-        if checkpoint_ns:
-            return f"{CACHE_KEY_PREFIX}:{thread_id}:{checkpoint_ns}"
-        return f"{CACHE_KEY_PREFIX}:{thread_id}"
-
-    async def aget_tuple(self, config: dict[str, Any]) -> "CheckpointTuple | None":
-        """체크포인트 조회 (Cache-Aside).
-
-        1. Redis 캐시 조회 (L1)
-        2. Cache Miss → PostgreSQL 조회 (L2)
-        3. PostgreSQL 결과를 Redis에 캐싱 (warm-up)
-        """
-        thread_id = config.get("configurable", {}).get("thread_id", "")
-        checkpoint_ns = config.get("configurable", {}).get("checkpoint_ns", "")
-        cache_key = self._cache_key(thread_id, checkpoint_ns)
-
-        # L1: Redis 캐시 조회
-        try:
-            cached = await self._redis.get(cache_key)
-            if cached:
-                logger.debug(
-                    "checkpoint_cache_hit",
-                    extra={"thread_id": thread_id},
-                )
-                # 캐시된 데이터는 직접 반환하지 않고 PostgreSQL에 위임
-                # (LangGraph 내부 직렬화 형식 호환성을 위해)
-        except Exception as e:
-            logger.warning(
-                "checkpoint_cache_get_failed",
-                extra={"thread_id": thread_id, "error": str(e)},
-            )
-
-        # L2: PostgreSQL 조회
-        result = await self._postgres.aget_tuple(config)
-
-        if result:
-            # Warm-up: Redis에 캐싱 (메타데이터만 캐싱하여 hit 여부 판단)
-            try:
-                await self._redis.setex(
-                    cache_key,
-                    self._ttl,
-                    json.dumps({"thread_id": thread_id, "cached": True}),
-                )
-                logger.debug(
-                    "checkpoint_cache_warmed",
-                    extra={"thread_id": thread_id, "ttl": self._ttl},
-                )
-            except Exception as e:
-                logger.warning(
-                    "checkpoint_cache_warm_failed",
-                    extra={"thread_id": thread_id, "error": str(e)},
-                )
-
-        return result
-
-    async def aput(
-        self,
-        config: dict[str, Any],
-        checkpoint: "Checkpoint",
-        metadata: "CheckpointMetadata",
-        new_versions: dict[str, int | str] | None = None,
-    ) -> dict[str, Any]:
-        """체크포인트 저장 (Write-Through).
-
-        PostgreSQL에 저장하고 Redis 캐시도 갱신.
-        """
-        thread_id = config.get("configurable", {}).get("thread_id", "")
-        checkpoint_ns = config.get("configurable", {}).get("checkpoint_ns", "")
-        cache_key = self._cache_key(thread_id, checkpoint_ns)
-
-        # L2: PostgreSQL에 저장 (영구)
-        result = await self._postgres.aput(config, checkpoint, metadata, new_versions)
-
-        # L1: Redis 캐시 갱신
-        try:
-            await self._redis.setex(
-                cache_key,
-                self._ttl,
-                json.dumps({"thread_id": thread_id, "cached": True}),
-            )
-            logger.debug(
-                "checkpoint_cache_updated",
-                extra={"thread_id": thread_id},
-            )
-        except Exception as e:
-            logger.warning(
-                "checkpoint_cache_update_failed",
-                extra={"thread_id": thread_id, "error": str(e)},
-            )
-
-        return result
-
-    async def alist(
-        self,
-        config: dict[str, Any],
-        *,
-        filter: dict[str, Any] | None = None,
-        before: dict[str, Any] | None = None,
-        limit: int | None = None,
-    ) -> AsyncIterator["CheckpointTuple"]:
-        """체크포인트 목록 조회 (PostgreSQL 직접 조회)."""
-        async for item in self._postgres.alist(config, filter=filter, before=before, limit=limit):
-            yield item
-
-    async def aput_writes(
-        self,
-        config: dict[str, Any],
-        writes: Sequence[tuple[str, Any]],
-        task_id: str,
-    ) -> None:
-        """중간 쓰기 저장 (PostgreSQL에 위임)."""
-        await self._postgres.aput_writes(config, writes, task_id)
-
-    async def close(self) -> None:
-        """리소스 정리."""
-        if hasattr(self._postgres, "close"):
-            await self._postgres.close()
-
-
-async def create_cached_postgres_checkpointer(
-    conn_string: str,
-    redis: "Redis",
-    cache_ttl: int = DEFAULT_CACHE_TTL,
-) -> CachedPostgresSaver:
-    """Cache-Aside PostgreSQL 체크포인터 생성.
-
-    L1: Redis (빠름, TTL)
-    L2: PostgreSQL (영구)
+    Worker의 primary checkpointer로 사용.
+    SyncableRedisSaver가 checkpoint 저장 시 sync queue에 이벤트를 추가하여
+    checkpoint_syncer가 PostgreSQL로 동기화할 수 있도록 함.
 
     Args:
-        conn_string: PostgreSQL 연결 문자열 (postgresql://... 형식)
-        redis: Redis 클라이언트
-        cache_ttl: 캐시 TTL 초 (기본 24시간)
+        redis_url: Redis 연결 URL
+        ttl_minutes: Checkpoint TTL (분, 기본 24시간=1440분)
 
     Returns:
-        CachedPostgresSaver 인스턴스
-
-    Note:
-        setup()은 CREATE INDEX CONCURRENTLY를 실행하므로
-        autocommit 모드 connection이 필요함.
+        SyncableRedisSaver 인스턴스
     """
-    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-    from psycopg_pool import AsyncConnectionPool
-
-    # SQLAlchemy URL → psycopg URL 변환
-    # postgresql+asyncpg://user:pass@host:port/db → postgresql://user:pass@host:port/db
-    psycopg_conn_string = conn_string.replace("postgresql+asyncpg://", "postgresql://")
-
-    # Connection pool 생성 (연결 안정성 강화)
-    # - min_size/max_size: 동시 task 수(CONCURRENCY=40+)에 맞춘 풀 크기
-    # - check: 연결 사용 전 상태 확인 (끊어진 연결 감지)
-    # - max_lifetime: 연결 최대 수명 (5분마다 갱신하여 stale 연결 방지)
-    # - num_workers: 백그라운드 연결 관리 worker 수
-    # - reconnect_timeout: 재연결 타임아웃
-    pool = AsyncConnectionPool(
-        conninfo=psycopg_conn_string,
-        min_size=10,
-        max_size=50,
-        open=False,
-        check=AsyncConnectionPool.check_connection,
-        max_lifetime=300,  # 5분
-        num_workers=3,
-        reconnect_timeout=30,
+    from chat_worker.infrastructure.orchestration.langgraph.sync import (
+        SyncableRedisSaver,
     )
-    await pool.open()
 
-    # AsyncPostgresSaver 생성
-    postgres_saver = AsyncPostgresSaver(pool)
-
-    # setup()을 autocommit 모드로 실행 (CREATE INDEX CONCURRENTLY 지원)
-    # psycopg3 pool.connection()은 기본적으로 transaction block 시작
-    # autocommit connection으로 직접 setup 수행
-    async with pool.connection() as conn:
-        await conn.set_autocommit(True)
-        # setup() 대신 직접 테이블 생성 (CONCURRENTLY 없이)
-        await _ensure_tables_exist(conn)
+    saver = SyncableRedisSaver(
+        redis_url=redis_url,
+        ttl={"default_ttl": ttl_minutes},
+    )
+    await saver.asetup()
 
     logger.info(
-        "CachedPostgresSaver created (PostgreSQL + Redis cache)",
-        extra={"conn_string": conn_string[:30] + "...", "cache_ttl": cache_ttl},
+        "SyncableRedisSaver created (ttl=%d min)",
+        ttl_minutes,
     )
-
-    return CachedPostgresSaver(
-        postgres_saver=postgres_saver,
-        redis=redis,
-        cache_ttl=cache_ttl,
-    )
-
-
-async def _ensure_tables_exist(conn) -> None:
-    """LangGraph 체크포인트 테이블 생성 (IF NOT EXISTS).
-
-    CREATE INDEX CONCURRENTLY는 트랜잭션 내에서 실행 불가하므로
-    일반 CREATE INDEX로 대체.
-    """
-    # LangGraph checkpoint-postgres의 스키마 참조
-    # https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint-postgres
-    await conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS checkpoints (
-            thread_id TEXT NOT NULL,
-            checkpoint_ns TEXT NOT NULL DEFAULT '',
-            checkpoint_id TEXT NOT NULL,
-            parent_checkpoint_id TEXT,
-            type TEXT,
-            checkpoint JSONB NOT NULL,
-            metadata JSONB NOT NULL DEFAULT '{}',
-            PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id)
-        )
-    """
-    )
-
-    await conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS checkpoint_blobs (
-            thread_id TEXT NOT NULL,
-            checkpoint_ns TEXT NOT NULL DEFAULT '',
-            channel TEXT NOT NULL,
-            version TEXT NOT NULL,
-            type TEXT NOT NULL,
-            blob BYTEA,
-            PRIMARY KEY (thread_id, checkpoint_ns, channel, version)
-        )
-    """
-    )
-
-    await conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS checkpoint_writes (
-            thread_id TEXT NOT NULL,
-            checkpoint_ns TEXT NOT NULL DEFAULT '',
-            checkpoint_id TEXT NOT NULL,
-            task_id TEXT NOT NULL,
-            task_path TEXT NOT NULL DEFAULT '',
-            idx INTEGER NOT NULL,
-            channel TEXT NOT NULL,
-            type TEXT,
-            blob BYTEA NOT NULL,
-            PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
-        )
-    """
-    )
-
-    # Add task_path column if it doesn't exist (migration for existing tables)
-    await conn.execute(
-        """
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_name = 'checkpoint_writes' AND column_name = 'task_path'
-            ) THEN
-                ALTER TABLE checkpoint_writes ADD COLUMN task_path TEXT NOT NULL DEFAULT '';
-            END IF;
-        END $$
-    """
-    )
-
-    # 인덱스 생성 (CONCURRENTLY 없이, IF NOT EXISTS 사용)
-    await conn.execute(
-        """
-        CREATE INDEX IF NOT EXISTS checkpoints_thread_id_idx
-        ON checkpoints (thread_id)
-    """
-    )
-
-    await conn.execute(
-        """
-        CREATE INDEX IF NOT EXISTS checkpoint_blobs_thread_id_idx
-        ON checkpoint_blobs (thread_id)
-    """
-    )
-
-    await conn.execute(
-        """
-        CREATE INDEX IF NOT EXISTS checkpoint_writes_thread_id_idx
-        ON checkpoint_writes (thread_id)
-    """
-    )
-
-    logger.info("LangGraph checkpoint tables ensured")
+    return saver
 
 
 async def create_postgres_checkpointer(
     conn_string: str,
+    pool_min_size: int = 1,
+    pool_max_size: int = 5,
 ) -> "BaseCheckpointSaver":
-    """PostgreSQL 체크포인터 생성 (캐시 없음).
+    """PostgreSQL checkpointer 생성.
 
-    Cache-Aside 없이 PostgreSQL만 사용.
-    Redis 없는 환경에서 폴백으로 사용.
+    사용처:
+    - checkpoint_syncer: write 전용 (pool_max_size=5)
+    - ReadThroughCheckpointer: read-only fallback (pool_max_size=2)
 
     Args:
         conn_string: PostgreSQL 연결 문자열 (postgresql+asyncpg://...)
+        pool_min_size: 풀 최소 연결 수
+        pool_max_size: 풀 최대 연결 수
 
     Returns:
         AsyncPostgresSaver 인스턴스
@@ -389,61 +95,101 @@ async def create_postgres_checkpointer(
     # SQLAlchemy URL → psycopg URL 변환
     psycopg_conn_string = conn_string.replace("postgresql+asyncpg://", "postgresql://")
 
-    # Connection pool 생성 (연결 안정성 강화)
     pool = AsyncConnectionPool(
         conninfo=psycopg_conn_string,
-        min_size=10,
-        max_size=50,
+        min_size=pool_min_size,
+        max_size=pool_max_size,
         open=False,
-        check=AsyncConnectionPool.check_connection,
-        max_lifetime=300,  # 5분
-        num_workers=3,
+        timeout=30,
+        max_lifetime=300 + random.randint(0, 60),
+        max_idle=60,
+        num_workers=2,
         reconnect_timeout=30,
     )
     await pool.open()
 
-    # AsyncPostgresSaver 생성
     checkpointer = AsyncPostgresSaver(pool)
-
-    # autocommit 모드로 테이블 생성
-    async with pool.connection() as conn:
-        await conn.set_autocommit(True)
-        await _ensure_tables_exist(conn)
+    await checkpointer.setup()
 
     logger.info(
-        "PostgreSQL checkpointer created (no cache)",
-        extra={"conn_string": psycopg_conn_string[:30] + "..."},
+        "PostgreSQL checkpointer created (pool min=%d, max=%d)",
+        pool.min_size,
+        pool.max_size,
     )
-
     return checkpointer
 
 
-async def create_redis_checkpointer(
+async def create_read_through_checkpointer(
     redis_url: str,
-    ttl: int = 86400,
-) -> "BaseCheckpointSaver":
-    """Redis 체크포인터 생성 (단기 세션용 폴백).
+    postgres_url: str,
+    ttl_minutes: int = DEFAULT_CHECKPOINT_TTL_MINUTES,
+    pg_pool_min_size: int = 1,
+    pg_pool_max_size: int = 2,
+) -> "ReadThroughCheckpointer":
+    """Read-Through Checkpointer (Redis Primary + PG Cold Start Fallback).
 
-    PostgreSQL 연결 실패 시 폴백으로 사용.
-    TTL이 있으므로 장기 세션에는 부적합.
+    Worker의 primary checkpointer로 사용.
+    Redis에 checkpoint가 없으면 PostgreSQL에서 읽어 Redis로 promote.
+
+    Temporal Locality (시간적 지역성):
+    - Redis TTL 만료 후 재접속한 세션 → PG에서 복원 → Redis에 적재
+    - 이후 동일 세션 요청은 Redis에서 직접 서빙
+    - 최근 참조된 데이터가 다시 참조될 확률이 높으므로
+      promote된 checkpoint는 TTL 내에 재사용될 가능성 높음
 
     Args:
         redis_url: Redis 연결 URL
-        ttl: TTL 초 (기본 24시간)
+        postgres_url: PostgreSQL 연결 URL (read-only fallback)
+        ttl_minutes: Checkpoint TTL (분, 기본 24시간=1440분)
+        pg_pool_min_size: PG read pool 최소 연결 수 (기본 1)
+        pg_pool_max_size: PG read pool 최대 연결 수 (기본 2, cold start만 사용)
 
     Returns:
-        RedisSaver 인스턴스
+        ReadThroughCheckpointer 인스턴스
     """
-    # AsyncRedisSaver.from_conn_string()은 async context manager를 반환
-    # 싱글톤 패턴과 호환되지 않으므로 MemorySaver로 대체
-    # TODO: Redis checkpointer를 제대로 지원하려면 lifecycle 관리 필요
+    from chat_worker.infrastructure.orchestration.langgraph.sync import (
+        ReadThroughCheckpointer,
+        SyncableRedisSaver,
+    )
+
+    # Redis primary (read + write + sync queue)
+    redis_saver = SyncableRedisSaver(
+        redis_url=redis_url,
+        ttl={"default_ttl": ttl_minutes},
+    )
+    await redis_saver.asetup()
+
+    # PostgreSQL read-only fallback (small pool, cold start only)
+    pg_saver = await create_postgres_checkpointer(
+        conn_string=postgres_url,
+        pool_min_size=pg_pool_min_size,
+        pool_max_size=pg_pool_max_size,
+    )
+
+    checkpointer = ReadThroughCheckpointer(
+        redis_saver=redis_saver,
+        pg_saver=pg_saver,
+    )
+
+    logger.info(
+        "ReadThroughCheckpointer created (redis ttl=%d min, pg pool max=%d)",
+        ttl_minutes,
+        pg_pool_max_size,
+    )
+    return checkpointer
+
+
+async def create_memory_checkpointer() -> "BaseCheckpointSaver":
+    """InMemory checkpointer (테스트/로컬 폴백).
+
+    Redis 연결 실패 시 폴백으로 사용.
+    프로세스 재시작 시 모든 state 유실.
+
+    Returns:
+        MemorySaver 인스턴스
+    """
     from langgraph.checkpoint.memory import MemorySaver
 
     checkpointer = MemorySaver()
-
-    logger.info(
-        "InMemory checkpointer created (Redis fallback disabled)",
-        extra={"redis_url": redis_url[:20] + "...", "ttl": ttl},
-    )
-
+    logger.info("InMemory checkpointer created (fallback)")
     return checkpointer

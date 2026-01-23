@@ -5,6 +5,7 @@ namespace: chat
 
 resources:
 - deployment.yaml
+- deployment-checkpoint-syncer.yaml
 - configmap.yaml
 - keda-scaledobject.yaml
 # hpa.yaml 제거 - KEDA가 내부적으로 HPA 생성

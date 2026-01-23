@@ -307,35 +307,10 @@ class ChatState(TypedDict, total=False):
     missing_required_contexts: list[str]
     """누락된 필수 필드 목록."""
 
-    # ==================== Legacy Fields (Backward Compatibility) ====================
-    # TODO: Phase 2 완료 후 제거 가능
-
-    query: str
-    """현재 사용자 질문 (message와 동일, 레거시)."""
-
-    evidence: list[dict[str, Any]]
-    """RAG 검색 결과 (disposal_rules로 대체)."""
-
-    character: dict[str, Any] | None
-    """Character 응답 (character_context로 대체)."""
-
-    location: dict[str, Any] | None
-    """Location 응답 (location_context로 대체)."""
-
-    web_results: list[dict[str, Any]]
-    """Web Search 결과 (web_search_results로 대체)."""
-
-    feedback: dict[str, Any]
-    """RAG 품질 평가 결과."""
-
-    fallback_reason: str | None
-    """Fallback 발생 사유."""
+    # ==================== Summarization ====================
 
     summary: str
-    """압축된 이전 대화 요약."""
-
-    context: dict[str, Any]
-    """LLM 입력용 컨텍스트."""
+    """압축된 이전 대화 요약 (SummarizationNode에서 사용)."""
 
     # ==================== Output Layer ====================
 

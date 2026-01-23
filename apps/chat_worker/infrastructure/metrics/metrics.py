@@ -127,6 +127,26 @@ CHAT_TOKEN_USAGE = Counter(
 )
 
 # ============================================================
+# Checkpoint Metrics (Read-Through)
+# ============================================================
+
+CHAT_CHECKPOINT_PROMOTES_TOTAL = Counter(
+    "chat_checkpoint_promotes_total",
+    "Total checkpoint promotes from PostgreSQL to Redis (cold start)",
+)
+
+CHAT_CHECKPOINT_COLD_MISSES_TOTAL = Counter(
+    "chat_checkpoint_cold_misses_total",
+    "Total checkpoint misses (not in Redis nor PostgreSQL)",
+)
+
+CHAT_CHECKPOINT_PROMOTE_DURATION = Histogram(
+    "chat_checkpoint_promote_duration_seconds",
+    "Checkpoint promote duration (PG read + Redis write-back)",
+    buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5],
+)
+
+# ============================================================
 # Token Streaming Metrics (Load Test용)
 # ============================================================
 

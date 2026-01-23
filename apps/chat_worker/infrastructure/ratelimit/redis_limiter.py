@@ -195,7 +195,7 @@ class RateLimiter:
                 keys.append(key)
 
             if keys:
-                await self._redis.delete(*keys)
+                await self._redis.unlink(*keys)
                 logger.info(
                     "rate_limit_reset",
                     extra={"user_id": user_id, "keys_deleted": len(keys)},

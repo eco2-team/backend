@@ -18,8 +18,19 @@ data:
   CHAT_WORKER_REDIS_STREAMS_URL: redis://rfr-streams-redis-0.rfr-streams-redis.redis.svc.cluster.local:6379/0
   # Redis (Pub/Sub - SSE Gateway 브로드캐스트)
   CHAT_WORKER_REDIS_PUBSUB_URL: redis://rfr-pubsub-redis-0.rfr-pubsub-redis.redis.svc.cluster.local:6379/0
-  # PostgreSQL (체크포인팅, 멀티턴 대화 히스토리)
-  CHAT_WORKER_POSTGRES_URL: postgresql+asyncpg://postgres:postgres@postgresql.postgres.svc.cluster.local:5432/eco2
+  # Checkpoint TTL (분, Worker Redis에 저장)
+  CHAT_WORKER_CHECKPOINT_TTL_MINUTES: '1440'
+  # Checkpoint Read-Through (Worker용, Cold Start PG Fallback)
+  # Redis TTL 만료 세션 → PG에서 읽어 Redis로 promote (LRU)
+  CHAT_WORKER_CHECKPOINT_READ_POSTGRES_URL: postgresql+asyncpg://postgres:postgres@postgresql.postgres.svc.cluster.local:5432/eco2
+  CHAT_WORKER_CHECKPOINT_READ_PG_POOL_MIN: '1'
+  CHAT_WORKER_CHECKPOINT_READ_PG_POOL_MAX: '2'
+  # Checkpoint Syncer (Redis → PostgreSQL 동기화)
+  CHAT_WORKER_SYNCER_POSTGRES_URL: postgresql+asyncpg://postgres:postgres@postgresql.postgres.svc.cluster.local:5432/eco2
+  CHAT_WORKER_SYNCER_PG_POOL_MIN_SIZE: '1'
+  CHAT_WORKER_SYNCER_PG_POOL_MAX_SIZE: '5'
+  CHAT_WORKER_SYNCER_INTERVAL: '5.0'
+  CHAT_WORKER_SYNCER_BATCH_SIZE: '50'
   # LLM Provider
   CHAT_WORKER_DEFAULT_PROVIDER: openai
   CHAT_WORKER_OPENAI_DEFAULT_MODEL: gpt-5.2

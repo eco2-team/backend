@@ -26,10 +26,24 @@ class Settings(BaseSettings):
     # None이면 redis_url 사용 (로컬 개발용)
     redis_streams_url: str | None = None
 
-    # PostgreSQL (체크포인팅, 멀티턴 대화 히스토리)
-    # Cursor 스타일 장기 세션 유지를 위한 영구 저장소
-    # None이면 Redis 폴백 (TTL 24시간)
-    postgres_url: str | None = None
+    # Checkpoint Redis TTL (분 단위, 기본 24시간)
+    # Worker는 Redis에만 checkpoint 저장, syncer가 PostgreSQL로 동기화
+    checkpoint_ttl_minutes: int = 1440
+
+    # Checkpoint Read-Through (Worker용, Cold Start Fallback)
+    # Redis TTL 만료 세션의 checkpoint를 PostgreSQL에서 읽어 Redis로 promote
+    # None이면 Redis-only (PG fallback 비활성화)
+    checkpoint_read_postgres_url: str | None = None
+    checkpoint_read_pg_pool_min: int = 1  # cold start만 사용, 최소 pool
+    checkpoint_read_pg_pool_max: int = 2  # cold start만 사용, 최대 pool
+
+    # Checkpoint Syncer 설정 (checkpoint_syncer 프로세스 전용)
+    # Worker에서는 사용하지 않음
+    syncer_postgres_url: str | None = None
+    syncer_pg_pool_min_size: int = 1
+    syncer_pg_pool_max_size: int = 5
+    syncer_interval: float = 5.0  # 동기화 주기 (초)
+    syncer_batch_size: int = 50  # 배치당 최대 checkpoint 수
 
     # LLM Provider
     default_provider: Literal["openai", "google"] = "openai"

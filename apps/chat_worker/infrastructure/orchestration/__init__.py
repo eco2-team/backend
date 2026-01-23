@@ -4,17 +4,15 @@
 """
 
 from chat_worker.infrastructure.orchestration.langgraph import (
-    CachedPostgresSaver,
-    create_cached_postgres_checkpointer,
     create_chat_graph,
+    create_memory_checkpointer,
     create_postgres_checkpointer,
     create_redis_checkpointer,
 )
 
 __all__ = [
     "create_chat_graph",
-    "CachedPostgresSaver",
-    "create_cached_postgres_checkpointer",
-    "create_postgres_checkpointer",
     "create_redis_checkpointer",
+    "create_postgres_checkpointer",
+    "create_memory_checkpointer",
 ]

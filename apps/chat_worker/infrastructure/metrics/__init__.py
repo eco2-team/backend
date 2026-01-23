@@ -10,6 +10,10 @@ from chat_worker.infrastructure.metrics.metrics import (
     CHAT_VISION_REQUESTS,
     CHAT_SUBAGENT_CALLS,
     CHAT_TOKEN_USAGE,
+    # Checkpoint metrics (Read-Through)
+    CHAT_CHECKPOINT_PROMOTES_TOTAL,
+    CHAT_CHECKPOINT_COLD_MISSES_TOTAL,
+    CHAT_CHECKPOINT_PROMOTE_DURATION,
     # Token streaming metrics (Load Test용)
     CHAT_STREAM_TOKENS_TOTAL,
     CHAT_STREAM_REQUESTS_TOTAL,
@@ -46,6 +50,10 @@ __all__ = [
     "CHAT_VISION_REQUESTS",
     "CHAT_SUBAGENT_CALLS",
     "CHAT_TOKEN_USAGE",
+    # Checkpoint metrics (Read-Through)
+    "CHAT_CHECKPOINT_PROMOTES_TOTAL",
+    "CHAT_CHECKPOINT_COLD_MISSES_TOTAL",
+    "CHAT_CHECKPOINT_PROMOTE_DURATION",
     # Token streaming metrics (Load Test용)
     "CHAT_STREAM_TOKENS_TOTAL",
     "CHAT_STREAM_REQUESTS_TOTAL",
