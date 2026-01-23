@@ -106,10 +106,6 @@ from chat_worker.infrastructure.orchestration.langgraph.routing import (
 from chat_worker.infrastructure.orchestration.langgraph.nodes.kakao_place_node import (
     create_kakao_place_node,
 )
-
-from chat_worker.infrastructure.orchestration.langgraph.nodes.web_search_node import (
-    create_web_search_node,
-)
 from chat_worker.infrastructure.orchestration.langgraph.state import ChatState
 from chat_worker.infrastructure.orchestration.langgraph.summarization import (
     SummarizationNode,

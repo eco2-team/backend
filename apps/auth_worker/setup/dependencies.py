@@ -30,11 +30,6 @@ import os
 
 import redis.asyncio as aioredis
 
-_logger = logging.getLogger(__name__)
-
-# OpenTelemetry 활성화 여부
-OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
-
 from auth_worker.application.blacklist.commands.persist import (
     PersistBlacklistCommand,
 )
@@ -45,6 +40,11 @@ from auth_worker.infrastructure.persistence_redis.blacklist_store_redis import (
 from auth_worker.presentation.adapters.consumer_adapter import ConsumerAdapter
 from auth_worker.presentation.handlers.blacklist_handler import BlacklistHandler
 from auth_worker.setup.config import get_settings
+
+_logger = logging.getLogger(__name__)
+
+# OpenTelemetry 활성화 여부
+OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() == "true"
 
 
 class Container:
