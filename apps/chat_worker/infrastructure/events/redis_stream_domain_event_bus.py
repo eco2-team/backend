@@ -78,11 +78,24 @@ class RedisStreamDomainEventBus(DomainEventBusPort):
         if metadata:
             event_data["metadata"] = json.dumps(metadata, ensure_ascii=False)
 
-        await self._redis.xadd(
-            self._stream_name,
-            event_data,
-            maxlen=self._maxlen,
-        )
+        try:
+            await self._redis.xadd(
+                self._stream_name,
+                event_data,
+                maxlen=self._maxlen,
+            )
+        except Exception as e:
+            logger.error(
+                "status_changed_event_publish_failed",
+                extra={
+                    "task_id": task_id,
+                    "old_status": old_status.value,
+                    "new_status": new_status.value,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
+            return
 
         logger.info(
             "Status changed event published",
@@ -116,11 +129,23 @@ class RedisStreamDomainEventBus(DomainEventBusPort):
             event_data["answer_length"] = str(len(answer))
             event_data["answer_preview"] = answer[:200] if len(answer) > 200 else answer
 
-        await self._redis.xadd(
-            self._stream_name,
-            event_data,
-            maxlen=self._maxlen,
-        )
+        try:
+            await self._redis.xadd(
+                self._stream_name,
+                event_data,
+                maxlen=self._maxlen,
+            )
+        except Exception as e:
+            logger.error(
+                "job_completed_event_publish_failed",
+                extra={
+                    "task_id": task_id,
+                    "session_id": session_id,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
+            return
 
         logger.info(
             "Job completed event published",
@@ -148,11 +173,23 @@ class RedisStreamDomainEventBus(DomainEventBusPort):
             "timestamp": time.time(),
         }
 
-        await self._redis.xadd(
-            self._stream_name,
-            event_data,
-            maxlen=self._maxlen,
-        )
+        try:
+            await self._redis.xadd(
+                self._stream_name,
+                event_data,
+                maxlen=self._maxlen,
+            )
+        except Exception as e:
+            logger.error(
+                "job_failed_event_publish_failed",
+                extra={
+                    "task_id": task_id,
+                    "session_id": session_id,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
+            return
 
         logger.warning(
             "Job failed event published",

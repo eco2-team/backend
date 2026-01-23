@@ -332,7 +332,11 @@ class RedisProgressNotifier(ProgressNotifierPort):
         )
 
     async def _ensure_scripts(self) -> None:
-        """Lua Script 등록."""
+        """Lua Script 등록.
+
+        register_script는 로컬 캐싱만 수행하므로 Redis 연결 불필요.
+        실제 EVALSHA는 스크립트 실행 시 수행됨.
+        """
         if self._stage_script is None:
             self._stage_script = self._redis.register_script(IDEMPOTENT_XADD_SCRIPT)
         if self._token_script is None:
@@ -384,24 +388,38 @@ class RedisProgressNotifier(ProgressNotifierPort):
         trace_id, span_id, traceparent = _get_current_trace_context()
 
         # Lua Script 실행
-        result_tuple = await self._stage_script(
-            keys=[publish_key, stream_key],
-            args=[
-                str(self._maxlen),  # ARGV[1]
-                task_id,  # ARGV[2] - job_id
-                stage,  # ARGV[3]
-                status,  # ARGV[4]
-                str(seq),  # ARGV[5]
-                ts,  # ARGV[6]
-                progress_str,  # ARGV[7]
-                result_str,  # ARGV[8]
-                message_str,  # ARGV[9]
-                str(PUBLISHED_TTL),  # ARGV[10]
-                trace_id,  # ARGV[11]
-                span_id,  # ARGV[12]
-                traceparent,  # ARGV[13]
-            ],
-        )
+        try:
+            result_tuple = await self._stage_script(
+                keys=[publish_key, stream_key],
+                args=[
+                    str(self._maxlen),  # ARGV[1]
+                    task_id,  # ARGV[2] - job_id
+                    stage,  # ARGV[3]
+                    status,  # ARGV[4]
+                    str(seq),  # ARGV[5]
+                    ts,  # ARGV[6]
+                    progress_str,  # ARGV[7]
+                    result_str,  # ARGV[8]
+                    message_str,  # ARGV[9]
+                    str(PUBLISHED_TTL),  # ARGV[10]
+                    trace_id,  # ARGV[11]
+                    span_id,  # ARGV[12]
+                    traceparent,  # ARGV[13]
+                ],
+            )
+        except Exception as e:
+            logger.error(
+                "stage_event_publish_failed",
+                extra={
+                    "job_id": task_id,
+                    "shard": shard,
+                    "stage": stage,
+                    "status": status,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
+            return ""
 
         is_new, msg_id = result_tuple
         if isinstance(msg_id, bytes):
@@ -465,19 +483,31 @@ class RedisProgressNotifier(ProgressNotifierPort):
         # Trace context 추출
         trace_id, span_id, traceparent = _get_current_trace_context()
 
-        msg_id = await self._token_script(
-            keys=[stream_key],
-            args=[
-                str(self._maxlen),  # ARGV[1]
-                task_id,  # ARGV[2] - job_id
-                str(seq),  # ARGV[3]
-                ts,  # ARGV[4]
-                content,  # ARGV[5]
-                trace_id,  # ARGV[6]
-                span_id,  # ARGV[7]
-                traceparent,  # ARGV[8]
-            ],
-        )
+        try:
+            msg_id = await self._token_script(
+                keys=[stream_key],
+                args=[
+                    str(self._maxlen),  # ARGV[1]
+                    task_id,  # ARGV[2] - job_id
+                    str(seq),  # ARGV[3]
+                    ts,  # ARGV[4]
+                    content,  # ARGV[5]
+                    trace_id,  # ARGV[6]
+                    span_id,  # ARGV[7]
+                    traceparent,  # ARGV[8]
+                ],
+            )
+        except Exception as e:
+            logger.error(
+                "token_publish_failed",
+                extra={
+                    "job_id": task_id,
+                    "seq": seq,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
+            return ""
 
         if isinstance(msg_id, bytes):
             msg_id = msg_id.decode()
@@ -610,23 +640,37 @@ class RedisProgressNotifier(ProgressNotifierPort):
 
         # Lua Script 실행 (with latency tracking)
         xadd_start = time.perf_counter()
-        result = await self._token_v2_script(
-            keys=[token_stream_key, token_state_key, stage_stream_key],
-            args=[
-                task_id,  # ARGV[1] - job_id
-                str(seq),  # ARGV[2] - seq
-                content,  # ARGV[3] - delta
-                ts,  # ARGV[4] - ts
-                accumulated,  # ARGV[5] - accumulated
-                str(save_state),  # ARGV[6] - save_state
-                str(TOKEN_STREAM_TTL),  # ARGV[7] - ttl
-                str(self._maxlen),  # ARGV[8] - maxlen
-                node_str,  # ARGV[9] - node
-                trace_id,  # ARGV[10]
-                span_id,  # ARGV[11]
-                traceparent,  # ARGV[12]
-            ],
-        )
+        try:
+            result = await self._token_v2_script(
+                keys=[token_stream_key, token_state_key, stage_stream_key],
+                args=[
+                    task_id,  # ARGV[1] - job_id
+                    str(seq),  # ARGV[2] - seq
+                    content,  # ARGV[3] - delta
+                    ts,  # ARGV[4] - ts
+                    accumulated,  # ARGV[5] - accumulated
+                    str(save_state),  # ARGV[6] - save_state
+                    str(TOKEN_STREAM_TTL),  # ARGV[7] - ttl
+                    str(self._maxlen),  # ARGV[8] - maxlen
+                    node_str,  # ARGV[9] - node
+                    trace_id,  # ARGV[10]
+                    span_id,  # ARGV[11]
+                    traceparent,  # ARGV[12]
+                ],
+            )
+        except Exception as e:
+            xadd_latency = time.perf_counter() - xadd_start
+            track_stream_token(node=node_str or "answer", status="error", latency=xadd_latency)
+            logger.error(
+                "token_v2_publish_failed",
+                extra={
+                    "job_id": task_id,
+                    "seq": seq,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
+            return ""
         xadd_latency = time.perf_counter() - xadd_start
 
         # Metrics: Token count + Redis XADD latency (track_stream_token이 latency 기록 포함)

@@ -169,8 +169,44 @@ def _setup_langsmith_otel() -> None:
         logger.warning(f"LangSmith OTEL setup skipped: {e}")
 
 
+async def _check_redis_connectivity() -> None:
+    """Redis 연결 확인 (fast-fail).
+
+    워커 시작 시 Redis 연결 가능 여부를 확인합니다.
+    Redis 불가 시 워커가 작업을 수신해도 이벤트 발행 불가이므로
+    빠르게 실패하여 K8s가 적절히 재시작하도록 합니다.
+
+    Raises:
+        ConnectionError: Redis 연결 불가 시
+    """
+    from redis.asyncio import Redis as AsyncRedis
+
+    redis_url = settings.redis_url
+    streams_url = settings.redis_streams_url or redis_url
+
+    for name, url in [("cache", redis_url), ("streams", streams_url)]:
+        try:
+            client = AsyncRedis.from_url(
+                url,
+                socket_connect_timeout=5.0,
+                socket_timeout=5.0,
+            )
+            await client.ping()
+            await client.close()
+            logger.info(f"Redis ({name}) connectivity OK: {url}")
+        except Exception as e:
+            logger.error(
+                f"Redis ({name}) connectivity FAILED: {url} - {e}",
+                extra={"redis_name": name, "url": url, "error": str(e)},
+            )
+            raise ConnectionError(f"Redis ({name}) unavailable at {url}: {e}") from e
+
+
 async def startup():
     """브로커 시작."""
+    # 0. Redis 연결 확인 (fast-fail)
+    await _check_redis_connectivity()
+
     # 1. OpenTelemetry aio-pika 트레이싱 설정 (MQ 메시지)
     _setup_aio_pika_tracing()
 

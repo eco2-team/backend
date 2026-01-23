@@ -8,12 +8,22 @@ spec:
     spec:
       containers:
       - name: chat-worker
+        # DEV: 워커 수 축소 (4→2), 동시 작업 축소 (10→4)
+        # 512Mi 메모리에서 4 workers × 10 tasks = OOM 위험
+        args:
+        - taskiq
+        - worker
+        - chat_worker.main:broker
+        - --workers
+        - '2'
+        - --max-async-tasks
+        - '4'
         resources:
           requests:
             memory: 256Mi
             cpu: 100m
           limits:
-            memory: 512Mi
+            memory: 768Mi
             cpu: 250m
         env:
         - name: CHAT_WORKER_LOG_LEVEL
