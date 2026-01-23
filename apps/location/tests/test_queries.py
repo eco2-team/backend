@@ -163,9 +163,7 @@ class TestSuggestPlacesQuery:
             query="테스트", size=5, sort="accuracy"
         )
 
-    async def test_execute_fallback_address(
-        self, mock_kakao_client: AsyncMock
-    ) -> None:
+    async def test_execute_fallback_address(self, mock_kakao_client: AsyncMock) -> None:
         """road_address_name 없으면 address_name 사용."""
         place = KakaoPlaceDTO(
             id="999",
@@ -275,9 +273,7 @@ class TestSearchByKeywordQuery:
             place_url="",
             distance="10",
         )
-        mock_kakao_client.search_keyword.return_value = KakaoSearchResponse(
-            places=[kakao_place]
-        )
+        mock_kakao_client.search_keyword.return_value = KakaoSearchResponse(places=[kakao_place])
 
         db_site = NormalizedSite(
             id=1,
@@ -364,9 +360,7 @@ class TestGetCenterDetailQuery:
         """Kakao client 없어도 기본 정보 반환."""
         mock_location_reader.find_by_id.return_value = sample_site
 
-        query = GetCenterDetailQuery(
-            location_reader=mock_location_reader, kakao_client=None
-        )
+        query = GetCenterDetailQuery(location_reader=mock_location_reader, kakao_client=None)
         result = await query.execute(center_id=1)
 
         assert result is not None

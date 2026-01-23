@@ -186,8 +186,7 @@ def _parse_store_category_param(raw: str) -> set[StoreCategory] | None:
             allowed = [c.value for c in StoreCategory]
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid store_category '{value}'. "
-                f"Allowed values: {allowed} or 'all'.",
+                detail=f"Invalid store_category '{value}'. " f"Allowed values: {allowed} or 'all'.",
             ) from exc
     return categories or None
 
