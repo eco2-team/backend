@@ -11,6 +11,9 @@ Redis miss 시 PostgreSQL에서 읽어 Redis로 promote (LRU).
 from chat_worker.infrastructure.orchestration.langgraph.sync.checkpoint_sync_service import (
     CheckpointSyncService,
 )
+from chat_worker.infrastructure.orchestration.langgraph.sync.plain_redis_saver import (
+    PlainAsyncRedisSaver,
+)
 from chat_worker.infrastructure.orchestration.langgraph.sync.read_through_checkpointer import (
     ReadThroughCheckpointer,
 )
@@ -20,6 +23,7 @@ from chat_worker.infrastructure.orchestration.langgraph.sync.syncable_redis_save
 
 __all__ = [
     "CheckpointSyncService",
+    "PlainAsyncRedisSaver",
     "ReadThroughCheckpointer",
     "SyncableRedisSaver",
 ]

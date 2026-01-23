@@ -93,10 +93,11 @@ class CheckpointSyncService:
         Returns:
             CheckpointSyncService 인스턴스
         """
-        from langgraph.checkpoint.redis import AsyncRedisSaver
-
         from chat_worker.infrastructure.orchestration.langgraph.checkpointer import (
             create_postgres_checkpointer,
+        )
+        from chat_worker.infrastructure.orchestration.langgraph.sync.plain_redis_saver import (
+            PlainAsyncRedisSaver,
         )
 
         # Redis 클라이언트 (sync queue 소비용)
@@ -110,8 +111,8 @@ class CheckpointSyncService:
             retry_on_timeout=True,
         )
 
-        # Redis Saver (checkpoint 읽기용 - Worker와 동일한 설정)
-        redis_saver = AsyncRedisSaver(
+        # Redis Saver (checkpoint 읽기용 - 표준 Redis 명령어만 사용)
+        redis_saver = PlainAsyncRedisSaver(
             redis_url=redis_url,
             ttl={"default_ttl": checkpoint_ttl_minutes},
         )

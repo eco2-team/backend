@@ -20,8 +20,7 @@ Pillow>=10.0.0  # Image processing for Gemini native image generation
 # Python >=3.10 필요
 langgraph>=1.0.6,<2.0.0
 langchain-core>=1.0.0,<2.0.0  # LangGraph 1.0과 호환
-langgraph-checkpoint-postgres>=2.0.0  # PostgreSQL 체크포인터
-langgraph-checkpoint-redis>=0.3.0  # Redis 체크포인터 (Fallback)
+langgraph-checkpoint-postgres>=2.0.0  # PostgreSQL 체크포인터 (checkpoint_syncer용)
 
 # LangSmith + OpenTelemetry 통합
 # >= 0.4.25 권장 (OTEL export 안정성 개선)

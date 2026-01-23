@@ -1,6 +1,6 @@
 """SyncableRedisSaver - Redis checkpointer with sync queue.
 
-AsyncRedisSaver를 래핑하여 checkpoint 저장 시
+PlainAsyncRedisSaver를 래핑하여 checkpoint 저장 시
 sync queue에 이벤트를 추가합니다.
 checkpoint_syncer가 이 queue를 소비하여 PostgreSQL에 동기화.
 
@@ -21,7 +21,10 @@ from langgraph.checkpoint.base import (
     Checkpoint,
     CheckpointMetadata,
 )
-from langgraph.checkpoint.redis import AsyncRedisSaver
+
+from chat_worker.infrastructure.orchestration.langgraph.sync.plain_redis_saver import (
+    PlainAsyncRedisSaver,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +32,11 @@ logger = logging.getLogger(__name__)
 SYNC_QUEUE_KEY = "checkpoint:sync:queue"
 
 
-class SyncableRedisSaver(AsyncRedisSaver):
+class SyncableRedisSaver(PlainAsyncRedisSaver):
     """Redis checkpointer with sync queue for PostgreSQL synchronization.
 
-    AsyncRedisSaver의 모든 기능을 그대로 사용하면서,
-    aput() 호출 시 sync queue에 이벤트를 추가합니다.
+    PlainAsyncRedisSaver (표준 Redis 명령어만 사용)에
+    sync queue 기능을 추가합니다.
 
     Usage:
         saver = SyncableRedisSaver(
