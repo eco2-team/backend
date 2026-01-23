@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 @broker.task(
     task_name="chat.process",
-    timeout=120,
+    timeout=180,
     retry_on_error=True,
     max_retries=2,
 )
@@ -53,32 +53,53 @@ async def process_chat(
         },
     )
 
-    # Command 가져오기 (DI - CQRS)
-    command = await get_process_chat_command(model=model)
+    try:
+        # Command 가져오기 (DI - CQRS)
+        command = await get_process_chat_command(model=model)
 
-    # Request DTO 생성
-    request = ProcessChatRequest(
-        job_id=job_id,
-        session_id=session_id,
-        user_id=user_id or "anonymous",
-        message=message,
-        image_url=image_url,
-        user_location=user_location,
-        model=model,
-    )
+        # Request DTO 생성
+        request = ProcessChatRequest(
+            job_id=job_id,
+            session_id=session_id,
+            user_id=user_id or "anonymous",
+            message=message,
+            image_url=image_url,
+            user_location=user_location,
+            model=model,
+        )
 
-    # Command 실행
-    response = await command.execute(request)
+        # Command 실행
+        response = await command.execute(request)
 
-    # Response 변환
-    return {
-        "job_id": response.job_id,
-        "session_id": response.session_id,
-        "status": response.status,
-        "intent": response.intent,
-        "answer": response.answer,
-        "error": response.error,
-    }
+        # Response 변환
+        return {
+            "job_id": response.job_id,
+            "session_id": response.session_id,
+            "status": response.status,
+            "intent": response.intent,
+            "answer": response.answer,
+            "error": response.error,
+        }
+
+    except Exception as e:
+        logger.error(
+            "Chat task failed at presentation layer",
+            extra={
+                "job_id": job_id,
+                "session_id": session_id,
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+            exc_info=True,
+        )
+        return {
+            "job_id": job_id,
+            "session_id": session_id,
+            "status": "failed",
+            "intent": None,
+            "answer": None,
+            "error": f"Internal error: {type(e).__name__}: {str(e)[:200]}",
+        }
 
 
 # ============================================================

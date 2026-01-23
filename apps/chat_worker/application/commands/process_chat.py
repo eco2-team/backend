@@ -378,12 +378,23 @@ class ProcessChatCommand:
                 self._metrics.track_error(intent, type(e).__name__)
 
             # 작업 실패 이벤트 (running → failed)
-            await self._progress_notifier.notify_stage(
-                task_id=request.job_id,
-                stage="done",
-                status="failed",
-                result={"error": str(e)},
-            )
+            # Redis 장애 시 이중 실패 방지
+            try:
+                await self._progress_notifier.notify_stage(
+                    task_id=request.job_id,
+                    stage="done",
+                    status="failed",
+                    result={"error": str(e)},
+                )
+            except Exception as notify_err:
+                logger.error(
+                    "Failed to publish failure event (Redis unavailable)",
+                    extra={
+                        **log_ctx,
+                        "original_error": str(e),
+                        "notify_error": str(notify_err),
+                    },
+                )
 
             return ProcessChatResponse(
                 job_id=request.job_id,
