@@ -24,6 +24,7 @@ from typing import Any, AsyncIterator, Optional, Sequence
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import (
+    BaseCheckpointSaver,
     ChannelVersions,
     Checkpoint,
     CheckpointMetadata,
@@ -34,7 +35,7 @@ from redis.asyncio import Redis
 logger = logging.getLogger(__name__)
 
 
-class PlainAsyncRedisSaver:
+class PlainAsyncRedisSaver(BaseCheckpointSaver):
     """LangGraph checkpointer using standard Redis commands only.
 
     Redis Stack 모듈(RediSearch, RedisJSON) 없이 동작.
@@ -50,6 +51,7 @@ class PlainAsyncRedisSaver:
         redis_url: str,
         ttl: dict[str, int] | None = None,
     ):
+        super().__init__()
         self._redis_url = redis_url
         self._ttl_seconds = (ttl.get("default_ttl", 1440) * 60) if ttl else 86400
         self._redis: Optional[Redis] = None
