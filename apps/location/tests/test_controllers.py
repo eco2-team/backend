@@ -11,7 +11,6 @@ from location.application.common.exceptions.validation import (
     InvalidPickupCategoryError,
     InvalidStoreCategoryError,
 )
-from location.application.nearby.dto import LocationDetailDTO, SuggestEntryDTO
 from location.application.nearby.dto.location_entry import LocationEntryDTO
 from location.domain.enums import PickupCategory, StoreCategory
 from location.main import app
@@ -198,7 +197,7 @@ class TestSearchController:
                 ).get_search_by_keyword_query
             ] = lambda: mock_query
 
-            response = client.get("/api/v1/locations/search?q=강남+재활용&radius=5000")
+            client.get("/api/v1/locations/search?q=강남+재활용&radius=5000")
 
             app.dependency_overrides.clear()
 
