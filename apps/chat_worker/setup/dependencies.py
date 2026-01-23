@@ -7,9 +7,10 @@ gRPC Clients (Subagent용):
 - CharacterGrpcClient: Character API gRPC 호출
 - LocationGrpcClient: Location API gRPC 호출
 
-체크포인팅:
-- PostgreSQL: 멀티턴 대화 히스토리 영구 저장 (Cursor 스타일)
-- Redis (폴백): 단기 세션용 (TTL 24시간)
+체크포인팅 (Read-Through with LRU Promotion):
+- Write: Redis Primary (TTL 24시간) + sync queue → syncer가 PG 동기화
+- Read: Redis hit → 즉시 반환 / Redis miss → PG fallback → Redis promote
+- MemorySaver (폴백): Redis 장애 시
 
 왜 gRPC (동기) vs Celery (비동기)?
 - LangGraph는 asyncio 기반 오케스트레이션
@@ -122,6 +123,7 @@ _image_storage_checked: bool = False  # 캐싱 상태 플래그
 # Raw SDK clients for Location Agent (Function Calling)
 _openai_async_client = None  # openai.AsyncOpenAI
 _gemini_client = None  # google.genai.Client
+_graph_cache: dict[tuple[str, str | None], object] = {}  # (provider, model) → compiled graph
 
 
 async def get_redis() -> Redis:
@@ -140,6 +142,8 @@ async def get_redis() -> Redis:
             settings.redis_url,
             encoding="utf-8",
             decode_responses=True,
+            max_connections=50,
+            min_connections=5,
             # Resilience settings
             health_check_interval=30,
             socket_timeout=5.0,
@@ -171,6 +175,8 @@ async def get_redis_streams() -> Redis:
             streams_url,
             encoding="utf-8",
             decode_responses=True,
+            max_connections=20,
+            min_connections=2,
             # Resilience settings (Streams는 blocking read 가능하므로 socket_timeout 길게)
             health_check_interval=30,
             socket_timeout=60.0,
@@ -817,61 +823,55 @@ async def get_input_requester() -> InputRequesterPort:
 async def get_checkpointer():
     """LangGraph 체크포인터 싱글톤.
 
-    멀티턴 대화 컨텍스트를 저장합니다.
+    Read-Through 아키텍처 (Redis Primary + PG Cold Start Fallback):
+    - Write: Redis에만 저장 (SyncableRedisSaver, sync queue 이벤트 추가)
+    - Read: Redis hit → 즉시 반환
+            Redis miss → PostgreSQL fallback → Redis promote (LRU write-back)
+    - Syncer가 Redis → PostgreSQL 비동기 동기화 (별도 프로세스)
 
-    Cache-Aside 패턴:
-    - L1: Redis (빠름, TTL 24시간) - Hot session
-    - L2: PostgreSQL (영구) - Cold session, 장기 보존
-
-    조회 플로우:
-    1. Redis 캐시 조회 (~1ms)
-    2. Cache Miss → PostgreSQL 조회 (~5-10ms)
-    3. 결과를 Redis에 캐싱 (warm-up)
-
-    Scan vs Chat:
-    - Scan: Stateless Reducer + Redis (단일 요청)
-    - Chat: Cache-Aside + PostgreSQL (멀티턴 대화)
+    Temporal Locality (시간적 지역성):
+    - Redis TTL 만료 후 재접속한 세션 → PG에서 복원 → Redis 적재
+    - 이후 동일 세션의 연속 요청은 Redis에서 직접 서빙
+    - checkpoint_read_postgres_url이 None이면 Redis-only (PG fallback 비활성화)
     """
     global _checkpointer
     if _checkpointer is None:
         settings = get_settings()
 
-        if settings.postgres_url:
-            # Cache-Aside PostgreSQL 체크포인터 (Redis L1 + PostgreSQL L2)
-            from chat_worker.infrastructure.orchestration.langgraph.checkpointer import (
-                create_cached_postgres_checkpointer,
-            )
+        from chat_worker.infrastructure.orchestration.langgraph.checkpointer import (
+            create_memory_checkpointer,
+            create_read_through_checkpointer,
+            create_redis_checkpointer,
+        )
 
-            try:
-                redis = await get_redis()
-                _checkpointer = await create_cached_postgres_checkpointer(
-                    conn_string=settings.postgres_url,
-                    redis=redis,
-                    cache_ttl=86400,  # 24시간
+        try:
+            if settings.checkpoint_read_postgres_url:
+                # Read-Through: Redis + PG cold start fallback
+                _checkpointer = await create_read_through_checkpointer(
+                    redis_url=settings.redis_url,
+                    postgres_url=settings.checkpoint_read_postgres_url,
+                    ttl_minutes=settings.checkpoint_ttl_minutes,
+                    pg_pool_min_size=settings.checkpoint_read_pg_pool_min,
+                    pg_pool_max_size=settings.checkpoint_read_pg_pool_max,
                 )
-                logger.info("CachedPostgresSaver initialized (Redis L1 + PostgreSQL L2)")
-            except Exception as e:
-                logger.warning("CachedPostgresSaver failed, falling back to Redis only: %s", e)
-                # Redis 폴백
-                from chat_worker.infrastructure.orchestration.langgraph.checkpointer import (
-                    create_redis_checkpointer,
+                logger.info(
+                    "ReadThroughCheckpointer initialized (ttl=%d min, pg_pool_max=%d)",
+                    settings.checkpoint_ttl_minutes,
+                    settings.checkpoint_read_pg_pool_max,
                 )
-
+            else:
+                # Redis-only (PG fallback 비활성화)
                 _checkpointer = await create_redis_checkpointer(
-                    settings.redis_url,
-                    ttl=86400,  # 24시간
+                    redis_url=settings.redis_url,
+                    ttl_minutes=settings.checkpoint_ttl_minutes,
                 )
-        else:
-            # Redis 체크포인터 (단기 세션)
-            from chat_worker.infrastructure.orchestration.langgraph.checkpointer import (
-                create_redis_checkpointer,
-            )
-
-            _checkpointer = await create_redis_checkpointer(
-                settings.redis_url,
-                ttl=86400,
-            )
-            logger.info("Redis checkpointer initialized (no PostgreSQL configured)")
+                logger.info(
+                    "Redis checkpointer initialized (ttl=%d min, no PG fallback)",
+                    settings.checkpoint_ttl_minutes,
+                )
+        except Exception as e:
+            logger.warning("Checkpointer initialization failed, falling back to MemorySaver: %s", e)
+            _checkpointer = await create_memory_checkpointer()
 
     return _checkpointer
 
@@ -885,25 +885,20 @@ async def get_chat_graph(
     provider: Literal["openai", "google"] = "openai",
     model: str | None = None,
 ):
-    """Chat LangGraph 파이프라인 생성.
+    """Chat LangGraph 파이프라인 생성 (cached by provider+model).
 
     Intent-Routed Workflow with Subagent 패턴.
     체크포인터로 멀티턴 대화 컨텍스트 유지.
 
-    ```
-    START → intent → [vision?] → router
-                                   │
-                  ┌────────┬───────┼───────┬────────┬────────┐
-                  ▼        ▼       ▼       ▼        ▼        ▼
-               waste   character location web_search general
-               (RAG)   (gRPC)   (Kakao)   (DDG)   (passthrough)
-                  │        │       │       │        │
-                  └────────┴───────┴───────┴────────┘
-                                   │
-                                   ▼
-                                answer → END
-    ```
+    Compiled graph는 stateless (state는 invocation 시 전달) → 동시 사용 안전.
+    asyncio 단일 스레드이므로 dict race condition 없음.
     """
+    global _graph_cache
+    cache_key = (provider, model)
+
+    if cache_key in _graph_cache:
+        return _graph_cache[cache_key]
+
     settings = get_settings()
     llm = create_llm_client(provider, model)
     vision_model = create_vision_client(provider, model)
@@ -928,42 +923,43 @@ async def get_chat_graph(
     openai_async_client = get_openai_async_client()
     gemini_client = get_gemini_client()
 
-    return create_chat_graph(
+    graph = create_chat_graph(
         llm=llm,
         retriever=retriever,
         event_publisher=progress_notifier,
-        prompt_loader=prompt_loader,  # 프롬프트 로더 주입
+        prompt_loader=prompt_loader,
         vision_model=vision_model,
         character_client=character_client,
         location_client=location_client,
-        kakao_client=kakao_client,  # 카카오 장소 검색 (place_search intent)
+        kakao_client=kakao_client,
         web_search_client=web_search_client,
-        bulk_waste_client=bulk_waste_client,  # 대형폐기물 정보 (행정안전부 API)
-        recyclable_price_client=recyclable_price_client,  # 재활용자원 시세 (한국환경공단)
-        weather_client=weather_client,  # 날씨 정보 (기상청 API)
-        collection_point_client=collection_point_client,  # 수거함 위치 (KECO API)
-        image_generator=image_generator,  # 이미지 생성 (Responses API)
-        image_storage=image_storage,  # 이미지 업로드 (gRPC → S3)
+        bulk_waste_client=bulk_waste_client,
+        recyclable_price_client=recyclable_price_client,
+        weather_client=weather_client,
+        collection_point_client=collection_point_client,
+        image_generator=image_generator,
+        image_storage=image_storage,
         image_default_size=settings.image_generation_default_size,
         image_default_quality=settings.image_generation_default_quality,
-        cache=cache,  # P2: Intent 캐싱 (CachePort)
+        cache=cache,
         input_requester=input_requester,
         checkpointer=checkpointer,
-        enable_summarization=settings.enable_summarization,  # Multi-turn 컨텍스트 압축
-        summarization_model=settings.openai_default_model,  # 동적 설정: context-output 트리거
-        max_tokens_before_summary=settings.max_tokens_before_summary,  # None이면 동적 계산
-        max_summary_tokens=settings.max_summary_tokens,  # None이면 동적 계산
-        keep_recent_messages=settings.keep_recent_messages,  # None이면 동적 계산
-        # Dynamic routing 활성화 (Channel Separation + Priority Scheduling 적용됨)
-        # ChatState Annotated Reducer로 Send API 병렬 실행 안전
+        enable_summarization=settings.enable_summarization,
+        summarization_model=settings.openai_default_model,
+        max_tokens_before_summary=settings.max_tokens_before_summary,
+        max_summary_tokens=settings.max_summary_tokens,
+        keep_recent_messages=settings.keep_recent_messages,
         enable_dynamic_routing=True,
-        # Location Agent 설정 (LLM + Kakao API Tools)
         openai_async_client=openai_async_client,
         gemini_client=gemini_client,
-        location_agent_model=settings.openai_default_model,  # 기본 모델
+        location_agent_model=settings.openai_default_model,
         location_agent_provider=settings.default_provider,
-        enable_location_agent=True,  # Location Agent 활성화
+        enable_location_agent=True,
     )
+
+    _graph_cache[cache_key] = graph
+    logger.info("Chat graph compiled and cached", extra={"provider": provider, "model": model})
+    return graph
 
 
 # ============================================================
@@ -1063,10 +1059,17 @@ async def cleanup():
     """리소스 정리."""
     global _redis, _redis_streams, _character_client, _location_client, _kakao_local_client, _weather_client, _bulk_waste_client, _collection_point_client, _checkpointer
     global _progress_notifier, _domain_event_bus, _interaction_state_store, _input_requester, _image_generator, _image_storage
+    global _graph_cache
 
-    # 체크포인터 종료
-    if _checkpointer and hasattr(_checkpointer, "close"):
-        await _checkpointer.close()
+    # Graph 캐시 정리
+    _graph_cache.clear()
+
+    # 체크포인터 종료 (AsyncRedisSaver는 __aexit__로 정리)
+    if _checkpointer:
+        if hasattr(_checkpointer, "__aexit__"):
+            await _checkpointer.__aexit__(None, None, None)
+        elif hasattr(_checkpointer, "close"):
+            await _checkpointer.close()
         _checkpointer = None
         logger.info("Checkpointer closed")
 

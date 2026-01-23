@@ -53,7 +53,7 @@ spec:
           resources:
             requests:
               cpu: 1000m
-              memory: 2Gi
+              memory: 4Gi
             limits:
               cpu: 4000m
               memory: 8Gi
@@ -77,15 +77,15 @@ spec:
 
           extendedConfiguration: |
             max_connections = 300
-            shared_buffers = 512MB
-            effective_cache_size = 2GB
-            maintenance_work_mem = 128MB
+            shared_buffers = 2GB
+            effective_cache_size = 6GB
+            maintenance_work_mem = 256MB
             checkpoint_completion_target = 0.9
-            wal_buffers = 16MB
+            wal_buffers = 64MB
             default_statistics_target = 100
             random_page_cost = 1.1
             effective_io_concurrency = 200
-            work_mem = 2621kB
+            work_mem = 4MB
             huge_pages = off
             min_wal_size = 2GB
             max_wal_size = 8GB
@@ -99,7 +99,7 @@ spec:
           resources:
             requests:
               cpu: 1000m
-              memory: 2Gi
+              memory: 4Gi
             limits:
               cpu: 4000m
               memory: 8Gi

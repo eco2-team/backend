@@ -161,7 +161,7 @@ class IntentCache:
         key = self._make_key(message)
 
         try:
-            deleted = await self._redis.delete(key)
+            deleted = await self._redis.unlink(key)
             logger.debug(
                 "intent_cache_invalidated",
                 extra={"key": key, "deleted": deleted},
@@ -188,7 +188,7 @@ class IntentCache:
                 keys.append(key)
 
             if keys:
-                deleted = await self._redis.delete(*keys)
+                deleted = await self._redis.unlink(*keys)
                 logger.info(
                     "intent_cache_cleared",
                     extra={"deleted_count": deleted},

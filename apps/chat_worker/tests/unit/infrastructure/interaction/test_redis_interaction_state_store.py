@@ -25,7 +25,7 @@ class TestRedisInteractionStateStore:
         redis = AsyncMock()
         redis.set = AsyncMock()
         redis.get = AsyncMock(return_value=None)
-        redis.delete = AsyncMock()
+        redis.unlink = AsyncMock()
         return redis
 
     @pytest.fixture
@@ -152,7 +152,7 @@ class TestRedisInteractionStateStore:
         """완료 처리."""
         await store.mark_completed("job-456")
 
-        mock_redis.delete.assert_called_once()
+        mock_redis.unlink.assert_called_once()
 
     # ==========================================================
     # save_pipeline_state Tests
@@ -253,7 +253,7 @@ class TestRedisInteractionStateStore:
         await store.clear_state("job-999")
 
         # delete가 호출되어야 함
-        mock_redis.delete.assert_called_once()
-        call_args = mock_redis.delete.call_args[0]
+        mock_redis.unlink.assert_called_once()
+        call_args = mock_redis.unlink.call_args[0]
         # pending과 state 키 모두 삭제
         assert len(call_args) == 2

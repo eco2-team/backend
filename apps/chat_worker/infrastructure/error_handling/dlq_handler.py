@@ -231,7 +231,7 @@ class DLQHandler:
             삭제된 메시지 수
         """
         count = await self.count()
-        await self._redis.delete(self._stream_key)
+        await self._redis.unlink(self._stream_key)
         logger.info("dlq_cleared", extra={"deleted_count": count})
         return count
 

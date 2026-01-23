@@ -89,7 +89,7 @@ class RedisCacheAdapter(CachePort):
         """캐시 삭제."""
         full_key = self._make_key(key)
         try:
-            deleted = await self._redis.delete(full_key)
+            deleted = await self._redis.unlink(full_key)
             logger.debug(
                 "cache_delete",
                 extra={"key": full_key, "deleted": deleted > 0},

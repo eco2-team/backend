@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-checkpoint-syncer
+  labels:
+    app: chat-checkpoint-syncer
+    version: v1
+    tier: syncer
+    domain: chat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chat-checkpoint-syncer
+  template:
+    metadata:
+      labels:
+        app: chat-checkpoint-syncer
+        version: v1
+        tier: syncer
+        domain: chat
+    spec:
+      serviceAccountName: default
+      containers:
+      - name: checkpoint-syncer
+        image: docker.io/mng990/eco2:chat-worker-dev-latest
+        imagePullPolicy: Always
+        command: [python, -m, chat_worker.checkpoint_syncer]
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 512Mi
+            cpu: 250m
+        envFrom:
+        - configMapRef:
+            name: chat-worker-config
+        - secretRef:
+            name: chat-worker-secret
+        # Liveness: 메인 프로세스(checkpoint_syncer) 존재 확인
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - cat /proc/1/cmdline | grep -q checkpoint_syncer || exit 1
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 10
+        # Readiness: Istio sidecar ready 상태 확인
+        readinessProbe:
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+      imagePullSecrets:
+      - name: dockerhub-secret
+      # worker-ai 노드에 배치 (chat-worker와 동일)
+      nodeSelector:
+        domain: worker-ai
+      tolerations:
+      - key: domain
+        operator: Equal
+        value: worker-ai
+        effect: NoSchedule

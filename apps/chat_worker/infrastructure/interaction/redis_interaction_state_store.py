@@ -109,7 +109,7 @@ class RedisInteractionStateStore(InteractionStateStorePort):
         대기 중인 요청을 삭제합니다.
         """
         key = self._pending_key(job_id)
-        await self._redis.delete(key)
+        await self._redis.unlink(key)
 
         logger.debug("Interaction completed", extra={"job_id": job_id})
 
@@ -162,6 +162,6 @@ class RedisInteractionStateStore(InteractionStateStorePort):
         pending_key = self._pending_key(job_id)
         state_key = self._state_key(job_id)
 
-        await self._redis.delete(pending_key, state_key)
+        await self._redis.unlink(pending_key, state_key)
 
         logger.debug("All state cleared", extra={"job_id": job_id})
