@@ -380,7 +380,101 @@ class BulkWasteToolExecutor:
 
 
 # ============================================================
-# OpenAI Function Calling Handler
+# Agents SDK Handler (Primary)
+# ============================================================
+
+
+@dataclass
+class BulkWasteAgentContext:
+    """Agents SDK RunContext — 도구에 주입할 의존성."""
+
+    tool_executor: BulkWasteToolExecutor
+    tool_results: list[dict[str, Any]]
+
+
+async def run_agents_sdk_agent(
+    openai_client: Any,
+    model: str,
+    message: str,
+    tool_executor: BulkWasteToolExecutor,
+) -> dict[str, Any]:
+    """Agents SDK로 Bulk Waste Agent 실행 (Primary)."""
+    from agents import Agent, Runner, RunConfig, function_tool, RunContextWrapper, OpenAIResponsesModel
+
+    @function_tool
+    async def get_collection_info(
+        ctx: RunContextWrapper[BulkWasteAgentContext],
+        sigungu: str,
+    ) -> str:
+        """지역별 대형폐기물 수거 방법 조회.
+
+        Args:
+            sigungu: 시군구명. 예: '강남구', '성동구', '해운대구', '수원시 영통구'.
+        """
+        result = await ctx.context.tool_executor.execute(
+            "get_collection_info", {"sigungu": sigungu}
+        )
+        result_data = result.data if result.success else {"error": result.error}
+        ctx.context.tool_results.append(
+            {"tool": "get_collection_info", "arguments": {"sigungu": sigungu},
+             "result": result_data, "success": result.success}
+        )
+        return json.dumps(result_data, ensure_ascii=False)
+
+    @function_tool
+    async def search_fee(
+        ctx: RunContextWrapper[BulkWasteAgentContext],
+        sigungu: str,
+        item_name: str,
+    ) -> str:
+        """대형폐기물 품목별 수수료 검색.
+
+        Args:
+            sigungu: 시군구명. 예: '강남구', '성동구'.
+            item_name: 검색할 품목명. 예: '소파', '냉장고', '침대'.
+        """
+        result = await ctx.context.tool_executor.execute(
+            "search_fee", {"sigungu": sigungu, "item_name": item_name}
+        )
+        result_data = result.data if result.success else {"error": result.error}
+        ctx.context.tool_results.append(
+            {"tool": "search_fee", "arguments": {"sigungu": sigungu, "item_name": item_name},
+             "result": result_data, "success": result.success}
+        )
+        return json.dumps(result_data, ensure_ascii=False)
+
+    agent = Agent[BulkWasteAgentContext](
+        name="bulk_waste_agent",
+        instructions=BULK_WASTE_AGENT_SYSTEM_PROMPT,
+        model=OpenAIResponsesModel(
+            model=model,
+            openai_client=openai_client,
+        ),
+        tools=[get_collection_info, search_fee],
+    )
+
+    ctx = BulkWasteAgentContext(
+        tool_executor=tool_executor,
+        tool_results=[],
+    )
+
+    result = await Runner.run(
+        starting_agent=agent,
+        input=message,
+        context=ctx,
+        max_turns=10,
+        run_config=RunConfig(tracing_disabled=True),
+    )
+
+    return {
+        "success": True,
+        "summary": result.final_output,
+        "tool_results": ctx.tool_results,
+    }
+
+
+# ============================================================
+# OpenAI Function Calling Handler (Fallback)
 # ============================================================
 
 
@@ -616,12 +710,33 @@ def create_bulk_waste_agent_node(
                     tool_executor=tool_executor,
                 )
             elif openai_client is not None:
-                result = await run_openai_agent(
-                    openai_client=openai_client,
-                    model=model,
-                    message=message,
-                    tool_executor=tool_executor,
-                )
+                # Primary: Agents SDK, Fallback: Function Calling
+                try:
+                    result = await run_agents_sdk_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        tool_executor=tool_executor,
+                    )
+                except ImportError:
+                    logger.warning("openai-agents not installed, using function calling")
+                    result = await run_openai_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        tool_executor=tool_executor,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Agents SDK failed, falling back to function calling",
+                        extra={"error": str(e)},
+                    )
+                    result = await run_openai_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        tool_executor=tool_executor,
+                    )
             else:
                 # Fallback: LLM 없으면 에러
                 logger.warning("No LLM client available for bulk waste agent")

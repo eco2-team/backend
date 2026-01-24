@@ -200,6 +200,124 @@ class LangChainLLMAdapter(LLMClientPort):
             logger.error(f"Structured output generation failed: {e}")
             raise
 
+    async def generate_with_tools(
+        self,
+        prompt: str,
+        tools: list[str],
+        system_prompt: str | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> AsyncIterator[str]:
+        """네이티브 도구를 사용한 스트리밍 생성.
+
+        Strategy:
+        1. Primary: Agents SDK (openai-agents) — Agent + Runner.run_streamed()
+        2. Fallback: Responses API (client.responses.create) — SDK 미설치 또는 실패 시
+
+        Args:
+            prompt: 사용자 프롬프트
+            tools: 사용할 도구 목록 (예: ["web_search"])
+            system_prompt: 시스템 프롬프트
+            context: 추가 컨텍스트 (JSON으로 변환)
+
+        Yields:
+            생성된 텍스트 청크
+
+        Raises:
+            NotImplementedError: 내부 LLM이 AsyncOpenAI 클라이언트를 갖지 않을 때
+        """
+        if not (hasattr(self._llm, "_client") and self._llm._client is not None):
+            raise NotImplementedError(
+                "generate_with_tools() requires LangChainOpenAIRunnable with _client"
+            )
+
+        client = self._llm._client
+        model_name = getattr(self._llm, "model", "gpt-5.2")
+
+        # 입력 구성
+        user_content = prompt
+        if context:
+            context_str = json.dumps(context, ensure_ascii=False, indent=2)
+            user_content = f"## Context\n{context_str}\n\n## Question\n{prompt}"
+
+        # --- Primary: Agents SDK ---
+        _yielded = False
+        try:
+            from agents import Agent, Runner, WebSearchTool, OpenAIResponsesModel
+            from openai.types.responses import ResponseTextDeltaEvent
+
+            agent_tools = []
+            for tool in tools:
+                if tool == "web_search":
+                    agent_tools.append(WebSearchTool(search_context_size="medium"))
+
+            agent = Agent(
+                name="web_search_agent",
+                instructions=system_prompt or "",
+                model=OpenAIResponsesModel(
+                    model=model_name,
+                    openai_client=client,
+                ),
+                tools=agent_tools,
+            )
+
+            result = Runner.run_streamed(agent, input=user_content)
+
+            async for event in result.stream_events():
+                if (
+                    event.type == "raw_response_event"
+                    and isinstance(event.data, ResponseTextDeltaEvent)
+                ):
+                    if event.data.delta:
+                        _yielded = True
+                        yield event.data.delta
+
+            return
+
+        except ImportError:
+            logger.warning(
+                "openai-agents not installed, falling back to Responses API"
+            )
+        except Exception as e:
+            if _yielded:
+                raise
+            logger.warning(
+                "Agents SDK failed, falling back to Responses API",
+                extra={"error": str(e), "model": model_name},
+            )
+
+        # --- Fallback: Responses API ---
+        input_messages: list[dict[str, str]] = []
+        if system_prompt:
+            input_messages.append({"role": "developer", "content": system_prompt})
+        input_messages.append({"role": "user", "content": user_content})
+
+        tool_configs = []
+        for tool in tools:
+            if tool == "web_search":
+                tool_configs.append(
+                    {"type": "web_search_preview", "search_context_size": "medium"}
+                )
+
+        try:
+            response = await client.responses.create(
+                model=model_name,
+                input=input_messages,
+                tools=tool_configs if tool_configs else None,
+                stream=True,
+            )
+
+            async for event in response:
+                if hasattr(event, "type") and event.type == "response.output_text.delta":
+                    if hasattr(event, "delta") and event.delta:
+                        yield event.delta
+
+        except Exception as e:
+            logger.error(
+                "generate_with_tools failed (Responses API fallback)",
+                extra={"error": str(e), "model": model_name, "tools": tools},
+            )
+            raise
+
     async def generate_function_call(
         self,
         prompt: str,

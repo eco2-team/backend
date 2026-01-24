@@ -93,19 +93,19 @@ OPENAI_TOOLS = [
                         ),
                     },
                     "latitude": {
-                        "type": "number",
-                        "description": "검색 중심 위도. 주변 검색 시 필수. 범위: 33.0~43.0 (한국)",
+                        "anyOf": [{"type": "number"}, {"type": "null"}],
+                        "description": "검색 중심 위도. 주변 검색 시 필수. 범위: 33.0~43.0 (한국). 불필요 시 null.",
                     },
                     "longitude": {
-                        "type": "number",
-                        "description": "검색 중심 경도. 주변 검색 시 필수. 범위: 124.0~132.0 (한국)",
+                        "anyOf": [{"type": "number"}, {"type": "null"}],
+                        "description": "검색 중심 경도. 주변 검색 시 필수. 범위: 124.0~132.0 (한국). 불필요 시 null.",
                     },
                     "radius": {
-                        "type": "integer",
-                        "description": "검색 반경(미터). 기본 5000m. 최대 20000m.",
+                        "anyOf": [{"type": "integer"}, {"type": "null"}],
+                        "description": "검색 반경(미터). 기본 5000m. 최대 20000m. 불필요 시 null.",
                     },
                 },
-                "required": ["query"],
+                "required": ["query", "latitude", "longitude", "radius"],
                 "additionalProperties": False,
             },
             "strict": True,
@@ -156,11 +156,11 @@ OPENAI_TOOLS = [
                         "description": "검색 중심 경도. 필수. 범위: 124.0~132.0 (한국)",
                     },
                     "radius": {
-                        "type": "integer",
-                        "description": "검색 반경(미터). 기본 5000m. 최대 20000m.",
+                        "anyOf": [{"type": "integer"}, {"type": "null"}],
+                        "description": "검색 반경(미터). 기본 5000m. 최대 20000m. 불필요 시 null.",
                     },
                 },
-                "required": ["category", "latitude", "longitude"],
+                "required": ["category", "latitude", "longitude", "radius"],
                 "additionalProperties": False,
             },
             "strict": True,
@@ -459,7 +459,7 @@ class KakaoToolExecutor:
         query = args.get("query", "")
         lat = args.get("latitude")
         lon = args.get("longitude")
-        radius = args.get("radius", 5000)
+        radius = args.get("radius") or 5000
 
         response = await self._kakao_client.search_keyword(
             query=query,
@@ -481,7 +481,7 @@ class KakaoToolExecutor:
         category = args.get("category", "")
         lat = args.get("latitude")
         lon = args.get("longitude")
-        radius = args.get("radius", 5000)
+        radius = args.get("radius") or 5000
 
         if lat is None or lon is None:
             return ToolResult(
@@ -569,7 +569,147 @@ class KakaoToolExecutor:
 
 
 # ============================================================
-# OpenAI Function Calling Handler
+# Agents SDK Handler (Primary)
+# ============================================================
+
+
+@dataclass
+class LocationAgentContext:
+    """Agents SDK RunContext — 도구에 주입할 의존성."""
+
+    tool_executor: KakaoToolExecutor
+    tool_results: list[dict[str, Any]]
+
+
+async def run_agents_sdk_agent(
+    openai_client: Any,
+    model: str,
+    message: str,
+    user_location: dict[str, float] | None,
+    tool_executor: KakaoToolExecutor,
+) -> dict[str, Any]:
+    """Agents SDK로 Location Agent 실행 (Primary)."""
+    from agents import Agent, Runner, RunConfig, function_tool, RunContextWrapper, OpenAIResponsesModel
+
+    @function_tool
+    async def search_places(
+        ctx: RunContextWrapper[LocationAgentContext],
+        query: str,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        radius: int | None = None,
+    ) -> str:
+        """키워드 기반 장소 검색.
+
+        Args:
+            query: 검색할 장소 유형. 예: '재활용센터', '제로웨이스트샵'. 지역명 제외.
+            latitude: 위도 (선택). 주변 검색 시 필수. 불필요 시 null.
+            longitude: 경도 (선택). 주변 검색 시 필수. 불필요 시 null.
+            radius: 검색 반경(m). 기본 5000, 최대 20000. 불필요 시 null.
+        """
+        effective_radius = min(radius or 5000, 20000)
+        args: dict[str, Any] = {"query": query, "radius": effective_radius}
+        if latitude is not None and longitude is not None:
+            args["latitude"] = latitude
+            args["longitude"] = longitude
+        result = await ctx.context.tool_executor.execute("search_places", args)
+        result_data = result.data if result.success else {"error": result.error}
+        ctx.context.tool_results.append(
+            {"tool": "search_places", "arguments": args,
+             "result": result_data, "success": result.success}
+        )
+        return json.dumps(result_data, ensure_ascii=False)
+
+    @function_tool
+    async def search_category(
+        ctx: RunContextWrapper[LocationAgentContext],
+        category: str,
+        latitude: float,
+        longitude: float,
+        radius: int | None = None,
+    ) -> str:
+        """카테고리 기반 주변 장소 검색. 좌표 필수.
+
+        Args:
+            category: 장소 카테고리. MART/CONVENIENCE/SUBWAY/CAFE/HOSPITAL/PHARMACY/BANK/CULTURE/PARKING/GAS_STATION.
+            latitude: 위도. 필수.
+            longitude: 경도. 필수.
+            radius: 검색 반경(m). 기본 5000, 최대 20000. 불필요 시 null.
+        """
+        args: dict[str, Any] = {
+            "category": category,
+            "latitude": latitude,
+            "longitude": longitude,
+            "radius": min(radius or 5000, 20000),
+        }
+        result = await ctx.context.tool_executor.execute("search_category", args)
+        result_data = result.data if result.success else {"error": result.error}
+        ctx.context.tool_results.append(
+            {"tool": "search_category", "arguments": args,
+             "result": result_data, "success": result.success}
+        )
+        return json.dumps(result_data, ensure_ascii=False)
+
+    @function_tool
+    async def geocode(
+        ctx: RunContextWrapper[LocationAgentContext],
+        place_name: str,
+    ) -> str:
+        """장소명/주소를 좌표(위도, 경도)로 변환.
+
+        Args:
+            place_name: 좌표로 변환할 장소명 또는 주소. 예: '강남역', '홍대입구역'.
+        """
+        result = await ctx.context.tool_executor.execute(
+            "geocode", {"place_name": place_name}
+        )
+        result_data = result.data if result.success else {"error": result.error}
+        ctx.context.tool_results.append(
+            {"tool": "geocode", "arguments": {"place_name": place_name},
+             "result": result_data, "success": result.success}
+        )
+        return json.dumps(result_data, ensure_ascii=False)
+
+    # 사용자 위치 정보를 메시지에 포함
+    user_message = message
+    if user_location:
+        lat = user_location.get("latitude") or user_location.get("lat")
+        lon = user_location.get("longitude") or user_location.get("lon")
+        if lat and lon:
+            user_message = f"{message}\n\n[현재 위치: 위도 {lat}, 경도 {lon}]"
+
+    agent = Agent[LocationAgentContext](
+        name="location_agent",
+        instructions=LOCATION_AGENT_SYSTEM_PROMPT,
+        model=OpenAIResponsesModel(
+            model=model,
+            openai_client=openai_client,
+        ),
+        tools=[search_places, search_category, geocode],
+    )
+
+    ctx = LocationAgentContext(
+        tool_executor=tool_executor,
+        tool_results=[],
+    )
+
+    result = await Runner.run(
+        starting_agent=agent,
+        input=user_message,
+        context=ctx,
+        max_turns=10,
+        run_config=RunConfig(tracing_disabled=True),
+    )
+
+    return {
+        "success": True,
+        "summary": result.final_output,
+        "tool_results": ctx.tool_results,
+    }
+
+
+# ============================================================
+# OpenAI Function Calling Handler (Fallback)
 # ============================================================
 
 
@@ -875,13 +1015,36 @@ def create_location_agent_node(
                     tool_executor=tool_executor,
                 )
             elif openai_client is not None:
-                result = await run_openai_agent(
-                    openai_client=openai_client,
-                    model=model,
-                    message=message,
-                    user_location=user_location,
-                    tool_executor=tool_executor,
-                )
+                # Primary: Agents SDK, Fallback: Function Calling
+                try:
+                    result = await run_agents_sdk_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        user_location=user_location,
+                        tool_executor=tool_executor,
+                    )
+                except ImportError:
+                    logger.warning("openai-agents not installed, using function calling")
+                    result = await run_openai_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        user_location=user_location,
+                        tool_executor=tool_executor,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Agents SDK failed, falling back to function calling",
+                        extra={"error": str(e)},
+                    )
+                    result = await run_openai_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        user_location=user_location,
+                        tool_executor=tool_executor,
+                    )
             else:
                 # Fallback: 직접 키워드 검색
                 logger.warning("No LLM client available, falling back to direct search")

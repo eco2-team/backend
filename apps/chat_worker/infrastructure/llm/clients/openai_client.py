@@ -207,10 +207,11 @@ class OpenAILLMClient(LLMClientPort):
         system_prompt: str | None = None,
         context: dict[str, Any] | None = None,
     ) -> AsyncIterator[str]:
-        """네이티브 도구를 사용한 스트리밍 생성 (Responses API).
+        """네이티브 도구를 사용한 스트리밍 생성.
 
-        OpenAI Responses API를 사용하여 네이티브 도구(web_search 등)를
-        활용한 응답을 생성합니다.
+        Strategy:
+        1. Primary: Agents SDK (openai-agents) — Agent + Runner.run_streamed()
+        2. Fallback: Responses API (client.responses.create) — SDK 미설치 또는 실패 시
 
         Args:
             prompt: 사용자 프롬프트
@@ -221,37 +222,72 @@ class OpenAILLMClient(LLMClientPort):
         Yields:
             생성된 텍스트 청크
         """
-        # 입력 메시지 구성
-        input_messages = []
-        if system_prompt:
-            input_messages.append(
-                {
-                    "role": "developer",  # Responses API uses "developer" for system
-                    "content": system_prompt,
-                }
-            )
-
+        # 입력 구성
         user_content = prompt
         if context:
             context_str = json.dumps(context, ensure_ascii=False, indent=2)
             user_content = f"## Context\n{context_str}\n\n## Question\n{prompt}"
 
+        # --- Primary: Agents SDK ---
+        _yielded = False
+        try:
+            from agents import Agent, Runner, WebSearchTool, OpenAIResponsesModel
+            from openai.types.responses import ResponseTextDeltaEvent
+
+            agent_tools = []
+            for tool in tools:
+                if tool == "web_search":
+                    agent_tools.append(WebSearchTool(search_context_size="medium"))
+
+            agent = Agent(
+                name="web_search_agent",
+                instructions=system_prompt or "",
+                model=OpenAIResponsesModel(
+                    model=self._model,
+                    openai_client=self._client,
+                ),
+                tools=agent_tools,
+            )
+
+            result = Runner.run_streamed(agent, input=user_content)
+
+            async for event in result.stream_events():
+                if (
+                    event.type == "raw_response_event"
+                    and isinstance(event.data, ResponseTextDeltaEvent)
+                ):
+                    if event.data.delta:
+                        _yielded = True
+                        yield event.data.delta
+
+            return
+
+        except ImportError:
+            logger.warning(
+                "openai-agents not installed, falling back to Responses API"
+            )
+        except Exception as e:
+            if _yielded:
+                raise
+            logger.warning(
+                "Agents SDK failed, falling back to Responses API",
+                extra={"error": str(e), "model": self._model},
+            )
+
+        # --- Fallback: Responses API ---
+        input_messages: list[dict[str, str]] = []
+        if system_prompt:
+            input_messages.append({"role": "developer", "content": system_prompt})
         input_messages.append({"role": "user", "content": user_content})
 
-        # 도구 구성
         tool_configs = []
         for tool in tools:
             if tool == "web_search":
                 tool_configs.append(
-                    {
-                        "type": "web_search_preview",
-                        "search_context_size": "medium",  # low, medium, high
-                    }
+                    {"type": "web_search_preview", "search_context_size": "medium"}
                 )
-            # 추가 도구는 여기에 확장
 
         try:
-            # Responses API 호출 (스트리밍)
             response = await self._client.responses.create(
                 model=self._model,
                 input=input_messages,
@@ -260,27 +296,14 @@ class OpenAILLMClient(LLMClientPort):
             )
 
             async for event in response:
-                # output_text.delta 이벤트에서 텍스트 추출
-                if hasattr(event, "type"):
-                    if event.type == "response.output_text.delta":
-                        if hasattr(event, "delta") and event.delta:
-                            yield event.delta
-                    elif event.type == "response.completed":
-                        # 완료 시 sources 정보 로깅
-                        if hasattr(event, "response"):
-                            resp = event.response
-                            if hasattr(resp, "output") and resp.output:
-                                for output in resp.output:
-                                    if hasattr(output, "sources"):
-                                        logger.debug(
-                                            "Web search sources",
-                                            extra={"sources": output.sources},
-                                        )
+                if hasattr(event, "type") and event.type == "response.output_text.delta":
+                    if hasattr(event, "delta") and event.delta:
+                        yield event.delta
 
         except Exception as e:
             logger.error(
-                "generate_with_tools failed (no fallback)",
-                extra={"error": str(e), "tools": tools},
+                "generate_with_tools failed (Responses API fallback)",
+                extra={"error": str(e), "model": self._model, "tools": tools},
             )
             raise
 

@@ -11,6 +11,7 @@ grpcio-tools>=1.60.0
 
 # LLM Clients (chat 패키지 의존성)
 openai>=2.9.0,<3  # Responses API + Agents SDK (openai-agents requires >=2.9.0)
+openai-agents>=0.7.0  # Agents SDK (WebSearchTool, multi-agent)
 anthropic>=0.40.0
 google-genai>=0.3.0
 tiktoken>=0.8.0

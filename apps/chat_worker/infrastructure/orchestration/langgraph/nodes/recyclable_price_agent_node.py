@@ -87,27 +87,32 @@ OPENAI_TOOLS = [
                         ),
                     },
                     "region": {
-                        "type": "string",
-                        "enum": [
-                            "capital",
-                            "gangwon",
-                            "chungbuk",
-                            "chungnam",
-                            "jeonbuk",
-                            "jeonnam",
-                            "gyeongbuk",
-                            "gyeongnam",
-                            "national",
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "capital",
+                                    "gangwon",
+                                    "chungbuk",
+                                    "chungnam",
+                                    "jeonbuk",
+                                    "jeonnam",
+                                    "gyeongbuk",
+                                    "gyeongnam",
+                                    "national",
+                                ],
+                            },
+                            {"type": "null"},
                         ],
                         "description": (
-                            "권역. 선택. "
+                            "권역. 선택 (불필요 시 null). "
                             "capital=수도권, gangwon=강원, chungbuk=충북, chungnam=충남, "
                             "jeonbuk=전북, jeonnam=전남, gyeongbuk=경북, gyeongnam=경남, "
                             "national=전국평균(기본값)."
                         ),
                     },
                 },
-                "required": ["item_name"],
+                "required": ["item_name", "region"],
                 "additionalProperties": False,
             },
             "strict": True,
@@ -136,22 +141,27 @@ OPENAI_TOOLS = [
                         ),
                     },
                     "region": {
-                        "type": "string",
-                        "enum": [
-                            "capital",
-                            "gangwon",
-                            "chungbuk",
-                            "chungnam",
-                            "jeonbuk",
-                            "jeonnam",
-                            "gyeongbuk",
-                            "gyeongnam",
-                            "national",
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "capital",
+                                    "gangwon",
+                                    "chungbuk",
+                                    "chungnam",
+                                    "jeonbuk",
+                                    "jeonnam",
+                                    "gyeongbuk",
+                                    "gyeongnam",
+                                    "national",
+                                ],
+                            },
+                            {"type": "null"},
                         ],
-                        "description": "권역. 선택. 기본값: national(전국평균).",
+                        "description": "권역. 선택 (불필요 시 null). 기본값: national(전국평균).",
                     },
                 },
-                "required": ["category"],
+                "required": ["category", "region"],
                 "additionalProperties": False,
             },
             "strict": True,
@@ -468,7 +478,101 @@ class RecyclablePriceToolExecutor:
 
 
 # ============================================================
-# OpenAI Function Calling Handler
+# Agents SDK Handler (Primary)
+# ============================================================
+
+
+@dataclass
+class RecyclablePriceAgentContext:
+    """Agents SDK RunContext — 도구에 주입할 의존성."""
+
+    tool_executor: RecyclablePriceToolExecutor
+    tool_results: list[dict[str, Any]]
+
+
+async def run_agents_sdk_agent(
+    openai_client: Any,
+    model: str,
+    message: str,
+    tool_executor: RecyclablePriceToolExecutor,
+) -> dict[str, Any]:
+    """Agents SDK로 Recyclable Price Agent 실행 (Primary)."""
+    from agents import Agent, Runner, RunConfig, function_tool, RunContextWrapper, OpenAIResponsesModel
+
+    @function_tool
+    async def search_price(
+        ctx: RunContextWrapper[RecyclablePriceAgentContext],
+        item_name: str,
+        region: str | None = None,
+    ) -> str:
+        """재활용자원 품목명으로 가격 검색.
+
+        Args:
+            item_name: 검색할 품목명. 예: '캔', '신문지', '페트병', '골판지'.
+            region: 권역. capital/gangwon/chungbuk/chungnam/jeonbuk/jeonnam/gyeongbuk/gyeongnam/national. 불필요 시 null.
+        """
+        args = {"item_name": item_name, "region": region or "national"}
+        result = await ctx.context.tool_executor.execute("search_price", args)
+        result_data = result.data if result.success else {"error": result.error}
+        ctx.context.tool_results.append(
+            {"tool": "search_price", "arguments": args,
+             "result": result_data, "success": result.success}
+        )
+        return json.dumps(result_data, ensure_ascii=False)
+
+    @function_tool
+    async def get_category_prices(
+        ctx: RunContextWrapper[RecyclablePriceAgentContext],
+        category: str,
+        region: str | None = None,
+    ) -> str:
+        """카테고리별 전체 재활용자원 가격 조회.
+
+        Args:
+            category: 카테고리. paper/plastic/glass/metal/tire.
+            region: 권역. capital/gangwon/chungbuk/chungnam/jeonbuk/jeonnam/gyeongbuk/gyeongnam/national. 불필요 시 null.
+        """
+        args = {"category": category, "region": region or "national"}
+        result = await ctx.context.tool_executor.execute("get_category_prices", args)
+        result_data = result.data if result.success else {"error": result.error}
+        ctx.context.tool_results.append(
+            {"tool": "get_category_prices", "arguments": args,
+             "result": result_data, "success": result.success}
+        )
+        return json.dumps(result_data, ensure_ascii=False)
+
+    agent = Agent[RecyclablePriceAgentContext](
+        name="recyclable_price_agent",
+        instructions=RECYCLABLE_PRICE_AGENT_SYSTEM_PROMPT,
+        model=OpenAIResponsesModel(
+            model=model,
+            openai_client=openai_client,
+        ),
+        tools=[search_price, get_category_prices],
+    )
+
+    ctx = RecyclablePriceAgentContext(
+        tool_executor=tool_executor,
+        tool_results=[],
+    )
+
+    result = await Runner.run(
+        starting_agent=agent,
+        input=message,
+        context=ctx,
+        max_turns=10,
+        run_config=RunConfig(tracing_disabled=True),
+    )
+
+    return {
+        "success": True,
+        "summary": result.final_output,
+        "tool_results": ctx.tool_results,
+    }
+
+
+# ============================================================
+# OpenAI Function Calling Handler (Fallback)
 # ============================================================
 
 
@@ -704,12 +808,33 @@ def create_recyclable_price_agent_node(
                     tool_executor=tool_executor,
                 )
             elif openai_client is not None:
-                result = await run_openai_agent(
-                    openai_client=openai_client,
-                    model=model,
-                    message=message,
-                    tool_executor=tool_executor,
-                )
+                # Primary: Agents SDK, Fallback: Function Calling
+                try:
+                    result = await run_agents_sdk_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        tool_executor=tool_executor,
+                    )
+                except ImportError:
+                    logger.warning("openai-agents not installed, using function calling")
+                    result = await run_openai_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        tool_executor=tool_executor,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Agents SDK failed, falling back to function calling",
+                        extra={"error": str(e)},
+                    )
+                    result = await run_openai_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        tool_executor=tool_executor,
+                    )
             else:
                 logger.warning("No LLM client available for recyclable price agent")
                 return {

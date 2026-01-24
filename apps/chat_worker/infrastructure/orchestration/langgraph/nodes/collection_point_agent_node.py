@@ -76,20 +76,21 @@ OPENAI_TOOLS = [
                 "type": "object",
                 "properties": {
                     "address_keyword": {
-                        "type": "string",
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
                         "description": (
                             "주소 검색어. 구/동 단위 권장. "
-                            "예: '강남구', '용산', '해운대구', '서초동'."
+                            "예: '강남구', '용산', '해운대구', '서초동'. 불필요 시 null."
                         ),
                     },
                     "name_keyword": {
-                        "type": "string",
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
                         "description": (
-                            "상호명 검색어. " "예: '이마트', '홈플러스', '주민센터', '구청'."
+                            "상호명 검색어. "
+                            "예: '이마트', '홈플러스', '주민센터', '구청'. 불필요 시 null."
                         ),
                     },
                 },
-                "required": [],
+                "required": ["address_keyword", "name_keyword"],
                 "additionalProperties": False,
             },
             "strict": True,
@@ -119,11 +120,11 @@ OPENAI_TOOLS = [
                         "description": "경도. 필수. 범위: 124.0~132.0 (한국)",
                     },
                     "radius_km": {
-                        "type": "number",
-                        "description": "검색 반경(km). 기본 2.0, 최대 5.0.",
+                        "anyOf": [{"type": "number"}, {"type": "null"}],
+                        "description": "검색 반경(km). 기본 2.0, 최대 5.0. 불필요 시 null.",
                     },
                 },
-                "required": ["latitude", "longitude"],
+                "required": ["latitude", "longitude", "radius_km"],
                 "additionalProperties": False,
             },
             "strict": True,
@@ -413,7 +414,7 @@ class CollectionPointToolExecutor:
         """좌표 기반 주변 수거함 검색."""
         lat = args.get("latitude")
         lon = args.get("longitude")
-        radius_km = args.get("radius_km", 2.0)
+        radius_km = args.get("radius_km") or 2.0
 
         if lat is None or lon is None:
             return ToolResult(
@@ -496,7 +497,140 @@ class CollectionPointToolExecutor:
 
 
 # ============================================================
-# OpenAI Function Calling Handler
+# Agents SDK Handler (Primary)
+# ============================================================
+
+
+@dataclass
+class CollectionPointAgentContext:
+    """Agents SDK RunContext — 도구에 주입할 의존성."""
+
+    tool_executor: CollectionPointToolExecutor
+    tool_results: list[dict[str, Any]]
+
+
+async def run_agents_sdk_agent(
+    openai_client: Any,
+    model: str,
+    message: str,
+    user_location: dict[str, float] | None,
+    tool_executor: CollectionPointToolExecutor,
+) -> dict[str, Any]:
+    """Agents SDK로 Collection Point Agent 실행 (Primary)."""
+    from agents import Agent, Runner, RunConfig, function_tool, RunContextWrapper, OpenAIResponsesModel
+
+    @function_tool
+    async def search_collection_points(
+        ctx: RunContextWrapper[CollectionPointAgentContext],
+        address_keyword: str | None = None,
+        name_keyword: str | None = None,
+    ) -> str:
+        """주소 또는 상호명으로 폐전자제품/폐건전지 수거함 검색.
+
+        Args:
+            address_keyword: 주소 키워드. 예: '강남구', '서초동'. 불필요 시 null.
+            name_keyword: 상호명/장소명 키워드. 예: '이마트', 'CU'. 불필요 시 null.
+        """
+        args: dict[str, str] = {}
+        if address_keyword:
+            args["address_keyword"] = address_keyword
+        if name_keyword:
+            args["name_keyword"] = name_keyword
+        result = await ctx.context.tool_executor.execute("search_collection_points", args)
+        result_data = result.data if result.success else {"error": result.error}
+        ctx.context.tool_results.append(
+            {"tool": "search_collection_points", "arguments": args,
+             "result": result_data, "success": result.success}
+        )
+        return json.dumps(result_data, ensure_ascii=False)
+
+    @function_tool
+    async def get_nearby_collection_points(
+        ctx: RunContextWrapper[CollectionPointAgentContext],
+        latitude: float,
+        longitude: float,
+        radius_km: float | None = None,
+    ) -> str:
+        """좌표 기반 주변 수거함 검색.
+
+        Args:
+            latitude: 위도.
+            longitude: 경도.
+            radius_km: 검색 반경(km). 기본 2.0, 최대 5.0. 불필요 시 null.
+        """
+        args = {
+            "latitude": latitude,
+            "longitude": longitude,
+            "radius_km": min(radius_km or 2.0, 5.0),
+        }
+        result = await ctx.context.tool_executor.execute("get_nearby_collection_points", args)
+        result_data = result.data if result.success else {"error": result.error}
+        ctx.context.tool_results.append(
+            {"tool": "get_nearby_collection_points", "arguments": args,
+             "result": result_data, "success": result.success}
+        )
+        return json.dumps(result_data, ensure_ascii=False)
+
+    @function_tool
+    async def geocode(
+        ctx: RunContextWrapper[CollectionPointAgentContext],
+        place_name: str,
+    ) -> str:
+        """장소명/주소를 좌표(위도, 경도)로 변환.
+
+        Args:
+            place_name: 좌표로 변환할 장소명 또는 주소. 예: '강남역', '홍대'.
+        """
+        result = await ctx.context.tool_executor.execute(
+            "geocode", {"place_name": place_name}
+        )
+        result_data = result.data if result.success else {"error": result.error}
+        ctx.context.tool_results.append(
+            {"tool": "geocode", "arguments": {"place_name": place_name},
+             "result": result_data, "success": result.success}
+        )
+        return json.dumps(result_data, ensure_ascii=False)
+
+    # 사용자 위치 정보를 메시지에 포함
+    user_message = message
+    if user_location:
+        lat = user_location.get("latitude") or user_location.get("lat")
+        lon = user_location.get("longitude") or user_location.get("lon")
+        if lat and lon:
+            user_message = f"{message}\n\n[현재 위치: 위도 {lat}, 경도 {lon}]"
+
+    agent = Agent[CollectionPointAgentContext](
+        name="collection_point_agent",
+        instructions=COLLECTION_POINT_AGENT_SYSTEM_PROMPT,
+        model=OpenAIResponsesModel(
+            model=model,
+            openai_client=openai_client,
+        ),
+        tools=[search_collection_points, get_nearby_collection_points, geocode],
+    )
+
+    ctx = CollectionPointAgentContext(
+        tool_executor=tool_executor,
+        tool_results=[],
+    )
+
+    result = await Runner.run(
+        starting_agent=agent,
+        input=user_message,
+        context=ctx,
+        max_turns=10,
+        run_config=RunConfig(tracing_disabled=True),
+    )
+
+    return {
+        "success": True,
+        "summary": result.final_output,
+        "tool_results": ctx.tool_results,
+    }
+
+
+# ============================================================
+# OpenAI Function Calling Handler (Fallback)
 # ============================================================
 
 
@@ -755,13 +889,36 @@ def create_collection_point_agent_node(
                     tool_executor=tool_executor,
                 )
             elif openai_client is not None:
-                result = await run_openai_agent(
-                    openai_client=openai_client,
-                    model=model,
-                    message=message,
-                    user_location=user_location,
-                    tool_executor=tool_executor,
-                )
+                # Primary: Agents SDK, Fallback: Function Calling
+                try:
+                    result = await run_agents_sdk_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        user_location=user_location,
+                        tool_executor=tool_executor,
+                    )
+                except ImportError:
+                    logger.warning("openai-agents not installed, using function calling")
+                    result = await run_openai_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        user_location=user_location,
+                        tool_executor=tool_executor,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Agents SDK failed, falling back to function calling",
+                        extra={"error": str(e)},
+                    )
+                    result = await run_openai_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        user_location=user_location,
+                        tool_executor=tool_executor,
+                    )
             else:
                 logger.warning("No LLM client available for collection point agent")
                 return {

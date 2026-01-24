@@ -89,15 +89,15 @@ OPENAI_TOOLS = [
                         "description": "경도. 필수. 범위: 124.0~132.0 (한국)",
                     },
                     "waste_category": {
-                        "type": "string",
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
                         "description": (
                             "폐기물 카테고리 (날씨 팁 맞춤용, 선택). "
                             "예: 'paper', 'plastic', 'food', 'general'. "
-                            "분리배출 관련 질문이면 해당 카테고리 전달."
+                            "분리배출 관련 질문이면 해당 카테고리 전달. 불필요 시 null."
                         ),
                     },
                 },
-                "required": ["latitude", "longitude"],
+                "required": ["latitude", "longitude", "waste_category"],
                 "additionalProperties": False,
             },
             "strict": True,
@@ -424,7 +424,113 @@ class WeatherToolExecutor:
 
 
 # ============================================================
-# OpenAI Function Calling Handler
+# Agents SDK Handler (Primary)
+# ============================================================
+
+
+@dataclass
+class WeatherAgentContext:
+    """Agents SDK RunContext — 도구에 주입할 의존성."""
+
+    tool_executor: WeatherToolExecutor
+    tool_results: list[dict[str, Any]]
+
+
+async def run_agents_sdk_agent(
+    openai_client: Any,
+    model: str,
+    message: str,
+    user_location: dict[str, float] | None,
+    tool_executor: WeatherToolExecutor,
+) -> dict[str, Any]:
+    """에이전츠 SDK로 Weather Agent 실행 (Primary)."""
+    from agents import Agent, Runner, RunConfig, function_tool, RunContextWrapper, OpenAIResponsesModel
+
+    @function_tool
+    async def get_weather(
+        ctx: RunContextWrapper[WeatherAgentContext],
+        latitude: float,
+        longitude: float,
+        waste_category: str | None = None,
+    ) -> str:
+        """좌표 기반 현재 날씨 조회.
+
+        Args:
+            latitude: 위도. 범위: 33.0~43.0 (한국).
+            longitude: 경도. 범위: 124.0~132.0 (한국).
+            waste_category: 폐기물 카테고리 (날씨 팁 맞춤용, 선택). 예: 'paper', 'plastic', 'food'. 불필요 시 null.
+        """
+        args: dict[str, Any] = {"latitude": latitude, "longitude": longitude}
+        if waste_category:
+            args["waste_category"] = waste_category
+        result = await ctx.context.tool_executor.execute("get_weather", args)
+        result_data = result.data if result.success else {"error": result.error}
+        ctx.context.tool_results.append(
+            {"tool": "get_weather", "arguments": args,
+             "result": result_data, "success": result.success}
+        )
+        return json.dumps(result_data, ensure_ascii=False)
+
+    @function_tool
+    async def geocode(
+        ctx: RunContextWrapper[WeatherAgentContext],
+        place_name: str,
+    ) -> str:
+        """장소명/주소를 좌표(위도, 경도)로 변환.
+
+        Args:
+            place_name: 좌표로 변환할 장소명 또는 주소. 예: '강남역', '서울시 강남구'.
+        """
+        result = await ctx.context.tool_executor.execute(
+            "geocode", {"place_name": place_name}
+        )
+        result_data = result.data if result.success else {"error": result.error}
+        ctx.context.tool_results.append(
+            {"tool": "geocode", "arguments": {"place_name": place_name},
+             "result": result_data, "success": result.success}
+        )
+        return json.dumps(result_data, ensure_ascii=False)
+
+    # 사용자 위치 정보를 메시지에 포함
+    user_message = message
+    if user_location:
+        lat = user_location.get("latitude") or user_location.get("lat")
+        lon = user_location.get("longitude") or user_location.get("lon")
+        if lat and lon:
+            user_message = f"{message}\n\n[현재 위치: 위도 {lat}, 경도 {lon}]"
+
+    agent = Agent[WeatherAgentContext](
+        name="weather_agent",
+        instructions=WEATHER_AGENT_SYSTEM_PROMPT,
+        model=OpenAIResponsesModel(
+            model=model,
+            openai_client=openai_client,
+        ),
+        tools=[get_weather, geocode],
+    )
+
+    ctx = WeatherAgentContext(
+        tool_executor=tool_executor,
+        tool_results=[],
+    )
+
+    result = await Runner.run(
+        starting_agent=agent,
+        input=user_message,
+        context=ctx,
+        max_turns=10,
+        run_config=RunConfig(tracing_disabled=True),
+    )
+
+    return {
+        "success": True,
+        "summary": result.final_output,
+        "tool_results": ctx.tool_results,
+    }
+
+
+# ============================================================
+# OpenAI Function Calling Handler (Fallback)
 # ============================================================
 
 
@@ -731,13 +837,36 @@ def create_weather_agent_node(
                     tool_executor=tool_executor,
                 )
             elif openai_client is not None:
-                result = await run_openai_agent(
-                    openai_client=openai_client,
-                    model=model,
-                    message=message,
-                    user_location=user_location,
-                    tool_executor=tool_executor,
-                )
+                # Primary: Agents SDK, Fallback: Function Calling
+                try:
+                    result = await run_agents_sdk_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        user_location=user_location,
+                        tool_executor=tool_executor,
+                    )
+                except ImportError:
+                    logger.warning("openai-agents not installed, using function calling")
+                    result = await run_openai_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        user_location=user_location,
+                        tool_executor=tool_executor,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Agents SDK failed, falling back to function calling",
+                        extra={"error": str(e)},
+                    )
+                    result = await run_openai_agent(
+                        openai_client=openai_client,
+                        model=model,
+                        message=message,
+                        user_location=user_location,
+                        tool_executor=tool_executor,
+                    )
             else:
                 # Fallback: LLM 없으면 직접 날씨 조회
                 logger.warning("No LLM client available, falling back to direct weather fetch")
