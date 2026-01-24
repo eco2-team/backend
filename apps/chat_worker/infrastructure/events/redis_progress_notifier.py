@@ -409,14 +409,14 @@ class RedisProgressNotifier(ProgressNotifierPort):
             )
         except Exception as e:
             logger.error(
-                "stage_event_publish_failed",
+                "stage_event_publish_failed: %s: %s",
+                type(e).__name__,
+                e,
                 extra={
                     "job_id": task_id,
                     "shard": shard,
                     "stage": stage,
                     "status": status,
-                    "error": str(e),
-                    "error_type": type(e).__name__,
                 },
             )
             return ""
@@ -499,13 +499,10 @@ class RedisProgressNotifier(ProgressNotifierPort):
             )
         except Exception as e:
             logger.error(
-                "token_publish_failed",
-                extra={
-                    "job_id": task_id,
-                    "seq": seq,
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                },
+                "token_publish_failed: %s: %s",
+                type(e).__name__,
+                e,
+                extra={"job_id": task_id, "seq": seq},
             )
             return ""
 
@@ -662,12 +659,12 @@ class RedisProgressNotifier(ProgressNotifierPort):
             xadd_latency = time.perf_counter() - xadd_start
             track_stream_token(node=node_str or "answer", status="error", latency=xadd_latency)
             logger.error(
-                "token_v2_publish_failed",
+                "token_v2_publish_failed: %s: %s",
+                type(e).__name__,
+                e,
                 extra={
                     "job_id": task_id,
                     "seq": seq,
-                    "error": str(e),
-                    "error_type": type(e).__name__,
                 },
             )
             return ""
@@ -753,8 +750,10 @@ class RedisProgressNotifier(ProgressNotifierPort):
             )
         except Exception as e:
             logger.error(
-                "token_stream_finalize_error",
-                extra={"job_id": task_id, "error": str(e)},
+                "token_stream_finalize_error: %s: %s",
+                type(e).__name__,
+                e,
+                extra={"job_id": task_id},
             )
         finally:
             # 메모리 정리 (clear_token_counter가 모든 상태 정리)

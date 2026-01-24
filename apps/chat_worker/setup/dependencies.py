@@ -143,8 +143,6 @@ async def get_redis() -> Redis:
             encoding="utf-8",
             decode_responses=True,
             max_connections=50,
-            min_connections=5,
-            # Resilience settings
             health_check_interval=30,
             socket_timeout=5.0,
             socket_connect_timeout=5.0,
@@ -160,11 +158,7 @@ async def get_redis_streams() -> Redis:
     event-router와 동일한 Redis를 바라봐야 함.
     설정되지 않으면 기본 redis_url 사용 (로컬 개발용).
 
-    Resilience 설정:
-    - health_check_interval: 30초마다 연결 상태 확인
-    - socket_timeout: 60초 (Streams는 blocking read 가능)
-    - socket_connect_timeout: 5초 내 연결 실패 시 타임아웃
-    - retry_on_timeout: 타임아웃 시 자동 재시도
+    Worker는 XADD(쓰기)만 수행, blocking read는 event-router 담당.
     """
     global _redis_streams
     if _redis_streams is None:
@@ -176,10 +170,8 @@ async def get_redis_streams() -> Redis:
             encoding="utf-8",
             decode_responses=True,
             max_connections=20,
-            min_connections=2,
-            # Resilience settings (Streams는 blocking read 가능하므로 socket_timeout 길게)
             health_check_interval=30,
-            socket_timeout=60.0,
+            socket_timeout=5.0,
             socket_connect_timeout=5.0,
             retry_on_timeout=True,
         )
