@@ -21,10 +21,13 @@ gRPC Clients (Subagent용):
 from __future__ import annotations
 
 import logging
+import socket
 from functools import lru_cache
 from typing import Literal
 
 from redis.asyncio import Redis
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 # Application Layer
 from chat_worker.application.commands import ProcessChatCommand
@@ -94,6 +97,15 @@ from chat_worker.domain.models.provider import get_model_config
 
 logger = logging.getLogger(__name__)
 
+# TCP Keepalive 옵션 (K8s Linux 환경, macOS는 TCP_KEEPIDLE 미지원)
+_TCP_KEEPALIVE_OPTIONS: dict[int, int] = {}
+if hasattr(socket, "TCP_KEEPIDLE"):
+    _TCP_KEEPALIVE_OPTIONS = {
+        socket.TCP_KEEPIDLE: 30,   # 30초 유휴 후 keepalive 시작
+        socket.TCP_KEEPINTVL: 10,  # 10초 간격으로 probe
+        socket.TCP_KEEPCNT: 3,     # 3회 실패 시 연결 종료
+    }
+
 
 # ============================================================
 # Singleton Instances
@@ -158,7 +170,17 @@ async def get_redis_streams() -> Redis:
     event-router와 동일한 Redis를 바라봐야 함.
     설정되지 않으면 기본 redis_url 사용 (로컬 개발용).
 
-    Worker는 XADD(쓰기)만 수행, blocking read는 event-router 담당.
+    Worker는 XADD(쓰기)만 수행하지만, Lua Script(EVALSHA)가
+    여러 Redis 명령을 원자적으로 실행하므로 socket_timeout을
+    충분히 확보해야 함 (60초).
+
+    Resilience 설정:
+    - socket_timeout: 60초 (Lua Script 원자 실행 대기)
+    - socket_connect_timeout: 10초 (K8s DNS/스케줄링 지연 대응)
+    - socket_keepalive: TCP keepalive로 유휴 연결 끊김 방지
+    - health_check_interval: 30초마다 PING으로 연결 상태 확인
+    - retry_on_timeout: 타임아웃 시 자동 재시도
+    - retry_on_error: ConnectionError, TimeoutError, OSError 재시도
     """
     global _redis_streams
     if _redis_streams is None:
@@ -171,9 +193,12 @@ async def get_redis_streams() -> Redis:
             decode_responses=True,
             max_connections=20,
             health_check_interval=30,
-            socket_timeout=5.0,
-            socket_connect_timeout=5.0,
+            socket_timeout=60.0,
+            socket_connect_timeout=10.0,
+            socket_keepalive=True,
+            socket_keepalive_options=_TCP_KEEPALIVE_OPTIONS or None,
             retry_on_timeout=True,
+            retry_on_error=[RedisConnectionError, RedisTimeoutError, OSError],
         )
         logger.info("Redis Streams connected: %s", streams_url)
     return _redis_streams
