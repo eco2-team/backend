@@ -10,7 +10,7 @@ grpcio>=1.60.0
 grpcio-tools>=1.60.0
 
 # LLM Clients (chat 패키지 의존성)
-openai>=1.58.0
+openai>=2.0.0  # Responses API + Agents SDK compatibility
 anthropic>=0.40.0
 google-genai>=0.3.0
 tiktoken>=0.8.0

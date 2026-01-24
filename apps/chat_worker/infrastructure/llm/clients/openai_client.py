@@ -277,24 +277,12 @@ class OpenAILLMClient(LLMClientPort):
                                             extra={"sources": output.sources},
                                         )
 
-        except AttributeError:
-            # Responses API가 지원되지 않는 경우 fallback
-            logger.warning("Responses API not available, falling back to chat completions")
-            async for chunk in self.generate_stream(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                context=context,
-            ):
-                yield chunk
         except Exception as e:
-            logger.error(f"generate_with_tools failed: {e}")
-            # Fallback to regular generation
-            async for chunk in self.generate_stream(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                context=context,
-            ):
-                yield chunk
+            logger.error(
+                "generate_with_tools failed (no fallback)",
+                extra={"error": str(e), "tools": tools},
+            )
+            raise
 
     async def generate_function_call(
         self,
