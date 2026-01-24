@@ -337,6 +337,7 @@ class PlainAsyncRedisSaver(BaseCheckpointSaver):
         try:
             return json.loads(data)
         except Exception:
+            logger.warning("Failed to deserialize checkpoint data: %s", data[:100])
             return data
 
     async def _get_pending_writes(
