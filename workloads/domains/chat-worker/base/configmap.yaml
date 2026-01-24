@@ -11,12 +11,12 @@ data:
   CHAT_WORKER_LOG_LEVEL: INFO
   # CHAT_WORKER_RABBITMQ_URL: provided by ExternalSecret
   CHAT_WORKER_RABBITMQ_QUEUE: chat.process
-  # Redis (기본 - progress_notifier 등, Master Pod 직접 연결)
-  CHAT_WORKER_REDIS_URL: redis://rfr-pubsub-redis-0.rfr-pubsub-redis.redis.svc.cluster.local:6379/0
+  # Redis (기본 - progress_notifier 등, Service DNS로 Master 접근)
+  CHAT_WORKER_REDIS_URL: redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0
   # Redis (Streams - 이벤트 발행, event-router가 소비)
-  CHAT_WORKER_REDIS_STREAMS_URL: redis://rfr-streams-redis-0.rfr-streams-redis.redis.svc.cluster.local:6379/0
+  CHAT_WORKER_REDIS_STREAMS_URL: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
   # Redis (Pub/Sub - SSE Gateway 브로드캐스트)
-  CHAT_WORKER_REDIS_PUBSUB_URL: redis://rfr-pubsub-redis-0.rfr-pubsub-redis.redis.svc.cluster.local:6379/0
+  CHAT_WORKER_REDIS_PUBSUB_URL: redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0
   # Checkpoint TTL (분, Worker Redis에 저장)
   CHAT_WORKER_CHECKPOINT_TTL_MINUTES: '1440'
   # Checkpoint Read-Through (Worker용, Cold Start PG Fallback)

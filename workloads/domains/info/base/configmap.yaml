@@ -8,8 +8,8 @@ data:
   ENVIRONMENT: dev
   INFO_DEBUG: 'false'
 
-  # Redis (cache-redis StatefulSet pod)
-  INFO_REDIS_URL: redis://rfr-cache-redis-0.rfr-cache-redis.redis.svc.cluster.local:6379/1
+  # Redis (cache-redis Service DNS)
+  INFO_REDIS_URL: redis://rfr-cache-redis.redis.svc.cluster.local:6379/1
 
   # Cache TTL
   INFO_NEWS_CACHE_TTL: '3600'
