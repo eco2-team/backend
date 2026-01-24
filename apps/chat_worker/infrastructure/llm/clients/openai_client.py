@@ -231,7 +231,7 @@ class OpenAILLMClient(LLMClientPort):
         # --- Primary: Agents SDK ---
         _yielded = False
         try:
-            from agents import Agent, Runner, WebSearchTool, OpenAIResponsesModel
+            from agents import Agent, Runner, WebSearchTool, OpenAIResponsesModel, RunConfig
             from openai.types.responses import ResponseTextDeltaEvent
 
             agent_tools = []
@@ -249,7 +249,11 @@ class OpenAILLMClient(LLMClientPort):
                 tools=agent_tools,
             )
 
-            result = Runner.run_streamed(agent, input=user_content)
+            result = Runner.run_streamed(
+                agent,
+                input=user_content,
+                run_config=RunConfig(tracing_disabled=True),
+            )
 
             async for event in result.stream_events():
                 if event.type == "raw_response_event" and isinstance(
