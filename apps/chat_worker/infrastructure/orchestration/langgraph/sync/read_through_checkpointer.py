@@ -69,11 +69,11 @@ class ReadThroughCheckpointer(BaseCheckpointSaver):
         if result is not None:
             return result
 
-        # 2. PostgreSQL fallback (cold start)
+        # 2. PostgreSQL fallback (cold start) with stale connection retry
         if self._pg_saver is None:
             return None
 
-        pg_result = await self._pg_saver.aget_tuple(config)
+        pg_result = await self._aget_tuple_pg_with_retry(config)
         if pg_result is None:
             self._miss_count += 1
             self._record_cold_miss()
@@ -115,6 +115,37 @@ class ReadThroughCheckpointer(BaseCheckpointSaver):
             logger.warning("Failed to promote checkpoint to Redis", exc_info=True)
 
         return pg_result
+
+    async def _aget_tuple_pg_with_retry(
+        self, config: RunnableConfig, max_retries: int = 1
+    ) -> Optional[CheckpointTuple]:
+        """PG aget_tuple with retry on stale connection.
+
+        Cloud 환경에서 PG 서버가 idle 커넥션을 먼저 닫는 경우,
+        pool이 dead 커넥션을 반환할 수 있음. 1회 재시도로 복구.
+        """
+        import asyncio
+
+        from psycopg import OperationalError
+
+        for attempt in range(max_retries + 1):
+            try:
+                return await self._pg_saver.aget_tuple(config)
+            except OperationalError as e:
+                if attempt < max_retries:
+                    logger.warning(
+                        "PG stale connection, retrying (attempt=%d/%d): %s",
+                        attempt + 1,
+                        max_retries + 1,
+                        str(e),
+                    )
+                    await asyncio.sleep(0.5)
+                else:
+                    logger.error(
+                        "PG aget_tuple failed after retries, treating as miss: %s",
+                        str(e),
+                    )
+                    return None
 
     async def aput(
         self,

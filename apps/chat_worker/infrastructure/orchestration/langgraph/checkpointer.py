@@ -96,6 +96,12 @@ async def create_postgres_checkpointer(
     # SQLAlchemy URL → psycopg URL 변환
     psycopg_conn_string = conn_string.replace("postgresql+asyncpg://", "postgresql://")
 
+    # TCP keepalive: K8s kube-proxy idle timeout(240s) 이전에 probe 전송
+    # idle 커넥션이 네트워크 레벨에서 끊기는 것을 방지
+    keepalive_params = "keepalives=1&keepalives_idle=30&keepalives_interval=10&keepalives_count=3"
+    separator = "&" if "?" in psycopg_conn_string else "?"
+    psycopg_conn_string = f"{psycopg_conn_string}{separator}{keepalive_params}"
+
     # setup()은 CREATE INDEX CONCURRENTLY를 포함하므로 autocommit 연결 필요
     async with await AsyncConnection.connect(psycopg_conn_string, autocommit=True) as setup_conn:
         setup_saver = AsyncPostgresSaver(setup_conn)
