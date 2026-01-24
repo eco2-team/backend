@@ -2,10 +2,10 @@
 
 테스트 케이스:
 1. Standalone mode (intent=web_search): 무조건 검색 수행
-2. Enrichment mode - 검색 필요: Function Calling으로 needs_search=true
-3. Enrichment mode - 검색 불필요: Function Calling으로 needs_search=false
-4. 검색 실패 시 FAIL_OPEN: error context 반환, 파이프라인 계속
-5. Enrichment mode에서 Function Calling 실패: 빈 dict 반환 (skip)
+2. Enrichment mode: Router가 검색 결정 → Agents SDK가 직접 검색 수행
+3. Enrichment mode: 검색 실패 시 error context 반환 (FAIL_OPEN)
+4. Enrichment mode: stage 이벤트 미발행 (UI 간섭 방지)
+5. 검색 결과 truncation
 """
 
 from __future__ import annotations
@@ -248,19 +248,15 @@ class TestWebSearchNodeStandalone:
 
 
 class TestWebSearchNodeEnrichment:
-    """Enrichment mode 테스트 (다른 intent의 보조)."""
+    """Enrichment mode 테스트 (Router가 검색 결정 → Agents SDK 직접 수행)."""
 
     @pytest.mark.anyio
-    async def test_enrichment_search_needed(
+    async def test_enrichment_executes_search_directly(
         self,
         mock_llm: MockLLMClient,
         mock_publisher: MockEventPublisher,
     ):
-        """Enrichment mode: Function Calling이 검색 필요하다고 판단."""
-        mock_llm.set_function_call_response(
-            "web_search_decision",
-            {"needs_search": True, "search_query": "2026 페트병 규제 변경사항"},
-        )
+        """Enrichment mode: Function Calling 없이 바로 검색 수행 (Router 결정 신뢰)."""
         mock_llm.set_web_search_response("페트병 재활용 규제가 2026년에 강화됩니다.")
 
         node = create_web_search_node(llm=mock_llm, event_publisher=mock_publisher)
@@ -268,58 +264,52 @@ class TestWebSearchNodeEnrichment:
         state = {
             "job_id": "test-job-4",
             "message": "올해 페트병 규제 바뀐거 있어?",
-            "intent": "waste",  # 주 intent는 waste
+            "intent": "waste",  # 주 intent는 waste (enrichment)
         }
 
         result = await node(state)
 
-        # Function Calling 호출됨
-        assert mock_llm.function_call_count == 1
-        # Web search 호출됨 (최적화된 쿼리로)
+        # Function Calling 호출 안됨 (불필요한 decision step 제거)
+        assert mock_llm.function_call_count == 0
+        # Agents SDK WebSearchTool 직접 호출됨
         assert mock_llm.web_search_count == 1
         # 결과 반환됨
         assert "web_search_results" in result
         ctx = result["web_search_results"]
         assert ctx.get("success") is True
         assert "페트병 재활용 규제" in ctx["context"]
+        assert ctx.get("mode") == "enrichment"
 
     @pytest.mark.anyio
-    async def test_enrichment_search_not_needed(
+    async def test_enrichment_no_stage_events(
         self,
         mock_llm: MockLLMClient,
         mock_publisher: MockEventPublisher,
     ):
-        """Enrichment mode: Function Calling이 검색 불필요하다고 판단."""
-        mock_llm.set_function_call_response(
-            "web_search_decision",
-            {"needs_search": False},
-        )
+        """Enrichment mode: stage 이벤트 미발행 (UI 간섭 방지)."""
+        mock_llm.set_web_search_response("검색 결과입니다.")
 
         node = create_web_search_node(llm=mock_llm, event_publisher=mock_publisher)
 
         state = {
             "job_id": "test-job-5",
-            "message": "페트병 분리배출 방법",
-            "intent": "waste",
+            "message": "최신 분리배출 정보",
+            "intent": "waste",  # enrichment mode
         }
 
-        result = await node(state)
+        await node(state)
 
-        # Function Calling 호출됨
-        assert mock_llm.function_call_count == 1
-        # Web search 호출 안됨
-        assert mock_llm.web_search_count == 0
-        # web_search_results 없음 (skip)
-        assert "web_search_results" not in result
+        # stage 이벤트 미발행 (enrichment 모드)
+        assert len(mock_publisher.stages) == 0
 
     @pytest.mark.anyio
-    async def test_enrichment_function_call_failure(
+    async def test_enrichment_search_failure(
         self,
         mock_llm: MockLLMClient,
         mock_publisher: MockEventPublisher,
     ):
-        """Enrichment mode: Function Calling 실패 시 skip."""
-        mock_llm.raise_on_function_call = True
+        """Enrichment mode: 검색 실패 시 error context 반환."""
+        mock_llm.raise_on_web_search = True
 
         node = create_web_search_node(llm=mock_llm, event_publisher=mock_publisher)
 
@@ -331,21 +321,24 @@ class TestWebSearchNodeEnrichment:
 
         result = await node(state)
 
-        # Function Calling 실패
-        assert mock_llm.function_call_count == 1
-        # Web search 호출 안됨
-        assert mock_llm.web_search_count == 0
-        # web_search_results 없음 (skip)
-        assert "web_search_results" not in result
+        # Function Calling 미호출 (Router 결정 신뢰)
+        assert mock_llm.function_call_count == 0
+        # Web search 시도됨 (실패)
+        assert mock_llm.web_search_count == 1
+        # FAIL_OPEN: error context 반환
+        assert "web_search_results" in result
+        ctx = result["web_search_results"]
+        assert ctx.get("success") is False
 
     @pytest.mark.anyio
-    async def test_enrichment_no_function_call_response(
+    async def test_enrichment_empty_result(
         self,
         mock_llm: MockLLMClient,
         mock_publisher: MockEventPublisher,
     ):
-        """Enrichment mode: Function Calling 응답이 None이면 skip."""
-        # 기본 응답: (None, None)
+        """Enrichment mode: 빈 결과 시 error context."""
+        mock_llm.set_web_search_response("")  # 빈 응답
+
         node = create_web_search_node(llm=mock_llm, event_publisher=mock_publisher)
 
         state = {
@@ -356,10 +349,12 @@ class TestWebSearchNodeEnrichment:
 
         result = await node(state)
 
-        assert mock_llm.function_call_count == 1
-        assert mock_llm.web_search_count == 0
-        # web_search_results 없음 (skip)
-        assert "web_search_results" not in result
+        assert mock_llm.function_call_count == 0
+        assert mock_llm.web_search_count == 1
+        # 빈 결과 → error context
+        assert "web_search_results" in result
+        ctx = result["web_search_results"]
+        assert ctx.get("success") is False
 
 
 class TestWebSearchNodeEvents:

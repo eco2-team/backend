@@ -12,7 +12,7 @@ Production Architecture:
 
 Dual Mode (weather_node 패턴):
 1. Standalone: intent="web_search" → 무조건 검색 수행
-2. Enrichment: 다른 intent의 보조 → Function Calling으로 필요 여부 판단
+2. Enrichment: 다른 intent의 보조 → Router가 이미 결정, Agents SDK가 검색 수행
 
 Channel Separation:
 - 출력 채널: web_search_results
@@ -43,55 +43,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Function Definition for enrichment mode (검색 필요 여부 판단)
-WEB_SEARCH_DECISION_FUNCTION = {
-    "name": "web_search_decision",
-    "description": (
-        "사용자 질문에 실시간 웹 검색이 필요한지 판단합니다. "
-        "최신 정보, 뉴스, 정책, 규제, 통계 등 LLM 학습 데이터만으로 "
-        "정확하게 답할 수 없는 경우 true를 반환합니다."
-    ),
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "needs_search": {
-                "type": "boolean",
-                "description": (
-                    "웹 검색이 필요한지 여부. "
-                    "최신 정책, 뉴스, 규제 변경, 실시간 데이터가 필요하면 true. "
-                    "일반 상식, 고정된 규칙, 시간 무관한 정보면 false."
-                ),
-            },
-            "search_query": {
-                "type": "string",
-                "description": (
-                    "웹 검색에 사용할 최적화된 한국어 검색 쿼리. "
-                    "사용자 질문을 검색에 적합한 키워드 형태로 변환."
-                ),
-            },
-        },
-        "required": ["needs_search"],
-    },
-}
-
-# enrichment mode에서 사용하는 시스템 프롬프트
-WEB_SEARCH_DECISION_SYSTEM_PROMPT = """당신은 웹 검색 필요 여부를 판단하는 분석기입니다.
-
-사용자의 질문을 분석하여 실시간 웹 검색이 필요한지 판단하세요.
-
-## 검색이 필요한 경우 (needs_search: true)
-- 최신 정보가 필요한 질문 (정책 변경, 새 규제, 최근 뉴스)
-- 시간에 민감한 데이터 (올해, 최근, 현재 등)
-- LLM 학습 데이터로 정확히 답할 수 없는 실시간 정보
-
-## 검색이 불필요한 경우 (needs_search: false)
-- 일반적인 분리배출 방법 (고정된 규칙)
-- 환경 상식 (탄소중립, 환경 보호)
-- 시간에 무관한 고정 정보
-- 이미 다른 전문 에이전트가 처리할 정보 (시세, 날씨, 장소)
-"""
-
-# Standalone mode에서 사용하는 시스템 프롬프트 (검색 결과 요약용)
+# 웹 검색 시스템 프롬프트 (Agents SDK WebSearchTool + Responses API 공용)
 WEB_SEARCH_SYSTEM_PROMPT = """당신은 웹 검색 결과를 바탕으로 정확하고 유용한 정보를 제공하는 도우미입니다.
 
 ## 규칙
@@ -111,10 +63,17 @@ def create_web_search_node(
 
     Dual Mode:
     - Standalone (intent="web_search"): 무조건 검색 수행
-    - Enrichment (other intents): Function Calling으로 필요 여부 판단
+    - Enrichment (other intents): Router가 이미 결정, Agents SDK가 네이티브 검색 수행
+
+    검색 필요 여부는 dynamic_router의 ConditionalEnrichment가 판단:
+    - general + 낮은 confidence → 검색 필요
+    - 비-general + 실시간 키워드 → 검색 필요
+
+    Agents SDK WebSearchTool이 실제 검색을 수행하며,
+    불필요한 generate_function_call 호출 없이 1회 API 호출로 완료.
 
     Args:
-        llm: LLM 클라이언트 (generate_with_tools, generate_function_call 지원)
+        llm: LLM 클라이언트 (generate_with_tools 지원)
         event_publisher: 이벤트 발행자 (진행 상황 알림용)
 
     Returns:
@@ -186,46 +145,13 @@ def create_web_search_node(
                 message="웹 검색 중...",
             )
 
-        # 2. Enrichment mode: Function Calling으로 필요 여부 판단
+        # 2. 검색 쿼리 결정
+        # - Standalone: 사용자 메시지 그대로 사용
+        # - Enrichment: Router가 이미 검색 필요 여부 결정 (confidence/키워드 기반)
+        #   → 불필요한 function_call 생략, Agents SDK가 자체적으로 검색 수행
         search_query = message
-        if not is_standalone:
-            try:
-                _, func_args = await llm.generate_function_call(
-                    prompt=message,
-                    functions=[WEB_SEARCH_DECISION_FUNCTION],
-                    system_prompt=WEB_SEARCH_DECISION_SYSTEM_PROMPT,
-                    function_call={"name": "web_search_decision"},
-                )
 
-                if func_args is None or not func_args.get("needs_search", False):
-                    logger.debug(
-                        "Web search skipped (not needed)",
-                        extra={"job_id": job_id, "intent": intent},
-                    )
-                    return {}
-
-                # 최적화된 쿼리 사용
-                optimized_query = func_args.get("search_query")
-                if optimized_query:
-                    search_query = optimized_query
-
-                logger.info(
-                    "Web search enrichment triggered",
-                    extra={
-                        "job_id": job_id,
-                        "intent": intent,
-                        "query": search_query[:50],
-                    },
-                )
-
-            except Exception as e:
-                logger.warning(
-                    f"Web search decision failed, skipping: {e}",
-                    extra={"job_id": job_id},
-                )
-                return {}
-
-        # 3. 웹 검색 실행
+        # 3. 웹 검색 실행 (Agents SDK WebSearchTool이 검색 여부 자체 판단)
         logger.info(
             "Executing web search",
             extra={
