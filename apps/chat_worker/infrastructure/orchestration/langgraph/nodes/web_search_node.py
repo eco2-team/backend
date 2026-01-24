@@ -124,8 +124,15 @@ def create_web_search_node(
     async def _execute_web_search(
         message: str,
         job_id: str,
+        max_result_chars: int = 50_000,
     ) -> str | None:
-        """네이티브 웹 검색 실행."""
+        """네이티브 웹 검색 실행.
+
+        Args:
+            message: 검색 쿼리
+            job_id: 작업 ID
+            max_result_chars: 결과 최대 문자 수 (기본 50K chars ≈ 12.5K tokens)
+        """
         result_parts: list[str] = []
 
         try:
@@ -146,6 +153,17 @@ def create_web_search_node(
         result = "".join(result_parts)
         if not result.strip():
             return None
+
+        if len(result) > max_result_chars:
+            logger.warning(
+                "Web search result truncated",
+                extra={
+                    "job_id": job_id,
+                    "original_chars": len(result),
+                    "truncated_to": max_result_chars,
+                },
+            )
+            result = result[:max_result_chars]
 
         return result
 

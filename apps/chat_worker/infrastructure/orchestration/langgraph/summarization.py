@@ -223,6 +223,7 @@ async def summarize_messages(
     existing_summary: str | None = None,
     max_summary_tokens: int = DEFAULT_MAX_SUMMARY_TOKENS,
     prompt_loader: "PromptLoaderPort | None" = None,
+    max_input_chars: int = 800_000,
 ) -> str:
     """메시지 히스토리 요약.
 
@@ -232,6 +233,7 @@ async def summarize_messages(
         existing_summary: 기존 요약 (있으면 병합)
         max_summary_tokens: 요약 최대 토큰
         prompt_loader: 프롬프트 로더 (선택)
+        max_input_chars: messages_text 최대 문자 수 (기본 800K ≈ 200K tokens)
 
     Returns:
         요약된 텍스트
@@ -253,6 +255,19 @@ async def summarize_messages(
     messages_text = "\n".join(
         f"{msg.__class__.__name__}: {msg.content}" for msg in messages if hasattr(msg, "content")
     )
+
+    # 입력 크기 제한: 모델 context window 초과 방지
+    # 초과 시 가장 최근 메시지 위주로 유지 (tail 보존)
+    if len(messages_text) > max_input_chars:
+        logger.warning(
+            "summarize_messages input truncated",
+            extra={
+                "original_chars": len(messages_text),
+                "truncated_to": max_input_chars,
+                "message_count": len(messages),
+            },
+        )
+        messages_text = messages_text[-max_input_chars:]
 
     # 프롬프트 포맷팅
     existing_summary_section = f"이전 요약:\n{existing_summary}\n\n" if existing_summary else ""

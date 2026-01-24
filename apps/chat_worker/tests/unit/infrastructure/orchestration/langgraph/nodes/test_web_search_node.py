@@ -436,3 +436,58 @@ class TestWebSearchNodeEvents:
 
         result = await node(state)
         assert "web_search_results" in result
+
+
+class TestWebSearchNodeTruncation:
+    """웹 검색 결과 크기 제한 테스트."""
+
+    @pytest.mark.anyio
+    async def test_large_result_truncated(
+        self,
+        mock_llm: MockLLMClient,
+        mock_publisher: MockEventPublisher,
+    ):
+        """50K chars 초과 결과는 잘림."""
+        large_response = "A" * 100_000  # 100K chars
+        mock_llm.set_web_search_response(large_response)
+
+        node = create_web_search_node(llm=mock_llm, event_publisher=mock_publisher)
+
+        state = {
+            "job_id": "test-job-truncate",
+            "message": "대량 검색",
+            "intent": "web_search",
+        }
+
+        result = await node(state)
+
+        assert "web_search_results" in result
+        ctx = result["web_search_results"]
+        assert ctx.get("success") is True
+        # 결과가 50K로 잘려야 함
+        assert len(ctx["context"]) <= 50_000
+
+    @pytest.mark.anyio
+    async def test_small_result_not_truncated(
+        self,
+        mock_llm: MockLLMClient,
+        mock_publisher: MockEventPublisher,
+    ):
+        """50K chars 이하 결과는 그대로."""
+        normal_response = "B" * 10_000  # 10K chars
+        mock_llm.set_web_search_response(normal_response)
+
+        node = create_web_search_node(llm=mock_llm, event_publisher=mock_publisher)
+
+        state = {
+            "job_id": "test-job-no-truncate",
+            "message": "일반 검색",
+            "intent": "web_search",
+        }
+
+        result = await node(state)
+
+        assert "web_search_results" in result
+        ctx = result["web_search_results"]
+        assert ctx.get("success") is True
+        assert len(ctx["context"]) == 10_000
