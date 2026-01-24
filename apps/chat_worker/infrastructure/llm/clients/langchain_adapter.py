@@ -329,9 +329,7 @@ class LangChainLLMAdapter(LLMClientPort):
         agent_tools = []
         for tool in tools:
             if tool == "web_search":
-                agent_tools.append(
-                    WebSearchTool(search_context_size="medium")
-                )
+                agent_tools.append(WebSearchTool(search_context_size="medium"))
 
         agent = Agent(
             name="web_search_agent",
@@ -374,10 +372,12 @@ class LangChainLLMAdapter(LLMClientPort):
         tool_configs: list[dict[str, Any]] = []
         for tool in tools:
             if tool == "web_search":
-                tool_configs.append({
-                    "type": "web_search",
-                    "search_context_size": "medium",
-                })
+                tool_configs.append(
+                    {
+                        "type": "web_search",
+                        "search_context_size": "medium",
+                    }
+                )
 
         try:
             response = await client.responses.create(

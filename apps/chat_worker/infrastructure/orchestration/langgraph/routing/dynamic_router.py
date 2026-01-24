@@ -129,17 +129,13 @@ CONDITIONAL_ENRICHMENTS: list[ConditionalEnrichment] = [
         node="web_search",
         condition=lambda state: (
             # Case 1: general + 확신도 낮음 → 분류기가 모르는 질문 = 검색 필요
-            (
-                state.get("intent") == "general"
-                and state.get("intent_confidence", 1.0) < 0.75
-            )
+            (state.get("intent") == "general" and state.get("intent_confidence", 1.0) < 0.75)
             or
             # Case 2: 비-general에서 실시간 키워드 → 보조 검색 필요
             (
                 state.get("intent") != "general"
                 and any(
-                    kw in state.get("message", "").lower()
-                    for kw in WEB_SEARCH_TRIGGER_KEYWORDS
+                    kw in state.get("message", "").lower() for kw in WEB_SEARCH_TRIGGER_KEYWORDS
                 )
             )
         ),

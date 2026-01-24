@@ -259,7 +259,6 @@ class TestDynamicRouter:
         assert len(sends) == 1
         assert sends[0].node == "waste_rag"
 
-
     def test_conditional_web_search_for_low_confidence_general(self):
         """general intent + 낮은 confidence → web_search enrichment 추가."""
         router = create_dynamic_router(

@@ -163,9 +163,7 @@ class OpenAILLMClient(LLMClientPort):
         """
         # Primary: Agents SDK
         try:
-            return await self._structured_with_agents_sdk(
-                prompt, response_schema, system_prompt
-            )
+            return await self._structured_with_agents_sdk(prompt, response_schema, system_prompt)
         except Exception as e:
             logger.warning(
                 "Agents SDK structured output failed, falling back to Responses API",
@@ -288,9 +286,7 @@ class OpenAILLMClient(LLMClientPort):
 
         # Primary: Agents SDK
         try:
-            async for chunk in self._generate_with_agents_sdk(
-                user_content, tools, system_prompt
-            ):
+            async for chunk in self._generate_with_agents_sdk(user_content, tools, system_prompt):
                 yield chunk
             return
         except Exception as e:
@@ -300,9 +296,7 @@ class OpenAILLMClient(LLMClientPort):
             )
 
         # Fallback: Responses API
-        async for chunk in self._generate_with_responses_api(
-            user_content, tools, system_prompt
-        ):
+        async for chunk in self._generate_with_responses_api(user_content, tools, system_prompt):
             yield chunk
 
     async def _generate_with_agents_sdk(
@@ -323,9 +317,7 @@ class OpenAILLMClient(LLMClientPort):
         agent_tools = []
         for tool in tools:
             if tool == "web_search":
-                agent_tools.append(
-                    WebSearchTool(search_context_size="medium")
-                )
+                agent_tools.append(WebSearchTool(search_context_size="medium"))
 
         agent = Agent(
             name="web_search_agent",
@@ -369,10 +361,12 @@ class OpenAILLMClient(LLMClientPort):
         tool_configs: list[dict[str, Any]] = []
         for tool in tools:
             if tool == "web_search":
-                tool_configs.append({
-                    "type": "web_search",
-                    "search_context_size": "medium",
-                })
+                tool_configs.append(
+                    {
+                        "type": "web_search",
+                        "search_context_size": "medium",
+                    }
+                )
 
         try:
             response = await self._client.responses.create(
