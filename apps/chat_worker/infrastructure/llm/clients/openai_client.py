@@ -14,7 +14,7 @@ Native Tools 지원 (Responses API):
 
 Function Calling 지원:
 - https://platform.openai.com/docs/guides/function-calling
-- Chat Completions API의 functions 파라미터 사용
+- Chat Completions API의 tools/tool_choice 파라미터 사용
 """
 
 from __future__ import annotations
@@ -338,21 +338,33 @@ class OpenAILLMClient(LLMClientPort):
         messages.append({"role": "user", "content": prompt})
 
         try:
-            # Chat Completions API with functions
+            # functions → tools 변환
+            tools = [{"type": "function", "function": func} for func in functions]
+
+            # function_call → tool_choice 변환
+            tool_choice: str | dict[str, Any] = "auto"
+            if function_call == "none":
+                tool_choice = "none"
+            elif isinstance(function_call, dict) and "name" in function_call:
+                tool_choice = {
+                    "type": "function",
+                    "function": {"name": function_call["name"]},
+                }
+
             response = await self._client.chat.completions.create(
                 model=self._model,
                 messages=messages,
-                functions=functions,
-                function_call=function_call,
+                tools=tools,
+                tool_choice=tool_choice,
             )
 
             message = response.choices[0].message
 
-            # Function call 결과 확인
-            if hasattr(message, "function_call") and message.function_call:
-                func_call = message.function_call
-                func_name = func_call.name
-                func_args_str = func_call.arguments
+            # tool_calls 결과 확인 (modern API)
+            if message.tool_calls:
+                tool_call = message.tool_calls[0]
+                func_name = tool_call.function.name
+                func_args_str = tool_call.function.arguments
 
                 # JSON 파싱
                 try:
@@ -374,10 +386,9 @@ class OpenAILLMClient(LLMClientPort):
                         "arguments": func_args,
                     },
                 )
-
                 return (func_name, func_args)
 
-            # Function call이 없는 경우 (일반 응답)
+            # Function call이 없는 경우
             logger.debug("No function call generated")
             return (None, None)
 
