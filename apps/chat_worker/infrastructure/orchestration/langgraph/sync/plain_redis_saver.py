@@ -308,7 +308,8 @@ class PlainAsyncRedisSaver(BaseCheckpointSaver):
 
     def _serialize(self, obj: Any) -> str:
         """객체를 JSON 문자열로 직렬화 (serde로 타입 정보 보존)."""
-        return self.serde.dumps(obj).decode("utf-8")
+        _type, data = self.serde.dumps_typed(obj)
+        return data.decode("utf-8")
 
     def _deserialize(self, data: str) -> Any:
         """JSON 문자열을 객체로 역직렬화.
@@ -316,7 +317,7 @@ class PlainAsyncRedisSaver(BaseCheckpointSaver):
         serde 포맷 우선, 실패 시 legacy json.loads 폴백 (하위 호환).
         """
         try:
-            return self.serde.loads(data.encode("utf-8"))
+            return self.serde.loads_typed(("json", data.encode("utf-8")))
         except Exception:
             return json.loads(data)
 
