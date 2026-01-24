@@ -122,10 +122,9 @@ class ReadThroughCheckpointer(BaseCheckpointSaver):
         checkpoint: Checkpoint,
         metadata: CheckpointMetadata,
         new_versions: ChannelVersions,
-        stream_mode: str = "values",
     ) -> RunnableConfig:
         """Checkpoint 저장 (SyncableRedisSaver에 위임)."""
-        return await self._redis_saver.aput(config, checkpoint, metadata, new_versions, stream_mode)
+        return await self._redis_saver.aput(config, checkpoint, metadata, new_versions)
 
     async def aput_writes(
         self,

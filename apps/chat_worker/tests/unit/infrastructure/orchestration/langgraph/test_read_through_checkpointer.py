@@ -172,7 +172,7 @@ class TestWriteDelegation:
 
         await checkpointer.aput(config, checkpoint, metadata, {})
 
-        mock_redis_saver.aput.assert_awaited_once_with(config, checkpoint, metadata, {}, "values")
+        mock_redis_saver.aput.assert_awaited_once_with(config, checkpoint, metadata, {})
 
     async def test_aput_writes_delegates(self, checkpointer, mock_redis_saver):
         config = {"configurable": {"thread_id": "t1"}}

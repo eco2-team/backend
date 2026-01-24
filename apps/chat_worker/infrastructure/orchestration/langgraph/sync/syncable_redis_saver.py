@@ -52,11 +52,10 @@ class SyncableRedisSaver(PlainAsyncRedisSaver):
         checkpoint: Checkpoint,
         metadata: CheckpointMetadata,
         new_versions: ChannelVersions,
-        stream_mode: str = "values",
     ) -> RunnableConfig:
         """Checkpoint 저장 후 sync queue에 이벤트 추가."""
         # 원본 저장
-        result_config = await super().aput(config, checkpoint, metadata, new_versions, stream_mode)
+        result_config = await super().aput(config, checkpoint, metadata, new_versions)
 
         # Sync queue에 이벤트 추가 (best-effort, 실패해도 checkpoint는 저장됨)
         try:
@@ -85,7 +84,6 @@ class SyncableRedisSaver(PlainAsyncRedisSaver):
         checkpoint: Checkpoint,
         metadata: CheckpointMetadata,
         new_versions: ChannelVersions,
-        stream_mode: str = "values",
     ) -> RunnableConfig:
         """Checkpoint 저장 (sync queue 이벤트 없이).
 
@@ -93,7 +91,7 @@ class SyncableRedisSaver(PlainAsyncRedisSaver):
         이미 PG에 존재하는 데이터이므로 sync queue에 이벤트를 추가하면
         syncer가 불필요한 PG upsert를 수행하게 됨.
         """
-        return await super().aput(config, checkpoint, metadata, new_versions, stream_mode)
+        return await super().aput(config, checkpoint, metadata, new_versions)
 
     async def aput_writes(
         self,
