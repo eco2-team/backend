@@ -244,7 +244,7 @@ class OpenAILLMClient(LLMClientPort):
             if tool == "web_search":
                 tool_configs.append(
                     {
-                        "type": "web_search",
+                        "type": "web_search_preview",
                         "search_context_size": "medium",  # low, medium, high
                     }
                 )
