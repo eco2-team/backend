@@ -8,12 +8,12 @@
 다음 카테고리를 기준으로 판별합니다:
 - waste: 분리배출 방법, 재활용
 - character: 캐릭터 정보
-- location: 위치/센터 정보
+- location: 장소/위치 검색 (재활용센터, 카페, 음식점 등 모든 장소)
 - bulk_waste: 대형폐기물 처리
 - recyclable_price: 재활용자원 시세
 - collection_point: 수거함 위치
 - image_generation: 이미지 생성
-- web_search: 최신 정보, 뉴스, 정책, 규제, 트렌드
+- web_search: 실시간 정보 검색 (뉴스, 정책, 스포츠, 주가 등)
 - general: 일반 대화
 
 # Rules

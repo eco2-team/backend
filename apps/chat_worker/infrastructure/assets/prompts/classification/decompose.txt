@@ -16,12 +16,13 @@
 분해 시 다음 의도 카테고리를 고려하세요:
 - waste: 분리배출 방법
 - character: 캐릭터 정보
-- location: 위치 정보
+- location: 장소/위치 검색
 - bulk_waste: 대형폐기물 처리
 - recyclable_price: 재활용자원 시세
 - collection_point: 수거함 위치
 - image_generation: 이미지 생성
-- general: 일반 대화, 최신 정책/뉴스
+- web_search: 실시간 정보 검색
+- general: 일반 대화, 상식
 
 # Output Format
 ```json
