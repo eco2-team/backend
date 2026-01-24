@@ -525,7 +525,10 @@ class SSEBroadcastManager:
                             # NOTE: last_seq 갱신 없이 State만 emit
                             # 중간 이벤트 필터링 방지
                             # done/error는 seq 비교 무시 (token seq > done seq이므로)
-                            is_terminal = state.get("stage") in ("done", "error") or state.get("status") == "failed"
+                            is_terminal = (
+                                state.get("stage") in ("done", "error")
+                                or state.get("status") == "failed"
+                            )
                             if state_seq > subscriber.last_seq or is_terminal:
                                 last_event_time = time.time()
                                 event_count += 1
