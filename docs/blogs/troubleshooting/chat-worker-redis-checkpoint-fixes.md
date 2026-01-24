@@ -22,6 +22,7 @@ Redis 연결 → 이벤트 발행 실패 → Checkpoint 직렬화 깨짐까지 �
 | 5 | `'JsonPlusSerializer' has no attribute 'dumps'` | serde API 오용 | #521 |
 | 6 | 2번째 메시지 여전히 `AttributeError` | legacy checkpoint str 잔존 | #522 |
 | 7 | `UnicodeDecodeError` (미배포 시 발생 예정) | msgpack 바이너리 UTF-8 디코딩 | #523 |
+| 8 | `aput() takes 5 positional arguments but 6 were given` | 호출 체인에 `stream_mode` 잔존 | #523 |
 
 ---
 
@@ -297,9 +298,49 @@ async def aput(self, config, checkpoint, metadata, new_versions):
 
 ---
 
-## 8. 교훈
+## 8. `aput()` 호출 체인 `stream_mode` 잔존 (PR #523 추가 커밋)
 
-### 8.1 redis-py vs aioredis 혼동
+### 8.1 에러 로그
+
+```
+File ".../sync/read_through_checkpointer.py", line 128, in aput
+    return await self._redis_saver.aput(config, checkpoint, metadata, new_versions, stream_mode)
+File ".../sync/syncable_redis_saver.py", line 59, in aput
+    result_config = await super().aput(config, checkpoint, metadata, new_versions, stream_mode)
+TypeError: PlainAsyncRedisSaver.aput() takes 5 positional arguments but 6 were given
+```
+
+### 8.2 원인
+
+`PlainAsyncRedisSaver.aput()`에서 `stream_mode` 제거했으나, 호출 체인에서 여전히 전달:
+
+```
+LangGraph → ReadThroughCheckpointer.aput(stream_mode="values")
+           → SyncableRedisSaver.aput(stream_mode)
+             → PlainAsyncRedisSaver.aput(stream_mode)  ← TypeError!
+```
+
+### 8.3 수정
+
+3개 파일에서 `stream_mode` 파라미터 제거:
+
+```python
+# read_through_checkpointer.py
+async def aput(self, config, checkpoint, metadata, new_versions):
+    return await self._redis_saver.aput(config, checkpoint, metadata, new_versions)
+
+# syncable_redis_saver.py - aput()
+result_config = await super().aput(config, checkpoint, metadata, new_versions)
+
+# syncable_redis_saver.py - aput_no_sync()
+return await super().aput(config, checkpoint, metadata, new_versions)
+```
+
+---
+
+## 9. 교훈
+
+### 9.1 redis-py vs aioredis 혼동
 
 | 항목 | redis-py (>=5.x) | aioredis (v1.x, deprecated) |
 |------|-------------------|----------------------------|
@@ -310,21 +351,21 @@ async def aput(self, config, checkpoint, metadata, new_versions):
 Unknown kwargs는 `ConnectionPool` → `Connection.__init__()`으로 전달되어 TypeError 발생.
 에러가 `try/except`에 삼켜져 로그에서 보이지 않았음.
 
-### 8.2 JsonPlusSerializer는 JSON이 아닌 msgpack
+### 9.2 JsonPlusSerializer는 JSON이 아닌 msgpack
 
 이름과 달리 `JsonPlusSerializer`는 msgpack 바이너리를 생성:
 - `dumps_typed()` → `("msgpack", bytes)` — JSON string이 아님
 - Redis string 저장 시 base64 인코딩 필수
 - type tag 보존 필수 (deserialize 시 필요)
 
-### 8.3 `default=str`의 위험성
+### 9.3 `default=str`의 위험성
 
 `json.dumps(obj, default=str)`는 "직렬화 안 되는 건 str()로 변환"하는 편의 옵션이지만:
 - `HumanMessage(content="hi")` → `"human: hi"` (타입 정보 소실)
 - 역직렬화 시 원래 객체 복원 불가능
 - checkpoint처럼 타입 정보가 중요한 곳에서는 절대 사용 금지
 
-### 8.4 에러 로그 가시성
+### 9.4 에러 로그 가시성
 
 ```python
 # BAD: extra dict는 로그 포맷에 따라 미노출
@@ -336,7 +377,7 @@ logger.error("failed: %s: %s", type(e).__name__, e, extra={...})
 
 ---
 
-## 9. 배포 순서
+## 10. 배포 순서
 
 ```
 PR #523 (serde msgpack+base64) → merge → ArgoCD sync
