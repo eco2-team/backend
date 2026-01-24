@@ -101,9 +101,9 @@ logger = logging.getLogger(__name__)
 _TCP_KEEPALIVE_OPTIONS: dict[int, int] = {}
 if hasattr(socket, "TCP_KEEPIDLE"):
     _TCP_KEEPALIVE_OPTIONS = {
-        socket.TCP_KEEPIDLE: 30,   # 30초 유휴 후 keepalive 시작
+        socket.TCP_KEEPIDLE: 30,  # 30초 유휴 후 keepalive 시작
         socket.TCP_KEEPINTVL: 10,  # 10초 간격으로 probe
-        socket.TCP_KEEPCNT: 3,     # 3회 실패 시 연결 종료
+        socket.TCP_KEEPCNT: 3,  # 3회 실패 시 연결 종료
     }
 
 
