@@ -18,6 +18,14 @@ GenerateAnswerCommand
                                     └── LangGraph stream_mode="messages" 캡처
 ```
 
+generate_with_tools:
+- Primary: Agents SDK (WebSearchTool + Runner.run_streamed)
+- Fallback: Responses API (web_search tool)
+
+generate_structured:
+- Primary: Responses API (text.format json_schema)
+- Fallback: LangChain with_structured_output()
+
 핵심:
 - LLMClientPort 인터페이스 구현
 - 내부적으로 LangChain Runnable 사용
@@ -172,27 +180,72 @@ class LangChainLLMAdapter(LLMClientPort):
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> T:
-        """구조화된 응답 생성.
+        """구조화된 응답 생성 (Responses API Structured Output).
 
-        LangChain의 with_structured_output() 사용.
+        Primary: Responses API의 text.format (json_schema)
+        Fallback: LangChain with_structured_output()
 
         Args:
             prompt: 사용자 프롬프트
             response_schema: Pydantic BaseModel 서브클래스
             system_prompt: 시스템 프롬프트
-            max_tokens: 최대 토큰 수 (무시됨)
-            temperature: 생성 온도 (무시됨)
+            max_tokens: 최대 토큰 수
+            temperature: 생성 온도
 
         Returns:
             response_schema 타입의 인스턴스
         """
+        # Primary: Responses API (client 있을 때)
+        if hasattr(self._llm, "_client") and self._llm._client is not None:
+            client = self._llm._client
+            model_name = getattr(self._llm, "model", "gpt-5.2")
+
+            input_messages: list[dict[str, str]] = []
+            if system_prompt:
+                input_messages.append({"role": "developer", "content": system_prompt})
+            input_messages.append({"role": "user", "content": prompt})
+
+            kwargs: dict[str, Any] = {
+                "model": model_name,
+                "input": input_messages,
+                "text": {
+                    "format": {
+                        "type": "json_schema",
+                        "name": response_schema.__name__,
+                        "schema": response_schema.model_json_schema(),
+                        "strict": True,
+                    },
+                },
+            }
+            if max_tokens is not None:
+                kwargs["max_output_tokens"] = max_tokens
+            if temperature is not None:
+                kwargs["temperature"] = temperature
+
+            try:
+                response = await client.responses.create(**kwargs)
+                content = response.output_text or "{}"
+                data = json.loads(content)
+                result = response_schema.model_validate(data)
+                logger.debug(
+                    "Structured output generated (Responses API)",
+                    extra={"schema": response_schema.__name__},
+                )
+                return result
+            except Exception as e:
+                logger.warning(
+                    "Responses API structured output failed, falling back to LangChain",
+                    extra={"error": str(e), "schema": response_schema.__name__},
+                )
+
+        # Fallback: LangChain with_structured_output
         messages = self._build_messages(prompt, system_prompt)
         structured_llm = self._llm.with_structured_output(response_schema)
 
         try:
             result = await structured_llm.ainvoke(messages)
             logger.debug(
-                "Structured output generated",
+                "Structured output generated (LangChain fallback)",
                 extra={"schema": response_schema.__name__},
             )
             return result
@@ -207,10 +260,10 @@ class LangChainLLMAdapter(LLMClientPort):
         system_prompt: str | None = None,
         context: dict[str, Any] | None = None,
     ) -> AsyncIterator[str]:
-        """네이티브 도구를 사용한 스트리밍 생성 (Responses API).
+        """네이티브 도구를 사용한 스트리밍 생성.
 
-        OpenAI Responses API의 hosted tool (web_search)을 직접 사용.
-        API가 검색 실행 + 텍스트 생성을 단일 호출로 처리.
+        Primary: OpenAI Agents SDK (WebSearchTool + Runner.run_streamed)
+        Fallback: Responses API (tools: [{"type": "web_search"}])
 
         Args:
             prompt: 사용자 프롬프트
@@ -232,19 +285,88 @@ class LangChainLLMAdapter(LLMClientPort):
         client = self._llm._client
         model_name = getattr(self._llm, "model", "gpt-5.2")
 
-        # 입력 구성
         user_content = prompt
         if context:
             context_str = json.dumps(context, ensure_ascii=False, indent=2)
             user_content = f"## Context\n{context_str}\n\n## Question\n{prompt}"
 
-        # Responses API 입력 메시지
+        # Primary: Agents SDK
+        try:
+            async for chunk in self._generate_with_agents_sdk(
+                client, model_name, user_content, tools, system_prompt
+            ):
+                yield chunk
+            return
+        except Exception as e:
+            logger.warning(
+                "Agents SDK failed, falling back to Responses API",
+                extra={"error": str(e), "model": model_name, "tools": tools},
+            )
+
+        # Fallback: Responses API
+        async for chunk in self._generate_with_responses_api(
+            client, model_name, user_content, tools, system_prompt
+        ):
+            yield chunk
+
+    async def _generate_with_agents_sdk(
+        self,
+        client: Any,
+        model_name: str,
+        user_content: str,
+        tools: list[str],
+        system_prompt: str | None = None,
+    ) -> AsyncIterator[str]:
+        """Agents SDK로 도구 사용 스트리밍 생성 (Primary)."""
+        from agents import Agent, Runner, RunConfig, WebSearchTool
+        from agents.models.openai_responses import OpenAIResponsesModel
+        from openai.types.responses import ResponseTextDeltaEvent
+
+        agent_tools = []
+        for tool in tools:
+            if tool == "web_search":
+                agent_tools.append(
+                    WebSearchTool(search_context_size="medium")
+                )
+
+        agent = Agent(
+            name="web_search_agent",
+            instructions=system_prompt or "",
+            model=OpenAIResponsesModel(
+                model=model_name,
+                openai_client=client,
+            ),
+            tools=agent_tools,
+        )
+
+        result = Runner.run_streamed(
+            agent,
+            input=user_content,
+            run_config=RunConfig(tracing_disabled=True),
+        )
+
+        async for event in result.stream_events():
+            if (
+                event.type == "raw_response_event"
+                and isinstance(event.data, ResponseTextDeltaEvent)
+                and event.data.delta
+            ):
+                yield event.data.delta
+
+    async def _generate_with_responses_api(
+        self,
+        client: Any,
+        model_name: str,
+        user_content: str,
+        tools: list[str],
+        system_prompt: str | None = None,
+    ) -> AsyncIterator[str]:
+        """Responses API로 도구 사용 스트리밍 생성 (Fallback)."""
         input_messages: list[dict[str, str]] = []
         if system_prompt:
             input_messages.append({"role": "developer", "content": system_prompt})
         input_messages.append({"role": "user", "content": user_content})
 
-        # Tool 설정 (GA: "web_search")
         tool_configs: list[dict[str, Any]] = []
         for tool in tools:
             if tool == "web_search":
@@ -268,7 +390,7 @@ class LangChainLLMAdapter(LLMClientPort):
 
         except Exception as e:
             logger.error(
-                "generate_with_tools failed",
+                "Responses API fallback failed",
                 extra={"error": str(e), "model": model_name, "tools": tools},
             )
             raise
