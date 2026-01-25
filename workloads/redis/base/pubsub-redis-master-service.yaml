@@ -1,0 +1,38 @@
+# ============================================================================
+# Pub/Sub Redis Master-Only Service
+# ============================================================================
+# Redis Pub/Sub는 replica 간 복제되지 않음.
+# 모든 publisher/subscriber가 SAME master에 연결해야 함.
+#
+# [사용법]
+#   REDIS_PUBSUB_URL=redis://pubsub-redis-master.redis.svc.cluster.local:6379/0
+#
+# [왜 필요한가?]
+#   - rfr-pubsub-redis는 headless 서비스 (모든 replica 포함)
+#   - DNS round-robin으로 서로 다른 replica에 연결될 수 있음
+#   - Pub/Sub 메시지는 replica 간 전파 안 됨 → 이벤트 유실
+#
+# [동작 원리]
+#   - redisfailovers-role=master 라벨 기반 selector
+#   - Spotahome Redis Operator가 failover 시 라벨 자동 갱신
+# ============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: pubsub-redis-master
+  namespace: redis
+  labels:
+    app: pubsub-redis
+    tier: data
+    purpose: pubsub-master
+spec:
+  type: ClusterIP
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: pubsub-redis
+    app.kubernetes.io/component: redis
+    redisfailovers-role: master

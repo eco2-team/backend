@@ -5,14 +5,20 @@
 # 정책: allkeys-lru (Pub/Sub은 메시지 저장 안함, 연결 정보만 관리)
 #
 # [Service 네이밍 규칙 - Spotahome Redis Operator]
-#   - rfr-pubsub-redis.redis.svc.cluster.local:6379   (Redis Master)
+#   - rfr-pubsub-redis.redis.svc.cluster.local:6379   (Headless - 모든 replica 포함, 사용 금지!)
 #   - rfs-pubsub-redis.redis.svc.cluster.local:26379  (Sentinel)
+#   - pubsub-redis-master.redis.svc.cluster.local:6379 (Master-only - Pub/Sub용, 권장!)
+#
+# [중요] Redis Pub/Sub는 replica 간 복제되지 않음!
+#   - 모든 publisher/subscriber가 동일한 master에 연결해야 함
+#   - rfr-pubsub-redis (headless)는 DNS round-robin으로 서로 다른 replica 연결 가능
+#   - pubsub-redis-master 서비스 사용 필수
 #
 # [채널 패턴]
 #   - sse:events:{job_id}  (job별 이벤트 채널)
 #
-# [환경변수]
-#   - REDIS_PUBSUB_URL=redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0
+# [환경변수] ← pubsub-redis-master 사용!
+#   - REDIS_PUBSUB_URL=redis://pubsub-redis-master.redis.svc.cluster.local:6379/0
 #
 # [특성]
 #   - 메시지 저장 없음 (Fire & Forget)

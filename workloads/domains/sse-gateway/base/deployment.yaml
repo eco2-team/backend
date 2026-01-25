@@ -58,9 +58,9 @@ spec:
         # Redis Streams + State KV (내구성 저장소)
         - name: REDIS_STREAMS_URL
           value: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
-        # Redis Pub/Sub (실시간 구독)
+        # Redis Pub/Sub (실시간 구독) - Master-only Service 사용 (replica 간 Pub/Sub 미복제)
         - name: REDIS_PUBSUB_URL
-          value: redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0
+          value: redis://pubsub-redis-master.redis.svc.cluster.local:6379/0
         - name: REDIS_CACHE_URL
           value: redis://rfr-cache-redis.redis.svc.cluster.local:6379/0
         - name: LOG_LEVEL

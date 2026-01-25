@@ -13,8 +13,8 @@ data:
   CHAT_DATABASE_ECHO: 'false'
   # Redis (Streams - 이벤트 발행)
   CHAT_REDIS_URL: redis://rfr-streams-redis.redis.svc.cluster.local:6379/0
-  # Redis (Pub/Sub - SSE Gateway 구독)
-  CHAT_REDIS_PUBSUB_URL: redis://rfr-pubsub-redis.redis.svc.cluster.local:6379/0
+  # Redis (Pub/Sub - SSE Gateway 구독) - Master-only Service (replica 간 Pub/Sub 미복제)
+  CHAT_REDIS_PUBSUB_URL: redis://pubsub-redis-master.redis.svc.cluster.local:6379/0
   # CHAT_RABBITMQ_URL: provided by ExternalSecret
   # Shard 설정 (chat-worker, event_router와 동일)
   CHAT_SHARD_COUNT: '4'
