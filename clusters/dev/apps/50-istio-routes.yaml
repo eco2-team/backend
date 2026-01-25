@@ -56,7 +56,7 @@ spec:
         namespace: istio-system
         path: workloads/routing/rabbitmq/dev
       - name: langgraph-studio
-        namespace: chat
+        namespace: istio-system
         path: workloads/routing/langgraph-studio/dev
   template:
     metadata:

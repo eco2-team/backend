@@ -14,7 +14,7 @@ spec:
         prefix: /
     route:
     - destination:
-        host: langgraph-studio.chat.svc.cluster.local
+        host: langgraph-studio.istio-system.svc.cluster.local
         port:
           number: 2024
     timeout: 60s

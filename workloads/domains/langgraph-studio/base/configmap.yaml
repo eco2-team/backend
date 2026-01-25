@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: langgraph-config
-  namespace: chat
+  namespace: istio-system
 data:
   langgraph.json: |
     {

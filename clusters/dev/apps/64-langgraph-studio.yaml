@@ -26,7 +26,7 @@ spec:
     path: workloads/domains/langgraph-studio/dev
   destination:
     server: https://kubernetes.default.svc
-    namespace: chat
+    namespace: istio-system
   syncPolicy:
     automated:
       prune: true

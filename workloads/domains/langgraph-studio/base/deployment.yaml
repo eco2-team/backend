@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: langgraph-studio
-  namespace: chat
+  namespace: istio-system
   labels:
     app: langgraph-studio
     tier: observability
@@ -49,21 +49,14 @@ spec:
         - name: OPENAI_API_KEY
           valueFrom:
             secretKeyRef:
-              name: chat-worker-secret
-              key: OPENAI_API_KEY
+              name: langgraph-studio-secret
+              key: openai-api-key
               optional: true
         - name: GOOGLE_API_KEY
           valueFrom:
             secretKeyRef:
-              name: chat-worker-secret
-              key: GOOGLE_API_KEY
-              optional: true
-        # Redis 설정 (체크포인터)
-        - name: CHAT_WORKER_REDIS_URL
-          valueFrom:
-            secretKeyRef:
-              name: chat-worker-secret
-              key: CHAT_WORKER_REDIS_URL
+              name: langgraph-studio-secret
+              key: google-api-key
               optional: true
         workingDir: /app
         volumeMounts:
@@ -96,9 +89,9 @@ spec:
         configMap:
           name: langgraph-config
       nodeSelector:
-        node-role: chat-worker
+        domain: observability
       tolerations:
-      - key: dedicated
+      - key: domain
         operator: Equal
-        value: chat-worker
+        value: observability
         effect: NoSchedule
