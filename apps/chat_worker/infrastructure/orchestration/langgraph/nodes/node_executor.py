@@ -340,7 +340,7 @@ class NodeExecutor:
                     "error": result.error_message,
                 },
             )
-            return self._append_node_result(state, result)
+            return self._append_node_result({}, result)
 
         elif policy.fail_mode == FailMode.FAIL_FALLBACK:
             # 대체 로직 실행
@@ -372,14 +372,14 @@ class NodeExecutor:
                             "fallback_error": str(e),
                         },
                     )
-                    return self._append_node_result(state, result)
+                    return self._append_node_result({}, result)
             else:
                 # fallback 없으면 FAIL_OPEN과 동일
                 logger.warning(
                     "No fallback function provided, treating as FAIL_OPEN",
                     extra={"job_id": job_id, "node": node_name},
                 )
-                return self._append_node_result(state, result)
+                return self._append_node_result({}, result)
 
         else:  # FAIL_CLOSE
             # 전체 실패
@@ -392,7 +392,6 @@ class NodeExecutor:
                 },
             )
             result_state = {
-                **state,
                 "pipeline_failed": True,
                 "pipeline_error": f"Node {node_name} failed: {result.error_message}",
             }
