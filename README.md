@@ -7,7 +7,7 @@
 
 - **LangGraph Multi-Agent + GPT Vision** 기반 AI 어시스턴트로, 9개 Intent 분류·**OpenAI Agents SDK Function Calling**·이미지 생성·폐기물 분류·챗봇 기능을 제공합니다.
 - Self-managed Kubernetes **25-Nodes** 클러스터에서 **Istio Service Mesh**(mTLS, Auth Offloading)와 **ArgoCD GitOps**로 운영합니다.
-- **Redis Streams + Pub/Sub + State KV** 기반 Event Relay Layer로 실시간 SSE 이벤트를 처리하고, **KEDA**로 이벤트 드리븐 오토스케일링을 수행합니다.
+- **Redis Streams + Pub/Sub + State KV** 기반 Event Bus Layer로 실시간 SSE 이벤트를 처리하고, **KEDA**로 이벤트 드리븐 오토스케일링을 수행합니다.
 - **RabbitMQ + TaskIQ/Celery** 비동기 Task Queue로 AI 파이프라인을 처리하고, **EFK + Jaeger + LangSmith**로 로깅·트레이싱을 수집합니다.
 - 8개 도메인 마이크로서비스(auth, users, scan, chat, character, location, info, images)를 모노레포로 관리합니다.
 - 정상 배포 중: [https://frontend.dev.growbin.app](https://frontend.dev.growbin.app)
@@ -22,8 +22,8 @@
 Edge Layer               : Route 53, AWS ALB, Istio Ingress Gateway
 Service Layer            : auth, users, scan, character, location, chat, info, images (w/ Envoy Sidecar)
 Integration Layer        :
-  - Event Relay          : Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
-  - Worker (Storage)     : auth-worker, auth-relay, users-worker, character-worker, character-match-worker, info-worker
+  - Event Bus          : Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
+  - Worker (Storage)     : auth-worker, auth-Bus, users-worker, character-worker, character-match-worker, info-worker
   - Worker (AI)          : scan-worker (Vision→Rule→Answer→Reward), chat-worker (LangGraph Multi-Agent)
 Persistence Layer        : PostgreSQL, Redis (Blacklist/State/Streams/Pub-Sub/Cache)
 Platform Layer           : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jaeger, LangSmith, EFK Stack
@@ -33,8 +33,8 @@ Platform Layer           : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jae
 
 - **Edge Layer**: AWS ALB가 SSL Termination을 처리하고, 트래픽을 `Istio Ingress Gateway`로 전달합니다. Gateway는 `VirtualService` 규칙에 따라 North-South 트래픽을 라우팅합니다.
 - **Service Layer**: 모든 마이크로서비스는 **Istio Service Mesh** 내에서 동작하며, `Envoy Sidecar`를 통해 mTLS 통신, 트래픽 제어, 메트릭 수집을 수행합니다. `auth`→`users` gRPC 통신, `chat`→`images` gRPC 통신으로 도메인 간 동기 호출을 처리합니다.
-- **Integration Layer - Event Relay**: **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처로 SSE 파이프라인을 처리합니다. **RabbitMQ + TaskIQ/Celery** 비동기 Task Queue로 AI 파이프라인을 처리하고, **KEDA**가 이벤트 드리븐 오토스케일링을 수행합니다.
-- **Integration Layer - Worker**: **Storage Worker**(`worker-storage` 노드)는 Persistence Layer에 접근하여 데이터를 동기화합니다. `auth-worker`는 RabbitMQ에서 블랙리스트 이벤트를 소비해 Redis에 저장하고, `auth-relay`는 Redis Outbox 패턴으로 실패 이벤트를 재발행합니다. `users-worker`는 Celery Batch로 캐릭터 소유권을 PostgreSQL에 UPSERT합니다. `info-worker`는 Celery Beat로 환경 뉴스를 주기적으로 수집합니다. **AI Worker**(`worker-ai` 노드)는 OpenAI/Google API와 통신하며, `scan-worker`가 Vision→Rule→Answer→Reward 체인을 gevent pool로 처리하고, `chat-worker`가 LangGraph Multi-Agent를 실행합니다.
+- **Integration Layer - Event Bus**: **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처로 SSE 파이프라인을 처리합니다. **RabbitMQ + TaskIQ/Celery** 비동기 Task Queue로 AI 파이프라인을 처리하고, **KEDA**가 이벤트 드리븐 오토스케일링을 수행합니다.
+- **Integration Layer - Worker**: **Storage Worker**(`worker-storage` 노드)는 Persistence Layer에 접근하여 데이터를 동기화합니다. `auth-worker`는 RabbitMQ에서 블랙리스트 이벤트를 소비해 Redis에 저장하고, `auth-Bus`는 Redis Outbox 패턴으로 실패 이벤트를 재발행합니다. `users-worker`는 Celery Batch로 캐릭터 소유권을 PostgreSQL에 UPSERT합니다. `info-worker`는 Celery Beat로 환경 뉴스를 주기적으로 수집합니다. **AI Worker**(`worker-ai` 노드)는 OpenAI/Google API와 통신하며, `scan-worker`가 Vision→Rule→Answer→Reward 체인을 gevent pool로 처리하고, `chat-worker`가 LangGraph Multi-Agent를 실행합니다.
 - **Persistence Layer**: 서비스는 영속성을 위해 PostgreSQL, Redis를 사용합니다. Redis는 용도별로 분리(Blacklist/OAuth State/Streams/Pub-Sub/Cache)되며, Helm Chart로 관리되는 독립적인 데이터 인프라입니다.
 - **Platform Layer**: `Istiod`가 Service Mesh를 제어하고, `ArgoCD`가 GitOps 동기화를 담당합니다. `KEDA`가 이벤트 드리븐 오토스케일링을 수행하고, Observability 스택(`Prometheus/Grafana/Kiali`, `Jaeger`, `LangSmith`, `EFK Stack`)이 메트릭·트레이싱·로깅을 통합 관리합니다.
 
@@ -98,16 +98,16 @@ Retry: 2회
 
 </details>
 
-### Token Blacklist Event Relay ✅
+### Token Blacklist Event Bus ✅
 
 > JWT 토큰 무효화를 위한 Redis-backed Outbox 패턴. 분산 환경에서 블랙리스트 이벤트의 **At-Least-Once 전달**을 보장합니다.
 
 | Worker | 노드 | 설명 | 입력 | 출력 |
 |--------|------|------|------|------|
 | auth-worker | `worker-storage` | 블랙리스트 이벤트 수신 → Redis KV 저장 | RabbitMQ `blacklist.events` | Redis `blacklist:{jti}` |
-| auth-relay | `worker-storage` | Redis Outbox 폴링 → RabbitMQ 재발행 | Redis `outbox:blacklist` | RabbitMQ `blacklist.events` |
+| auth-Bus | `worker-storage` | Redis Outbox 폴링 → RabbitMQ 재발행 | Redis `outbox:blacklist` | RabbitMQ `blacklist.events` |
 
-### Event Relay Components ✅
+### Event Bus Components ✅
 
 | Component | 설명 | Scaling |
 |-----------|------|---------|
@@ -384,7 +384,7 @@ flowchart LR
     end
 
     subgraph Streams["📊 Redis Streams"]
-        RS[("scan:events:*<br/>(Event Relay로 전달)")]
+        RS[("scan:events:*<br/>(Event Bus로 전달)")]
     end
 
     subgraph DB["💾 PostgreSQL"]
@@ -576,8 +576,8 @@ Architecture :
   Edge Layer        - Route 53, AWS ALB, Istio Ingress Gateway
   Service Layer     - auth, users, scan, character, location, chat, info, images
   Integration Layer :
-    - Event Relay   - Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
-    - Worker (Storage) - auth-worker, auth-relay, users-worker, character-worker, info-worker, chat-persistence-consumer
+    - Event Bus   - Redis Streams + Pub/Sub + State KV, Event Router, SSE Gateway
+    - Worker (Storage) - auth-worker, auth-Bus, users-worker, character-worker, info-worker, chat-persistence-consumer
     - Worker (AI)   - scan-worker (Vision→Rule→Answer→Reward), chat-worker (LangGraph Multi-Agent)
     - KEDA (Event-driven Autoscaling)
   Persistence Layer - PostgreSQL, Redis (Blacklist/State/Streams/Pub-Sub/Cache 분리)
@@ -626,7 +626,7 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
   - **PG Async Sync**: checkpoint_syncer가 5초 간격 배치 동기화
   - **Cold Start Fallback**: ReadThroughCheckpointer로 Redis miss 시 PG 읽기 + 승격
 
-- **Event Relay 안정성 개선** ✅ **(New!)**
+- **Event Bus 안정성 개선** ✅ **(New!)**
   - **ACK Policy 수정**: 처리 실패 시 XACK 스킵 → Reclaimer 재처리
   - **멀티도메인 Reclaimer**: scan/chat 병렬 XAUTOCLAIM
   - **Redis 인스턴스 라우팅 수정**: ProgressNotifier → get_redis_streams()
@@ -648,7 +648,7 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
   - **RabbitMQ Named Exchange**: reward.events Fanout Exchange, Cross-Domain Task Routing
   - **CI/CD 파이프라인 정비**: apps/ 경로 기반 트리거
 
-- **Event Relay Layer + AI 파이프라인** ✅
+- **Event Bus Layer + AI 파이프라인** ✅
   - **Redis Streams**(내구성) + **Pub/Sub**(실시간) + **State KV**(복구) 3-tier 이벤트 아키텍처
   - **Event Router**: Consumer Group(`XREADGROUP`)으로 Streams 소비, Pub/Sub Fan-out, 멱등성 보장
   - **SSE Gateway**: Pub/Sub 구독 기반 실시간 전달, State 복구, Streams Catch-up
@@ -702,7 +702,7 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 - ✅ **6개 Function Calling 노드**: web_search, bulk_waste, weather, recyclable_price, location, collection_point
 - ✅ **Redis Primary Checkpoint**: Worker PG 연결 96% 감소 (192 → 8)
 - ✅ **Gemini 이미지 생성 파이프라인** + gRPC CDN Upload
-- ✅ **Event Relay 안정성**: ACK Policy 수정, 멀티도메인 Reclaimer
+- ✅ **Event Bus 안정성**: ACK Policy 수정, 멀티도메인 Reclaimer
 - ✅ **25-Node 클러스터 확장**: Grafana 대시보드 추가
 - ✅ **분산 트레이싱**: LangSmith + OpenTelemetry E2E
 
@@ -718,8 +718,8 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 - ✅ CI/CD 파이프라인 정비 (apps/ 경로 기반)
 - ✅ DB/Redis 연결 정규화
 
-### v1.0.7 - Event Relay & KEDA
-- ✅ Redis Streams + Pub/Sub + State KV 기반 Event Relay Layer 완료
+### v1.0.7 - Event Bus & KEDA
+- ✅ Redis Streams + Pub/Sub + State KV 기반 Event Bus Layer 완료
 - ✅ Event Router, SSE Gateway 컴포넌트 개발 완료
 - ✅ KEDA 이벤트 드리븐 오토스케일링 적용 (scan-worker, event-router, character-match-worker)
 - ✅ Celery 비동기 AI 파이프라인 완료 (Vision→Rule→Answer→Reward)
