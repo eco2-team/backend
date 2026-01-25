@@ -36,6 +36,11 @@ spec:
           name: http
           protocol: TCP
         env:
+        # LLM 설정
+        - name: LLM_PROVIDER
+          value: google
+        - name: LLM_MODEL
+          value: gemini-3-flash-preview
         # LangSmith 설정
         - name: LANGCHAIN_TRACING_V2
           value: 'true'
