@@ -200,17 +200,6 @@ graph TD;
 
 토큰 스트리밍을 위한 **Redis Streams + Pub/Sub** 이중 구조입니다.
 
-| 구성 요소 | Redis 역할 | 키/채널 | 설명 |
-|-----------|------------|---------|------|
-| **Streams** | 내구성 (XADD/XREADGROUP) | `chat:events:{shard}` | Consumer Group으로 Exactly-Once 처리 |
-| **State KV** | 복구용 (SETEX/GET) | `chat:state:{job_id}` | 재연결 시 현재 상태 스냅샷 제공 |
-| **Pub/Sub** | 실시간 (PUBLISH/SUBSCRIBE) | `sse:events:{job_id}` | Fan-out 브로드캐스트 (저장 안됨) |
-
-- **멀티 도메인 지원**: `scan:events`, `chat:events` 동시 구독
-- **Shard 기반 분산**: 도메인별 4개 shard (`chat:events:{0-3}`)
-- **Pending Reclaimer**: 5분 이상 미처리 메시지 자동 재할당
-- **분산 트레이싱**: Pub/Sub 메시지에서 `trace_id` 추출 → Jaeger linked span
-
 ```mermaid
 flowchart LR
     subgraph Worker["🤖 Chat Worker"]
@@ -268,6 +257,14 @@ flowchart LR
     class SG gateway
     class CL client
 ```
+
+| 컴포넌트 | 역할 | 스케일링 |
+|----------|------|---------|
+| **Event Router** | Streams → Pub/Sub Fan-out, State 갱신, 멱등성 보장 | KEDA (Pending 메시지) |
+| **SSE Gateway** | Pub/Sub → Client, State 복구, Streams Catch-up | KEDA (연결 수) |
+| **Redis Streams** | 이벤트 로그 (내구성), Consumer Group 지원 | 샤딩 (4 shards) |
+| **Redis Pub/Sub** | 실시간 Fan-out (fire-and-forget) | 전용 인스턴스 |
+| **State KV** | 최신 상태 스냅샷, 재접속 복구 | Streams Redis 공유 |
 
 ### Intent Classification
 
@@ -351,81 +348,6 @@ flowchart LR
 | **checkpoint_syncer** | Redis → PG 비동기 배치 동기화 | PG 5 conn (단일 프로세스) |
 
 **개선 효과**: Worker PG 연결 192 → 8 (96% 감소), KEDA 10 pods 스케일링 시에도 45 conn 유지
-
----
-
-## Event Relay Layer ✅
-
-> **Status**: Redis Streams + Pub/Sub + State KV 기반 Event Relay 아키텍처 완료
-
-```mermaid
-flowchart LR
-    subgraph Worker["🔧 Celery Worker"]
-        SW["scan-worker"]
-    end
-
-    subgraph Streams["📊 Redis Streams"]
-        RS[("scan:events:*<br/>(내구성)")]
-    end
-
-    subgraph Router["🔀 Event Router"]
-        ER["Consumer Group<br/>XREADGROUP"]
-    end
-
-    subgraph State["💾 State KV"]
-        SK[("scan:state:*<br/>(복구/조회)")]
-    end
-
-    subgraph PubSub["📡 Redis Pub/Sub"]
-        PS[("sse:events:*<br/>(실시간)")]
-    end
-
-    subgraph Gateway["🌐 SSE Gateway"]
-        SG["Pub/Sub 구독<br/>State 복구<br/>Streams Catch-up"]
-    end
-
-    subgraph Client["👤 Client"]
-        CL["Browser/App"]
-    end
-
-    SW -->|XADD| RS
-    RS -->|XREADGROUP| ER
-    ER -->|SETEX| SK
-    ER -->|PUBLISH| PS
-    SK -.->|GET 재접속| SG
-    PS -->|SUBSCRIBE| SG
-    SG -->|SSE| CL
-
-    classDef worker fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#000
-    classDef streams fill:#ffccbc,stroke:#e64a19,stroke-width:2px,color:#000
-    classDef router fill:#b3e5fc,stroke:#0288d1,stroke-width:2px,color:#000
-    classDef state fill:#d1c4e9,stroke:#512da8,stroke-width:2px,color:#000
-    classDef pubsub fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
-    classDef gateway fill:#b2dfdb,stroke:#00796b,stroke-width:2px,color:#000
-    classDef client fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px,color:#000
-
-    class SW worker
-    class RS streams
-    class ER router
-    class SK state
-    class PS pubsub
-    class SG gateway
-    class CL client
-```
-
-| 컴포넌트 | 역할 | 스케일링 |
-|----------|------|---------|
-| **Event Router** | Streams → Pub/Sub Fan-out, State 갱신, 멱등성 보장 (Lua Script) | KEDA (Pending 메시지) |
-| **SSE Gateway** | Pub/Sub → Client, State 복구, Streams Catch-up, Last-Event-ID 복구 | KEDA (연결 수) |
-| **Redis Streams** | 이벤트 로그 (내구성), Consumer Group 지원 | 샤딩 (4 shards) |
-| **Redis Pub/Sub** | 실시간 Fan-out (fire-and-forget) | 전용 인스턴스 |
-| **State KV** | 최신 상태 스냅샷, 재접속 복구 | Streams Redis 공유 |
-| **Reclaimer** | 멀티도메인 XAUTOCLAIM (scan/chat), 5분 idle 메시지 재처리 | Event Router 내장 |
-
-**안정성 개선사항**:
-- **ACK Policy 수정**: 처리 실패 시 XACK 스킵 → PEL에 메시지 유지 → Reclaimer 재처리
-- **멀티도메인 지원**: `scan:events`, `chat:events` 병렬 처리 (`asyncio.gather`)
-- **Redis 인스턴스 분리**: ProgressNotifier/DomainEventBus가 Streams Redis로 정확히 발행
 
 ---
 
