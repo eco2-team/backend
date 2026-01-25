@@ -4,8 +4,11 @@ kind: Kustomization
 resources:
 - ../base
 
-commonLabels:
-  env: prod
+# labels 사용: includeSelectors: false로 Service selector에 라벨 추가 방지
+labels:
+- pairs:
+    env: prod
+  includeSelectors: false
 
 # Prod 환경: base 설정 그대로 사용 (3 replicas)
 # 필요시 리소스 증가

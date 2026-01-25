@@ -4,8 +4,13 @@ kind: Kustomization
 resources:
 - ../base
 
-commonLabels:
-  env: dev
+# commonLabels는 Service selector에도 적용되는데,
+# Redis Operator Pod에는 env/managed-by 라벨이 없음.
+# labels 필드 대신 transformers 사용 또는 Service 제외.
+labels:
+- pairs:
+    env: dev
+  includeSelectors: false
 
 # Dev 환경: 리소스 최소화 (replicas는 RedisFailover CR에서 관리)
 patches:
