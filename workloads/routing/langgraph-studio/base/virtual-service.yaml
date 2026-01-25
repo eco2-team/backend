@@ -5,7 +5,7 @@ metadata:
   namespace: istio-system
 spec:
   hosts:
-  - langgraph.growbin.app
+  - langgraph.dev.growbin.app
   gateways:
   - istio-system/eco2-gateway
   http:
