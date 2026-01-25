@@ -22,6 +22,7 @@ spec:
       containers:
       - name: langgraph-studio
         image: docker.io/mng990/eco2:chat-worker-dev-latest
+        imagePullPolicy: Always
         command: [langgraph]
         args:
         - dev
