@@ -3,3 +3,4 @@ kind: Kustomization
 
 resources:
 - virtual-service.yaml
+- service-entry.yaml

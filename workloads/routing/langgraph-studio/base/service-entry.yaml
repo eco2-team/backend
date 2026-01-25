@@ -1,0 +1,33 @@
+---
+# LangSmith API ServiceEntry
+# LangGraph Studio가 LangSmith API에 접근할 수 있도록 허용
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: langsmith-api
+  namespace: istio-system
+spec:
+  hosts:
+  - api.smith.langchain.com
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: DNS
+  location: MESH_EXTERNAL
+---
+# LangSmith Web UI (Studio에서 리다이렉트)
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: langsmith-web
+  namespace: istio-system
+spec:
+  hosts:
+  - smith.langchain.com
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: DNS
+  location: MESH_EXTERNAL
