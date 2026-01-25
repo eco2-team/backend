@@ -40,7 +40,6 @@ from chat_worker.infrastructure.llm.config import (
     MAX_RETRIES,
 )
 from chat_worker.infrastructure.telemetry import (
-    calculate_cost,
     is_langsmith_enabled,
     track_token_usage,
 )
