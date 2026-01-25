@@ -55,6 +55,9 @@ spec:
       - name: rabbitmq
         namespace: istio-system
         path: workloads/routing/rabbitmq/dev
+      - name: langgraph-studio
+        namespace: chat
+        path: workloads/routing/langgraph-studio/dev
   template:
     metadata:
       name: dev-route-{{name}}

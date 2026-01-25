@@ -20,6 +20,7 @@ Pillow>=10.0.0  # Image processing for Gemini native image generation
 # LangGraph 1.0+ (Context Compression 지원)
 # Python >=3.10 필요
 langgraph>=1.0.6,<2.0.0
+langgraph-cli[inmem]>=0.2.0  # LangGraph Studio 서버 (langgraph dev)
 langchain-core>=1.0.0,<2.0.0  # LangGraph 1.0과 호환
 langgraph-checkpoint-postgres>=2.0.0  # PostgreSQL 체크포인터 (checkpoint_syncer용)
 

@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langgraph-studio
+  namespace: chat
+  labels:
+    app: langgraph-studio
+    tier: observability
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: langgraph-studio
+  template:
+    metadata:
+      labels:
+        app: langgraph-studio
+        version: v1
+      annotations:
+        sidecar.istio.io/inject: 'false'
+    spec:
+      containers:
+      - name: langgraph-studio
+        image: docker.io/mng990/eco2:chat-worker-dev-latest
+        command: [python, -m, langgraph, dev]
+        args:
+        - --host
+        - 0.0.0.0
+        - --port
+        - '2024'
+        - --no-browser
+        ports:
+        - containerPort: 2024
+          name: http
+          protocol: TCP
+        env:
+        # LangSmith 설정
+        - name: LANGCHAIN_TRACING_V2
+          value: 'true'
+        - name: LANGCHAIN_PROJECT
+          value: eco2-langgraph-studio
+        - name: LANGCHAIN_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: langsmith-secret
+              key: api-key
+              optional: true
+        # LLM API Keys
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: chat-worker-secret
+              key: OPENAI_API_KEY
+              optional: true
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: chat-worker-secret
+              key: GOOGLE_API_KEY
+              optional: true
+        # Redis 설정 (체크포인터)
+        - name: CHAT_WORKER_REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: chat-worker-secret
+              key: CHAT_WORKER_REDIS_URL
+              optional: true
+        workingDir: /app
+        volumeMounts:
+        - name: langgraph-config
+          mountPath: /app/langgraph.json
+          subPath: langgraph.json
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /ok
+            port: 2024
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ok
+            port: 2024
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: langgraph-config
+        configMap:
+          name: langgraph-config
+      nodeSelector:
+        node-role: chat-worker
+      tolerations:
+      - key: dedicated
+        operator: Equal
+        value: chat-worker
+        effect: NoSchedule

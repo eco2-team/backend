@@ -1,0 +1,35 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# LangGraph Studio ArgoCD Application
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# LangGraph API 서버 - Studio Web UI 연동용
+# 접속: https://smith.langchain.com/studio/?baseUrl=https://langgraph.dev.growbin.app
+#
+# 기능:
+# - LangGraph 파이프라인 시각화
+# - Step-by-step 실행 추적
+# - 프롬프트/도구 호출 디버깅
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-langgraph-studio
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '64'
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dev
+  source:
+    repoURL: https://github.com/eco2-team/backend.git
+    targetRevision: develop
+    path: workloads/domains/langgraph-studio/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chat
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

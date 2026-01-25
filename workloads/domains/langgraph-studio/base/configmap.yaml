@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: langgraph-config
+  namespace: chat
+data:
+  langgraph.json: |
+    {
+      "dependencies": ["."],
+      "graphs": {
+        "chat": "./apps/chat_worker/infrastructure/orchestration/langgraph/factory.py:create_chat_graph"
+      },
+      "env": ".env"
+    }
