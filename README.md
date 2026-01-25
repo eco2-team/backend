@@ -276,7 +276,7 @@ flowchart LR
 | `LOCATION` | 위치/수거함 검색 | Location Agent | Kakao Local API (Function Calling) |
 | `INFO` | 환경 정보 질문 | Info Agent | - |
 | `NEWS` | 환경 뉴스 검색 | News Agent | Info API (Function Calling) |
-| `IMAGE_GENERATION` | 이미지 생성 요청 | Image Generation Agent | Gemini 2.0 Flash |
+| `IMAGE_GENERATION` | 이미지 생성 요청 | Image Generation Agent | Gemini 3 Pro Image |
 | `GENERAL` | 일반 질문 (웹 검색) | General Agent | OpenAI web_search tool |
 | `GREETING` | 인사/잡담 | Greeting Agent | - |
 
@@ -287,7 +287,7 @@ flowchart LR
 | LangGraph Multi-Agent | `apps/chat_worker/infrastructure/orchestration/langgraph/nodes/`에 9개 Intent별 Agent 구현. Intent Classification → Domain Agent Router → Answer Node 파이프라인. |
 | Intent Classification | **LangGraph Intent Node**에서 with_structured_output 기반 9개 Intent 분류. |
 | Function Calling Agents | **OpenAI Agents SDK** Primary + **Responses API** Fallback 이중 구조. 6개 노드(web_search, bulk_waste, weather, recyclable_price, location, collection_point) 적용. |
-| 이미지 생성 | **Gemini 2.0 Flash**로 이미지 생성, **gRPC**로 Images API에 업로드 후 CDN URL 반환. Character Reference 지원. |
+| 이미지 생성 | **Gemini 3 Pro Image**로 이미지 생성, **gRPC**로 Images API에 업로드 후 CDN URL 반환. Character Reference 지원. |
 | Token Streaming | **LangChain LLM 직접 호출**로 토큰 단위 스트리밍. Event Router → Pub/Sub → SSE Gateway 실시간 전달. |
 | Checkpoint | **Redis Primary + PostgreSQL Async Sync** 아키텍처. Worker는 Redis에 직접 쓰고, checkpoint_syncer가 비동기로 PG에 아카이브. |
 | 메시지 영속화 | **chat-persistence-consumer**가 Redis Streams → PostgreSQL로 대화 기록 저장. |
@@ -633,7 +633,7 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 
 - **LangGraph Multi-Agent 아키텍처** ✅
   - **9개 Intent 분류**: WASTE, CHARACTER, WEATHER, LOCATION, IMAGE_GENERATION, GENERAL
-  - **이미지 생성**: Gemini 2.0 Flash + gRPC CDN Upload, Character Reference 지원
+  - **이미지 생성**: Gemini 3 Pro Image + gRPC CDN Upload, Character Reference 지원
   - **Token Streaming**: LangChain LLM 직접 호출, Event Router Unicode 수정
   - **메시지 영속화**: chat-persistence-consumer (Redis Streams → PostgreSQL)
   - **분산 트레이싱**: LangSmith 연동, OpenTelemetry E2E 트레이싱
