@@ -50,7 +50,7 @@ def create_studio_graph(config: RunnableConfig) -> StateGraph:
         from google import genai
 
         client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-        model_name = os.getenv("LLM_MODEL", "gemini-2.0-flash")
+        model_name = os.getenv("LLM_MODEL", "gemini-3-flash-preview")
 
         async def llm_generate(prompt: str) -> str:
             response = await client.aio.models.generate_content(
@@ -63,7 +63,7 @@ def create_studio_graph(config: RunnableConfig) -> StateGraph:
         import openai
 
         client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        model_name = os.getenv("LLM_MODEL", "gpt-4o-mini")
+        model_name = os.getenv("LLM_MODEL", "gpt-5.2")
 
         async def llm_generate(prompt: str) -> str:
             response = await client.chat.completions.create(

@@ -172,6 +172,7 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
     "gpt-4": {"input": 30.00, "output": 60.00},
     "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
     # Google Gemini 3 (USD per 1M tokens)
+    "gemini-3-pro-preview": {"input": 2.00, "output": 12.00},
     "gemini-3-pro-image-preview": {"input": 2.00, "output": 12.00},
     "gemini-3-flash-preview": {"input": 0.50, "output": 3.00},
     # Google Gemini 2
