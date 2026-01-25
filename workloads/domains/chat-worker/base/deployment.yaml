@@ -33,6 +33,11 @@ spec:
             memory: 1Gi
             cpu: 500m
         env:
+        # LangSmith Observability (LangGraph 노드 추적)
+        - name: LANGCHAIN_TRACING_V2
+          value: 'true'
+        - name: LANGCHAIN_PROJECT
+          value: eco2-chat-worker
         # OpenTelemetry (분산 추적)
         - name: OTEL_SERVICE_NAME
           value: chat-worker
