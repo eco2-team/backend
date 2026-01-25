@@ -1,11 +1,11 @@
 # Eco² Backend
 
-> **Version**: v1.1.0-pre | [Changelog](CHANGELOG.md)
+> **Version**: v1.1.0 | [Changelog](CHANGELOG.md)
 
 <img width="3840" height="2160" alt="515829337-6a4f523a-fa37-49de-b8e1-0a5befe26605" src="https://github.com/user-attachments/assets/e6c7d948-aa06-4bbb-b2fc-237aa7f01223" />
 
 
-- **LangGraph Multi-Agent + GPT Vision** 기반 AI 어시스턴트로, 9개 Intent 분류·Function Calling·이미지 생성·폐기물 분류·챗봇 기능을 제공합니다.
+- **LangGraph Multi-Agent + GPT Vision** 기반 AI 어시스턴트로, 9개 Intent 분류·**OpenAI Agents SDK Function Calling**·이미지 생성·폐기물 분류·챗봇 기능을 제공합니다.
 - Self-managed Kubernetes **25-Nodes** 클러스터에서 **Istio Service Mesh**(mTLS, Auth Offloading)와 **ArgoCD GitOps**로 운영합니다.
 - **Redis Streams + Pub/Sub + State KV** 기반 Event Relay Layer로 실시간 SSE 이벤트를 처리하고, **KEDA**로 이벤트 드리븐 오토스케일링을 수행합니다.
 - **RabbitMQ + TaskIQ/Celery** 비동기 Task Queue로 AI 파이프라인을 처리하고, **EFK + Jaeger + LangSmith**로 로깅·트레이싱을 수집합니다.
@@ -75,6 +75,7 @@ Platform Layer           : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jae
 | Worker | 노드 | 설명 | Exchange / Queue | Scaling |
 |--------|------|------|------------------|---------|
 | chat-worker | `worker-ai` | LangGraph Multi-Agent 실행 (9 Intents, timeout 120s, retry 2) | `chat_tasks` → `chat.process` | KEDA (RabbitMQ) |
+| checkpoint-syncer | `worker-storage` | Redis → PostgreSQL 체크포인트 배치 동기화 (5s interval) | - | 단일 인스턴스 |
 | chat-persistence-consumer | `worker-storage` | Redis Streams → PostgreSQL 메시지 저장 | - | 단일 인스턴스 |
 
 <details>
@@ -129,7 +130,7 @@ Retry: 2회
 
 ## Chat Agent Architecture (LangGraph)
 
-> **Status**: e2e 검증 중
+> **Status**: Production Ready (OpenAI Agents SDK + Responses API Fallback)
 
 ### 1. LangGraph StateGraph (Intent-Routed Workflow)
 
@@ -199,17 +200,6 @@ graph TD;
 
 토큰 스트리밍을 위한 **Redis Streams + Pub/Sub** 이중 구조입니다.
 
-| 구성 요소 | Redis 역할 | 키/채널 | 설명 |
-|-----------|------------|---------|------|
-| **Streams** | 내구성 (XADD/XREADGROUP) | `chat:events:{shard}` | Consumer Group으로 Exactly-Once 처리 |
-| **State KV** | 복구용 (SETEX/GET) | `chat:state:{job_id}` | 재연결 시 현재 상태 스냅샷 제공 |
-| **Pub/Sub** | 실시간 (PUBLISH/SUBSCRIBE) | `sse:events:{job_id}` | Fan-out 브로드캐스트 (저장 안됨) |
-
-- **멀티 도메인 지원**: `scan:events`, `chat:events` 동시 구독
-- **Shard 기반 분산**: 도메인별 4개 shard (`chat:events:{0-3}`)
-- **Pending Reclaimer**: 5분 이상 미처리 메시지 자동 재할당
-- **분산 트레이싱**: Pub/Sub 메시지에서 `trace_id` 추출 → Jaeger linked span
-
 ```mermaid
 flowchart LR
     subgraph Worker["🤖 Chat Worker"]
@@ -268,6 +258,14 @@ flowchart LR
     class CL client
 ```
 
+| 컴포넌트 | 역할 | 스케일링 |
+|----------|------|---------|
+| **Event Router** | Streams → Pub/Sub Fan-out, State 갱신, 멱등성 보장 | KEDA (Pending 메시지) |
+| **SSE Gateway** | Pub/Sub → Client, State 복구, Streams Catch-up | KEDA (연결 수) |
+| **Redis Streams** | 이벤트 로그 (내구성), Consumer Group 지원 | 샤딩 (4 shards) |
+| **Redis Pub/Sub** | 실시간 Fan-out (fire-and-forget) | 전용 인스턴스 |
+| **State KV** | 최신 상태 스냅샷, 재접속 복구 | Streams Redis 공유 |
+
 ### Intent Classification
 
 | Intent | 설명 | Agent | External API |
@@ -286,90 +284,70 @@ flowchart LR
 
 | 항목 | 설명 |
 |------|------|
-| LangGraph Multi-Agent | `apps/chat_worker/application/nodes/`에 9개 Intent별 Agent 구현. Intent Classification → Domain Agent Router → Answer Node 파이프라인. |
+| LangGraph Multi-Agent | `apps/chat_worker/infrastructure/orchestration/langgraph/nodes/`에 9개 Intent별 Agent 구현. Intent Classification → Domain Agent Router → Answer Node 파이프라인. |
 | Intent Classification | **LangGraph Intent Node**에서 with_structured_output 기반 9개 Intent 분류. |
-| Function Calling Agents | **Location Agent** (Kakao Local API), **Weather Agent** (기상청 API), **News Agent** (Info API) - GPT-5.2/Gemini 3 네이티브 Function Calling 적용. |
+| Function Calling Agents | **OpenAI Agents SDK** Primary + **Responses API** Fallback 이중 구조. 6개 노드(web_search, bulk_waste, weather, recyclable_price, location, collection_point) 적용. |
 | 이미지 생성 | **Gemini 2.0 Flash**로 이미지 생성, **gRPC**로 Images API에 업로드 후 CDN URL 반환. Character Reference 지원. |
 | Token Streaming | **LangChain LLM 직접 호출**로 토큰 단위 스트리밍. Event Router → Pub/Sub → SSE Gateway 실시간 전달. |
-| 메시지 영속화 | **chat-persistence-consumer**가 Redis Streams → PostgreSQL로 대화 기록 저장. LangGraph Checkpointer 구현. |
+| Checkpoint | **Redis Primary + PostgreSQL Async Sync** 아키텍처. Worker는 Redis에 직접 쓰고, checkpoint_syncer가 비동기로 PG에 아카이브. |
+| 메시지 영속화 | **chat-persistence-consumer**가 Redis Streams → PostgreSQL로 대화 기록 저장. |
 | API 구조 | `apps/chat/` → FastAPI + `apps/chat_worker/` LangGraph Agent. `/api/v1/chat` 엔드포인트는 RabbitMQ로 TaskIQ Job 발행. |
 | 트레이싱 | **LangSmith** 연동으로 LangGraph 실행 트레이스 수집. **OpenTelemetry** E2E 분산 트레이싱. |
 
 - **Multi-Intent 지원**: 단일 메시지에서 복수 Intent 추출 및 순차 처리
-- **Function Calling**: GPT-5.2 / Gemini 3 네이티브 tool 호출
+- **OpenAI Agents SDK**: Primary + Responses API Fallback 이중 구조로 안정성 확보
 - **Token Streaming**: LangChain LLM 직접 호출로 실시간 토큰 전달
 - **이미지 생성**: Gemini 기반 생성 + gRPC CDN 업로드
 - **Character Reference**: 캐릭터 이름 감지 및 컨텍스트 전달
-- **메시지 영속화**: PostgreSQL + LangGraph Checkpointer
+- **Redis Primary Checkpoint**: Redis 직접 쓰기 + PostgreSQL Async Sync
 
----
+### 3. LangGraph Checkpoint Architecture (Redis Primary + PG Async Sync)
 
-## Event Relay Layer ✅
-
-> **Status**: Redis Streams + Pub/Sub + State KV 기반 Event Relay 아키텍처 완료
+> Worker → PostgreSQL 직접 연결로 인한 Connection Pool 고갈 문제 해결
 
 ```mermaid
 flowchart LR
-    subgraph Worker["🔧 Celery Worker"]
-        SW["scan-worker"]
+    subgraph Worker["🤖 Chat Worker"]
+        LG["LangGraph<br/>Parallel Nodes"]
+        RC["RedisCheckpointer<br/>(~1ms write)"]
     end
 
-    subgraph Streams["📊 Redis Streams"]
-        RS[("scan:events:*<br/>(내구성)")]
+    subgraph Redis["📊 Redis"]
+        RK[("checkpoint:{thread_id}<br/>TTL 24h")]
     end
 
-    subgraph Router["🔀 Event Router"]
-        ER["Consumer Group<br/>XREADGROUP"]
+    subgraph Syncer["🔄 Checkpoint Syncer"]
+        CS["Batch Processor<br/>(5s interval, 50/batch)"]
     end
 
-    subgraph State["💾 State KV"]
-        SK[("scan:state:*<br/>(복구/조회)")]
+    subgraph PostgreSQL["💾 PostgreSQL"]
+        PG[("checkpoints table<br/>(Archive)")]
     end
 
-    subgraph PubSub["📡 Redis Pub/Sub"]
-        PS[("sse:events:*<br/>(실시간)")]
-    end
-
-    subgraph Gateway["🌐 SSE Gateway"]
-        SG["Pub/Sub 구독<br/>State 복구<br/>Streams Catch-up"]
-    end
-
-    subgraph Client["👤 Client"]
-        CL["Browser/App"]
-    end
-
-    SW -->|XADD| RS
-    RS -->|XREADGROUP| ER
-    ER -->|SETEX| SK
-    ER -->|PUBLISH| PS
-    SK -.->|GET 재접속| SG
-    PS -->|SUBSCRIBE| SG
-    SG -->|SSE| CL
+    LG -->|"put()"| RC
+    RC -->|"SET + queue"| RK
+    RK -->|"poll"| CS
+    CS -->|"UPSERT batch"| PG
+    PG -.->|"cold start read"| RC
 
     classDef worker fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#000
-    classDef streams fill:#ffccbc,stroke:#e64a19,stroke-width:2px,color:#000
-    classDef router fill:#b3e5fc,stroke:#0288d1,stroke-width:2px,color:#000
-    classDef state fill:#d1c4e9,stroke:#512da8,stroke-width:2px,color:#000
-    classDef pubsub fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
-    classDef gateway fill:#b2dfdb,stroke:#00796b,stroke-width:2px,color:#000
-    classDef client fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef redis fill:#ffccbc,stroke:#e64a19,stroke-width:2px,color:#000
+    classDef syncer fill:#b3e5fc,stroke:#0288d1,stroke-width:2px,color:#000
+    classDef pg fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
 
-    class SW worker
-    class RS streams
-    class ER router
-    class SK state
-    class PS pubsub
-    class SG gateway
-    class CL client
+    class LG,RC worker
+    class RK redis
+    class CS syncer
+    class PG pg
 ```
 
-| 컴포넌트 | 역할 | 스케일링 |
-|----------|------|---------|
-| **Event Router** | Streams → Pub/Sub Fan-out, State 갱신, 멱등성 보장 | KEDA (Pending 메시지) |
-| **SSE Gateway** | Pub/Sub → Client, State 복구, Streams Catch-up | KEDA (연결 수) |
-| **Redis Streams** | 이벤트 로그 (내구성), Consumer Group 지원 | 샤딩 (4 shards) |
-| **Redis Pub/Sub** | 실시간 Fan-out (fire-and-forget) | 전용 인스턴스 |
-| **State KV** | 최신 상태 스냅샷, 재접속 복구 | Streams Redis 공유 |
+| 컴포넌트 | 역할 | 연결 풀 |
+|----------|------|--------|
+| **RedisCheckpointer** | Worker에서 직접 Redis 쓰기 (~1ms) | Redis 연결 |
+| **ReadThroughCheckpointer** | Redis miss 시 PG 읽기 + Redis 승격 | PG 2 conn (읽기 전용) |
+| **checkpoint_syncer** | Redis → PG 비동기 배치 동기화 | PG 5 conn (단일 프로세스) |
+
+**개선 효과**: Worker PG 연결 192 → 8 (96% 감소), KEDA 10 pods 스케일링 시에도 45 conn 유지
 
 ---
 
@@ -634,14 +612,30 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 
 ---
 
-## Release Summary (v1.0.8 - v1.1.0-pre)
+## Release Summary (v1.0.8 - v1.1.0)
 
-- **LangGraph Multi-Agent 아키텍처** ✅ **(New!)**
+- **OpenAI Agents SDK Migration** ✅ **(New!)**
+  - **Primary + Fallback 구조**: Agents SDK 실패 시 Responses API로 자동 전환
+  - **6개 Function Calling 노드**: web_search, bulk_waste, weather, recyclable_price, location, collection_point
+  - **Streaming Safety**: `_yielded` 플래그로 부분 데이터 전송 시 fallback 방지
+  - **google-genai 1.60.0**: system_instruction, FunctionCallingConfigMode enum 적용
+
+- **Redis Primary Checkpoint 아키텍처** ✅ **(New!)**
+  - **Connection Pool 고갈 해결**: Worker → PG 직접 연결 제거, 192 → 8 conn (96% 감소)
+  - **Redis Primary**: Worker가 Redis에 직접 쓰기 (~1ms)
+  - **PG Async Sync**: checkpoint_syncer가 5초 간격 배치 동기화
+  - **Cold Start Fallback**: ReadThroughCheckpointer로 Redis miss 시 PG 읽기 + 승격
+
+- **Event Relay 안정성 개선** ✅ **(New!)**
+  - **ACK Policy 수정**: 처리 실패 시 XACK 스킵 → Reclaimer 재처리
+  - **멀티도메인 Reclaimer**: scan/chat 병렬 XAUTOCLAIM
+  - **Redis 인스턴스 라우팅 수정**: ProgressNotifier → get_redis_streams()
+
+- **LangGraph Multi-Agent 아키텍처** ✅
   - **9개 Intent 분류**: WASTE, CHARACTER, WEATHER, LOCATION, IMAGE_GENERATION, GENERAL
-  - **Function Calling Agents**: Location (Kakao Local), Weather (기상청), Character (Character API) - GPT-5.2/Gemini 3 네이티브 tool
   - **이미지 생성**: Gemini 2.0 Flash + gRPC CDN Upload, Character Reference 지원
   - **Token Streaming**: LangChain LLM 직접 호출, Event Router Unicode 수정
-  - **메시지 영속화**: chat-persistence-consumer (Redis Streams → PostgreSQL), LangGraph Checkpointer
+  - **메시지 영속화**: chat-persistence-consumer (Redis Streams → PostgreSQL)
   - **분산 트레이싱**: LangSmith 연동, OpenTelemetry E2E 트레이싱
 
 - **Info 서비스 프로비저닝** ✅ **(New!)**
@@ -691,16 +685,24 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 
 📝 [이코에코(Eco²) 백엔드/인프라 개발 블로그](https://rooftopsnow.tistory.com/category/%EC%9D%B4%EC%BD%94%EC%97%90%EC%BD%94%28Eco%C2%B2%29)
 
+**주요 기술 문서**:
+- [OpenAI Agents SDK Migration](https://rooftopsnow.tistory.com/246) - Primary + Fallback 이중 구조
+- [Redis Primary + PG Async Sync Checkpoint](https://rooftopsnow.tistory.com/242) - Connection Pool 고갈 해결
+- [Event Router & SSE Gateway 안정성 개선](https://rooftopsnow.tistory.com/237) - ACK Policy, Reclaimer
+- [Redis Streams Bug Fix](https://rooftopsnow.tistory.com/243) - ProgressNotifier 라우팅 수정
+- [Optimistic Update & Eventual Consistency](https://rooftopsnow.tistory.com/235) - 프론트엔드 연동
+
 ---
 
 ## Status
 
-### v1.1.0-pre - Chat Agent 전환 ⭐ Latest
+### v1.1.0 - Chat Agent & Agents SDK ⭐ Latest
 - ✅ **LangGraph Multi-Agent 아키텍처 완료** (9개 Intent 분류)
-- ✅ **Function Calling Agents**: Location, Weather, News (GPT-5.2/Gemini 3)
+- ✅ **OpenAI Agents SDK Migration**: Primary + Responses API Fallback 이중 구조
+- ✅ **6개 Function Calling 노드**: web_search, bulk_waste, weather, recyclable_price, location, collection_point
+- ✅ **Redis Primary Checkpoint**: Worker PG 연결 96% 감소 (192 → 8)
 - ✅ **Gemini 이미지 생성 파이프라인** + gRPC CDN Upload
-- ✅ **Token Streaming 개선**: LangChain LLM 직접 호출
-- ✅ **PostgreSQL 메시지 영속화**: chat-persistence-consumer + Checkpointer
+- ✅ **Event Relay 안정성**: ACK Policy 수정, 멀티도메인 Reclaimer
 - ✅ **25-Node 클러스터 확장**: Grafana 대시보드 추가
 - ✅ **분산 트레이싱**: LangSmith + OpenTelemetry E2E
 
