@@ -43,6 +43,10 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel
 
 from chat_worker.application.ports.llm import LLMClientPort
+from chat_worker.infrastructure.telemetry.langsmith import (
+    is_langsmith_enabled,
+    track_token_usage,
+)
 
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
@@ -455,6 +459,30 @@ class LangChainLLMAdapter(LLMClientPort):
                     tools=tools,
                     tool_choice=tool_choice,
                 )
+
+                # LangSmith 토큰 추적 (run_tree 컨텍스트 내에서)
+                if is_langsmith_enabled() and response.usage:
+                    try:
+                        from langsmith.run_helpers import get_current_run_tree
+
+                        run_tree = get_current_run_tree()
+                        if run_tree:
+                            track_token_usage(
+                                run_tree=run_tree,
+                                model=model,
+                                input_tokens=response.usage.prompt_tokens,
+                                output_tokens=response.usage.completion_tokens,
+                            )
+                            logger.debug(
+                                "Function call token usage tracked",
+                                extra={
+                                    "model": model,
+                                    "input_tokens": response.usage.prompt_tokens,
+                                    "output_tokens": response.usage.completion_tokens,
+                                },
+                            )
+                    except ImportError:
+                        pass
 
                 # Function call 결과 확인
                 if response.choices[0].message.tool_calls:
