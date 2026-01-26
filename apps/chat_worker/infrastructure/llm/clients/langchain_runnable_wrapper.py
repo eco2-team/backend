@@ -151,6 +151,7 @@ class LangChainOpenAIRunnable(BaseChatModel):
         """비동기 생성 (전체 응답).
 
         LangGraph ainvoke에서 호출됨.
+        토큰 사용량이 llm_output에 포함되어 LangSmith에서 추적됨.
         """
         openai_messages = self._convert_messages(messages)
 
@@ -168,10 +169,27 @@ class LangChainOpenAIRunnable(BaseChatModel):
         response = await self._client.chat.completions.create(**create_params)
 
         content = response.choices[0].message.content or ""
-        message = AIMessage(content=content)
+
+        # 토큰 사용량 추출 (LangSmith 추적용)
+        token_usage = {}
+        if response.usage:
+            token_usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            }
+
+        message = AIMessage(
+            content=content,
+            response_metadata={
+                "model": self.model,
+                "token_usage": token_usage,
+            },
+        )
 
         return ChatResult(
             generations=[ChatGeneration(message=message)],
+            llm_output={"token_usage": token_usage, "model_name": self.model},
         )
 
     async def _astream(
@@ -185,6 +203,7 @@ class LangChainOpenAIRunnable(BaseChatModel):
 
         LangGraph stream_mode="messages"에서 이 메서드의 출력을 캡처.
         AIMessageChunk를 yield하면 LangGraph가 토큰 이벤트로 전달.
+        마지막 청크에 토큰 사용량 포함 (LangSmith 추적용).
 
         Args:
             messages: 입력 메시지 리스트
@@ -203,6 +222,8 @@ class LangChainOpenAIRunnable(BaseChatModel):
             "temperature": self.temperature,
             "stop": stop,
             "stream": True,
+            # 스트리밍에서 토큰 사용량 포함 (OpenAI API 지원)
+            "stream_options": {"include_usage": True},
         }
         if self.max_tokens is not None:
             create_params["max_tokens"] = self.max_tokens
@@ -210,6 +231,28 @@ class LangChainOpenAIRunnable(BaseChatModel):
         stream = await self._client.chat.completions.create(**create_params)
 
         async for chunk in stream:
+            # 마지막 청크에 usage 정보가 포함됨
+            if chunk.usage:
+                # 토큰 사용량을 마지막 청크의 메타데이터로 전달
+                token_usage = {
+                    "prompt_tokens": chunk.usage.prompt_tokens,
+                    "completion_tokens": chunk.usage.completion_tokens,
+                    "total_tokens": chunk.usage.total_tokens,
+                }
+                message_chunk = AIMessageChunk(
+                    content="",
+                    response_metadata={
+                        "model": self.model,
+                        "token_usage": token_usage,
+                    },
+                )
+                generation_chunk = ChatGenerationChunk(
+                    message=message_chunk,
+                    generation_info={"token_usage": token_usage},
+                )
+                yield generation_chunk
+                continue
+
             if chunk.choices and chunk.choices[0].delta.content:
                 content = chunk.choices[0].delta.content
 
