@@ -4,6 +4,7 @@
 
 [![Eco² Demo Video](https://img.youtube.com/vi/aFtb-oPv2Bo/maxresdefault.jpg)](https://youtu.be/aFtb-oPv2Bo)
 
+▶️ **[Watch Demo Video](https://youtu.be/aFtb-oPv2Bo)** | 서비스 시연 영상
 
 **Production-level AI Assistant** - LangGraph Multi-Agent + GPT Vision 기반, 9개 Intent 분류·**OpenAI Agents SDK Function Calling**·이미지 생성·폐기물 분류·챗봇 기능 제공
 
