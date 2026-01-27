@@ -48,86 +48,121 @@ Platform Layer           : ArgoCD, Istiod, KEDA, Prometheus, Grafana, Kiali, Jae
 
 ---
 
-
-## Services Snapshot
-
-| 서비스 | 설명 | 이미지/태그 |
-|--------|------|-------------|
-| auth | JWT 인증/인가 (RS256) | `docker.io/mng990/eco2:auth-{env}-latest` |
-| users | 사용자 정보 관리 (gRPC) | `docker.io/mng990/eco2:users-{env}-latest` |
-| scan | Lite RAG + GPT-5.2 Vision 폐기물 분류 | `docker.io/mng990/eco2:scan-{env}-latest` |
-| chat | **LangGraph Multi-Agent 챗봇** (10 Intents) | `docker.io/mng990/eco2:chat-{env}-latest` |
-| character | 캐릭터 제공 | `docker.io/mng990/eco2:character-{env}-latest` |
-| location | 지도/수거함 검색 | `docker.io/mng990/eco2:location-{env}-latest` |
-| info | 환경 뉴스 조회 | `docker.io/mng990/eco2:info-{env}-latest` |
-| images | 이미지 업로드 (gRPC) | `docker.io/mng990/eco2:images-{env}-latest` |
-
-### Celery Workers ✅
-
-| Worker | 노드 | 설명 | Queue | Scaling |
-|--------|------|------|-------|---------|
-| scan-worker | `worker-ai` | AI 파이프라인 처리 (Vision→Rule→Answer→Reward) | `scan.vision`, `scan.rule`, `scan.answer`, `scan.reward` | KEDA (RabbitMQ) |
-| character-match-worker | `worker-storage` | 캐릭터 매칭 처리 | `character.match` | KEDA (RabbitMQ) |
-| character-worker | `worker-storage` | 캐릭터 소유권 저장 (batch) | `character.reward` | KEDA (RabbitMQ) |
-| users-worker | `worker-storage` | 유저 캐릭터 소유권 PostgreSQL UPSERT | `users.character` | KEDA (RabbitMQ) |
-| info-worker | `worker-storage` | 환경 뉴스 수집 (Celery Beat) | `info.collect_news` | 단일 인스턴스 |
-| celery-beat | `worker-storage` | DLQ 재처리 스케줄링 | - | 단일 인스턴스 |
-
-### TaskIQ Workers (LangGraph) ✅
-
-| Worker | 노드 | 설명 | Exchange / Queue | Scaling |
-|--------|------|------|------------------|---------|
-| chat-worker | `worker-ai` | LangGraph Multi-Agent 실행 (10 Intents, timeout 120s, retry 2) | `chat_tasks` → `chat.process` | KEDA (RabbitMQ) |
-| checkpoint-syncer | `worker-storage` | Redis → PostgreSQL 체크포인트 배치 동기화 (5s interval) | - | 단일 인스턴스 |
-| chat-persistence-consumer | `worker-storage` | Redis Streams → PostgreSQL 메시지 저장 | - | 단일 인스턴스 |
-
-<details>
-<summary>📋 TaskIQ Worker 상세 설정</summary>
-
-```yaml
-# chat-worker 설정
-Exchange: chat_tasks (direct)
-Queue: chat.process (DLX, TTL 설정)
-Workers: 4 (concurrent)
-Max Async Tasks: 10
-Timeout: 120s
-Retry: 2회
-
-# 트레이싱
-- aio-pika Instrumentation (MQ 메시지 추적)
-- OpenAI/Gemini Instrumentation (LLM API 호출)
-- LangSmith OTEL (LangGraph → Jaeger 통합)
-```
-
-</details>
-
-### Token Blacklist Event Bus ✅
-
-> JWT 토큰 무효화를 위한 Redis-backed Outbox 패턴. 분산 환경에서 블랙리스트 이벤트의 **At-Least-Once 전달**을 보장합니다.
-
-| Worker | 노드 | 설명 | 입력 | 출력 |
-|--------|------|------|------|------|
-| auth-worker | `worker-storage` | 블랙리스트 이벤트 수신 → Redis KV 저장 | RabbitMQ `blacklist.events` | Redis `blacklist:{jti}` |
-| auth-Bus | `worker-storage` | Redis Outbox 폴링 → RabbitMQ 재발행 | Redis `outbox:blacklist` | RabbitMQ `blacklist.events` |
-
-### Event Bus Components ✅
-
-| Component | 설명 | Scaling |
-|-----------|------|---------|
-| event-router | Redis Streams → Pub/Sub Fan-out, State KV 관리 | KEDA (Streams Pending) |
-| sse-gateway | Pub/Sub 구독 → SSE 클라이언트 전달 | KEDA (연결 수) |
-
-각 도메인은 공통 FastAPI 템플릿·Dockerfile·테스트를 공유하고, Kustomize overlay에서 이미지 태그와 ConfigMap/Secret만 분기합니다.
-
----
-
 ## LLM Image Classification Pipeline (Scan API, Chat API 이미지 인식)
+
+> **Status**: Production Ready — VU 1000 부하 테스트 완료, **97.8% 성공률**
+
 ![ECA49AD6-EA0C-4957-8891-8C6FA12A2916](https://github.com/user-attachments/assets/52242701-3c5d-4cf3-9ab7-7c391215f17f)
 
-| 항목 | 진행 내용 (2026-01 기준) |
-|------|-------------------------|
-| Vision 인식 파이프라인 | `apps/scan_worker/`에서 **GPT-5.2 Vision**으로 폐기물 이미지 분류. `item_class_list.yaml`, `situation_tags.yaml`에 카테고리/상황 태그 정의. |
-| RAG/지식 베이스 | `apps/scan_worker/infrastructure/source/*.json`에 음식물/재활용 품목별 처리 지침 축적. Lite RAG 검색·요약. |
+### 1. End-to-End Flow (User → SSE)
+
+```mermaid
+flowchart LR
+    subgraph Client["👤 Client"]
+        CL["Browser/App"]
+    end
+
+    subgraph API["🌐 Scan API"]
+        SA["POST /api/v1/scan<br/>Dispatch Chain"]
+    end
+
+    subgraph MQ["📬 RabbitMQ"]
+        VQ[("scan.vision")]
+        RQ[("scan.rule")]
+        AQ[("scan.answer")]
+        WQ[("scan.reward")]
+    end
+
+    subgraph Workers["🔧 Celery Workers (gevent)"]
+        VW["Vision Worker<br/>GPT-5.2 Vision"]
+        RW["Rule Worker<br/>Lite RAG"]
+        AW["Answer Worker<br/>GPT-5.2-mini"]
+        WW["Reward Worker<br/>보상 판정"]
+    end
+
+    subgraph Streams["📊 Redis Streams"]
+        RS[("scan:events:{shard}<br/>(4 shards)")]
+    end
+
+    subgraph EventBus["🔀 Event Bus"]
+        ER["Event Router<br/>(XREADGROUP)"]
+        PS[("Pub/Sub<br/>sse:events:{hash}")]
+    end
+
+    subgraph SSE["🌐 SSE Gateway"]
+        SG["Pub/Sub Subscriber"]
+    end
+
+    CL -->|"POST /scan"| SA
+    SA -->|"Dispatch"| VQ
+    SA -.->|"202 Accepted + job_id"| CL
+
+    VQ --> VW
+    VW -->|"Chain"| RQ
+    RQ --> RW
+    RW -->|"Chain"| AQ
+    AQ --> AW
+    AW -->|"Chain"| WQ
+    WQ --> WW
+
+    VW & RW & AW & WW -->|"XADD stage"| RS
+    RS -->|"XREADGROUP"| ER
+    ER -->|"PUBLISH"| PS
+    PS -->|"SUBSCRIBE"| SG
+    SG -->|"SSE data:"| CL
+
+    classDef client fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef api fill:#b2dfdb,stroke:#00796b,stroke-width:2px,color:#000
+    classDef mq fill:#bbdefb,stroke:#1976d2,stroke-width:2px,color:#000
+    classDef worker fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#000
+    classDef streams fill:#ffccbc,stroke:#e64a19,stroke-width:2px,color:#000
+    classDef eventbus fill:#b3e5fc,stroke:#0288d1,stroke-width:2px,color:#000
+    classDef sse fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
+
+    class CL client
+    class SA api
+    class VQ,RQ,AQ,WQ mq
+    class VW,RW,AW,WW worker
+    class RS streams
+    class ER,PS eventbus
+    class SG sse
+```
+
+### 2. Pipeline Stages
+
+| Stage | Worker | 설명 | LLM |
+|-------|--------|------|-----|
+| **Vision** | scan-worker | 폐기물 이미지 분류 (`item_class_list.yaml` 86개 품목) | GPT-5.2 Vision |
+| **Rule** | scan-worker | Lite RAG 규정 검색 (`situation_tags.yaml` 80개 상황) | - |
+| **Answer** | scan-worker | 분리배출 가이드 생성 (18개 JSON 규정) | GPT-5.2-mini |
+| **Reward** | scan-worker | 캐릭터 보상 판정 + PostgreSQL Batch Insert | - |
+
+### 3. Event Bus Architecture
+
+| 컴포넌트 | 역할 | 스케일링 |
+|----------|------|---------|
+| **Redis Streams** | 이벤트 로그 (내구성), 4 shards 분산 | - |
+| **Event Router** | Streams → Pub/Sub Fan-out, Consumer Group | KEDA (Pending) |
+| **Redis Pub/Sub** | 실시간 Fan-out, `user_id` 해시 기반 채널 샤딩 (8 channels) | 전용 인스턴스 |
+| **SSE Gateway** | Pub/Sub → Client, State 복구 | KEDA (연결 수) |
+
+### 4. VU 500-1000 부하 테스트 결과
+
+> **OpenAI Tier 4**, KEDA minReplicas=2 / maxReplicas=5
+
+| VU | 요청 수 | 성공률 | Throughput | E2E P95 | 실패 | 상태 |
+|----|---------|--------|------------|---------|------|------|
+| 500 | 1,408 | 99.7% | 351.9 req/m | 108.3s | 4 | ✅ 안정 |
+| 600 | 1,408 | 99.7% | 351.9 req/m | 108.3s | 4 | ✅ 안정 |
+| 700 | 1,496 | 99.2% | 329.1 req/m | 122.3s | 11 | ✅ 안정 |
+| 800 | 1,386 | 99.7% | 367.3 req/m | 144.6s | 4 | ✅ 안정 |
+| **900** | **1,540** | **99.7%** | **405.5 req/m** | **149.6s** | **4** | ⭐ **권장 한계** |
+| 1000 | 1,518 | 97.8% | 373.4 req/m | 173.3s | 33 | ⚠️ Probe Timeout |
+
+**병목 분석**:
+- Celery Probe I/O-bound (LLM API 대기) 취약점 식별
+- OpenAI Tier 4 TPM 61% 사용 (여유)
+- Redis Pub/Sub 채널 샤딩으로 Hot Key 분산
 
 ---
 
@@ -360,6 +395,78 @@ flowchart LR
 | **checkpoint_syncer** | Redis → PG 비동기 배치 동기화 | PG 5 conn (단일 프로세스) |
 
 **개선 효과**: Worker PG 연결 192 → 8 (96% 감소), KEDA 10 pods 스케일링 시에도 45 conn 유지
+
+---
+
+## Services Snapshot
+
+| 서비스 | 설명 | 이미지/태그 |
+|--------|------|-------------|
+| auth | JWT 인증/인가 (RS256) | `docker.io/mng990/eco2:auth-{env}-latest` |
+| users | 사용자 정보 관리 (gRPC) | `docker.io/mng990/eco2:users-{env}-latest` |
+| scan | Lite RAG + GPT-5.2 Vision 폐기물 분류 | `docker.io/mng990/eco2:scan-{env}-latest` |
+| chat | **LangGraph Multi-Agent 챗봇** (10 Intents) | `docker.io/mng990/eco2:chat-{env}-latest` |
+| character | 캐릭터 제공 | `docker.io/mng990/eco2:character-{env}-latest` |
+| location | 지도/수거함 검색 | `docker.io/mng990/eco2:location-{env}-latest` |
+| info | 환경 뉴스 조회 | `docker.io/mng990/eco2:info-{env}-latest` |
+| images | 이미지 업로드 (gRPC) | `docker.io/mng990/eco2:images-{env}-latest` |
+
+### Celery Workers ✅
+
+| Worker | 노드 | 설명 | Queue | Scaling |
+|--------|------|------|-------|---------|
+| scan-worker | `worker-ai` | AI 파이프라인 처리 (Vision→Rule→Answer→Reward) | `scan.vision`, `scan.rule`, `scan.answer`, `scan.reward` | KEDA (RabbitMQ) |
+| character-match-worker | `worker-storage` | 캐릭터 매칭 처리 | `character.match` | KEDA (RabbitMQ) |
+| character-worker | `worker-storage` | 캐릭터 소유권 저장 (batch) | `character.reward` | KEDA (RabbitMQ) |
+| users-worker | `worker-storage` | 유저 캐릭터 소유권 PostgreSQL UPSERT | `users.character` | KEDA (RabbitMQ) |
+| info-worker | `worker-storage` | 환경 뉴스 수집 (Celery Beat) | `info.collect_news` | 단일 인스턴스 |
+| celery-beat | `worker-storage` | DLQ 재처리 스케줄링 | - | 단일 인스턴스 |
+
+### TaskIQ Workers (LangGraph) ✅
+
+| Worker | 노드 | 설명 | Exchange / Queue | Scaling |
+|--------|------|------|------------------|---------|
+| chat-worker | `worker-ai` | LangGraph Multi-Agent 실행 (10 Intents, timeout 120s, retry 2) | `chat_tasks` → `chat.process` | KEDA (RabbitMQ) |
+| checkpoint-syncer | `worker-storage` | Redis → PostgreSQL 체크포인트 배치 동기화 (5s interval) | - | 단일 인스턴스 |
+| chat-persistence-consumer | `worker-storage` | Redis Streams → PostgreSQL 메시지 저장 | - | 단일 인스턴스 |
+
+<details>
+<summary>📋 TaskIQ Worker 상세 설정</summary>
+
+```yaml
+# chat-worker 설정
+Exchange: chat_tasks (direct)
+Queue: chat.process (DLX, TTL 설정)
+Workers: 4 (concurrent)
+Max Async Tasks: 10
+Timeout: 120s
+Retry: 2회
+
+# 트레이싱
+- aio-pika Instrumentation (MQ 메시지 추적)
+- OpenAI/Gemini Instrumentation (LLM API 호출)
+- LangSmith OTEL (LangGraph → Jaeger 통합)
+```
+
+</details>
+
+### Token Blacklist Event Bus ✅
+
+> JWT 토큰 무효화를 위한 Redis-backed Outbox 패턴. 분산 환경에서 블랙리스트 이벤트의 **At-Least-Once 전달**을 보장합니다.
+
+| Worker | 노드 | 설명 | 입력 | 출력 |
+|--------|------|------|------|------|
+| auth-worker | `worker-storage` | 블랙리스트 이벤트 수신 → Redis KV 저장 | RabbitMQ `blacklist.events` | Redis `blacklist:{jti}` |
+| auth-Bus | `worker-storage` | Redis Outbox 폴링 → RabbitMQ 재발행 | Redis `outbox:blacklist` | RabbitMQ `blacklist.events` |
+
+### Event Bus Components ✅
+
+| Component | 설명 | Scaling |
+|-----------|------|---------|
+| event-router | Redis Streams → Pub/Sub Fan-out, State KV 관리 | KEDA (Streams Pending) |
+| sse-gateway | Pub/Sub 구독 → SSE 클라이언트 전달 | KEDA (연결 수) |
+
+각 도메인은 공통 FastAPI 템플릿·Dockerfile·테스트를 공유하고, Kustomize overlay에서 이미지 태그와 ConfigMap/Secret만 분기합니다.
 
 ---
 
