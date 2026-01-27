@@ -10,7 +10,7 @@
 - **Redis Streams + Pub/Sub + State KV** 기반 Event Bus Layer로 실시간 SSE 이벤트를 처리하고, **KEDA**로 이벤트 드리븐 오토스케일링을 수행합니다.
 - **RabbitMQ + TaskIQ/Celery** 비동기 Task Queue로 AI 파이프라인을 처리하고, **EFK + Jaeger + LangSmith**로 로깅·트레이싱을 수집합니다.
 - 8개 도메인 마이크로서비스(auth, users, scan, chat, character, location, info, images)를 모노레포로 관리합니다.
-- 정상 배포 중: [https://frontend.dev.growbin.app](https://frontend.dev.growbin.app)
+- Service: [https://frontend.dev.growbin.app](https://frontend.dev.growbin.app)
 
 ---
 
