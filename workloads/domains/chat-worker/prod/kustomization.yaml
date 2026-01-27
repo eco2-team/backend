@@ -7,4 +7,4 @@ commonLabels:
   environment: prod
 images:
 - name: docker.io/mng990/eco2
-  newTag: chat-worker-1.1.0-pre-4d0828
+  newTag: chat-worker-1.1.0-pre-34de49
