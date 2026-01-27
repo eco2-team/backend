@@ -9,14 +9,14 @@ resources:
 
 # Dev 환경: 낮은 스케일링 한계
 patches:
-# scan-worker: 최대 6개 (k8s-worker-ai + k8s-worker-ai-2 분산)
+# scan-worker: 최대 5개 (k8s-worker-ai + k8s-worker-ai-2 분산)
 - target:
     kind: ScaledObject
     name: scan-worker-scaledobject
   patch: |-
     - op: replace
       path: /spec/maxReplicaCount
-      value: 6
+      value: 5
     - op: replace
       path: /spec/minReplicaCount
       value: 2
