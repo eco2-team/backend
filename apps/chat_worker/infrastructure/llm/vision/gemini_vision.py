@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from chat_worker.application.ports.vision import VisionModelPort
 from chat_worker.infrastructure.assets.prompt_loader import load_prompt_file
+from chat_worker.infrastructure.telemetry import is_langsmith_enabled, track_token_usage
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,22 @@ class GeminiVisionClient(VisionModelPort):
                     "temperature": TEMPERATURE,
                 },
             )
+
+            # LangSmith 토큰 추적
+            if is_langsmith_enabled() and response.usage_metadata:
+                try:
+                    from langsmith.run_helpers import get_current_run_tree
+
+                    run_tree = get_current_run_tree()
+                    if run_tree:
+                        track_token_usage(
+                            run_tree=run_tree,
+                            model=self._model,
+                            input_tokens=response.usage_metadata.prompt_token_count or 0,
+                            output_tokens=response.usage_metadata.candidates_token_count or 0,
+                        )
+                except ImportError:
+                    pass
 
             # JSON 파싱
             parsed = VisionResult.model_validate_json(response.text)

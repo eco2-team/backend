@@ -37,6 +37,7 @@ from chat_worker.application.ports.image_generator import (
 from chat_worker.infrastructure.telemetry import (
     calculate_image_cost,
     is_langsmith_enabled,
+    track_token_usage,
 )
 
 logger = logging.getLogger(__name__)
@@ -302,6 +303,22 @@ class GeminiNativeImageGenerator(ImageGeneratorPort):
                     image_config=image_config,
                 ),
             )
+
+            # LangSmith 토큰 추적 (이미지 생성에도 프롬프트 토큰 사용)
+            if is_langsmith_enabled() and response.usage_metadata:
+                try:
+                    from langsmith.run_helpers import get_current_run_tree
+
+                    run_tree = get_current_run_tree()
+                    if run_tree:
+                        track_token_usage(
+                            run_tree=run_tree,
+                            model=self._model,
+                            input_tokens=response.usage_metadata.prompt_token_count or 0,
+                            output_tokens=response.usage_metadata.candidates_token_count or 0,
+                        )
+                except ImportError:
+                    pass
 
             # 응답 파싱
             image_bytes = None

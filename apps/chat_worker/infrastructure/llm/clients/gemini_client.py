@@ -142,9 +142,30 @@ class GeminiLLMClient(LLMClientPort):
             contents=user_content,
             config=config,
         )
+        # 마지막 청크에서 토큰 사용량 캡처
+        last_usage = None
         async for chunk in response:
             if chunk.text:
                 yield chunk.text
+            # usage_metadata는 마지막 청크에 포함
+            if chunk.usage_metadata:
+                last_usage = chunk.usage_metadata
+
+        # 스트리밍 완료 후 LangSmith에 토큰 사용량 보고
+        if is_langsmith_enabled() and last_usage:
+            try:
+                from langsmith.run_helpers import get_current_run_tree
+
+                run_tree = get_current_run_tree()
+                if run_tree:
+                    track_token_usage(
+                        run_tree=run_tree,
+                        model=self._model,
+                        input_tokens=last_usage.prompt_token_count or 0,
+                        output_tokens=last_usage.candidates_token_count or 0,
+                    )
+            except ImportError:
+                pass
 
     async def generate_with_tools(
         self,
@@ -185,9 +206,29 @@ class GeminiLLMClient(LLMClientPort):
                 contents=user_content,
                 config=config,
             )
+            # 마지막 청크에서 토큰 사용량 캡처
+            last_usage = None
             async for chunk in response:
                 if chunk.text:
                     yield chunk.text
+                if chunk.usage_metadata:
+                    last_usage = chunk.usage_metadata
+
+            # 스트리밍 완료 후 LangSmith에 토큰 사용량 보고
+            if is_langsmith_enabled() and last_usage:
+                try:
+                    from langsmith.run_helpers import get_current_run_tree
+
+                    run_tree = get_current_run_tree()
+                    if run_tree:
+                        track_token_usage(
+                            run_tree=run_tree,
+                            model=self._model,
+                            input_tokens=last_usage.prompt_token_count or 0,
+                            output_tokens=last_usage.candidates_token_count or 0,
+                        )
+                except ImportError:
+                    pass
         except Exception as e:
             logger.warning(f"generate_with_tools failed, falling back to plain: {e}")
             async for chunk in self.generate_stream(
@@ -261,6 +302,22 @@ class GeminiLLMClient(LLMClientPort):
             config=config,
         )
 
+        # LangSmith 토큰 추적
+        if is_langsmith_enabled() and response.usage_metadata:
+            try:
+                from langsmith.run_helpers import get_current_run_tree
+
+                run_tree = get_current_run_tree()
+                if run_tree:
+                    track_token_usage(
+                        run_tree=run_tree,
+                        model=self._model,
+                        input_tokens=response.usage_metadata.prompt_token_count or 0,
+                        output_tokens=response.usage_metadata.candidates_token_count or 0,
+                    )
+            except ImportError:
+                pass
+
         # Function call 결과 추출
         if response.candidates:
             for part in response.candidates[0].content.parts:
@@ -313,6 +370,23 @@ class GeminiLLMClient(LLMClientPort):
                 contents=user_content,
                 config=config,
             )
+
+            # LangSmith 토큰 추적
+            if is_langsmith_enabled() and response.usage_metadata:
+                try:
+                    from langsmith.run_helpers import get_current_run_tree
+
+                    run_tree = get_current_run_tree()
+                    if run_tree:
+                        track_token_usage(
+                            run_tree=run_tree,
+                            model=self._model,
+                            input_tokens=response.usage_metadata.prompt_token_count or 0,
+                            output_tokens=response.usage_metadata.candidates_token_count or 0,
+                        )
+                except ImportError:
+                    pass
+
             # 빈 응답 또는 공백만 있는 응답 처리
             content = (response.text or "").strip() or "{}"
 
