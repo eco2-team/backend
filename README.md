@@ -143,7 +143,7 @@ flowchart LR
 |----------|------|---------|
 | **Redis Streams** | 이벤트 로그 (내구성), 4 shards 분산 | - |
 | **Event Router** | Streams → Pub/Sub Fan-out, Consumer Group | KEDA (Pending) |
-| **Redis Pub/Sub** | 실시간 Fan-out, `user_id` 해시 기반 채널 샤딩 (8 channels) | 전용 인스턴스 |
+| **Redis Pub/Sub** | 실시간 Fan-out, `job_id` 해시 기반 채널 샤딩 (4 channels) | 전용 인스턴스 |
 | **SSE Gateway** | Pub/Sub → Client, State 복구 | KEDA (연결 수) |
 
 ### 4. VU 500-1000 부하 테스트 결과
@@ -306,7 +306,7 @@ flowchart LR
 | **Event Router** | Streams → Pub/Sub Fan-out, State 갱신, 멱등성 보장 | KEDA (Pending 메시지) |
 | **SSE Gateway** | Pub/Sub → Client, State 복구, Streams Catch-up | KEDA (연결 수) |
 | **Redis Streams** | 이벤트 로그 (내구성), Consumer Group 지원 | 샤딩 (4 shards) |
-| **Redis Pub/Sub** | 실시간 Fan-out, **user_id 해시 기반 채널 샤딩** | 전용 인스턴스 |
+| **Redis Pub/Sub** | 실시간 Fan-out, `job_id` 해시 기반 채널 샤딩 (4 channels) | 전용 인스턴스 |
 | **State KV** | 최신 상태 스냅샷, 재접속 복구 | Streams Redis 공유 |
 
 ### Intent Classification
@@ -734,7 +734,7 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 ## Release Summary (v1.0.8 - v1.1.1)
 
 - **Redis Pub/Sub 채널 샤딩 & 부하 테스트 VU 1000** ✅ **(New!)**
-  - **user_id 해시 기반 채널 샤딩**: `sse:events:{user_id}` → `sse:events:{hash(user_id) % 8}` Hot Key 분산
+  - **job_id 해시 기반 채널 샤딩**: `sse:events:{job_id}` → `sse:events:{hash(job_id) % 4}` Hot Key 분산
   - **KEDA ScaledObject 최적화**: minReplicas 1→2 (Cold Start 방지), maxReplicas 3→5
   - **VU 500-1000 부하 테스트 완료**: VU 900까지 99.7% 성공률, VU 1000에서 97.8% 달성
   - **병목 분석**: Celery Probe I/O-bound(LLM API) 취약점 식별, OpenAI Tier 4 TPM 61% 사용 (여유)
@@ -792,7 +792,7 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 | 1000 | 1,518 | 97.8% | 373.4 req/m | 173.3s | 33 | ⚠️ Probe Timeout |
 
 **개선 사항 (v1.1.1)**:
-- Redis Pub/Sub 채널 샤딩 (`user_id` 해시 기반) → Hot Key 분산
+- Redis Pub/Sub 채널 샤딩 (`job_id` 해시 기반) → Hot Key 분산
 - KEDA ScaledObject 조정: minReplicas 1→2, maxReplicas 3→5
 - Cold Start 방지로 실패율 37.7% 감소 (VU 1000 기준 53건→33건)
 
@@ -828,7 +828,7 @@ ArgoCD App-of-Apps 패턴 기반 GitOps. 모든 리소스는 `sync-wave`로 의�
 ## Status
 
 ### v1.1.1 - Redis Pub/Sub Sharding & VU 1000 Load Test ⭐ Latest
-- ✅ **Redis Pub/Sub 채널 샤딩**: user_id 해시 기반 Hot Key 분산
+- ✅ **Redis Pub/Sub 채널 샤딩**: job_id 해시 기반 Hot Key 분산 (4 shards)
 - ✅ **KEDA ScaledObject 최적화**: minReplicas 2, maxReplicas 5 (Cold Start 방지)
 - ✅ **VU 500-1000 부하 테스트 완료**: VU 900까지 99.7% 성공률
 - ✅ **병목 분석 완료**: Celery Probe I/O-bound 취약점 식별
