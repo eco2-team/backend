@@ -225,6 +225,23 @@ class CalibrationMonitorService:
 
         return result
 
+    async def recalibrate(self) -> dict[str, Any]:
+        """재교정 실행 (stub).
+
+        HITL 인프라 구축 전까지 경고 로그만 남기고
+        stub 결과를 반환합니다.
+
+        실제 구현은 Phase 4+에서:
+        - Calibration Set 재채점
+        - Baseline 갱신
+        - Version bump
+
+        Returns:
+            {"status": "RECALIBRATING", "action": "stub_logged"}
+        """
+        logger.warning("recalibrate() called — stub only, HITL infra not yet available")
+        return {"status": STATUS_RECALIBRATING, "action": "stub_logged"}
+
     @staticmethod
     def _compute_cusum(scores: list[float]) -> tuple[float, float]:
         """CUSUM 양방향 누적합 산출.

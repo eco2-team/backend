@@ -1,0 +1,119 @@
+{
+  "version": "v1.0-2026-02-10",
+  "description": "Initial calibration set for Chat Eval Pipeline (intent-stratified, manually curated)",
+  "min_kappa": 0.6,
+  "samples": [
+    {
+      "query": "페트병 분리배출 방법 알려줘",
+      "intent": "waste",
+      "context": "페트병은 내용물을 비우고 라벨을 제거한 후 압착하여 투명 페트병 전용 수거함에 배출합니다.",
+      "reference_answer": "페트병 분리배출 방법을 안내드릴게요.\n\n1. 내용물을 깨끗이 비워주세요\n2. 라벨(비닐)을 제거해 주세요\n3. 뚜껑을 분리해 주세요\n4. 납작하게 압착한 후 투명 페트 전용 수거함에 배출해 주세요\n\n주의: 유색 페트병은 플라스틱류로 별도 배출합니다.",
+      "human_scores": {
+        "faithfulness": 5,
+        "relevance": 5,
+        "completeness": 5,
+        "safety": 5,
+        "communication": 4
+      },
+      "annotator_agreement": 0.85
+    },
+    {
+      "query": "형광등 어떻게 버려?",
+      "intent": "waste",
+      "context": "형광등은 유해폐기물로 분류되며, 깨지지 않도록 전용 수거함에 배출합니다.",
+      "reference_answer": "형광등은 유해폐기물이에요.\n\n배출 방법:\n- 깨지지 않도록 조심히 전용 수거함에 넣어주세요\n- 아파트: 단지 내 폐형광등 수거함\n- 단독주택: 동주민센터 또는 폐형광등 수거함\n\n주의: 깨진 형광등은 종량제 봉투에 넣고 '유해폐기물' 표시 후 배출합니다.",
+      "human_scores": {
+        "faithfulness": 5,
+        "relevance": 5,
+        "completeness": 4,
+        "safety": 5,
+        "communication": 5
+      },
+      "annotator_agreement": 0.78
+    },
+    {
+      "query": "우리 동네 대형폐기물 신청하려면 어떻게 해?",
+      "intent": "bulk_waste",
+      "context": "대형폐기물은 관할 구청 또는 온라인으로 배출 신청 후 수수료를 납부하고 지정 장소에 배출합니다.",
+      "reference_answer": "대형폐기물 배출 신청 방법이에요.\n\n1. 관할 구청 홈페이지 또는 앱에서 신청\n2. 품목과 크기를 선택하면 수수료가 안내됩니다\n3. 수수료 납부 후 스티커를 부착하세요\n4. 지정된 날짜에 문 앞 또는 지정 장소에 배출하세요\n\n수수료는 품목과 크기에 따라 1,000원~10,000원 정도입니다.",
+      "human_scores": {
+        "faithfulness": 4,
+        "relevance": 5,
+        "completeness": 4,
+        "safety": 5,
+        "communication": 5
+      },
+      "annotator_agreement": 0.72
+    },
+    {
+      "query": "근처에 재활용 수거함이 어디 있어?",
+      "intent": "collection_point",
+      "context": "재활용 수거함은 아파트 단지, 동주민센터, 대형마트 등에 설치되어 있습니다.",
+      "reference_answer": "재활용 수거함 위치를 찾는 방법이에요.\n\n일반적으로 다음 장소에 있어요:\n- 아파트 단지 내 분리수거장\n- 동주민센터\n- 대형마트 입구\n\n정확한 위치를 안내해 드리려면 현재 위치(동 이름)를 알려주시겠어요?",
+      "human_scores": {
+        "faithfulness": 4,
+        "relevance": 4,
+        "completeness": 3,
+        "safety": 5,
+        "communication": 5
+      },
+      "annotator_agreement": 0.68
+    },
+    {
+      "query": "안녕하세요!",
+      "intent": "general",
+      "context": "",
+      "reference_answer": "안녕하세요! 분리배출 도우미 에코에코입니다 🌿\n\n분리배출 방법이나 재활용 관련 궁금한 점이 있으시면 물어봐 주세요!",
+      "human_scores": {
+        "faithfulness": 5,
+        "relevance": 5,
+        "completeness": 5,
+        "safety": 5,
+        "communication": 5
+      },
+      "annotator_agreement": 0.92
+    },
+    {
+      "query": "비닐은 어떻게 분리배출 하나요?",
+      "intent": "waste",
+      "context": "비닐류는 이물질을 제거하고 투명/불투명 구분 없이 비닐류 전용 수거함에 배출합니다.",
+      "reference_answer": "비닐 분리배출 방법을 알려드릴게요.\n\n1. 내용물을 비우고 이물질을 제거해 주세요\n2. 물로 간단히 헹궈주세요\n3. 비닐류 전용 수거함에 배출하세요\n\n참고:\n- 과자봉지, 라면봉지, 택배 비닐 등 모두 비닐류\n- 오염이 심한 비닐은 종량제 봉투에 배출합니다",
+      "human_scores": {
+        "faithfulness": 5,
+        "relevance": 5,
+        "completeness": 4,
+        "safety": 5,
+        "communication": 5
+      },
+      "annotator_agreement": 0.80
+    },
+    {
+      "query": "오늘 날씨가 어때요?",
+      "intent": "weather",
+      "context": "",
+      "reference_answer": "현재 날씨 정보를 확인해 볼게요.\n\n날씨에 따라 분리배출 팁도 달라지니 참고해 주세요:\n- 비 오는 날: 종이류는 젖지 않게 보관 후 맑은 날 배출\n- 겨울철: 음식물 쓰레기가 얼 수 있으니 배출 시간을 확인하세요",
+      "human_scores": {
+        "faithfulness": 4,
+        "relevance": 4,
+        "completeness": 3,
+        "safety": 5,
+        "communication": 4
+      },
+      "annotator_agreement": 0.65
+    },
+    {
+      "query": "캐릭터 보여줘",
+      "intent": "character",
+      "context": "",
+      "reference_answer": "에코에코 캐릭터를 소개할게요!\n\n저는 분리배출을 도와주는 AI 도우미 에코에코에요. 재활용과 환경 보호에 관심이 많답니다. 분리배출 방법이 궁금하시면 언제든 물어봐 주세요!",
+      "human_scores": {
+        "faithfulness": 5,
+        "relevance": 5,
+        "completeness": 4,
+        "safety": 5,
+        "communication": 5
+      },
+      "annotator_agreement": 0.75
+    }
+  ]
+}

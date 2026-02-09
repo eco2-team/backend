@@ -237,6 +237,7 @@ def create_chat_graph(
     llm_grader: "LLMGraderService | None" = None,
     score_aggregator: "ScoreAggregatorService | None" = None,
     calibration_monitor: "CalibrationMonitorService | None" = None,
+    eval_counter: Any | None = None,
 ) -> StateGraph:
     """Chat 파이프라인 그래프 생성.
 
@@ -663,6 +664,7 @@ def create_chat_graph(
             llm_grader=llm_grader,
             score_aggregator=score_aggregator,
             calibration_monitor=calibration_monitor,
+            eval_counter=eval_counter,
         )
         graph.add_node("eval", eval_subgraph)
         graph.add_edge("answer", "eval")
