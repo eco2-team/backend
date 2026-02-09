@@ -344,6 +344,31 @@ class ChatState(TypedDict, total=False):
     needs_location: bool
     """위치 정보 필요 여부."""
 
+    # ==================== Layer 8: Evaluation ====================
+    # Eval Pipeline 결과 (eval writes once per turn, reducer 불필요)
+    # See: docs/plans/chat-eval-pipeline-plan.md §2.6
+
+    eval_result: dict[str, Any] | None
+    """Eval Pipeline 전체 결과 (EvalResult.to_dict())."""
+
+    eval_grade: str | None
+    """평가 등급 (EvalGrade.value: S/A/B/C)."""
+
+    eval_continuous_score: float | None
+    """연속 점수 (0-100). 정보 손실 최소화를 위한 비이산 점수."""
+
+    eval_needs_regeneration: bool
+    """재생성 필요 여부 (C등급 시 True)."""
+
+    eval_retry_count: int
+    """재생성 카운터 (무한루프 방지, 최대 1회)."""
+
+    eval_improvement_hints: list[str]
+    """재생성 시 answer_node에 전달할 개선 가이드."""
+
+    _prev_eval_score: float | None
+    """이전 턴의 eval 점수 (Calibration Drift 추적용)."""
+
 
 class LLMInputState(TypedDict):
     """LLM 입력용 압축된 상태.

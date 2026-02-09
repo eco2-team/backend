@@ -69,6 +69,9 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+    "eval_unit: Eval unit tests (fast, no external deps)",
+    "eval_regression: Eval regression tests (CI gate, requires LLM API)",
+    "eval_capability: Eval capability tests (nightly schedule, full pipeline)",
 ]
 
 [tool.coverage.run]

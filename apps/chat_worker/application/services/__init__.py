@@ -81,6 +81,15 @@ from chat_worker.application.services.recyclable_price_service import (
     RecyclablePriceService,
 )
 
+# Eval
+from chat_worker.application.services.eval import (
+    CalibrationMonitorService,
+    CodeGraderResult,
+    CodeGraderService,
+    LLMGraderService,
+    ScoreAggregatorService,
+)
+
 # Progress Tracker (동적 라우팅용)
 from chat_worker.application.services.progress_tracker import (
     DynamicProgressTracker,
@@ -118,6 +127,12 @@ __all__ = [
     "BulkWasteService",
     # RecyclablePrice
     "RecyclablePriceService",
+    # Eval
+    "CalibrationMonitorService",
+    "CodeGraderService",
+    "CodeGraderResult",
+    "LLMGraderService",
+    "ScoreAggregatorService",
     # Progress Tracker
     "DynamicProgressTracker",
     "PHASE_PROGRESS",
