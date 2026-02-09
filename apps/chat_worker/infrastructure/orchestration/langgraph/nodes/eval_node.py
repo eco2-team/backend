@@ -22,14 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 def _should_calibrate(state: dict[str, Any], eval_config: EvalConfig) -> bool:
-    """Calibration 실행 여부 판단.
+    """Calibration 실행 여부 판단 (fallback).
 
-    eval_cusum_check_interval 주기마다 Calibration Check를 실행합니다.
-    현재는 eval_retry_count 기반 단순 판단 (향후 global request counter로 전환).
-
-    TODO(#calibration-trigger): global request counter 기반으로 전환 예정.
-    현재 stopgap: eval_retry_count를 interval로 나눠 주기 판단.
-    실제 request counter는 Redis INCR 등으로 구현 필요.
+    eval_counter가 주입되지 않았을 때의 stopgap fallback.
+    eval_retry_count 기반 단순 판단.
 
     Args:
         state: 현재 상태
@@ -41,7 +37,7 @@ def _should_calibrate(state: dict[str, Any], eval_config: EvalConfig) -> bool:
     interval = eval_config.eval_cusum_check_interval
     if interval <= 0:
         return False
-    # stopgap: retry_count 기반 주기 판단 (global counter 미구현 시 fallback)
+    # stopgap: retry_count 기반 주기 판단 (eval_counter 미주입 시 fallback)
     retry_count = state.get("eval_retry_count", 0)
     return retry_count > 0 and (retry_count % interval) == 0
 
@@ -73,7 +69,7 @@ def _make_failed_eval_result(reason: str) -> dict[str, Any]:
     }
 
 
-def create_eval_entry_node(eval_config: EvalConfig):
+def create_eval_entry_node(eval_config: EvalConfig, eval_counter=None):
     """Eval entry 노드 팩토리.
 
     서브그래프 entry point. 부모 ChatState에서 EvalState로 필드 매핑.
@@ -87,6 +83,7 @@ def create_eval_entry_node(eval_config: EvalConfig):
 
     Args:
         eval_config: Eval Pipeline 설정
+        eval_counter: RedisEvalCounter (None이면 stopgap fallback)
 
     Returns:
         eval_entry 노드 함수
@@ -102,6 +99,29 @@ def create_eval_entry_node(eval_config: EvalConfig):
             EvalState 필드가 매핑된 dict
         """
         try:
+            # Calibration 실행 여부: eval_counter 우선, 없으면 stopgap
+            if eval_counter is not None:
+                try:
+                    _count, should_calibrate = await eval_counter.increment_and_check()
+                except Exception as e:
+                    logger.warning("eval_counter failed, falling back to stopgap: %s", e)
+                    should_calibrate = _should_calibrate(state, eval_config)
+            else:
+                should_calibrate = _should_calibrate(state, eval_config)
+
+            retry_count = state.get("eval_retry_count", 0)
+
+            logger.info(
+                "eval_entry: state mapped",
+                extra={
+                    "intent": state.get("intent"),
+                    "answer_len": len(state.get("answer", "")),
+                    "should_calibrate": should_calibrate,
+                    "eval_retry_count": retry_count,
+                    "has_counter": eval_counter is not None,
+                },
+            )
+
             return {
                 # ChatState → EvalState 필드 매핑
                 "query": state.get("message", ""),
@@ -112,8 +132,8 @@ def create_eval_entry_node(eval_config: EvalConfig):
                 "feedback_result": state.get("rag_feedback"),
                 # Config injection
                 "llm_grader_enabled": eval_config.eval_llm_grader_enabled,
-                "should_run_calibration": _should_calibrate(state, eval_config),
-                "eval_retry_count": state.get("eval_retry_count", 0),
+                "should_run_calibration": should_calibrate,
+                "eval_retry_count": retry_count,
                 "_prev_eval_score": state.get("eval_continuous_score"),
             }
 

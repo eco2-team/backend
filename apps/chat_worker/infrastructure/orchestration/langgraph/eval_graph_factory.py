@@ -230,6 +230,15 @@ def _create_code_grader_node(code_grader: "CodeGraderService"):
                 intent=state.get("intent", ""),
                 query=state.get("query", ""),
             )
+            passed_count = sum(1 for v in result.passed.values() if v)
+            total_count = len(result.passed)
+            logger.info(
+                "code_grader completed",
+                extra={
+                    "overall_score": result.overall_score,
+                    "passed": f"{passed_count}/{total_count}",
+                },
+            )
             return {
                 "code_grader_result": {
                     **result.to_dict(),
@@ -280,6 +289,7 @@ def _create_llm_grader_node(llm_grader: "LLMGraderService"):
             )
 
             if not axis_scores:
+                logger.warning("llm_grader returned empty scores")
                 return {
                     "llm_grader_result": {
                         "success": False,
@@ -288,6 +298,16 @@ def _create_llm_grader_node(llm_grader: "LLMGraderService"):
                         "axis_scores": {},
                     },
                 }
+
+            avg_score = sum(s.score for s in axis_scores.values()) / len(axis_scores)
+            logger.info(
+                "llm_grader completed",
+                extra={
+                    "axes_count": len(axis_scores),
+                    "bars_avg": round(avg_score, 2),
+                    "axis_summary": {a: s.score for a, s in axis_scores.items()},
+                },
+            )
 
             return {
                 "llm_grader_result": {
@@ -424,6 +444,17 @@ def _create_eval_aggregator_node(
                             f"[L2] {axis}: score={score.score}, " f"reason={score.reasoning}"
                         )
 
+            logger.info(
+                "eval_aggregator completed",
+                extra={
+                    "grade": eval_result.grade,
+                    "continuous_score": eval_result.continuous_score,
+                    "elapsed_ms": elapsed_ms,
+                    "has_llm_scores": llm_scores is not None,
+                    "hint_count": len(hints),
+                },
+            )
+
             return {
                 "eval_result": eval_result.to_dict(),
                 "eval_grade": eval_result.grade,
@@ -462,11 +493,15 @@ def _create_eval_decision_node(eval_config: EvalConfig):
 
         needs_regen = grade == "C" and retry_count < 1 and eval_config.eval_regeneration_enabled
 
-        if needs_regen:
-            logger.info(
-                "Eval decision: regeneration triggered",
-                extra={"grade": grade, "retry_count": retry_count},
-            )
+        logger.info(
+            "eval_decision completed",
+            extra={
+                "grade": grade,
+                "retry_count": retry_count,
+                "needs_regeneration": needs_regen,
+                "regeneration_enabled": eval_config.eval_regeneration_enabled,
+            },
+        )
 
         return {
             "eval_needs_regeneration": needs_regen,
@@ -487,6 +522,7 @@ def create_eval_subgraph(
     llm_grader: "LLMGraderService | None" = None,
     score_aggregator: "ScoreAggregatorService | None" = None,
     calibration_monitor: "CalibrationMonitorService | None" = None,
+    eval_counter: "Any | None" = None,
 ) -> "CompiledStateGraph":
     """Eval Pipeline 서브그래프 생성.
 
@@ -503,6 +539,7 @@ def create_eval_subgraph(
         llm_grader: L2 LLM Grader 서비스
         score_aggregator: 다층 결과 통합 서비스
         calibration_monitor: L3 Calibration Monitor 서비스
+        eval_counter: RedisEvalCounter (None이면 stopgap fallback)
 
     Returns:
         컴파일된 Eval 서브그래프
@@ -510,7 +547,7 @@ def create_eval_subgraph(
     eval_graph = StateGraph(EvalState)
 
     # Entry 노드: ChatState → EvalState 변환
-    eval_entry = create_eval_entry_node(eval_config)
+    eval_entry = create_eval_entry_node(eval_config, eval_counter=eval_counter)
     eval_graph.add_node("eval_entry", eval_entry)
 
     # L1 Code Grader 노드

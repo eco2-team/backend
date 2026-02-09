@@ -6,6 +6,7 @@ import pytest
 
 from chat_worker.application.services.progress_tracker import (
     DynamicProgressTracker,
+    NODE_TO_PHASE,
     PHASE_PROGRESS,
     SUBAGENT_NODES,
     get_node_message,
@@ -98,7 +99,7 @@ class TestDynamicProgressTracker:
     def test_calculate_progress_answer(self, tracker: DynamicProgressTracker):
         """answer Phase Progress."""
         assert tracker.calculate_progress("answer", "started") == 75
-        assert tracker.calculate_progress("answer", "completed") == 95
+        assert tracker.calculate_progress("answer", "completed") == 90
 
     def test_calculate_progress_done(self, tracker: DynamicProgressTracker):
         """done Phase Progress."""
@@ -279,3 +280,50 @@ class TestGetNodeMessage:
         """알 수 없는 노드는 기본 포맷 반환."""
         msg = get_node_message("unknown_node", "started")
         assert msg == "unknown_node started"
+
+
+class TestEvalNodeProgress:
+    """Phase 4: eval 노드 Progress 관련 테스트."""
+
+    def test_eval_phase_exists(self):
+        """eval Phase가 PHASE_PROGRESS에 정의되어 있어야 함."""
+        assert "eval" in PHASE_PROGRESS
+
+    def test_eval_phase_progress_range(self):
+        """eval Phase의 진행률 범위가 올바른지 검증."""
+        eval_phase = PHASE_PROGRESS["eval"]
+        assert eval_phase.start == 90
+        assert eval_phase.end == 98
+
+    def test_eval_node_to_phase_mapping(self):
+        """eval 노드가 NODE_TO_PHASE에 매핑되어 있어야 함."""
+        assert "eval" in NODE_TO_PHASE
+        assert NODE_TO_PHASE["eval"] == "eval"
+
+    def test_eval_node_message_exists(self):
+        """eval 노드의 UI 메시지가 정의되어 있어야 함."""
+        started_msg = get_node_message("eval", "started")
+        completed_msg = get_node_message("eval", "completed")
+
+        assert "평가" in started_msg
+        assert "완료" in completed_msg
+
+    def test_eval_after_answer_before_done(self):
+        """eval Phase가 answer와 done 사이에 있어야 함."""
+        answer_end = PHASE_PROGRESS["answer"].end
+        eval_start = PHASE_PROGRESS["eval"].start
+        eval_end = PHASE_PROGRESS["eval"].end
+        done_start = PHASE_PROGRESS["done"].start
+
+        assert answer_end <= eval_start
+        assert eval_end < done_start
+
+    def test_eval_progress_calculation(self):
+        """eval Phase의 Progress 계산이 올바른지 검증."""
+        tracker = DynamicProgressTracker()
+        assert tracker.calculate_progress("eval", "started") == 90
+        assert tracker.calculate_progress("eval", "completed") == 98
+
+    def test_answer_phase_updated(self):
+        """answer Phase의 end가 90으로 변경되었는지 검증."""
+        assert PHASE_PROGRESS["answer"].end == 90

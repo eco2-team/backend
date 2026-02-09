@@ -2,8 +2,8 @@
 
 > **작성일**: 2026-02-10
 > **Author**: Claude Opus 4.6
-> **대상**: `apps/chat_worker/` — Eval Pipeline Phase 1+2
-> **상태**: ✅ 구현 완료 + 전문가 리뷰 통과 (97.1/100)
+> **대상**: `apps/chat_worker/` — Eval Pipeline Phase 1+2+3+4
+> **상태**: ✅ Phase 4 구현 완료 (PG pool DI + SSE eval stage + 165 tests ALL PASS)
 > **설계안**: `docs/plans/chat-eval-pipeline-plan.md` (v2.2)
 > **PR**: https://github.com/eco2-team/backend/pull/545
 > **Branch**: `feat/chat-eval-pipeline` → `develop`
@@ -45,10 +45,10 @@ L3 Calibration ──→ CUSUM 통계적 드리프트 감지 (주기적)
 
 | 항목 | 수치 |
 |------|------|
-| 구현 소스 파일 | 24개 |
+| 구현 소스 파일 | 36개 (Phase 1+2: 24 + Phase 3: 11 + Phase 4: 1) |
 | BARS 루브릭 프롬프트 | 6개 |
-| 단위 테스트 | 108개 (전수 통과) |
-| 총 코드 규모 | ~4,000줄 |
+| 테스트 | 165개 (단위 148 + 통합 17, 전수 통과) |
+| 총 코드 규모 | ~6,000줄 |
 | 설계 리뷰 점수 (R5) | 99.8 / 100 |
 | 구현 리뷰 점수 (R2) | 97.1 / 100 |
 
@@ -176,6 +176,14 @@ LangGraph `Send` API로 L1/L2/L3를 **병렬 팬아웃** 실행합니다.
 | BARS Prompts (6개) | `infrastructure/assets/prompts/evaluation/` | 루브릭 앵커 텍스트 |
 | `eval_node.py` | `infrastructure/orchestration/langgraph/nodes/` | ChatState→EvalState 매핑 |
 | `eval_graph_factory.py` | `infrastructure/orchestration/langgraph/` | 서브그래프 빌더 |
+| `RedisEvalCounter` | `infrastructure/persistence/eval/redis_eval_counter.py` | Redis INCR 글로벌 요청 카운터 (Phase 3) |
+| `RedisEvalResultAdapter` | `infrastructure/persistence/eval/redis_eval_result_adapter.py` | Redis L2 Hot Storage (Phase 3) |
+| `PostgresEvalResultAdapter` | `infrastructure/persistence/eval/postgres_eval_result_adapter.py` | PostgreSQL L3 Cold Storage (Phase 3) |
+| `CompositeEvalCommandGateway` | `infrastructure/persistence/eval/composite_eval_gateway.py` | Redis+PG 동시 저장, PG non-blocking (Phase 3) |
+| `CompositeEvalQueryGateway` | `infrastructure/persistence/eval/composite_eval_gateway.py` | Redis-first, PG fallback (Phase 3) |
+| `JsonCalibrationDataAdapter` | `infrastructure/persistence/eval/json_calibration_adapter.py` | JSON Calibration Set 로더 + 메모리 캐시 (Phase 3) |
+| Calibration Fixture | `infrastructure/assets/data/calibration_set.json` | 8 샘플 × 6 Intent, v1.0 (Phase 3) |
+| V005 Migration | `migrations/V005__create_eval_schema.sql` | chat.eval_results + chat.calibration_drift_log (Phase 3) |
 
 ---
 
@@ -363,7 +371,7 @@ B등급(55-74)은 재생성을 트리거하지 않으므로, 평가 실패 시 �
 
 | 설정 | 기본값 | 역할 |
 |------|--------|------|
-| `enable_eval_pipeline` | `False` | Eval Pipeline 활성화 여부 |
+| `enable_eval_pipeline` | `True` | Eval Pipeline 활성화 여부 (Phase 4에서 True로 변경) |
 | `eval_mode` | `"async"` | 실행 모드 (sync/async/shadow) |
 | `eval_sample_rate` | `1.0` | 평가 샘플링 비율 (0.0-1.0) |
 | `eval_llm_grader_enabled` | `True` | L2 LLM Grader 활성화 |
@@ -380,6 +388,9 @@ B등급(55-74)은 재생성을 트리거하지 않으므로, 평가 실패 시 �
 ## 7. 파일 구조
 
 ```
+migrations/
+└── V005__create_eval_schema.sql             # ★ Phase 3 신규
+
 apps/chat_worker/
 │
 ├── domain/
@@ -407,7 +418,7 @@ apps/chat_worker/
 │   │   ├── code_grader.py                   # L1 Code Grader             498줄 ★
 │   │   ├── llm_grader.py                    # L2 LLM Grader              203줄
 │   │   ├── score_aggregator.py              # Score Aggregator            179줄
-│   │   └── calibration_monitor.py           # L3 Calibration             274줄
+│   │   └── calibration_monitor.py           # L3 Calibration             291줄
 │   └── commands/
 │       └── evaluate_response_command.py     # 3-Tier Orchestrator         305줄
 │
@@ -422,11 +433,25 @@ apps/chat_worker/
 │   │   ├── bars_completeness.txt            # Completeness 앵커           29줄
 │   │   ├── bars_safety.txt                  # Safety 앵커                 30줄
 │   │   └── bars_communication.txt           # Communication 앵커          29줄
+│   ├── persistence/                         # ★ Phase 3 신규
+│   │   └── eval/
+│   │       ├── __init__.py                    # 패키지 exports
+│   │       ├── redis_eval_counter.py          # Global Request Counter     79줄
+│   │       ├── redis_eval_result_adapter.py   # Redis L2 Hot Storage      115줄
+│   │       ├── postgres_eval_result_adapter.py # PostgreSQL L3 Cold       119줄
+│   │       ├── composite_eval_gateway.py      # Composite Gateway         140줄
+│   │       └── json_calibration_adapter.py    # JSON Calibration Loader   114줄
+│   ├── assets/data/
+│   │   └── calibration_set.json             # Calibration Fixture (8샘플) 325줄
 │   └── orchestration/langgraph/
 │       ├── nodes/eval_node.py               # Entry Adapter              135줄
 │       └── eval_graph_factory.py            # Subgraph Builder           633줄 ★
 │
-└── tests/unit/                              # 13개 파일, 108개 테스트
+├── setup/                                   # ★ Phase 3+4 수정
+│   ├── config.py                            # +14 eval 환경변수 필드 (Phase 4: PG DSN 추가)
+│   └── dependencies.py                      # +8 eval 팩토리 함수 (Phase 4: PG pool DI)
+│
+├── tests/unit/                              # 17개 파일, 148개 테스트
     ├── domain/
     │   ├── enums/test_eval_grade.py                          14 tests
     │   ├── services/test_eval_scoring.py                      9 tests
@@ -443,9 +468,17 @@ apps/chat_worker/
     │       └── test_calibration_monitor.py                    6 tests
     └── infrastructure/
         ├── llm/evaluators/test_bars_evaluator.py              6 tests
-        └── orchestration/langgraph/
-            ├── nodes/test_eval_node.py                        5 tests
-            └── test_eval_subgraph_keys.py                     5 tests
+        ├── orchestration/langgraph/
+        │   ├── nodes/test_eval_node.py                        5 tests
+        │   └── test_eval_subgraph_keys.py                     5 tests
+        └── persistence/eval/                    # ★ Phase 3 신규
+            ├── test_redis_eval_counter.py                     9 tests
+            ├── test_redis_eval_result_adapter.py              8 tests
+            ├── test_composite_eval_gateway.py                15 tests
+            └── test_json_calibration_adapter.py               8 tests
+│
+└── tests/integration/eval/                  # ★ Phase 3 신규, 12개 테스트
+    └── test_eval_wiring.py                    # DI wiring + counter + recalibrate stub
 ```
 
 ---
@@ -455,9 +488,16 @@ apps/chat_worker/
 ### 8.1 pytest 실행 결과
 
 ```
+# Phase 1+2 단위 테스트 (기존)
 $ .venv/bin/python -m pytest apps/chat_worker/tests/unit/ -m eval_unit -v
+148 passed, 792 deselected in 6.84s
 
-108 passed, 792 deselected, 1 warning in 6.27s
+# Phase 3+4 통합 테스트
+$ .venv/bin/python -m pytest apps/chat_worker/tests/integration/eval/ -v
+17 passed in 1.43s
+
+# 전체 합산
+165 passed ✅
 ```
 
 ### 8.2 테스트 분포
@@ -466,8 +506,10 @@ $ .venv/bin/python -m pytest apps/chat_worker/tests/unit/ -m eval_unit -v
 |------|---------|-----------|---------------|
 | Domain | 5 | 50 | EvalGrade, AxisScore, ContinuousScore, CalibrationSample, EvalScoringService |
 | Application | 5 | 42 | CodeGrader, LLMGrader, ScoreAggregator, CalibrationMonitor, EvaluateResponseCommand |
-| Infrastructure | 3 | 16 | OpenAIBARSEvaluator, eval_node, EvalState↔ChatState 키 정합성 |
-| **합계** | **13** | **108** | — |
+| Infrastructure (Phase 1+2) | 3 | 16 | OpenAIBARSEvaluator, eval_node, EvalState↔ChatState 키 정합성 |
+| Infrastructure (Phase 3) | 4 | 40 | RedisEvalCounter, RedisEvalResultAdapter, CompositeEvalGateway, JsonCalibrationAdapter |
+| Integration (Phase 3+4) | 1 | 17 | DI wiring, counter injection, recalibrate stub, gateway assembly, PG pool wiring |
+| **합계** | **18** | **165** | — |
 
 ### 8.3 주요 테스트 시나리오
 
@@ -505,6 +547,46 @@ $ .venv/bin/python -m pytest apps/chat_worker/tests/unit/ -m eval_unit -v
 - EvalState output 키가 ChatState의 부분집합
 - EvalState에 3개 Grader 결과 채널 존재
 - EvalState에 Input 키 5개 존재
+
+**RedisEvalCounter** (9 tests):
+- increment_and_check() 카운트 반환, interval 배수에서 트리거
+- interval 비배수에서 미트리거, interval=0 절대 미트리거
+- INCR + EXPIRE pipeline 호출 검증
+- get_count() 현재값 / 키 부재 시 0
+- 키 포맷 날짜 포함 검증
+
+**RedisEvalResultAdapter** (8 tests):
+- push_axis_scores LPUSH + LTRIM(100) + EXPIRE 호출
+- get_recent_scores LRANGE + float 파싱, 빈 리스트
+- increment_daily_cost INCRBYFLOAT 호출 + 반환값
+- get_daily_cost GET + float 파싱, 키 부재 시 0.0
+
+**CompositeEvalGateway** (15 tests):
+- Command: Redis+PG 동시 저장, PG=None Redis-only, PG 실패 non-blocking
+- Command: cost None/0 시 increment 스킵, save_drift_log PG/no-PG
+- Query: Redis hit 시 PG 미호출, Redis miss→PG fallback
+- Query: 양쪽 빈 경우, PG=None→빈 리스트, PG 실패→빈 리스트
+- Query: get_daily_cost Redis 호출, get_intent_distribution PG/no-PG
+
+**JsonCalibrationAdapter** (8 tests):
+- CalibrationSample 리스트 로드, 버전 문자열, Intent 집합
+- 메모리 캐시 (재로드 방지), 파일 부재 시 빈 반환
+- 유효하지 않은 샘플 건너뜀, 기본 경로 fixture 로드
+- 다중 intent 커버리지
+
+**Integration: DI Wiring** (17 tests):
+- eval_entry에 eval_counter 주입 후 increment_and_check 호출 검증
+- Counter 미트리거 시 should_run_calibration=False
+- Counter 실패 시 stopgap fallback
+- Counter=None일 때 stopgap 사용
+- create_eval_subgraph counter 파라미터 수용 / 미전달 하위호환
+- recalibrate() stub 반환값 검증
+- CompositeGateway Redis-only 생성, JsonCalibrationAdapter 생성
+- RedisEvalCounter interval 속성 접근
+- (Phase 4) PostgresEvalResultAdapter pool 주입 검증
+- (Phase 4) CompositeGateway PG adapter 주입 생성
+- (Phase 4) Config PG DSN 필드 존재 + 기본값
+- (Phase 4) EvalConfig enable_eval_pipeline=True 동작
 
 ### 8.4 정적 분석
 
@@ -615,29 +697,124 @@ OpenAIBARSEvaluator._call_structured(schema=BARSEvalOutput)
 | 5 | `a3e3e5f4` | `feat(eval): Infrastructure — LangGraph eval subgraph + main graph integration` | 6 | +857 |
 | 6 | `a9153458` | `test(eval): Unit tests — 108 tests across all layers + pytest markers` | 18 | +2,082 |
 | 7 | `e6de06a2` | `docs(eval): Implementation report — Chat Eval Pipeline Phase 1+2` | 1 | +639 |
-| | | **Total** | **65** | **+6,789** |
+| 8 | `f8ca0362` | `refactor(eval): replace inline fallback dict with EvalResult.failed()` | 7 | +27 |
+| | | **Phase 1+2 Total** | **65** | **+6,789** |
+| 9 | *(unstaged)* | `feat(eval): Phase 3 — V005 migration + calibration fixture` | 2 | +370 |
+| 10 | *(unstaged)* | `feat(eval): Phase 3 — Gateway adapters (Redis, PG, Composite, JSON)` | 8 | +567 |
+| 11 | *(unstaged)* | `feat(eval): Phase 3 — DI wiring + existing file modifications` | 6 | +235 |
+| 12 | *(unstaged)* | `test(eval): Phase 3 — 52 new tests (unit + integration)` | 8 | +843 |
+| | | **Phase 3 Subtotal** | **24** | **+2,015** |
+| | | **Grand Total** | **89** | **+8,804** |
 
 ---
 
 ## 13. Known Limitations
 
+### 13.1 Phase 1+2 제한사항 (Phase 3에서 해결됨)
+
+| # | 제한사항 | 해결 | Phase 3 구현체 |
+|---|---------|------|----------------|
+| ~~1~~ | ~~Gateway 어댑터 미구현~~ | ✅ 해결 | `CompositeEvalCommandGateway`, `CompositeEvalQueryGateway`, `JsonCalibrationDataAdapter` |
+| ~~2~~ | ~~DI Wiring 미완성~~ | ✅ 해결 | `dependencies.py`에 5개 팩토리 함수 + `get_chat_graph()` 통합 |
+| ~~3~~ | ~~Main Graph 통합 미완성~~ | ✅ 해결 | `factory.py`에 `eval_counter` 파라미터 전달 체인 |
+| ~~4~~ | ~~Calibration 트리거가 stopgap~~ | ✅ 해결 | `RedisEvalCounter` — Redis INCR pipeline 기반 글로벌 카운터 |
+| ~~5~~ | ~~Integration Test 미작성~~ | ✅ 해결 | `test_eval_wiring.py` — 12개 DI wiring 통합 테스트 |
+
+### 13.2 Phase 3 제한사항 (Phase 4에서 해결됨)
+
+| # | 제한사항 | 해결 | Phase 4 구현체 |
+|---|---------|------|----------------|
+| ~~1~~ | ~~asyncpg Pool 미주입~~ | ✅ 해결 | `get_eval_pg_pool()` — DSN 조건부 pool 생성, 싱글톤 캐시 |
+| ~~2~~ | ~~Composite Gateway PG wiring 미완성~~ | ✅ 해결 | `_get_eval_pg_adapter()` → gateway 팩토리에 PG adapter 자동 주입 |
+
+### 13.3 현재 제한사항
+
 | # | 제한사항 | 영향 | 해결 계획 |
 |---|---------|------|-----------|
-| 1 | Gateway 어댑터 미구현 | 결과 저장/조회 불가 (Port만 정의) | Phase 3에서 PostgreSQL 어댑터 구현 |
-| 2 | DI Wiring 미완성 | `setup/dependencies.py`에 eval 주입 코드 없음 | Phase 3 |
-| 3 | Main Graph 통합 미완성 | `factory.py`에 eval subgraph 조건부 삽입 코드 없음 | Phase 3 |
-| 4 | Calibration 트리거가 stopgap | `eval_retry_count` 기반 (Global request counter 미구현) | Redis INCR 기반으로 전환 예정 |
-| 5 | Integration Test 미작성 | 단위 테스트만 존재 | Phase 3에서 서브그래프 E2E 테스트 추가 |
+| 1 | `recalibrate()` stub | HITL 인프라 미구축 — 경고 로그만 남김 | Phase 5+: HITL 재교정 파이프라인 |
+| 2 | pyproject.toml 마커 미등록 | `eval_unit`, `eval_regression` 등 pytest 마커가 공식 등록 안 됨 | Phase 5 |
+| 3 | E2E 통합 테스트 미작성 | 실제 Redis/PG 컨테이너 기반 검증 없음 | Phase 5+ |
 
 ---
 
-## 14. Next Steps (Phase 3)
+## 14. Phase 3 구현 요약
 
-1. **Gateway 어댑터 구현**: `EvalResultCommandGateway`, `EvalResultQueryGateway`, `CalibrationDataGateway`의 PostgreSQL 구현체
-2. **DI Wiring**: `setup/dependencies.py`에서 eval 서비스 조립 및 주입
-3. **Main Graph 통합**: `factory.py`에서 `eval_config.enable_eval_pipeline == True` 시 서브그래프 삽입
-4. **Integration Tests**: 서브그래프 컴파일→실행 E2E, Gateway 어댑터 검증
-5. **pyproject.toml 마커 등록**: `eval_unit`, `eval_regression`, `eval_capability`
+Phase 3에서는 Phase 1+2의 Port 정의에 대한 **구체적 어댑터 구현 + DI wiring + 통합 테스트**를 완료했습니다.
+
+### 14.1 신규 파일 (11개)
+
+| 카테고리 | 파일 | 역할 |
+|----------|------|------|
+| Migration | `V005__create_eval_schema.sql` | chat.eval_results + chat.calibration_drift_log DDL |
+| Fixture | `calibration_set.json` | 8 샘플 × 6 Intent, v1.0-2026-02-10 |
+| Counter | `redis_eval_counter.py` | Redis INCR pipeline (INCR + EXPIRE, TTL=2d) |
+| Redis Adapter | `redis_eval_result_adapter.py` | L2 Hot Storage (LPUSH, LTRIM, INCRBYFLOAT) |
+| PG Adapter | `postgres_eval_result_adapter.py` | L3 Cold Storage (asyncpg pool 주입) |
+| Composite | `composite_eval_gateway.py` | Redis+PG 동시 저장, Redis-first 조회, PG non-blocking |
+| Calibration | `json_calibration_adapter.py` | JSON→CalibrationSample 변환 + 메모리 캐시 |
+| Package | `persistence/__init__.py`, `persistence/eval/__init__.py` | 패키지 초기화 + exports |
+
+### 14.2 수정 파일 (5개)
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `eval_node.py` | `eval_counter` 파라미터 추가, counter-first + stopgap fallback |
+| `eval_graph_factory.py` | `eval_counter` 파라미터 전달 |
+| `factory.py` | `eval_counter` 파라미터 전달 체인 |
+| `calibration_monitor.py` | `recalibrate()` stub 메서드 추가 |
+| `config.py` | Settings에 11개 eval 환경변수 필드 추가 |
+| `dependencies.py` | 5개 eval 팩토리 함수 + `get_chat_graph()` 조건부 eval 서비스 조립 |
+
+### 14.3 핵심 설계 결정
+
+| 결정 | 근거 |
+|------|------|
+| Composite Gateway (Redis+PG) | Hot/Cold 분리, PG 없이도 Redis-only 운영 가능 |
+| `eval_counter` optional 파라미터 | Phase 2 테스트 하위 호환 유지 |
+| `recalibrate()` stub | HITL 인프라 미구축 — 실제 구현은 Phase 4+ |
+| JSON Calibration Adapter | 초기 샘플은 수동 큐레이션, PG 불필요 |
+| `redis.asyncio` pipeline 패턴 | `pipeline()`은 동기 호출 (기존 `redis_limiter.py` 참조) |
+
+---
+
+## 15. Phase 4 구현 요약
+
+Phase 4에서는 **PG pool DI wiring, SSE eval 단계 추가, 구조화 로깅, 피드백 루프 스킬**을 완료했습니다.
+
+### 15.1 주요 변경 (10개 파일)
+
+| # | 파일 | 변경 내용 |
+|---|------|-----------|
+| 1 | `setup/config.py` | `enable_eval_pipeline` 기본값 `True` + PG DSN 필드 3개 추가 |
+| 2 | `setup/dependencies.py` | `get_eval_pg_pool()`, `close_eval_pg_pool()`, `_get_eval_pg_adapter()` + gateway PG adapter 주입 |
+| 3 | `events/redis_progress_notifier.py` | STAGE_ORDER에 `"eval": 17` 추가 (done→18, needs_input→19) |
+| 4 | `services/progress_tracker.py` | PHASE_PROGRESS `eval(90,98)`, NODE_TO_PHASE, NODE_MESSAGES 추가 |
+| 5 | `commands/process_chat.py` | done 이벤트 result에 `eval: {grade, score}` 포함 |
+| 6 | `nodes/eval_node.py` | eval_entry 구조화 로깅 (intent, answer_len, should_calibrate) |
+| 7 | `eval_graph_factory.py` | code_grader, llm_grader, aggregator, decision 노드별 결과 로깅 |
+| 8 | `.claude/skills/eval-feedback-loop/SKILL.md` | 5-expert 피드백 루프 스킬 신규 생성 |
+| 9 | `tests/integration/eval/test_eval_wiring.py` | PG pool wiring 5 테스트 추가 |
+| 10 | `tests/unit/.../test_progress_tracker.py` | eval 노드 progress 7 테스트 추가 → answer end 95→90 조정 |
+
+### 15.2 핵심 설계 결정
+
+| 결정 | 근거 |
+|------|------|
+| `enable_eval_pipeline` 기본 `True` | Phase 3까지 안정성 검증 완료, 프로덕션 활성화 준비 |
+| PG pool 조건부 생성 | `eval_postgres_dsn` 빈 문자열이면 Redis-only 유지 (무중단 전환) |
+| SSE eval 단계 (90-98%) | 사용자에게 "응답 품질 평가 중" 피드백 제공 |
+| 구조화 로깅 | 운영 환경에서 eval 성능/품질 모니터링 기반 |
+| eval-feedback-loop 스킬 | 5-expert 리뷰 루프 표준화 (목표: 95+/100) |
+
+---
+
+## 16. Next Steps (Phase 5+)
+
+1. **HITL Recalibrate 구현**: Calibration Set 재채점 → Baseline 갱신 → Version bump
+2. **pyproject.toml 마커 등록**: `eval_unit`, `eval_regression`, `eval_capability`
+3. **E2E 통합 테스트**: 실제 Redis/PG 컨테이너 기반 어댑터 검증
+4. **Grafana 대시보드**: eval 메트릭 (grade 분포, cost, drift 상태) 시각화
+5. **A/B Test 인프라**: shadow 모드로 새 프롬프트/모델 비교 파이프라인
 
 ---
 

@@ -339,6 +339,10 @@ class ProcessChatCommand:
                 result={
                     "intent": intent,
                     "answer": answer,
+                    "eval": {
+                        "grade": result.get("eval_grade"),
+                        "score": result.get("eval_continuous_score"),
+                    },
                     # Persistence data for DB Consumer
                     "persistence": {
                         "conversation_id": request.session_id,
