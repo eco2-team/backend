@@ -136,6 +136,8 @@ _image_storage_checked: bool = False  # 캐싱 상태 플래그
 _openai_async_client = None  # openai.AsyncOpenAI
 _gemini_client = None  # google.genai.Client
 _graph_cache: dict[tuple[str, str | None], object] = {}  # (provider, model) → compiled graph
+_eval_counter = None  # RedisEvalCounter singleton
+_eval_pg_pool = None  # asyncpg pool for eval cold storage
 
 
 async def get_redis() -> Redis:
@@ -894,6 +896,185 @@ async def get_checkpointer():
 
 
 # ============================================================
+# Eval Pipeline Factory
+# ============================================================
+
+
+def get_eval_config():
+    """EvalConfig 생성 (Settings → EvalConfig 매핑).
+
+    Returns:
+        EvalConfig 또는 None (비활성화 시)
+    """
+    from chat_worker.application.dto.eval_config import EvalConfig
+
+    settings = get_settings()
+    if not settings.enable_eval_pipeline:
+        return None
+
+    return EvalConfig(
+        enable_eval_pipeline=settings.enable_eval_pipeline,
+        eval_mode=settings.eval_mode,
+        eval_sample_rate=settings.eval_sample_rate,
+        eval_llm_grader_enabled=settings.eval_llm_grader_enabled,
+        eval_regeneration_enabled=settings.eval_regeneration_enabled,
+        eval_model=settings.eval_model,
+        eval_temperature=settings.eval_temperature,
+        eval_max_tokens=settings.eval_max_tokens,
+        eval_self_consistency_runs=settings.eval_self_consistency_runs,
+        eval_cusum_check_interval=settings.eval_cusum_check_interval,
+        eval_cost_budget_daily_usd=settings.eval_cost_budget_daily_usd,
+    )
+
+
+async def get_eval_counter():
+    """RedisEvalCounter 싱글톤.
+
+    Returns:
+        RedisEvalCounter 또는 None (비활성화 시)
+    """
+    global _eval_counter
+    settings = get_settings()
+    if not settings.enable_eval_pipeline:
+        return None
+
+    if _eval_counter is None:
+        from chat_worker.infrastructure.persistence.eval.redis_eval_counter import (
+            RedisEvalCounter,
+        )
+
+        redis = await get_redis()
+        _eval_counter = RedisEvalCounter(
+            redis=redis,
+            interval=settings.eval_cusum_check_interval,
+        )
+        logger.info(
+            "RedisEvalCounter created (interval=%d)",
+            settings.eval_cusum_check_interval,
+        )
+    return _eval_counter
+
+
+def get_calibration_gateway():
+    """JsonCalibrationDataAdapter 생성.
+
+    Returns:
+        JsonCalibrationDataAdapter
+    """
+    from chat_worker.infrastructure.persistence.eval.json_calibration_adapter import (
+        JsonCalibrationDataAdapter,
+    )
+
+    return JsonCalibrationDataAdapter()
+
+
+async def get_eval_pg_pool():
+    """Eval PostgreSQL 커넥션 풀 싱글톤.
+
+    eval_postgres_dsn이 비어있으면 None 반환 (Redis-only 유지).
+    설정되면 asyncpg.create_pool()로 커넥션 풀 생성.
+
+    Returns:
+        asyncpg.Pool 또는 None
+    """
+    global _eval_pg_pool
+    if _eval_pg_pool is not None:
+        return _eval_pg_pool
+
+    settings = get_settings()
+    if not settings.eval_postgres_dsn:
+        return None
+
+    try:
+        import asyncpg
+
+        dsn = settings.eval_postgres_dsn
+        # SQLAlchemy-style DSN 변환 (postgresql+asyncpg:// → postgresql://)
+        if "+asyncpg" in dsn:
+            dsn = dsn.replace("+asyncpg", "")
+
+        _eval_pg_pool = await asyncpg.create_pool(
+            dsn,
+            min_size=settings.eval_pg_pool_min_size,
+            max_size=settings.eval_pg_pool_max_size,
+        )
+        logger.info(
+            "Eval PG pool created (min=%d, max=%d)",
+            settings.eval_pg_pool_min_size,
+            settings.eval_pg_pool_max_size,
+        )
+    except Exception as e:
+        logger.warning("Eval PG pool creation failed, continuing Redis-only: %s", e)
+        _eval_pg_pool = None
+
+    return _eval_pg_pool
+
+
+async def close_eval_pg_pool() -> None:
+    """Eval PG 커넥션 풀 종료 (worker shutdown hook)."""
+    global _eval_pg_pool
+    if _eval_pg_pool is not None:
+        await _eval_pg_pool.close()
+        logger.info("Eval PG pool closed")
+        _eval_pg_pool = None
+
+
+async def _get_eval_pg_adapter():
+    """PG adapter 생성 (pool이 있을 때만).
+
+    Returns:
+        PostgresEvalResultAdapter 또는 None
+    """
+    pool = await get_eval_pg_pool()
+    if pool is None:
+        return None
+
+    from chat_worker.infrastructure.persistence.eval.postgres_eval_result_adapter import (
+        PostgresEvalResultAdapter,
+    )
+
+    return PostgresEvalResultAdapter(pool)
+
+
+async def get_eval_result_command_gateway():
+    """CompositeEvalCommandGateway 생성 (Redis + PG).
+
+    Returns:
+        CompositeEvalCommandGateway
+    """
+    from chat_worker.infrastructure.persistence.eval.composite_eval_gateway import (
+        CompositeEvalCommandGateway,
+    )
+    from chat_worker.infrastructure.persistence.eval.redis_eval_result_adapter import (
+        RedisEvalResultAdapter,
+    )
+
+    redis = await get_redis()
+    redis_adapter = RedisEvalResultAdapter(redis)
+    pg_adapter = await _get_eval_pg_adapter()
+    return CompositeEvalCommandGateway(redis_adapter=redis_adapter, pg_adapter=pg_adapter)
+
+
+async def get_eval_result_query_gateway():
+    """CompositeEvalQueryGateway 생성 (Redis-first, PG fallback).
+
+    Returns:
+        CompositeEvalQueryGateway
+    """
+    from chat_worker.infrastructure.persistence.eval.composite_eval_gateway import (
+        CompositeEvalQueryGateway,
+    )
+    from chat_worker.infrastructure.persistence.eval.redis_eval_result_adapter import (
+        RedisEvalResultAdapter,
+    )
+
+    redis = await get_redis()
+    redis_adapter = RedisEvalResultAdapter(redis)
+    pg_adapter = await _get_eval_pg_adapter()
+    return CompositeEvalQueryGateway(redis_adapter=redis_adapter, pg_adapter=pg_adapter)
+
+
+# ============================================================
 # LangGraph Factory
 # ============================================================
 
@@ -940,6 +1121,67 @@ async def get_chat_graph(
     openai_async_client = get_openai_async_client()
     gemini_client = get_gemini_client()
 
+    # Eval Pipeline 서비스 조립 (enable_eval_pipeline 조건부)
+    eval_config = get_eval_config()
+    code_grader = None
+    llm_grader = None
+    score_aggregator = None
+    calibration_monitor = None
+    eval_counter = None
+
+    if eval_config is not None and eval_config.enable_eval_pipeline:
+        from chat_worker.application.services.eval.code_grader import CodeGraderService
+        from chat_worker.application.services.eval.llm_grader import LLMGraderService
+        from chat_worker.application.services.eval.calibration_monitor import (
+            CalibrationMonitorService,
+        )
+        from chat_worker.application.services.eval.score_aggregator import (
+            ScoreAggregatorService,
+        )
+        from chat_worker.infrastructure.llm.evaluators.bars_evaluator import (
+            OpenAIBARSEvaluator,
+        )
+
+        # L1 Code Grader (순수 로직, 의존성 없음)
+        code_grader = CodeGraderService()
+
+        # Eval Gateway 어댑터
+        eval_query_gw = await get_eval_result_query_gateway()
+        calibration_gw = get_calibration_gateway()
+        eval_counter = await get_eval_counter()
+
+        # L2 LLM Grader (BARSEvaluator 주입)
+        eval_llm = create_llm_client(
+            provider="openai",
+            model=eval_config.eval_model,
+            enable_token_streaming=False,
+        )
+        bars_evaluator = OpenAIBARSEvaluator(
+            llm_client=eval_llm,
+            temperature=eval_config.eval_temperature,
+            max_tokens=eval_config.eval_max_tokens,
+        )
+        llm_grader = LLMGraderService(
+            bars_evaluator=bars_evaluator,
+            eval_config=eval_config,
+        )
+
+        # L3 Calibration Monitor
+        calibration_monitor = CalibrationMonitorService(
+            eval_query_gw=eval_query_gw,
+            calibration_gw=calibration_gw,
+            bars_evaluator=bars_evaluator,
+        )
+
+        # Score Aggregator
+        score_aggregator = ScoreAggregatorService()
+
+        logger.info(
+            "Eval pipeline services assembled (mode=%s, sample_rate=%.2f)",
+            eval_config.eval_mode,
+            eval_config.eval_sample_rate,
+        )
+
     graph = create_chat_graph(
         llm=llm,
         retriever=retriever,
@@ -972,6 +1214,12 @@ async def get_chat_graph(
         location_agent_model=settings.openai_default_model,
         location_agent_provider=settings.default_provider,
         enable_location_agent=True,
+        eval_config=eval_config,
+        code_grader=code_grader,
+        llm_grader=llm_grader,
+        score_aggregator=score_aggregator,
+        calibration_monitor=calibration_monitor,
+        eval_counter=eval_counter,
     )
 
     _graph_cache[cache_key] = graph
@@ -1076,7 +1324,7 @@ async def cleanup():
     """리소스 정리."""
     global _redis, _redis_streams, _character_client, _location_client, _kakao_local_client, _weather_client, _bulk_waste_client, _collection_point_client, _checkpointer
     global _progress_notifier, _domain_event_bus, _interaction_state_store, _input_requester, _image_generator, _image_storage
-    global _graph_cache
+    global _graph_cache, _eval_counter, _eval_pg_pool
 
     # Graph 캐시 정리
     _graph_cache.clear()
@@ -1143,6 +1391,12 @@ async def cleanup():
         await _redis.close()
         _redis = None
         logger.info("Redis disconnected")
+
+    # Eval counter 정리
+    _eval_counter = None
+
+    # Eval PG pool 종료
+    await close_eval_pg_pool()
 
     # Redis Streams 종료
     if _redis_streams:

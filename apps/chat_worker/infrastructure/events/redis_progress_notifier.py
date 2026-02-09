@@ -128,12 +128,13 @@ STAGE_ORDER = {
     "aggregator": 14,  # 서브에이전트 결과 병합
     "feedback": 15,  # 품질 평가
     "answer": 16,  # 최종 답변 생성
-    "done": 17,  # 완료
-    "needs_input": 18,  # Human-in-the-Loop
+    "eval": 17,  # 응답 품질 평가
+    "done": 18,  # 완료
+    "needs_input": 19,  # Human-in-the-Loop
 }
 
 # Token seq 시작값 (Stage seq와 충돌 방지)
-# Stage: 0~179 (18개 stage * 10)
+# Stage: 0~199 (20개 stage * 10)
 # Token: 1000+
 TOKEN_SEQ_START = 1000
 

@@ -66,7 +66,8 @@ PHASE_PROGRESS: dict[str, PhaseProgress] = {
     # Phase 3: Synthesis (55-100%)
     "aggregator": PhaseProgress(55, 65),
     "summarize": PhaseProgress(65, 75),
-    "answer": PhaseProgress(75, 95),
+    "answer": PhaseProgress(75, 90),
+    "eval": PhaseProgress(90, 98),
     "done": PhaseProgress(100, 100),
 }
 
@@ -96,6 +97,7 @@ NODE_TO_PHASE: dict[str, str] = {
     "aggregator": "aggregator",
     "summarize": "summarize",
     "answer": "answer",
+    "eval": "eval",
 }
 
 # 노드별 UI 메시지 (i18n: 추후 YAML 파일로 외부화 가능)
@@ -163,6 +165,10 @@ NODE_MESSAGES: dict[str, dict[str, str]] = {
     "answer": {
         "started": "답변을 생성하고 있습니다...",
         "completed": "답변 생성 완료",
+    },
+    "eval": {
+        "started": "응답 품질을 평가하고 있습니다...",
+        "completed": "응답 품질 평가 완료",
     },
 }
 
