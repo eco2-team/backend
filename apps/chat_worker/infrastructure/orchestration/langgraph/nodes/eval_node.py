@@ -16,6 +16,7 @@ import logging
 from typing import Any
 
 from chat_worker.application.dto.eval_config import EvalConfig
+from chat_worker.application.dto.eval_result import EvalResult
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +47,11 @@ def _should_calibrate(state: dict[str, Any], eval_config: EvalConfig) -> bool:
 
 
 def _make_failed_eval_result(reason: str) -> dict[str, Any]:
-    """EvalResult.failed() 대응 기본값 생성.
+    """FAIL_OPEN 기본값 생성.
 
-    EvalResult DTO가 아직 구현되지 않은 상태에서 사용하는
-    인라인 fallback 생성기. DTO 구현 후 EvalResult.failed()로 대체.
+    EvalResult.failed()를 사용하여 B등급 기본값을 생성합니다.
+    Grade C (< 55) triggers regeneration, but eval failure must NOT
+    trigger regeneration — only genuinely low-quality answers should.
 
     See: docs/plans/chat-eval-pipeline-plan.md A.12
 
@@ -57,16 +59,13 @@ def _make_failed_eval_result(reason: str) -> dict[str, Any]:
         reason: 실패 사유
 
     Returns:
-        실패 상태의 eval 결과 dict
+        실패 상태의 eval 결과 dict (ChatState 호환)
     """
-    # Fallback grade = "B" (not "C"): FAIL_OPEN policy.
-    # Grade C (< 55) triggers regeneration, but eval failure must NOT
-    # trigger regeneration — only genuinely low-quality answers should.
-    # See plan A.12 + NodePolicy eval.fail_mode=FAIL_OPEN.
+    failed = EvalResult.failed(reason)
     return {
-        "eval_result": {"error": reason, "degraded": True},
-        "eval_grade": "B",
-        "eval_continuous_score": 65.0,
+        "eval_result": failed.to_dict(),
+        "eval_grade": failed.grade,
+        "eval_continuous_score": failed.continuous_score,
         "eval_needs_regeneration": False,
         "eval_improvement_hints": [],
         "eval_retry_count": 0,

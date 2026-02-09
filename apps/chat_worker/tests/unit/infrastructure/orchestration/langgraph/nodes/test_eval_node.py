@@ -93,8 +93,12 @@ class TestMakeFailedEvalResult:
         """실패 결과 딕셔너리 구조 검증."""
         result = _make_failed_eval_result("테스트 실패 사유")
 
-        assert result["eval_result"]["error"] == "테스트 실패 사유"
-        assert result["eval_result"]["degraded"] is True
+        # eval_result는 EvalResult.failed().to_dict() 형식
+        eval_result = result["eval_result"]
+        assert eval_result["grade"] == "B"
+        assert eval_result["continuous_score"] == 65.0
+        assert eval_result["metadata"]["failure_reason"] == "테스트 실패 사유"
+        assert eval_result["metadata"]["mode"] == "failed"
         assert result["eval_grade"] == "B"
         assert result["eval_continuous_score"] == 65.0
         assert result["eval_needs_regeneration"] is False
