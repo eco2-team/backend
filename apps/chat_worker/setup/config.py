@@ -121,6 +121,25 @@ class Settings(BaseSettings):
     max_summary_tokens: int | None = None  # 동적 계산 (None 권장)
     keep_recent_messages: int | None = None  # 동적 계산 (None 권장)
 
+    # Eval Pipeline
+    enable_eval_pipeline: bool = True
+    eval_mode: str = "async"  # sync, async, shadow
+    eval_sample_rate: float = 1.0
+    eval_llm_grader_enabled: bool = True
+    eval_regeneration_enabled: bool = False
+    eval_model: str = "gpt-4o-mini"
+    eval_temperature: float = 0.1
+    eval_max_tokens: int = 1000
+    eval_self_consistency_runs: int = 3
+    eval_cusum_check_interval: int = 100
+    eval_cost_budget_daily_usd: float = 50.0
+
+    # Eval PostgreSQL (Cold Storage)
+    # 빈 문자열이면 PG 미사용 (Redis-only)
+    eval_postgres_dsn: str = ""
+    eval_pg_pool_min_size: int = 2
+    eval_pg_pool_max_size: int = 5
+
     # Logging
     log_level: str = "INFO"
 

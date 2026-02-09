@@ -13,6 +13,7 @@ Layer-first 구조:
 - Intent: ChatIntent (domain에서 import), IntentResult, IntentSignals
 - Answer: AnswerContext, AnswerResult
 - Feedback: FeedbackResult
+- Eval: EvalResult, EvalConfig
 - Fallback: FallbackResult
 - Node: NodeResult, NodeStatus (Production Architecture)
 """
@@ -29,6 +30,10 @@ from chat_worker.application.dto.feedback_result import FeedbackResult
 # Intent Result & Signals
 from chat_worker.application.dto.intent_result import IntentResult
 from chat_worker.application.dto.intent_signals import IntentSignals
+
+# Eval Result & Config
+from chat_worker.application.dto.eval_config import EvalConfig
+from chat_worker.application.dto.eval_result import EvalResult
 
 # Node Result (Production Architecture)
 from chat_worker.application.dto.node_result import NodeResult, NodeStatus
@@ -48,6 +53,9 @@ __all__ = [
     "FeedbackResult",
     # Fallback
     "FallbackResult",
+    # Eval
+    "EvalResult",
+    "EvalConfig",
     # Node (Production Architecture)
     "NodeResult",
     "NodeStatus",

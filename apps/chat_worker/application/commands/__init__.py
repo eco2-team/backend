@@ -100,6 +100,13 @@ from chat_worker.application.commands.search_recyclable_price_command import (
     SearchRecyclablePriceOutput,
 )
 
+# EvaluateResponse
+from chat_worker.application.commands.evaluate_response_command import (
+    EvaluateResponseCommand,
+    EvaluateResponseInput,
+    EvaluateResponseOutput,
+)
+
 __all__ = [
     # ProcessChat
     "ChatPipelinePort",
@@ -146,4 +153,8 @@ __all__ = [
     "SearchRecyclablePriceCommand",
     "SearchRecyclablePriceInput",
     "SearchRecyclablePriceOutput",
+    # EvaluateResponse
+    "EvaluateResponseCommand",
+    "EvaluateResponseInput",
+    "EvaluateResponseOutput",
 ]
