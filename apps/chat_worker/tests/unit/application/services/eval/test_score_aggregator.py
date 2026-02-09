@@ -8,7 +8,6 @@ from chat_worker.application.services.eval.code_grader import CodeGraderResult
 from chat_worker.application.services.eval.score_aggregator import ScoreAggregatorService
 from chat_worker.domain.value_objects.axis_score import AxisScore
 
-
 # ── 테스트 헬퍼 ──────────────────────────────────────────────────────────────
 
 

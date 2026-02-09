@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 import pytest
 
-import pytest
 
 from chat_worker.domain.services.eval_scoring import EvalScoringService
 from chat_worker.domain.value_objects.axis_score import AxisScore

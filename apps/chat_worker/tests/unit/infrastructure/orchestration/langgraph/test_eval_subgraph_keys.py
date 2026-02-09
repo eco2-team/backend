@@ -15,7 +15,6 @@ from chat_worker.infrastructure.orchestration.langgraph.eval_graph_factory impor
 )
 from chat_worker.infrastructure.orchestration.langgraph.state import ChatState
 
-
 # ChatState Layer 8 eval 키 (설계안 §2.6에서 정의)
 _EXPECTED_CHAT_STATE_EVAL_KEYS: frozenset[str] = frozenset(
     {

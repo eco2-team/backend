@@ -35,15 +35,17 @@ NODE_OUTPUT_FIELDS: dict[str, frozenset[str]] = {
     "recyclable_price": frozenset({"recyclable_price_context"}),
     "image_generation": frozenset({"image_generation_context"}),
     # Eval Pipeline (메타데이터, INTENT_REQUIRED_FIELDS에 추가하지 않음)
-    "eval": frozenset({
-        "eval_result",
-        "eval_grade",
-        "eval_continuous_score",
-        "eval_needs_regeneration",
-        "eval_improvement_hints",
-        "eval_retry_count",
-        "_prev_eval_score",
-    }),
+    "eval": frozenset(
+        {
+            "eval_result",
+            "eval_grade",
+            "eval_continuous_score",
+            "eval_needs_regeneration",
+            "eval_improvement_hints",
+            "eval_retry_count",
+            "_prev_eval_score",
+        }
+    ),
 }
 """노드별 출력 필드.
 
