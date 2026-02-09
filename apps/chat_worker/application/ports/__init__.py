@@ -19,6 +19,7 @@ Layer-first 구조:
 - WebSearch: WebSearchPort
 - Integrations: CharacterClientPort, LocationClientPort
 - Feedback: LLMFeedbackEvaluatorPort
+- Eval: BARSEvaluator, EvalResultCommandGateway, EvalResultQueryGateway, CalibrationDataGateway
 - Interaction: InputRequesterPort, InteractionStateStorePort
 - Prompt: PromptBuilderPort
 """
@@ -112,6 +113,14 @@ from chat_worker.application.ports.image_generator import (
 # Web Search
 from chat_worker.application.ports.web_search import WebSearchPort
 
+# Eval (Protocol 기반, A.4 Convention Decision)
+from chat_worker.application.ports.eval import (
+    BARSEvaluator,
+    CalibrationDataGateway,
+    EvalResultCommandGateway,
+    EvalResultQueryGateway,
+)
+
 __all__ = [
     # LLM
     "LLMClientPort",
@@ -161,4 +170,9 @@ __all__ = [
     # Prompt
     "PromptBuilderPort",
     "PromptLoaderPort",
+    # Eval (Protocol 기반)
+    "BARSEvaluator",
+    "EvalResultCommandGateway",
+    "EvalResultQueryGateway",
+    "CalibrationDataGateway",
 ]
