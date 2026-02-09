@@ -151,6 +151,15 @@ NODE_POLICIES: dict[str, NodePolicy] = {
         fail_mode=FailMode.FAIL_OPEN,
         rationale="DALL-E 10-30초 소요, 실패해도 텍스트 답변 가능",
     ),
+    # Eval Pipeline (post-generation 품질 평가)
+    "eval": NodePolicy(
+        name="eval",
+        timeout_ms=15000,
+        max_retries=0,
+        cb_threshold=10,
+        fail_mode=FailMode.FAIL_OPEN,
+        rationale="Eval failure must not block response delivery",
+    ),
 }
 
 
