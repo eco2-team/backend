@@ -40,7 +40,7 @@ class EvalConfig:
     eval_sample_rate: float = 1.0
     eval_llm_grader_enabled: bool = True
     eval_regeneration_enabled: bool = False
-    eval_model: str = "gpt-4o-mini"
+    eval_model: str = "gpt-5.2"
     eval_temperature: float = 0.1
     eval_max_tokens: int = 1000
     eval_self_consistency_runs: int = 3

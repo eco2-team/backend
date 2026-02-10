@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 import socket
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
 from redis.asyncio import Redis
 from redis.exceptions import ConnectionError as RedisConnectionError
@@ -1121,66 +1121,8 @@ async def get_chat_graph(
     openai_async_client = get_openai_async_client()
     gemini_client = get_gemini_client()
 
-    # Eval Pipeline 서비스 조립 (enable_eval_pipeline 조건부)
+    # Eval Pipeline 설정 (서비스 조립은 get_eval_subgraph()에서 수행)
     eval_config = get_eval_config()
-    code_grader = None
-    llm_grader = None
-    score_aggregator = None
-    calibration_monitor = None
-    eval_counter = None
-
-    if eval_config is not None and eval_config.enable_eval_pipeline:
-        from chat_worker.application.services.eval.code_grader import CodeGraderService
-        from chat_worker.application.services.eval.llm_grader import LLMGraderService
-        from chat_worker.application.services.eval.calibration_monitor import (
-            CalibrationMonitorService,
-        )
-        from chat_worker.application.services.eval.score_aggregator import (
-            ScoreAggregatorService,
-        )
-        from chat_worker.infrastructure.llm.evaluators.bars_evaluator import (
-            OpenAIBARSEvaluator,
-        )
-
-        # L1 Code Grader (순수 로직, 의존성 없음)
-        code_grader = CodeGraderService()
-
-        # Eval Gateway 어댑터
-        eval_query_gw = await get_eval_result_query_gateway()
-        calibration_gw = get_calibration_gateway()
-        eval_counter = await get_eval_counter()
-
-        # L2 LLM Grader (BARSEvaluator 주입)
-        eval_llm = create_llm_client(
-            provider="openai",
-            model=eval_config.eval_model,
-            enable_token_streaming=False,
-        )
-        bars_evaluator = OpenAIBARSEvaluator(
-            llm_client=eval_llm,
-            temperature=eval_config.eval_temperature,
-            max_tokens=eval_config.eval_max_tokens,
-        )
-        llm_grader = LLMGraderService(
-            bars_evaluator=bars_evaluator,
-            eval_config=eval_config,
-        )
-
-        # L3 Calibration Monitor
-        calibration_monitor = CalibrationMonitorService(
-            eval_query_gw=eval_query_gw,
-            calibration_gw=calibration_gw,
-            bars_evaluator=bars_evaluator,
-        )
-
-        # Score Aggregator
-        score_aggregator = ScoreAggregatorService()
-
-        logger.info(
-            "Eval pipeline services assembled (mode=%s, sample_rate=%.2f)",
-            eval_config.eval_mode,
-            eval_config.eval_sample_rate,
-        )
 
     graph = create_chat_graph(
         llm=llm,
@@ -1215,6 +1157,78 @@ async def get_chat_graph(
         location_agent_provider=settings.default_provider,
         enable_location_agent=True,
         eval_config=eval_config,
+    )
+
+    _graph_cache[cache_key] = graph
+    logger.info("Chat graph compiled and cached", extra={"provider": provider, "model": model})
+    return graph
+
+
+# Eval subgraph 캐시 (비동기 fire-and-forget용)
+_eval_subgraph_cache: dict[str, Any] = {}
+
+
+async def get_eval_subgraph():
+    """Eval Pipeline 서브그래프 생성 (cached).
+
+    ProcessChatCommand에서 비동기 fire-and-forget으로 실행할
+    독립 eval 서브그래프를 반환합니다.
+    eval_config.enable_eval_pipeline=False이면 None.
+    """
+    global _eval_subgraph_cache
+
+    if "default" in _eval_subgraph_cache:
+        return _eval_subgraph_cache["default"]
+
+    eval_config = get_eval_config()
+    if eval_config is None or not eval_config.enable_eval_pipeline:
+        _eval_subgraph_cache["default"] = None
+        return None
+
+    from chat_worker.application.services.eval.code_grader import CodeGraderService
+    from chat_worker.application.services.eval.llm_grader import LLMGraderService
+    from chat_worker.application.services.eval.calibration_monitor import (
+        CalibrationMonitorService,
+    )
+    from chat_worker.application.services.eval.score_aggregator import (
+        ScoreAggregatorService,
+    )
+    from chat_worker.infrastructure.llm.evaluators.bars_evaluator import (
+        OpenAIBARSEvaluator,
+    )
+    from chat_worker.infrastructure.orchestration.langgraph.eval_graph_factory import (
+        create_eval_subgraph,
+    )
+
+    code_grader = CodeGraderService()
+
+    eval_query_gw = await get_eval_result_query_gateway()
+    calibration_gw = get_calibration_gateway()
+    eval_counter = await get_eval_counter()
+
+    eval_llm = create_llm_client(
+        provider="openai",
+        model=eval_config.eval_model,
+        enable_token_streaming=False,
+    )
+    bars_evaluator = OpenAIBARSEvaluator(
+        llm_client=eval_llm,
+        temperature=eval_config.eval_temperature,
+        max_tokens=eval_config.eval_max_tokens,
+    )
+    llm_grader = LLMGraderService(
+        bars_evaluator=bars_evaluator,
+        eval_config=eval_config,
+    )
+    calibration_monitor = CalibrationMonitorService(
+        eval_query_gw=eval_query_gw,
+        calibration_gw=calibration_gw,
+        bars_evaluator=bars_evaluator,
+    )
+    score_aggregator = ScoreAggregatorService()
+
+    subgraph = create_eval_subgraph(
+        eval_config=eval_config,
         code_grader=code_grader,
         llm_grader=llm_grader,
         score_aggregator=score_aggregator,
@@ -1222,9 +1236,9 @@ async def get_chat_graph(
         eval_counter=eval_counter,
     )
 
-    _graph_cache[cache_key] = graph
-    logger.info("Chat graph compiled and cached", extra={"provider": provider, "model": model})
-    return graph
+    _eval_subgraph_cache["default"] = subgraph
+    logger.info("Eval subgraph compiled and cached (async fire-and-forget)")
+    return subgraph
 
 
 # ============================================================
@@ -1296,6 +1310,7 @@ async def get_process_chat_command(
     pipeline = await get_chat_graph(actual_provider, model)
     progress_notifier = await get_progress_notifier()
     metrics = get_metrics()  # MetricsPort
+    eval_subgraph = await get_eval_subgraph()  # 비동기 fire-and-forget용
 
     # LangSmith OTEL Telemetry (optional)
     telemetry = None
@@ -1312,6 +1327,7 @@ async def get_process_chat_command(
         metrics=metrics,
         telemetry=telemetry,
         provider=actual_provider,
+        eval_subgraph=eval_subgraph,
     )
 
 
@@ -1324,10 +1340,11 @@ async def cleanup():
     """리소스 정리."""
     global _redis, _redis_streams, _character_client, _location_client, _kakao_local_client, _weather_client, _bulk_waste_client, _collection_point_client, _checkpointer
     global _progress_notifier, _domain_event_bus, _interaction_state_store, _input_requester, _image_generator, _image_storage
-    global _graph_cache, _eval_counter, _eval_pg_pool
+    global _graph_cache, _eval_counter, _eval_pg_pool, _eval_subgraph_cache
 
     # Graph 캐시 정리
     _graph_cache.clear()
+    _eval_subgraph_cache.clear()
 
     # 체크포인터 종료 (AsyncRedisSaver는 __aexit__로 정리)
     if _checkpointer:

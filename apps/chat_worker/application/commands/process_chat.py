@@ -29,6 +29,7 @@ LangGraph 네이티브 스트리밍:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -206,6 +207,7 @@ class ProcessChatCommand:
         telemetry: "TelemetryConfigPort | None" = None,
         provider: str = "openai",
         enable_native_streaming: bool = True,
+        eval_subgraph: Any | None = None,
     ):
         """초기화.
 
@@ -216,6 +218,7 @@ class ProcessChatCommand:
             telemetry: Telemetry 설정 Port (선택, LangSmith 등)
             provider: LLM 프로바이더
             enable_native_streaming: 네이티브 스트리밍 활성화 (기본 True)
+            eval_subgraph: Eval Pipeline 서브그래프 (비동기 fire-and-forget)
 
         Note:
             Event-First Architecture: 메시지 영속화는 done 이벤트에
@@ -227,6 +230,7 @@ class ProcessChatCommand:
         self._telemetry = telemetry
         self._provider = provider
         self._enable_native_streaming = enable_native_streaming
+        self._eval_subgraph = eval_subgraph
 
     async def execute(self, request: ProcessChatRequest) -> ProcessChatResponse:
         """Chat 파이프라인 실행.
@@ -339,10 +343,6 @@ class ProcessChatCommand:
                 result={
                     "intent": intent,
                     "answer": answer,
-                    "eval": {
-                        "grade": result.get("eval_grade"),
-                        "score": result.get("eval_continuous_score"),
-                    },
                     # Persistence data for DB Consumer
                     "persistence": {
                         "conversation_id": request.session_id,
@@ -362,6 +362,14 @@ class ProcessChatCommand:
                 "ProcessChatCommand completed",
                 extra={**log_ctx, "intent": intent},
             )
+
+            # 6. Eval Pipeline (비동기 fire-and-forget)
+            # done 이벤트 발행 후 실행 → 사용자 체감 지연 없음
+            if self._eval_subgraph is not None:
+                asyncio.create_task(
+                    self._run_eval_async(result, log_ctx),
+                    name=f"eval-{request.job_id}",
+                )
 
             return ProcessChatResponse(
                 job_id=request.job_id,
@@ -423,6 +431,43 @@ class ProcessChatCommand:
                 )
             # Token counter 정리
             self._progress_notifier.clear_token_counter(request.job_id)
+
+    # ============================================================
+    # Eval Pipeline (Async Fire-and-Forget)
+    # ============================================================
+
+    async def _run_eval_async(
+        self,
+        result: dict[str, Any],
+        log_ctx: dict[str, str],
+    ) -> None:
+        """Eval Pipeline 비동기 실행.
+
+        done 이벤트 발행 후 fire-and-forget으로 실행.
+        실패해도 사용자 응답에 영향 없음 (FAIL_OPEN).
+        """
+        try:
+            eval_state = {
+                "message": result.get("message", ""),
+                "intent": result.get("intent", ""),
+                "answer": result.get("answer", ""),
+                "eval_retry_count": 0,
+            }
+            eval_result = await self._eval_subgraph.ainvoke(eval_state)
+            logger.info(
+                "Eval completed (async)",
+                extra={
+                    **log_ctx,
+                    "eval_grade": eval_result.get("eval_grade"),
+                    "eval_score": eval_result.get("eval_continuous_score"),
+                },
+            )
+        except Exception as e:
+            logger.warning(
+                "Eval failed (async, non-blocking): %s",
+                e,
+                extra=log_ctx,
+            )
 
     # ============================================================
     # Native Streaming Handlers (stream_mode 기반)
