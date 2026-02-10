@@ -106,10 +106,6 @@ from chat_worker.infrastructure.orchestration.langgraph.routing import (
 from chat_worker.infrastructure.orchestration.langgraph.nodes.kakao_place_node import (
     create_kakao_place_node,
 )
-from chat_worker.infrastructure.orchestration.langgraph.eval_graph_factory import (
-    create_eval_subgraph,
-    create_route_after_eval,
-)
 from chat_worker.infrastructure.orchestration.langgraph.state import ChatState
 from chat_worker.infrastructure.orchestration.langgraph.summarization import (
     SummarizationNode,
@@ -142,14 +138,6 @@ if TYPE_CHECKING:
     from chat_worker.application.ports.vision import VisionModelPort
     from chat_worker.application.ports.web_search import WebSearchPort
     from chat_worker.application.dto.eval_config import EvalConfig
-    from chat_worker.application.services.eval.calibration_monitor import (
-        CalibrationMonitorService,
-    )
-    from chat_worker.application.services.eval.code_grader import CodeGraderService
-    from chat_worker.application.services.eval.llm_grader import LLMGraderService
-    from chat_worker.application.services.eval.score_aggregator import (
-        ScoreAggregatorService,
-    )
     from chat_worker.application.services.fallback_orchestrator import (
         FallbackOrchestrator,
     )
@@ -231,13 +219,8 @@ def create_chat_graph(
     location_agent_model: str = "gpt-4o-mini",  # Location Agent 모델
     location_agent_provider: str = "openai",  # Location Agent 프로바이더
     enable_location_agent: bool = True,  # Location Agent 활성화 (False면 기존 kakao_place_node 사용)
-    # Eval Pipeline 설정
+    # Eval Pipeline 설정 (비동기 fire-and-forget으로 분리, 로깅용으로만 사용)
     eval_config: "EvalConfig | None" = None,
-    code_grader: "CodeGraderService | None" = None,
-    llm_grader: "LLMGraderService | None" = None,
-    score_aggregator: "ScoreAggregatorService | None" = None,
-    calibration_monitor: "CalibrationMonitorService | None" = None,
-    eval_counter: Any | None = None,
 ) -> StateGraph:
     """Chat 파이프라인 그래프 생성.
 
@@ -656,33 +639,14 @@ def create_chat_graph(
     if summarization_node is not None:
         graph.add_edge("summarize", "answer")
 
-    # Eval Pipeline 통합 (answer → eval → END or answer → END)
+    # Eval Pipeline은 비동기 fire-and-forget으로 분리 (process_chat.py에서 실행)
+    # 그래프에서는 항상 answer → END
+    graph.add_edge("answer", END)
     if eval_config is not None and eval_config.enable_eval_pipeline:
-        eval_subgraph = create_eval_subgraph(
-            eval_config=eval_config,
-            code_grader=code_grader,
-            llm_grader=llm_grader,
-            score_aggregator=score_aggregator,
-            calibration_monitor=calibration_monitor,
-            eval_counter=eval_counter,
-        )
-        graph.add_node("eval", eval_subgraph)
-        graph.add_edge("answer", "eval")
-        graph.add_conditional_edges(
-            "eval",
-            create_route_after_eval(eval_config),
-            {
-                "pass": END,
-                "regenerate": "answer",
-            },
-        )
         logger.info(
-            "Eval pipeline integrated (mode=%s, regeneration=%s)",
+            "Eval pipeline enabled (async fire-and-forget, mode=%s)",
             eval_config.eval_mode,
-            eval_config.eval_regeneration_enabled,
         )
-    else:
-        graph.add_edge("answer", END)
 
     # 체크포인터 연결 (멀티턴 대화 컨텍스트 유지)
     if checkpointer is not None:
