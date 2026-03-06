@@ -13,7 +13,9 @@
 - **Redis Streams + Pub/Sub + State KV** 기반 Event Bus Layer로 실시간 SSE 이벤트를 처리하고, **KEDA**로 이벤트 드리븐 오토스케일링을 수행합니다.
 - **RabbitMQ + TaskIQ/Celery** 비동기 Task Queue로 AI 파이프라인을 처리하고, **EFK + Jaeger + LangSmith**로 로깅·트레이싱을 수집합니다.
 - 8개 도메인 마이크로서비스(auth, users, scan, chat, character, location, info, images)를 모노레포로 관리합니다.
-- Service: [https://frontend.dev.growbin.app](https://frontend.dev.growbin.app)
+- Service(Closed): [https://frontend.dev.growbin.app](https://frontend.dev.growbin.app)
+- 상세 소개 페이지: https://mangowhoiscloud.github.io/resume/eco2-portfolio.html
+- Blog: https://rooftopsnow.tistory.com/category/%EC%9D%B4%EC%BD%94%EC%97%90%EC%BD%94%28Eco%C2%B2%29
 
 ---
 
