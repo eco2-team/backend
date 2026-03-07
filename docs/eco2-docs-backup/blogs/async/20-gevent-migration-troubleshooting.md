@@ -1,0 +1,501 @@
+# Message Queue #12: Gevent Pool 전환 트러블슈팅
+
+> **작성일**: 2025-12-25  
+> **이전 글**: [#11 Celery Prefork 병목 지점](https://rooftopsnow.tistory.com/72)  
+> **관련 글**: [#13 LLM API 큐잉 시스템 구현](./21-llm-queue-system-architecture.md)
+
+---
+
+## 1. 개요
+
+[#11 Prefork 병목 분석](https://rooftopsnow.tistory.com/72)에서 I/O-bound 워크로드(65% OpenAI API)에 prefork가 비효율적임을 확인하고, Gevent Pool로 전환했습니다.
+
+이 문서는 **전환 과정에서 발생한 7개 문제**와 해결 과정을 기록합니다.
+
+---
+
+## 2. 문제 목록
+
+| # | 문제 | 증상 | 심각도 | 해결 시간 |
+|---|------|------|--------|----------|
+| 1 | Gevent + Asyncio 충돌 | 98% 요청 실패 | 🔴 Critical | ~2시간 |
+| 2 | Redis ReadOnly Replica | Result 저장 실패 | 🔴 Critical | ~1시간 |
+| 3 | RPC Result Backend 한계 | character.match 타임아웃 | 🟠 High | ~1시간 |
+| 4 | Character Cache 미로드 | match 실패, 더미 응답 | 🟠 High | ~2시간 |
+| 5 | SSE 이벤트 처리 오류 | reward: null 응답 | 🟠 High | ~1시간 |
+| 6 | DLQ 라우팅 오류 | Task 미등록 에러 | 🟡 Medium | ~30분 |
+| 7 | CI 트리거 누락 | 이미지 미빌드 | 🟡 Medium | ~30분 |
+
+---
+
+## 3. 문제 #1: Gevent + Asyncio Event Loop 충돌
+
+### 3.1 증상
+
+```
+RuntimeError: Cannot run the event loop while another loop is running
+```
+
+부하 테스트 시 **98% 요청 실패**.
+
+### 3.2 원인 분석
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Event Loop 충돌 구조                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Gevent Worker                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  libev event loop (Gevent 내장)                               │ │
+│  │  ┌─────────────────────────────────────────────────────────┐ │ │
+│  │  │  Greenlet #1: vision_task()                             │ │ │
+│  │  │  ┌─────────────────────────────────────────────────┐   │ │ │
+│  │  │  │  run_async(analyze_images_async(...))            │   │ │ │
+│  │  │  │  ↓                                               │   │ │ │
+│  │  │  │  asyncio.run_until_complete()                    │   │ │ │
+│  │  │  │  ↓                                               │   │ │ │
+│  │  │  │  asyncio event loop 시작 시도 ❌                 │   │ │ │
+│  │  │  │  → RuntimeError: 이미 loop 실행 중              │   │ │ │
+│  │  │  └─────────────────────────────────────────────────┘   │ │ │
+│  │  └─────────────────────────────────────────────────────────┘ │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+- Gevent는 자체 event loop (libev) 사용
+- `run_async()`가 내부적으로 `asyncio.run_until_complete()` 호출
+- 두 event loop가 동시에 실행되어 충돌
+
+### 3.3 해결
+
+```python
+# Before (❌) - AsyncIO 클라이언트 사용
+from domains._shared.waste_pipeline.vision import analyze_images_async
+from domains._shared.celery.async_support import run_async
+
+result = run_async(analyze_images_async(prompt, image_url))
+
+# After (✅) - 동기 클라이언트 사용
+from domains._shared.waste_pipeline.vision import analyze_images
+
+result = analyze_images(prompt, image_url)
+# Gevent가 httpx socket I/O를 자동으로 greenlet 전환
+```
+
+### 3.4 핵심 원리
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                 Gevent Monkey Patching 동작                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Worker 시작 시:                                                    │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  from gevent import monkey                                   │   │
+│  │  monkey.patch_all()  ← 표준 라이브러리 I/O를 greenlet으로    │   │
+│  │                                                              │   │
+│  │  패치 대상:                                                  │   │
+│  │  • socket → gevent.socket                                    │   │
+│  │  • ssl → gevent.ssl                                          │   │
+│  │  • select → gevent.select                                    │   │
+│  │  • threading → gevent.threading                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  동기 코드 실행 시:                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  result = openai.chat.completions.create(...)               │   │
+│  │           ↓                                                  │   │
+│  │  httpx.post() → socket.send() → gevent.socket.send()        │   │
+│  │           ↓                                                  │   │
+│  │  I/O 대기 시 자동 yield → 다른 greenlet 실행               │   │
+│  │           ↓                                                  │   │
+│  │  I/O 완료 시 자동 resume → 결과 반환                        │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**결론**: Gevent 환경에서는 `OpenAI` (동기), `AsyncOpenAI` (비동기) 중 **동기 클라이언트 사용**.
+
+📄 **상세**: [18-gevent-asyncio-eventloop-conflict.md](./18-gevent-asyncio-eventloop-conflict.md)
+
+---
+
+## 4. 문제 #2: Redis ReadOnly Replica 에러
+
+### 4.1 증상
+
+```python
+redis.exceptions.ReadOnlyError: You can't write against a read only replica.
+redis.exceptions.ExecAbortError: Transaction discarded because of previous errors.
+```
+
+Celery Result 저장 실패.
+
+### 4.2 원인 분석
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│               Redis Sentinel 환경의 라우팅 문제                       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ClusterIP Service (dev-redis)                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  redis://dev-redis.redis.svc.cluster.local:6379              │   │
+│  │  ↓                                                           │   │
+│  │  kube-proxy 라운드로빈                                       │   │
+│  │  ↓                                                           │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │   │
+│  │  │ node-0      │  │ node-1      │  │ node-2      │          │   │
+│  │  │ (Master)    │  │ (Replica)   │  │ (Replica)   │          │   │
+│  │  │ Write ✅    │  │ Write ❌    │  │ Write ❌    │          │   │
+│  │  │ Read ✅     │  │ Read ✅     │  │ Read ✅     │          │   │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘          │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  문제: 2/3 확률로 Replica에 Write 시도 → ReadOnlyError             │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.3 해결
+
+```yaml
+# Before (❌) - ClusterIP (Replica로 라우팅 가능)
+- name: CELERY_RESULT_BACKEND
+  value: redis://dev-redis.redis.svc.cluster.local:6379/0
+
+# After (✅) - Headless Service로 Master 직접 지정
+- name: CELERY_RESULT_BACKEND
+  value: redis://dev-redis-node-0.dev-redis-headless.redis.svc.cluster.local:6379/0
+```
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Headless Service 직접 연결                         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Headless Service (dev-redis-headless)                              │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  dev-redis-node-0.dev-redis-headless.redis.svc.cluster.local │   │
+│  │  ↓                                                           │   │
+│  │  DNS 직접 해석 → Master Pod IP                               │   │
+│  │  ↓                                                           │   │
+│  │  ┌─────────────┐                                             │   │
+│  │  │ node-0      │  ← 항상 Master                              │   │
+│  │  │ Write ✅    │                                             │   │
+│  │  │ Read ✅     │                                             │   │
+│  │  └─────────────┘                                             │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+📄 **상세**: [19-redis-readonly-replica-error.md](./19-redis-readonly-replica-error.md)
+
+---
+
+## 5. 문제 #3: RPC Result Backend 타임아웃
+
+### 5.1 증상
+
+```python
+celery.exceptions.TimeoutError: The operation timed out.
+# character.match 호출 시 10초 타임아웃
+```
+
+### 5.2 원인 분석
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│               RPC Backend의 구조적 한계 (prefork)                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  scan-worker (Process #1)           character-match-worker          │
+│  ┌─────────────────────────────┐   ┌─────────────────────────────┐ │
+│  │  scan.reward task            │   │  character.match task       │ │
+│  │  ┌───────────────────────┐  │   │  ┌───────────────────────┐  │ │
+│  │  │ send_task(            │  │   │  │ 캐시 조회              │  │ │
+│  │  │   "character.match"   │──┼───┼─▶│ 결과 생성              │  │ │
+│  │  │ )                     │  │   │  │ return result          │  │ │
+│  │  │                       │  │   │  └───────────┬───────────┘  │ │
+│  │  │ async_result.get()    │  │   │              │              │ │
+│  │  │ ↓                     │  │   │              ▼              │ │
+│  │  │ 블로킹 대기 ⏳        │  │   │  RPC reply 큐에 저장        │ │
+│  │  │ (reply 큐 consume     │  │   │  amq.reply.scan-worker-xxx  │ │
+│  │  │  못함 - 프로세스      │  │   └─────────────────────────────┘ │
+│  │  │  블로킹 중)           │  │                                   │
+│  │  │ ↓                     │  │                                   │
+│  │  │ TimeoutError ❌       │  │                                   │
+│  │  └───────────────────────┘  │                                   │
+│  └─────────────────────────────┘                                   │
+│                                                                     │
+│  문제: prefork Worker가 블로킹되면 자신의 reply 큐를 consume 불가   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 5.3 해결: Redis Result Backend
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                Redis Result Backend 구조                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  scan-worker                        character-match-worker          │
+│  ┌─────────────────────────────┐   ┌─────────────────────────────┐ │
+│  │  scan.reward task            │   │  character.match task       │ │
+│  │  ┌───────────────────────┐  │   │  ┌───────────────────────┐  │ │
+│  │  │ send_task(            │  │   │  │ 캐시 조회              │  │ │
+│  │  │   "character.match"   │──┼───┼─▶│ 결과 생성              │  │ │
+│  │  │ )                     │  │   │  │ return result          │  │ │
+│  │  │                       │  │   │  └───────────┬───────────┘  │ │
+│  │  │ async_result.get()    │  │   │              │              │ │
+│  │  │ ↓                     │  │   │              ▼              │ │
+│  │  │ Redis polling ✅      │  │   │  Redis에 결과 저장          │ │
+│  │  │ (공유 저장소에서      │◀─┼───┼──celery-task-meta-{task_id} │ │
+│  │  │  결과 조회 가능)      │  │   │                              │ │
+│  │  │ ↓                     │  │   └─────────────────────────────┘ │
+│  │  │ 결과 수신 ✅          │  │                                   │
+│  │  └───────────────────────┘  │                                   │
+│  └─────────────────────────────┘                                   │
+│                                                                     │
+│  Redis: 공유 저장소 → 어떤 프로세스든 결과 조회 가능                 │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 6. 문제 #4: Character Cache 미로드
+
+### 6.1 증상
+
+```
+[WARNING] Character cache empty, cannot perform match
+```
+
+캐릭터 매칭 실패 → 더미 응답 반환.
+
+### 6.2 원인 분석
+
+**원인 1**: DB 스키마 지정 누락
+```sql
+-- Before (❌) - public.characters 조회 (다른 테이블)
+SELECT id, ... FROM characters
+
+-- After (✅) - character.characters 명시
+SELECT id, ... FROM character.characters
+```
+
+**원인 2**: Foreign Key 위반
+```
+ForeignKeyViolationError: Key (character_id)=(...) is not present in table "characters"
+```
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                   스키마 불일치 문제                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  PostgreSQL                                                         │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  public.characters (테스트/레거시 데이터)                    │   │
+│  │  • id: uuid-A, uuid-B, uuid-C                               │   │
+│  │                                                              │   │
+│  │  character.characters (운영 데이터) ← FK 참조 대상           │   │
+│  │  • id: uuid-X, uuid-Y, uuid-Z                               │   │
+│  │                                                              │   │
+│  │  character.character_ownerships                              │   │
+│  │  • character_id FK → character.characters(id)               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  cache-warmup Job:                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  SELECT * FROM characters  ← public.characters 조회         │   │
+│  │  → uuid-A, uuid-B, uuid-C 로 캐시 로드                      │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  character.match 실행:                                               │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  캐시에서 uuid-A 선택                                        │   │
+│  │  → character.character_ownerships INSERT                    │   │
+│  │  → FK 위반! (uuid-A는 character.characters에 없음)          │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 6.3 해결
+
+```python
+# 스키마 명시적 지정
+result = await conn.execute(
+    text("SELECT id, code, name, match_label, type_label, dialog FROM character.characters")
+)
+```
+
+---
+
+## 7. 문제 #5: SSE 이벤트 처리 오류
+
+### 7.1 증상
+
+```json
+{
+  "step": "reward",
+  "status": "completed",
+  "result": { "reward": null }
+}
+```
+
+파이프라인 완료되었으나 reward가 null.
+
+### 7.2 원인 분석
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│           task-started 이벤트의 도메인 간 간섭                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  시간순 이벤트 흐름:                                                  │
+│                                                                     │
+│  T1: task-started (scan.reward)                                      │
+│      → last_received_task = "scan.reward"                           │
+│                                                                     │
+│  T2: scan.reward 내부에서 character.match dispatch                  │
+│                                                                     │
+│  T3: task-started (character.match)  ← 문제 지점                    │
+│      → on_task_started 핸들러 실행                                  │
+│      → "새 task 시작 = 이전 task 완료"로 해석                       │
+│      → scan.reward를 completed(null)로 전송 ❌                      │
+│                                                                     │
+│  T4: character.match 완료                                            │
+│                                                                     │
+│  T5: scan.reward 실제 완료 (reward 포함)                             │
+│      → 이미 completed 전송됨, 무시됨                                │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.3 해결
+
+```python
+def on_task_started(event: dict) -> None:
+    # ...
+    task_name = event.get("name", "") or task_name_map.get(event_task_id, "")
+    
+    # scan.* task만 처리 (character.match 등 다른 도메인 무시)
+    if task_name and not task_name.startswith("scan."):
+        return
+    # ...
+```
+
+---
+
+## 8. 문제 #6: DLQ 라우팅 오류
+
+### 8.1 증상
+
+```
+Received unregistered task of type 'dlq.reprocess_my_reward'
+KeyError: 'dlq.reprocess_my_reward'
+```
+
+### 8.2 원인
+
+1. `autodiscover_tasks`가 `dlq_tasks.py` 미발견 (tasks.py만 탐색)
+2. `task_routes`에서 `dlq.*` → `celery` 큐로 라우팅 (consumer 없음)
+
+### 8.3 해결
+
+```python
+# domains/_shared/celery/__init__.py - Task 등록
+from domains._shared.celery import dlq_tasks as _dlq_tasks  # noqa: F401
+
+# domains/_shared/celery/config.py - 도메인별 라우팅
+"dlq.reprocess_scan_vision": {"queue": "scan.vision"},
+"dlq.reprocess_scan_rule": {"queue": "scan.rule"},
+"dlq.reprocess_scan_answer": {"queue": "scan.answer"},
+"dlq.reprocess_scan_reward": {"queue": "scan.reward"},
+"dlq.reprocess_character_reward": {"queue": "character.reward"},
+"dlq.reprocess_my_reward": {"queue": "my.reward"},
+```
+
+---
+
+## 9. 문제 #7: CI 트리거 누락
+
+### 9.1 증상
+
+```
+ModuleNotFoundError: No module named 'gevent'
+```
+
+### 9.2 원인
+
+`domains/_base/requirements.txt`에 gevent 추가했으나, CI가 worker 이미지 미빌드.
+
+### 9.3 해결
+
+```yaml
+# .github/workflows/ci-services.yml
+paths:
+  - "workloads/domains/character-match-worker/**"
+  - "workloads/domains/celery-beat/**"
+
+shared_triggers = {
+    "domains/_shared/cache": ["character"],
+    "domains/_shared/database": ["auth", "character", "my", "scan"],
+    "domains/_base": ["auth", "character", "chat", "image", "location", "my", "scan"],
+}
+```
+
+---
+
+## 10. 의존성 변경
+
+```diff
+# domains/_base/requirements.txt
+- celery==5.6.0
++ celery==5.4.0  # celery-batches 0.9 requires celery<5.5
++ gevent>=24.11.1
++ pika>=1.3.2    # DLQ direct RabbitMQ access
+```
+
+---
+
+## 11. 핵심 교훈
+
+| # | 교훈 | 적용 |
+|---|------|------|
+| 1 | Gevent는 동기 코드와 함께 사용 | AsyncIO 클라이언트 ❌, 동기 클라이언트 ✅ |
+| 2 | Redis Sentinel은 Master 직접 연결 | Headless service 사용 |
+| 3 | Cross-Worker RPC는 Redis Backend 필수 | rpc:// ❌, redis:// ✅ |
+| 4 | SSE 핸들러는 도메인 필터링 필수 | `task_name.startswith("scan.")` |
+| 5 | CI 파이프라인은 의존성 그래프 반영 | shared_triggers 확장  |
+
+---
+
+## 관련 문서
+
+### 블로그 포스팅
+
+- [Message Queue 트러블슈팅: Gevent Pool 마이그레이션](https://rooftopsnow.tistory.com/73) - 본 문서의 블로그 버전
+- [#11 Celery Prefork 병목 지점](https://rooftopsnow.tistory.com/72) - Gevent 전환 배경
+- [#10 DB INSERT 멱등성 처리, Celery Batch](https://rooftopsnow.tistory.com/71) - celery-batches
+- [#9 캐릭터 보상 판정과 DB 레이어 분리 (2)](https://rooftopsnow.tistory.com/70) - Fire&Forget 저장
+- [#8 Local Cache Event Broadcast](https://rooftopsnow.tistory.com/69) - Fanout 캐시 동기화
+- [#7 Celery Chain + Celery Events (2)](https://rooftopsnow.tistory.com/68) - SSE 스트리밍
+
+### Python 기초
+
+- [동시성 모델과 Green Thread](https://rooftopsnow.tistory.com/75) - 4가지 동시성 모델 비교
+- [Event Loop: Gevent](https://rooftopsnow.tistory.com/74) - libev 기반 Event Loop
+
+### 코드베이스
+
+- [21-llm-queue-system-architecture.md](./21-llm-queue-system-architecture.md) - 시스템 구현 상세
+

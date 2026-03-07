@@ -1,0 +1,7 @@
+Tag,Name,PublishedAt,URL
+v1.0.7,Event Relay & KEDA,2026-01-02,https://github.com/eco2-team/backend/releases/tag/v1.0.7
+v1.0.6,EFK Logging Pipeline Distributed Tracing w. Jaeger OTEL,2025-12-23,https://github.com/eco2-team/backend/releases/tag/v1.0.6
+v1.0.5,Istio Service Mesh 도입 및 Auth Offloading,2025-12-10,https://github.com/eco2-team/backend/releases/tag/v1.0.5
+v1.0.0,Release v1.0.0,2025-12-01,https://github.com/eco2-team/backend/releases/tag/v1.0.0
+v0.9.0,Release v0.9.0,2025-11-30,https://github.com/eco2-team/backend/releases/tag/v0.9.0
+v0.7.4,GitOps Sync Wave 재정렬 및 AI 서비스 통합,2025-11-19,https://github.com/eco2-team/backend/releases/tag/v0.7.4

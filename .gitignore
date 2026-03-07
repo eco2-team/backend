@@ -97,6 +97,4 @@ pyproject.toml
 # Large artifacts
 domains/location/data/location_common_dataset.csv
 
-# Documentation (local only, not exposed)
-docs/
 k6-load-test-*.json
